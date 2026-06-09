@@ -1,0 +1,5 @@
+Pillow>=10,<12
+numpy>=1.26,<2.1
+onnxruntime>=1.17
+rembg>=2.0.50
+pymatting>=1.1

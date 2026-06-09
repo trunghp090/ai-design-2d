@@ -1,0 +1,7 @@
+.env
+gallery/
+__pycache__/
+*.pyc
+File áo/
+.DS_Store
+.claude/

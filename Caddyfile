@@ -1,0 +1,22 @@
+# ====================================================================
+#  ĐỔI "yourdomain.com" thành domain THẬT của bạn (cả 2 chỗ nếu có)
+#  Caddy sẽ TỰ ĐỘNG xin HTTPS (Let's Encrypt) — không cần làm gì thêm.
+# ====================================================================
+yourdomain.com {
+    reverse_proxy app:8000
+
+    # cho phép upload ảnh lớn + chờ AI upscale lâu
+    request_body {
+        max_size 50MB
+    }
+
+    # ----------------------------------------------------------------
+    # (RẤT NÊN) Đặt MẬT KHẨU để người lạ không vào đốt credit OpenAI:
+    #   1) Tạo hash mật khẩu:
+    #        docker compose run --rm caddy caddy hash-password --plaintext 'matkhau-cua-ban'
+    #   2) Bỏ dấu # ở khối dưới và dán hash vào:
+    # ----------------------------------------------------------------
+    # basicauth {
+    #     admin <DÁN_HASH_VÀO_ĐÂY>
+    # }
+}

@@ -1,0 +1,9 @@
+# KHÔNG commit key & dữ liệu
+.env
+gallery/
+models/
+__pycache__/
+*.pyc
+File áo/
+.DS_Store
+.claude/

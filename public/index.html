@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Design 2D — Clone &amp; sửa design áo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Dancing+Script:wght@400;700&family=Be+Vietnam+Pro:wght@400;600;700&family=Lobster&family=Pacifico&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-track">
+      <span>⚡ Clone &amp; sửa design từ ảnh áo</span>
+      <span>🎨 PNG nền trong suốt + upscale 4500px cho xưởng in</span>
+      <span>👕 Mockup thật nhiều màu, kéo to/nhỏ &amp; di chuyển</span>
+      <span>🕘 Lịch sử lưu lại mọi design đã tạo</span>
+      <span>⚡ Clone &amp; sửa design từ ảnh áo</span>
+      <span>🎨 PNG nền trong suốt + upscale 4500px cho xưởng in</span>
+      <span>👕 Mockup thật nhiều màu, kéo to/nhỏ &amp; di chuyển</span>
+      <span>🕘 Lịch sử lưu lại mọi design đã tạo</span>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-logo">◆</div>
+      <div>
+        <div class="brand-name">AI <span>Design 2D</span></div>
+        <div class="brand-sub">Clone &amp; redesign artwork áo bằng AI</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="status-pill" id="statusPill">● đang kiểm tra…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ===== CỘT TRÁI ===== -->
+    <section class="panel">
+      <h2 class="panel-title">Trình tạo ảnh</h2>
+      <p class="panel-desc">Chọn chế độ và cung cấp ảnh áo có sẵn design</p>
+
+      <label class="field-label">Chế độ</label>
+      <select id="mode" class="input">
+        <option value="cloner">Cloner — AI clone design trên áo</option>
+        <option value="redesign">Redesign — AI clone &amp; làm đẹp hơn</option>
+        <option value="variation">Variation — AI tạo biến thể cùng chủ đề</option>
+        <option value="extract">🎯 Tách gốc (không AI) — giữ màu y hệt, dự phòng</option>
+      </select>
+      <p class="hint" id="modeHint">Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.</p>
+
+      <label class="field-label">Ảnh áo đầu vào</label>
+      <div class="tabs">
+        <button class="tab active" data-tab="url">🔗 URL Ảnh</button>
+        <button class="tab" data-tab="upload">⬆️ Tải ảnh lên</button>
+      </div>
+      <div class="tab-pane" id="pane-url">
+        <textarea id="urlInput" class="input" rows="4"
+          placeholder="https://example.com/ao1.jpg&#10;https://example.com/ao2.png"></textarea>
+        <p class="hint">Mỗi URL một dòng. JPG, PNG, WEBP (tối đa 4 ảnh).</p>
+      </div>
+      <div class="tab-pane hidden" id="pane-upload">
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept="image/*" multiple hidden />
+          <div class="dz-icon">⬆️</div>
+          <div>Bấm để chọn hoặc kéo thả ảnh áo vào đây</div>
+          <div class="hint">JPG, PNG, WEBP — tối đa 4 ảnh</div>
+        </label>
+        <div class="thumb-row" id="thumbRow"></div>
+        <div class="crop-area hidden" id="cropArea">
+          <div class="crop-head">
+            <span>✂️ Khoanh vùng design cần clone</span>
+            <label class="mini-switch"><input type="checkbox" id="cropEnable" checked /> Bật</label>
+          </div>
+          <div class="crop-stage" id="cropStage">
+            <img id="cropImg" draggable="false" alt="" />
+            <div class="crop-box" id="cropBox"><span class="crop-h" id="cropHandle"></span></div>
+          </div>
+          <p class="hint">Kéo khung trùm đúng phần hình in (logo + chữ). Tool chỉ gửi vùng này cho AI và phóng to lên → clone nét & giữ chữ hơn nhiều. Bỏ tick “Bật” để dùng cả ảnh.</p>
+        </div>
+      </div>
+
+      <label class="field-label">Yêu cầu sửa design (tuỳ chọn)</label>
+      <textarea id="promptInput" class="input" rows="3"
+        placeholder="VD: đổi chữ thành 'BEST DAD EVER', đổi màu chủ đạo sang đỏ, thêm hoạ tiết hoa..."></textarea>
+
+      <label class="field-label">Tỉ lệ</label>
+      <select id="size" class="input">
+        <option value="portrait">Dọc (in áo)</option>
+        <option value="square">Vuông</option>
+        <option value="landscape">Ngang</option>
+      </select>
+
+      <label class="field-label">Độ phân giải khi tải bản in</label>
+      <select id="printRes" class="input">
+        <option value="4500">4500 px (~DTG chuẩn)</option>
+        <option value="6000">6000 px (lớn)</option>
+        <option value="0">Giữ nguyên (không upscale)</option>
+      </select>
+
+      <label class="field-label">Kiểu upscale</label>
+      <select id="upMethod" class="input">
+        <option value="lanczos">Lanczos — nhanh, mịn (nội suy)</option>
+        <option value="ai">AI Swin2SR x4 — nét hơn, tái tạo chi tiết (chậm ~1–3 phút)</option>
+      </select>
+
+      <label class="switch-row">
+        <input type="checkbox" id="transparent" checked />
+        <span>Nền trắng phẳng (dễ tách / xưởng in knock-out)</span>
+      </label>
+
+      <details class="prompt-tool" id="promptTool">
+        <summary>🔍 Prompt gửi cho AI (xem &amp; sửa)</summary>
+        <textarea id="promptPreview" class="input" rows="9" spellcheck="false"></textarea>
+        <div class="prompt-row">
+          <button type="button" class="btn-ghost sm" id="rebuildPrompt">↻ Dựng lại từ cài đặt</button>
+          <label class="mini-switch"><input type="checkbox" id="useCustomPrompt" /> Dùng prompt đã sửa</label>
+        </div>
+        <p class="hint">Đây là prompt thật gửi cho gpt-image-2. Sửa nội dung trong ô rồi tick “Dùng prompt đã sửa” để áp dụng. Bấm “Dựng lại” để lấy lại bản gốc theo cài đặt.</p>
+      </details>
+
+      <button class="btn-primary" id="generateBtn">✨ Tạo design</button>
+      <div class="gen-note" id="genNote"></div>
+    </section>
+
+    <!-- ===== CỘT PHẢI ===== -->
+    <section class="panel">
+      <div class="result-tabs">
+        <button class="rtab active" data-rtab="design">🎨 Design</button>
+        <button class="rtab" data-rtab="mockup">👕 Mockup</button>
+        <button class="rtab" data-rtab="gallery">🕘 Lịch sử</button>
+      </div>
+
+      <!-- DESIGN (đã tách nền sẵn) -->
+      <div class="rpane" id="rpane-design">
+        <div class="step-label first">Design — AI clone + tách nền sẵn (PNG trong suốt)</div>
+        <div class="result-stage" id="resultStage">
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">🖼️</div>
+            <h3>Kết quả design sẽ hiện ở đây</h3>
+            <p>Tải ảnh áo có sẵn design rồi bấm “Tạo design”.</p>
+          </div>
+          <div class="result-img-wrap hidden" id="resultImgWrap">
+            <img id="resultImg" alt="design" />
+          </div>
+          <div class="text-layer hidden" id="textLayer"><span id="textLayerSpan">Mẹ Kẽ Chuối</span></div>
+          <div class="spinner hidden" id="spinner">
+            <div class="ring"></div>
+            <p id="spinnerText">AI đang clone design…</p>
+          </div>
+        </div>
+        <div class="result-actions hidden" id="resultActions">
+          <button class="btn-ghost" id="downloadBtn">⬇️ Tải PNG trong suốt</button>
+          <button class="btn-ghost strong" id="printBtn">🖨️ Tải bản in</button>
+          <button class="btn-ghost" id="sendToMockup">👕 Đưa vào Mockup →</button>
+        </div>
+
+        <details class="text-tool hidden" id="textTool">
+          <summary>✍️ Thêm chữ sắc nét (đúng tiếng Việt, không qua AI)</summary>
+          <input id="txtContent" class="input" placeholder="Gõ chữ, vd: Mẹ Kẽ Chuối" />
+          <div class="text-grid">
+            <select id="txtFont" class="input">
+              <option value="'Dancing Script', cursive">Dancing Script (viết tay)</option>
+              <option value="'Lobster', cursive">Lobster (viết tay đậm)</option>
+              <option value="'Pacifico', cursive">Pacifico (viết tay tròn)</option>
+              <option value="'Playfair Display', serif">Playfair (serif cổ điển)</option>
+              <option value="'Be Vietnam Pro', sans-serif">Be Vietnam Pro (hiện đại)</option>
+              <option value="'Inter', sans-serif">Inter (đơn giản)</option>
+            </select>
+            <input type="color" id="txtColor" value="#ffffff" title="màu chữ" />
+          </div>
+          <div class="text-grid">
+            <label class="trow">Cỡ chữ <input type="range" id="txtSize" min="2" max="22" value="7" /></label>
+            <label class="trow">Nghiêng <input type="range" id="txtItalic" min="0" max="1" step="1" value="1" /></label>
+          </div>
+          <button class="btn-primary sm" id="applyText">✓ Áp dụng chữ vào design</button>
+          <p class="hint">Gõ chữ → kéo đặt vị trí trên ảnh → bấm Áp dụng. Chữ vẽ trực tiếp nên luôn nét &amp; đúng dấu.</p>
+        </details>
+
+      </div>
+
+      <!-- MOCKUP -->
+      <div class="rpane hidden" id="rpane-mockup">
+        <div class="mockup-toolbar">
+          <div class="mk-mine">
+            <div class="mk-mine-head">
+              <span class="mk-label">👕 Áo mockup của bạn</span>
+              <label class="mk-upload">
+                <input type="file" id="mockupFile" accept="image/*" multiple hidden />
+                ➕ Tải áo lên
+              </label>
+            </div>
+            <div class="mk-thumbs" id="mkThumbs"></div>
+            <p class="hint" id="mkHint">Tải ảnh áo thật của bạn (mỗi màu một ảnh) — lưu lại để dùng mãi. Bấm vào áo để chọn.</p>
+          </div>
+          <details class="mk-ai">
+            <summary>✨ Hoặc tạo áo bằng AI (nếu chưa có ảnh)</summary>
+            <div class="color-row" id="colorRow"></div>
+            <p class="hint">Bấm 1 màu → AI tạo áo thật (~30s, tốn 1 credit lần đầu, sau đó lưu lại).</p>
+          </details>
+        </div>
+
+        <div class="mockup-stage" id="mockupStage">
+          <img id="mockupBg" class="mockup-bg" alt="mockup" />
+          <div class="design-layer" id="designLayer">
+            <img id="designOnShirt" alt="design" draggable="false" />
+            <span class="resize-handle" id="resizeHandle"></span>
+          </div>
+          <div class="mockup-loading hidden" id="mockupLoading">
+            <div class="ring"></div><p>AI đang tạo mockup thật…</p>
+          </div>
+          <div class="mockup-empty" id="mockupEmpty">Chưa có design — tạo ở tab Design rồi bấm “Đưa vào mockup”.</div>
+        </div>
+
+        <div class="slider-row">
+          <span>Kích thước</span>
+          <input type="range" id="scaleSlider" min="10" max="100" value="38" />
+          <span id="scaleVal">38%</span>
+        </div>
+        <div class="slider-row">
+          <span>Xoay</span>
+          <input type="range" id="rotateSlider" min="-45" max="45" value="0" />
+          <span id="rotateVal">0°</span>
+        </div>
+        <div class="mockup-actions">
+          <label class="btn-ghost strong" id="designUploadBtn">
+            <input type="file" id="designUpload" accept="image/*" hidden />
+            📤 Tải design lên
+          </label>
+          <button class="btn-ghost" id="resetMockup">↺ Căn giữa</button>
+          <button class="btn-primary sm" id="exportMockup">⬇️ Xuất ảnh demo</button>
+        </div>
+        <p class="hint">Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
+      </div>
+
+      <!-- GALLERY -->
+      <div class="rpane hidden" id="rpane-gallery">
+        <div class="gallery-head">
+          <h3>Lịch sử design đã tạo</h3>
+          <button class="btn-ghost sm" id="refreshGallery">↻ Làm mới</button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+        <div class="gallery-empty" id="galleryEmpty">Chưa có design nào. Tạo design đầu tiên ở tab Design nhé!</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    © 2026 AI Design 2D · Clone &amp; redesign artwork áo · chạy local bằng Python + gpt-image
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env          # chứa OPENAI_API_KEY, OPENAI_IMAGE_MODEL, (CUTOUTPRO_API_KEY)
+    expose:
+      - "8000"
+    volumes:
+      - ./gallery:/app/gallery     # lưu lịch sử design (bền sau khi restart)
+      - ./mockups:/app/mockups     # lưu áo mockup
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
