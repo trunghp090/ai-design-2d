@@ -2,6 +2,24 @@
 const $ = (id) => document.getElementById(id);
 let currentDesign = null; // base64 (không data: prefix) của design hiện tại
 
+/* ---------- kiểm tra đăng nhập (chưa thì sang /auth.html) ---------- */
+fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
+  fetch("/api/status").then(r => r.json()).then(s => {
+    if (s.auth_required && !ok) { location.href = "/auth.html"; return; }
+    if (ok && d.user) {
+      const box = document.getElementById("userBox");
+      if (box) {
+        box.classList.remove("hidden");
+        document.getElementById("userEmail").textContent = d.user.email;
+      }
+    }
+  });
+}).catch(() => {});
+$("logoutBtn") && ($("logoutBtn").onclick = async () => {
+  await fetch("/api/logout", { method: "POST" });
+  location.href = "/auth.html";
+});
+
 /* ---------- trạng thái ---------- */
 fetch("/api/status").then(r => r.json()).then(s => {
   const pill = $("statusPill");

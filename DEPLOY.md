@@ -1,70 +1,61 @@
 # Đưa AI Design 2D lên online (VPS + domain + HTTPS)
 
-Mục tiêu: vào domain là chạy tool. Dùng Docker + Caddy (tự động HTTPS).
+Mục tiêu: vào domain → trang đăng nhập → đăng ký admin → dùng tool. HTTPS tự động.
 
-## 0) Chuẩn bị
-- 1 **VPS Ubuntu 22.04**, **≥ 2GB RAM** (vì có AI tách nền/upscale). Gợi ý: Vultr, DigitalOcean, Hetzner, hoặc VPS VN.
-- 1 **domain** (Namechep, Porkbun, Tenten, Mắt Bão...).
-- API key OpenAI (gpt-image-2).
+## 0) Chuẩn bị (bạn tự làm)
+- 1 **VPS Ubuntu 22.04**, **≥ 2GB RAM** (vì có AI tách nền/upscale).
+  Gợi ý: Hetzner (rẻ ~€4/th, 4GB) · Vultr · DigitalOcean.
+- 1 **domain** (Namecheap/Porkbun/Tenten/Mắt Bão...).
+- File `.env` ở máy bạn đã có sẵn `OPENAI_API_KEY` (sẽ copy lên cùng code).
 
 ## 1) Trỏ domain về VPS
-Trong trang quản lý DNS của domain, tạo bản ghi:
+DNS của domain → tạo bản ghi:
 ```
-Loại A   |  Host: @    |  Value: <IP_VPS>
-Loại A   |  Host: www  |  Value: <IP_VPS>   (tuỳ chọn)
+Loại A | Host: @ | Value: <IP_VPS>
 ```
-Đợi 5–30 phút cho DNS cập nhật.
+Đợi 5–30 phút.
 
-## 2) Cài Docker trên VPS
-SSH vào VPS rồi chạy:
+## 2) Cài Docker trên VPS (SSH vào VPS rồi chạy)
 ```bash
+ssh root@<IP_VPS>
 curl -fsSL https://get.docker.com | sh
 ```
 
-## 3) Đưa code lên VPS
-Từ **máy của bạn** (Mac), chạy (thay IP):
+## 3) Đẩy code lên VPS (chạy từ máy MAC của bạn, mở Terminal mới)
 ```bash
-rsync -avz --exclude gallery --exclude '.git' --exclude 'File áo' \
+rsync -avz --exclude gallery --exclude '.git' --exclude 'File áo' --exclude '.claude' \
   ~/ai-design-2d/  root@<IP_VPS>:/root/ai-design-2d/
 ```
-(Chưa có rsync? `brew install rsync`, hoặc dùng `scp -r`.)
+(Lệnh này copy cả code, model AI, mockup, và `.env` chứa key. Chưa có rsync? `brew install rsync`.)
 
-## 4) Tạo .env trên VPS
-SSH vào VPS:
+## 4) Sửa domain trong Caddyfile (trên VPS)
 ```bash
 cd /root/ai-design-2d
-cat > .env <<'EOF'
-OPENAI_API_KEY=sk-...của-bạn...
-OPENAI_IMAGE_MODEL=gpt-image-2
-PORT=8000
-EOF
+nano Caddyfile      # đổi "yourdomain.com" thành domain thật của bạn → Ctrl+O, Enter, Ctrl+X
 ```
 
-## 5) Sửa domain trong Caddyfile
-```bash
-nano Caddyfile     # đổi "yourdomain.com" thành domain thật
-```
-
-## 6) Chạy!
+## 5) Chạy!
 ```bash
 docker compose up -d --build
 ```
-Lần đầu build ~5–10 phút (cài thư viện). Xong → mở **https://yourdomain.com** là chạy.
-Caddy tự xin HTTPS.
+Lần đầu build ~5–10 phút. Xong → mở **https://domain-của-bạn**.
 
-## 7) (RẤT NÊN) Đặt mật khẩu chống đốt credit
-```bash
-docker compose run --rm caddy caddy hash-password --plaintext 'matkhau-cua-ban'
-```
-Copy chuỗi hash → mở `Caddyfile`, bỏ # ở khối `basicauth`, dán hash vào → lưu → `docker compose restart caddy`.
+## 6) Tạo tài khoản admin
+Mở domain → hiện **trang đăng nhập** → bấm **Đăng ký** → tài khoản ĐẦU TIÊN = admin → vào tool.
 
-## Lệnh hữu ích
+---
+
+## Bảo mật (đã có sẵn)
+- Tool **có đăng nhập riêng** → người lạ phải đăng ký mới dùng. Không cần đặt thêm mật khẩu Caddy.
+- ⚠️ Mặc định **ai cũng đăng ký được**. Muốn CHỈ MÌNH BẠN dùng: sau khi đăng ký admin, nhờ tắt "đăng ký mở" (1 dòng config), hoặc bật thêm mật khẩu Caddy (khối `basicauth` trong Caddyfile).
+
+## Lệnh hữu ích (trên VPS)
 ```bash
 docker compose logs -f app      # xem log
 docker compose restart          # khởi động lại
 docker compose down             # tắt
-docker compose up -d --build    # cập nhật sau khi sửa code (rsync lại trước)
+docker compose up -d --build    # cập nhật sau khi rsync lại code mới
 ```
 
 ## Cập nhật tool sau này
-1. Sửa code ở máy bạn → 2. rsync lại (bước 3) → 3. `docker compose up -d --build`.
+1. Sửa code ở máy → 2. rsync lại (bước 3) → 3. `docker compose up -d --build`.

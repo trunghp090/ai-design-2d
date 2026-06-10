@@ -12,13 +12,16 @@ Cấu hình .env:  OPENAI_API_KEY, OPENAI_IMAGE_MODEL, PORT
 """
 
 import base64
+import hashlib
 import io
 import json
 import mimetypes
 import os
 import re
+import sqlite3
 import struct
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
@@ -30,6 +33,9 @@ GALLERY_DIR = os.path.join(ROOT, "gallery")
 MOCKUP_DIR = os.path.join(ROOT, "mockups")
 GALLERY_INDEX = os.path.join(GALLERY_DIR, "index.json")
 MOCKUP_INDEX = os.path.join(MOCKUP_DIR, "labels.json")
+DATA_DIR = os.path.join(ROOT, "data")            # dữ liệu bền (mount volume khi deploy)
+AUTH_DB = os.path.join(DATA_DIR, "auth.db")
+_auth_lock = threading.Lock()
 
 EDITS_URL = "https://api.openai.com/v1/images/edits"
 GEN_URL = "https://api.openai.com/v1/images/generations"
@@ -80,6 +86,8 @@ load_env()
 API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
 PORT = int(os.environ.get("PORT", "8000"))
+# Bật đăng nhập? (đặt AUTH_REQUIRED=0 trong .env để tắt — mặc định BẬT)
+AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "1").strip() not in ("0", "false", "no")
 CUTOUTPRO_KEY = os.environ.get("CUTOUTPRO_API_KEY", "").strip()
 CUTOUTPRO_TYPE = os.environ.get("CUTOUTPRO_MATTING_TYPE", "6").strip()  # 6 = matting tổng quát
 
@@ -548,6 +556,89 @@ def gallery_add(b64, meta):
 
 
 # --------------------------------------------------------------------------- #
+#  Tài khoản (đăng ký / đăng nhập) — SQLite + PBKDF2
+# --------------------------------------------------------------------------- #
+def auth_init():
+    con = sqlite3.connect(AUTH_DB)
+    con.execute("CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "email TEXT UNIQUE, ph TEXT, salt TEXT, is_admin INTEGER DEFAULT 0, ts INTEGER)")
+    con.execute("CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, uid INTEGER, ts INTEGER)")
+    con.commit()
+    con.close()
+
+
+def _hash_pw(pw, salt):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), bytes.fromhex(salt), 200000).hex()
+
+
+def register_user(email, pw):
+    email = (email or "").strip().lower()
+    pw = pw or ""
+    if "@" not in email or "." not in email:
+        raise ValueError("Email không hợp lệ.")
+    if len(pw) < 6:
+        raise ValueError("Mật khẩu phải từ 6 ký tự trở lên.")
+    salt = os.urandom(16).hex()
+    ph = _hash_pw(pw, salt)
+    with _auth_lock:
+        con = sqlite3.connect(AUTH_DB)
+        n = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        try:
+            con.execute("INSERT INTO users(email, ph, salt, is_admin, ts) VALUES(?,?,?,?,?)",
+                        (email, ph, salt, 1 if n == 0 else 0, int(time.time())))
+            con.commit()
+        except sqlite3.IntegrityError:
+            con.close()
+            raise ValueError("Email này đã được đăng ký.")
+        uid = con.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()[0]
+        con.close()
+    return uid
+
+
+def verify_user(email, pw):
+    email = (email or "").strip().lower()
+    con = sqlite3.connect(AUTH_DB)
+    row = con.execute("SELECT id, ph, salt FROM users WHERE email=?", (email,)).fetchone()
+    con.close()
+    if not row:
+        return None
+    uid, ph, salt = row
+    return uid if _hash_pw(pw or "", salt) == ph else None
+
+
+def make_session(uid):
+    token = os.urandom(24).hex()
+    with _auth_lock:
+        con = sqlite3.connect(AUTH_DB)
+        con.execute("INSERT INTO sessions(token, uid, ts) VALUES(?,?,?)", (token, uid, int(time.time())))
+        con.commit()
+        con.close()
+    return token
+
+
+def session_user(token):
+    if not token:
+        return None
+    con = sqlite3.connect(AUTH_DB)
+    row = con.execute("SELECT u.id, u.email, u.is_admin FROM sessions s "
+                      "JOIN users u ON u.id = s.uid WHERE s.token=?", (token,)).fetchone()
+    con.close()
+    if not row:
+        return None
+    return {"id": row[0], "email": row[1], "is_admin": bool(row[2])}
+
+
+def delete_session(token):
+    if not token:
+        return
+    with _auth_lock:
+        con = sqlite3.connect(AUTH_DB)
+        con.execute("DELETE FROM sessions WHERE token=?", (token,))
+        con.commit()
+        con.close()
+
+
+# --------------------------------------------------------------------------- #
 #  Mockup của người dùng (lưu đĩa)
 # --------------------------------------------------------------------------- #
 def mockup_labels():
@@ -654,7 +745,13 @@ class Handler(BaseHTTPRequestHandler):
                                    "model": MODEL, "pillow": HAS_PIL,
                                    "rembg": HAS_REMBG,
                                    "cutoutpro": bool(CUTOUTPRO_KEY),
-                                   "ai_upscale": HAS_ONNX})
+                                   "ai_upscale": HAS_ONNX,
+                                   "auth_required": AUTH_REQUIRED})
+        if path == "/api/me":
+            u = self.current_user()
+            if not u:
+                return self.json(401, {"error": "Chưa đăng nhập"})
+            return self.json(200, {"user": u})
         if path == "/api/gallery":
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
@@ -712,6 +809,27 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
         except Exception as e:
             return self.json(400, {"error": "Body lỗi: %s" % e})
+
+        # ---- Tài khoản ----
+        COOKIE = "session=%s; HttpOnly; Path=/; Max-Age=2592000; SameSite=Lax"
+        if path == "/api/register":
+            try:
+                uid = register_user(body.get("email"), body.get("password"))
+            except ValueError as e:
+                return self.json(400, {"error": str(e)})
+            return self.json(200, {"ok": True}, set_cookie=COOKIE % make_session(uid))
+        if path == "/api/login":
+            uid = verify_user(body.get("email"), body.get("password"))
+            if not uid:
+                return self.json(401, {"error": "Sai email hoặc mật khẩu."})
+            return self.json(200, {"ok": True}, set_cookie=COOKIE % make_session(uid))
+        if path == "/api/logout":
+            delete_session(self.get_cookie("session"))
+            return self.json(200, {"ok": True}, set_cookie="session=; Path=/; Max-Age=0")
+
+        # ---- Các endpoint AI: CẦN đăng nhập (chống đốt credit) ----
+        if AUTH_REQUIRED and not self.current_user():
+            return self.json(401, {"error": "Vui lòng đăng nhập để dùng tính năng này."})
 
         if path == "/api/generate":
             return self.handle_generate(body)
@@ -872,19 +990,35 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"url": url, "cached": False, "color": color})
 
     # ---------- util ----------
-    def json(self, code, obj):
+    def json(self, code, obj, set_cookie=None):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        if set_cookie:
+            self.send_header("Set-Cookie", set_cookie)
         self.end_headers()
         self.wfile.write(data)
+
+    # ---- auth helpers ----
+    def get_cookie(self, name):
+        for part in (self.headers.get("Cookie", "") or "").split(";"):
+            if "=" in part:
+                k, v = part.strip().split("=", 1)
+                if k == name:
+                    return v
+        return None
+
+    def current_user(self):
+        return session_user(self.get_cookie("session"))
 
 
 def main():
     os.makedirs(PUBLIC, exist_ok=True)
     os.makedirs(GALLERY_DIR, exist_ok=True)
     os.makedirs(MOCKUP_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    auth_init()
     print("=" * 60)
     print("  AI Design 2D v2  ->  http://localhost:%d" % PORT)
     print("  Model : %s" % MODEL)

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Đăng nhập — AI Design 2D</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;min-height:100vh;display:grid;place-items:center;
+    background:#f5f3fb;background-image:radial-gradient(900px 400px at 50% -120px,#e9defb 0,transparent 60%);color:#1e1b2e;padding:20px}
+  .card{width:100%;max-width:400px;background:#fff;border:1px solid #e9e6f5;border-radius:18px;padding:30px;box-shadow:0 12px 40px rgba(124,58,237,.12)}
+  .brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:6px}
+  .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-size:18px;background:linear-gradient(135deg,#7c3aed,#9333ea)}
+  .name{font-size:20px;font-weight:800}.name span{color:#7c3aed}
+  .sub{text-align:center;color:#6b7280;font-size:13px;margin-bottom:20px}
+  .tabs{display:flex;gap:6px;background:#f3f0fb;padding:5px;border-radius:12px;margin-bottom:18px}
+  .tab{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-weight:700;font-size:14px;color:#6b7280;cursor:pointer;font-family:inherit}
+  .tab.on{background:#fff;color:#7c3aed;box-shadow:0 2px 8px rgba(124,58,237,.12)}
+  label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+  input{width:100%;border:1px solid #e9e6f5;border-radius:11px;padding:12px 13px;font-size:14px;font-family:inherit;outline:none}
+  input:focus{border-color:#7c3aed;box-shadow:0 0 0 3px #ede9fe}
+  .btn{width:100%;margin-top:18px;border:0;border-radius:12px;padding:14px;font-size:15px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#7c3aed,#9333ea)}
+  .btn:disabled{opacity:.6}
+  .msg{font-size:13px;margin-top:12px;text-align:center;min-height:18px;font-weight:600}
+  .msg.err{color:#dc2626}.msg.ok{color:#16a34a}
+  .hint{font-size:11.5px;color:#9ca3af;margin-top:6px;text-align:center}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><div class="logo">◆</div><div class="name">AI <span>Design 2D</span></div></div>
+    <div class="sub">Đăng nhập để dùng công cụ thiết kế AI</div>
+    <div class="tabs">
+      <button class="tab on" id="tabLogin">Đăng nhập</button>
+      <button class="tab" id="tabReg">Đăng ký</button>
+    </div>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="ban@email.com" autocomplete="email" />
+    <label>Mật khẩu</label>
+    <input id="pw" type="password" placeholder="••••••" autocomplete="current-password" />
+    <button class="btn" id="submit">Đăng nhập</button>
+    <div class="msg" id="msg"></div>
+    <p class="hint" id="hint">Tài khoản đầu tiên đăng ký sẽ là quản trị (admin).</p>
+  </div>
+<script>
+  const $ = id => document.getElementById(id);
+  let mode = "login";
+  function setMode(m) {
+    mode = m;
+    $("tabLogin").classList.toggle("on", m === "login");
+    $("tabReg").classList.toggle("on", m === "reg");
+    $("submit").textContent = m === "login" ? "Đăng nhập" : "Đăng ký";
+    $("pw").autocomplete = m === "login" ? "current-password" : "new-password";
+    $("msg").textContent = "";
+  }
+  $("tabLogin").onclick = () => setMode("login");
+  $("tabReg").onclick = () => setMode("reg");
+
+  // đã đăng nhập rồi thì vào thẳng tool
+  fetch("/api/me").then(r => { if (r.ok) location.href = "/"; });
+
+  async function go() {
+    const email = $("email").value.trim(), pw = $("pw").value;
+    if (!email || !pw) { $("msg").className = "msg err"; $("msg").textContent = "Nhập email và mật khẩu."; return; }
+    $("submit").disabled = true;
+    try {
+      const r = await fetch("/api/" + (mode === "login" ? "login" : "register"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Lỗi");
+      $("msg").className = "msg ok"; $("msg").textContent = "✓ Thành công! Đang vào…";
+      setTimeout(() => location.href = "/", 500);
+    } catch (e) {
+      $("msg").className = "msg err"; $("msg").textContent = "✗ " + e.message;
+      $("submit").disabled = false;
+    }
+  }
+  $("submit").onclick = go;
+  $("pw").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+</script>
+</body>
+</html>

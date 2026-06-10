@@ -1,6 +1,7 @@
 # KHÔNG commit key & dữ liệu
 .env
 gallery/
+data/
 models/
 __pycache__/
 *.pyc
