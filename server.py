@@ -239,7 +239,8 @@ def _openai_call(req, timeout=300, tries=3):
 
 
 def openai_edit(images, prompt, size, native_transparent):
-    fields = [("model", MODEL), ("prompt", prompt), ("n", "1")]
+    fields = [("model", MODEL), ("prompt", prompt), ("n", "1"),
+              ("moderation", "low")]   # hạ độ gắt bộ lọc -> đỡ chặn nhầm
     if size and size != "auto":
         fields.append(("size", size))
     if native_transparent:
@@ -254,7 +255,8 @@ def openai_edit(images, prompt, size, native_transparent):
 
 
 def openai_generate(prompt, size="1024x1024"):
-    payload = {"model": MODEL, "prompt": prompt, "n": 1, "size": size}
+    payload = {"model": MODEL, "prompt": prompt, "n": 1, "size": size,
+               "moderation": "low"}
     req = urllib.request.Request(GEN_URL, data=json.dumps(payload).encode(),
                                  method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
@@ -954,7 +956,19 @@ class Handler(BaseHTTPRequestHandler):
                 detail = e.read().decode('utf-8', 'ignore')
             except Exception:
                 detail = str(e)
-            return self.json(502, {"error": "OpenAI %s: %s" % (e.code, detail[:500])})
+            low = detail.lower()
+            if "moderation_blocked" in low or "safety system" in low:
+                msg = ("⚠️ OpenAI chặn nội dung này (bộ lọc an toàn — đôi khi chặn nhầm). "
+                       "Thử: đổi ảnh áo khác · sửa/bớt chi tiết trong prompt · hoặc bấm Tạo lại 1–2 lần.")
+            elif e.code in (500, 502, 503, 520):
+                msg = "OpenAI đang quá tải (lỗi %s). Bấm Tạo design lại sau giây lát." % e.code
+            elif e.code == 401:
+                msg = "Key OpenAI sai hoặc hết số dư. Kiểm tra lại API key + tài khoản OpenAI."
+            elif e.code == 429:
+                msg = "Gọi quá nhanh / hết hạn mức (429). Đợi chút rồi thử lại."
+            else:
+                msg = "OpenAI %s: %s" % (e.code, detail[:300])
+            return self.json(502, {"error": msg})
         except Exception as e:
             return self.json(500, {"error": "Lỗi: %s" % e})
         item = gallery_add(b64, {"mode": mode, "prompt": user_prompt})
