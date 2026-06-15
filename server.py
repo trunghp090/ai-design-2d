@@ -218,6 +218,26 @@ def build_multipart(fields, files):
     return body.getvalue(), boundary
 
 
+def _openai_call(req, timeout=300, tries=3):
+    """Gọi OpenAI, TỰ THỬ LẠI khi gặp lỗi tạm (5xx như 520/502/503, 429, mất mạng)."""
+    last = None
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code >= 500 or e.code == 429:   # lỗi tạm phía OpenAI -> thử lại
+                last = e
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise                                 # lỗi 4xx khác (sai key/ảnh) -> báo ngay
+        except (urllib.error.URLError, TimeoutError) as e:
+            last = e
+            time.sleep(2 * (attempt + 1))
+            continue
+    raise last
+
+
 def openai_edit(images, prompt, size, native_transparent):
     fields = [("model", MODEL), ("prompt", prompt), ("n", "1")]
     if size and size != "auto":
@@ -230,8 +250,7 @@ def openai_edit(images, prompt, size, native_transparent):
     req = urllib.request.Request(EDITS_URL, data=body, method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "multipart/form-data; boundary=" + boundary)
-    with urllib.request.urlopen(req, timeout=300) as r:
-        return json.loads(r.read())["data"][0]["b64_json"]
+    return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
 
 
 def openai_generate(prompt, size="1024x1024"):
@@ -240,8 +259,7 @@ def openai_generate(prompt, size="1024x1024"):
                                  method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=300) as r:
-        return json.loads(r.read())["data"][0]["b64_json"]
+    return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
 
 
 # --------------------------------------------------------------------------- #
