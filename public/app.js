@@ -1248,21 +1248,27 @@ function lenaoCompose(shirtImg) {
 })();
 
 let _lenaoRenderToken = 0;
+function lenaoUpdateSelUI() {
+  const picked = [...$("lenaoResults").querySelectorAll(".gpick")].filter(c => c.checked).length;
+  $("lenaoDownloadSel").textContent = "⬇ Tải đã chọn (" + picked + ")";
+}
 async function lenaoRender() {
   const grid = $("lenaoResults");
   const sel = lenaoShirtList.filter(s => lenaoSel.has(s.url));
   if (!lenaoDesign || !sel.length) {
     grid.innerHTML = ""; $("lenaoEmpty").classList.remove("hidden");
     $("lenaoEmpty").textContent = !lenaoDesign ? "Tải design + chọn áo để xem trước." : "Chọn ít nhất 1 áo mockup.";
-    $("lenaoDownloadAll").textContent = "⬇ Tải tất cả (0)";
+    $("lenaoToolbar").classList.add("hidden");
     return;
   }
   $("lenaoEmpty").classList.add("hidden");
+  $("lenaoToolbar").classList.remove("hidden");
   const token = ++_lenaoRenderToken;
   // đảm bảo ảnh áo đã load
   const imgs = {};
   for (const s of sel) { try { imgs[s.url] = await loadImg(s.url); } catch (e) {} }
   if (token !== _lenaoRenderToken) return;   // có lần render mới hơn
+  const allChecked = $("lenaoSelAll").checked;
   grid.innerHTML = "";
   sel.forEach(s => {
     const shirtImg = imgs[s.url]; if (!shirtImg) return;
@@ -1271,16 +1277,18 @@ async function lenaoRender() {
     const card = document.createElement("div");
     card.className = "gcard";
     card.innerHTML =
+      '<input type="checkbox" class="gpick"' + (allChecked ? " checked" : "") + ' title="Chọn để tải hàng loạt">' +
       '<img src="' + durl + '" alt="">' +
       '<div class="gmeta">' + s.name + '</div>' +
       '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = cur; card._name = s.name;
+    card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
     card.querySelector("img").onclick = () => openZoom(durl);
     card.querySelector(".b-zoom").onclick = () => openZoom(durl);
     card.querySelector(".b-dl").onclick = () => autoDownload(cur, s.name + "_design");
     grid.appendChild(card);
   });
-  $("lenaoDownloadAll").textContent = "⬇ Tải tất cả (" + sel.length + ")";
+  lenaoUpdateSelUI();
 }
 
 async function lenaoSetDesign(durl) {
@@ -1322,8 +1330,14 @@ $("lenaoSize").addEventListener("input", () => {
   lenaoState.wPct = parseInt($("lenaoSize").value, 10);
   lenaoApplyStage(); lenaoRender();
 });
-$("lenaoDownloadAll").onclick = async () => {
-  const cards = [...$("lenaoResults").querySelectorAll(".gcard")];
-  if (!cards.length) return;
+$("lenaoSelAll").onchange = (e) => {
+  $("lenaoResults").querySelectorAll(".gpick").forEach(c => { c.checked = e.target.checked; });
+  lenaoUpdateSelUI();
+};
+$("lenaoDownloadSel").onclick = async () => {
+  const cards = [...$("lenaoResults").querySelectorAll(".gcard")].filter(cd => {
+    const c = cd.querySelector(".gpick"); return c && c.checked;
+  });
+  if (!cards.length) { alert("Chưa chọn áo nào để tải."); return; }
   for (const cd of cards) { autoDownload(cd._cur, cd._name + "_design"); await new Promise(r => setTimeout(r, 350)); }
 };
