@@ -1130,13 +1130,7 @@ function recolorUpdateSelUI() {
 /* =====================================================================
    TÍNH NĂNG: LÊN ÁO (ghép design lên áo mockup, chỉnh cỡ/vị trí, tải hàng loạt)
    ===================================================================== */
-let lenaoDesign = null;            // dataURL design
-let lenaoDesignImg = null;         // Image đã load (ghép nhanh khi kéo slider)
-let lenaoShirtList = [];           // [{url,name}]
-const lenaoSel = new Set();        // url áo đang chọn
-const _imgCache = {};              // url -> Promise<Image>
-let lenaoInited = false;
-
+const _imgCache = {};            // url/dataURL -> Promise<Image>
 function loadImg(src) {
   if (_imgCache[src]) return _imgCache[src];
   _imgCache[src] = new Promise((res, rej) => {
@@ -1147,197 +1141,155 @@ function loadImg(src) {
   return _imgCache[src];
 }
 
+let lenaoSlots = [];             // [{url,name,design,designImg,state:{xPct,yPct,wPct}}]
+let lenaoInited = false;
+
 async function lenaoInit() {
   if (lenaoInited) return; lenaoInited = true;
   try {
     const data = await (await fetch("/api/mockups")).json();
-    lenaoShirtList = (data.items || []).filter(it => it.side !== "back")
-                      .map(it => ({ url: it.url, name: it.name || "Áo" }));
-  } catch (e) { lenaoShirtList = []; }
-  lenaoShirtList.forEach(s => lenaoSel.add(s.url));   // mặc định chọn hết
-  lenaoRenderShirtPicker();
-  lenaoUpdateStageShirt();
-  lenaoApplyStage();
+    lenaoSlots = (data.items || []).filter(it => it.side !== "back").map(it => ({
+      url: it.url, name: it.name || "Áo",
+      design: null, designImg: null,
+      state: { xPct: 50, yPct: 40, wPct: 42 },
+    }));
+  } catch (e) { lenaoSlots = []; }
+  lenaoRenderSlots();
 }
 
-function lenaoRenderShirtPicker() {
-  const box = $("lenaoShirts"); box.innerHTML = "";
-  if (!lenaoShirtList.length) { box.innerHTML = '<p class="hint">Chưa có áo mockup. Tải áo ở tab Clone Design → Mockup.</p>'; return; }
-  lenaoShirtList.forEach(s => {
-    const el = document.createElement("div");
-    el.className = "shirt-opt" + (lenaoSel.has(s.url) ? " on" : "");
-    el.innerHTML = '<div class="chk">✓</div><img src="' + s.url + '" alt=""><div class="nm">' + s.name + '</div>';
-    el.onclick = () => {
-      if (lenaoSel.has(s.url)) lenaoSel.delete(s.url); else lenaoSel.add(s.url);
-      el.classList.toggle("on");
-      lenaoUpdateStageShirt();
-      lenaoRender();
-    };
-    box.appendChild(el);
-  });
+// đặt design cho 1 slot
+async function lenaoSetSlotDesign(slot, durl) {
+  slot.design = durl;
+  try { slot.designImg = await loadImg(durl); } catch (e) { slot.designImg = null; }
+  lenaoRenderSlots();
 }
 
-// vị trí/cỡ design: tâm (xPct,yPct) + bề ngang wPct — áp cho mọi áo
-const lenaoState = { xPct: 50, yPct: 40, wPct: 42 };
-
-// áo hiển thị trên khung chỉnh = áo đầu tiên đang chọn
-function lenaoUpdateStageShirt() {
-  const sel = lenaoShirtList.filter(s => lenaoSel.has(s.url));
-  const el = $("lenaoStageShirt");
-  if (sel.length) { el.src = sel[0].url; el.classList.add("active"); }
-  else { el.removeAttribute("src"); el.classList.remove("active"); }
+function lenaoApplyLayer(layer, st) {
+  layer.style.left = st.xPct + "%"; layer.style.top = st.yPct + "%"; layer.style.width = st.wPct + "%";
 }
 
-// đặt layer design trong khung theo state + đồng bộ slider cỡ
-function lenaoApplyStage() {
-  const layer = $("lenaoLayer");
-  const has = !!lenaoDesign;
-  layer.classList.toggle("active", has);
-  $("lenaoStageEmpty").style.display = has ? "none" : "";
-  layer.style.left = lenaoState.xPct + "%";
-  layer.style.top = lenaoState.yPct + "%";
-  layer.style.width = lenaoState.wPct + "%";
-  if ($("lenaoSize")) $("lenaoSize").value = Math.round(lenaoState.wPct);
-}
-
-// ghép 1 design lên 1 áo theo state (tâm xPct,yPct + bề ngang wPct)
-function lenaoCompose(shirtImg) {
-  const sw = shirtImg.naturalWidth, sh = shirtImg.naturalHeight;
-  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
-  const x = c.getContext("2d");
-  x.drawImage(shirtImg, 0, 0, sw, sh);
-  if (lenaoDesignImg) {
-    const dw = sw * (lenaoState.wPct / 100);
-    const scale = dw / lenaoDesignImg.naturalWidth;
-    const dh = lenaoDesignImg.naturalHeight * scale;
-    const dx = sw * (lenaoState.xPct / 100) - dw / 2;
-    const dy = sh * (lenaoState.yPct / 100) - dh / 2;
-    x.drawImage(lenaoDesignImg, dx, dy, dw, dh);
-  }
-  return c.toDataURL("image/png");
-}
-
-/* Kéo-thả di chuyển + kéo góc resize trên khung chỉnh (giống mockup) */
-(() => {
-  const stage = $("lenaoStage"), layer = $("lenaoLayer"), handle = $("lenaoHandle");
+// gắn kéo-thả + resize cho 1 slot
+function lenaoAttachEditor(stage, layer, handle, slot) {
   let drag = null, rs = null;
   layer.addEventListener("pointerdown", (e) => {
-    if (e.target.id === "lenaoHandle") return;
+    if (e.target === handle) return;
     e.preventDefault();
-    drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: lenaoState.xPct, y0: lenaoState.yPct };
+    drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: slot.state.xPct, y0: slot.state.yPct };
     layer.setPointerCapture(e.pointerId);
   });
   layer.addEventListener("pointermove", (e) => {
     if (!drag) return;
-    lenaoState.xPct = Math.max(0, Math.min(100, drag.x0 + (e.clientX - drag.sx) / drag.r.width * 100));
-    lenaoState.yPct = Math.max(0, Math.min(100, drag.y0 + (e.clientY - drag.sy) / drag.r.height * 100));
-    lenaoApplyStage(); lenaoRender();
+    slot.state.xPct = Math.max(0, Math.min(100, drag.x0 + (e.clientX - drag.sx) / drag.r.width * 100));
+    slot.state.yPct = Math.max(0, Math.min(100, drag.y0 + (e.clientY - drag.sy) / drag.r.height * 100));
+    lenaoApplyLayer(layer, slot.state);
   });
   layer.addEventListener("pointerup", () => { drag = null; });
   handle.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
-    rs = { r: stage.getBoundingClientRect(), sx: e.clientX, w0: lenaoState.wPct };
+    rs = { r: stage.getBoundingClientRect(), sx: e.clientX, w0: slot.state.wPct };
     handle.setPointerCapture(e.pointerId);
   });
   handle.addEventListener("pointermove", (e) => {
     if (!rs) return;
-    lenaoState.wPct = Math.max(8, Math.min(95, rs.w0 + (e.clientX - rs.sx) / rs.r.width * 100 * 2));
-    lenaoApplyStage(); lenaoRender();
+    slot.state.wPct = Math.max(8, Math.min(95, rs.w0 + (e.clientX - rs.sx) / rs.r.width * 100 * 2));
+    lenaoApplyLayer(layer, slot.state);
   });
   handle.addEventListener("pointerup", () => { rs = null; });
-})();
-
-let _lenaoRenderToken = 0;
-function lenaoUpdateSelUI() {
-  const picked = [...$("lenaoResults").querySelectorAll(".gpick")].filter(c => c.checked).length;
-  $("lenaoDownloadSel").textContent = "⬇ Tải đã chọn (" + picked + ")";
 }
-async function lenaoRender() {
-  const grid = $("lenaoResults");
-  const sel = lenaoShirtList.filter(s => lenaoSel.has(s.url));
-  if (!lenaoDesign || !sel.length) {
-    grid.innerHTML = ""; $("lenaoEmpty").classList.remove("hidden");
-    $("lenaoEmpty").textContent = !lenaoDesign ? "Tải design + chọn áo để xem trước." : "Chọn ít nhất 1 áo mockup.";
-    $("lenaoToolbar").classList.add("hidden");
-    return;
-  }
+
+function lenaoUpdateSelUI() {
+  const n = [...document.querySelectorAll("#lenaoSlots .gpick")].filter(c => c.checked && !c.disabled).length;
+  $("lenaoDownloadSel").textContent = "⬇ Tải đã chọn (" + n + ")";
+}
+
+function lenaoRenderSlots() {
+  const grid = $("lenaoSlots");
+  if (!lenaoSlots.length) { grid.innerHTML = ""; $("lenaoEmpty").classList.remove("hidden"); $("lenaoEmpty").textContent = "Chưa có áo mockup. Tải áo ở tab Clone Design → Mockup."; return; }
   $("lenaoEmpty").classList.add("hidden");
-  $("lenaoToolbar").classList.remove("hidden");
-  const token = ++_lenaoRenderToken;
-  // đảm bảo ảnh áo đã load
-  const imgs = {};
-  for (const s of sel) { try { imgs[s.url] = await loadImg(s.url); } catch (e) {} }
-  if (token !== _lenaoRenderToken) return;   // có lần render mới hơn
   const allChecked = $("lenaoSelAll").checked;
   grid.innerHTML = "";
-  sel.forEach(s => {
-    const shirtImg = imgs[s.url]; if (!shirtImg) return;
-    const durl = lenaoCompose(shirtImg);
-    const cur = durl.split(",")[1];
+  lenaoSlots.forEach((slot, i) => {
     const card = document.createElement("div");
-    card.className = "gcard";
+    card.className = "lslot";
+    const has = !!slot.design;
     card.innerHTML =
-      '<input type="checkbox" class="gpick"' + (allChecked ? " checked" : "") + ' title="Chọn để tải hàng loạt">' +
-      '<img src="' + durl + '" alt="">' +
-      '<div class="gmeta">' + s.name + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
-    card._cur = cur; card._name = s.name;
+      '<div class="lhead"><input type="checkbox" class="gpick"' + (has && allChecked ? " checked" : "") + (has ? "" : " disabled") + '>' + slot.name + '</div>' +
+      '<div class="le-stage">' +
+        '<img class="le-shirt active" src="' + slot.url + '" alt="">' +
+        '<div class="le-layer' + (has ? " active" : "") + '"><img alt=""><span class="le-handle"></span></div>' +
+        '<div class="le-empty"' + (has ? ' style="display:none"' : "") + '>📁 Tải design cho áo này</div>' +
+      '</div>' +
+      '<div class="lacts"><label>📁 Design<input type="file" accept="image/*" hidden></label>' +
+        '<button class="b-dl">⬇ Tải</button></div>';
+    const stage = card.querySelector(".le-stage");
+    const layer = card.querySelector(".le-layer");
+    const layerImg = layer.querySelector("img");
+    const handle = card.querySelector(".le-handle");
+    if (has) { layerImg.src = slot.design; lenaoApplyLayer(layer, slot.state); }
+    lenaoAttachEditor(stage, layer, handle, slot);
+    // tải design riêng cho áo này (qua nút hoặc bấm vùng trống)
+    const fileInput = card.querySelector('.lacts input[type=file]');
+    fileInput.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { await lenaoSetSlotDesign(slot, await fileToDataURL(f)); } e.target.value = ""; };
+    card.querySelector(".le-empty").onclick = () => fileInput.click();
     card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
-    card.querySelector("img").onclick = () => openZoom(durl);
-    card.querySelector(".b-zoom").onclick = () => openZoom(durl);
-    card.querySelector(".b-dl").onclick = () => autoDownload(cur, s.name + "_design");
+    card.querySelector(".b-dl").onclick = async () => {
+      if (!slot.designImg) { alert("Áo này chưa có design."); return; }
+      const durl = await lenaoComposeSlot(slot);
+      autoDownload(durl.split(",")[1], slot.name + "_design");
+    };
     grid.appendChild(card);
   });
   lenaoUpdateSelUI();
 }
 
-async function lenaoSetDesign(durl) {
-  lenaoDesign = durl;
-  try { lenaoDesignImg = await loadImg(durl); } catch (e) { lenaoDesignImg = null; }
-  $("lenaoLayerImg").src = durl;          // hiện trong khung chỉnh
-  // thumb
-  const row = $("lenaoThumbs"); row.innerHTML = "";
-  const d = document.createElement("div"); d.className = "thumb";
-  d.innerHTML = '<img src="' + durl + '" alt=""><button class="thumb-x">×</button>';
-  d.querySelector(".thumb-x").onclick = () => {
-    lenaoDesign = null; lenaoDesignImg = null; row.innerHTML = "";
-    $("lenaoLayerImg").removeAttribute("src"); lenaoApplyStage(); lenaoRender();
-  };
-  row.appendChild(d);
-  lenaoApplyStage();
-  lenaoRender();
+// ghép design lên áo theo state -> dataURL (full độ phân giải áo)
+async function lenaoComposeSlot(slot) {
+  const shirt = await loadImg(slot.url);
+  const des = slot.designImg || await loadImg(slot.design);
+  const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  const x = c.getContext("2d");
+  x.drawImage(shirt, 0, 0, sw, sh);
+  const dw = sw * (slot.state.wPct / 100);
+  const scale = dw / des.naturalWidth;
+  const dh = des.naturalHeight * scale;
+  const dx = sw * (slot.state.xPct / 100) - dw / 2;
+  const dy = sh * (slot.state.yPct / 100) - dh / 2;
+  x.drawImage(des, dx, dy, dw, dh);
+  return c.toDataURL("image/png");
 }
 
-$("lenaoFileInput").onchange = async (e) => {
-  const f = e.target.files[0];
-  if (f && f.type.startsWith("image/")) lenaoSetDesign(await fileToDataURL(f));
-};
+// design dùng chung -> áp cho tất cả áo
+async function lenaoApplyAll(durl) {
+  const img = await loadImg(durl).catch(() => null);
+  lenaoSlots.forEach(s => { s.design = durl; s.designImg = img; });
+  lenaoRenderSlots();
+}
+$("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); e.target.value = ""; };
 (() => {
-  const dz = $("lenaoDrop");
+  const dz = $("lenaoAllDrop");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
   dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
-  dz.addEventListener("drop", async e => {
-    e.preventDefault(); dz.classList.remove("drag");
-    const f = e.dataTransfer.files[0];
-    if (f && f.type.startsWith("image/")) lenaoSetDesign(await fileToDataURL(f));
-  });
+  dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); });
 })();
-$("lenaoUseCurrent").onclick = () => {
+$("lenaoUseCurrentAll").onclick = () => {
   if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
-  lenaoSetDesign("data:image/png;base64," + currentDesign);
+  lenaoApplyAll("data:image/png;base64," + currentDesign);
 };
-$("lenaoSize").addEventListener("input", () => {
-  lenaoState.wPct = parseInt($("lenaoSize").value, 10);
-  lenaoApplyStage(); lenaoRender();
-});
 $("lenaoSelAll").onchange = (e) => {
-  $("lenaoResults").querySelectorAll(".gpick").forEach(c => { c.checked = e.target.checked; });
+  document.querySelectorAll("#lenaoSlots .gpick").forEach(c => { if (!c.disabled) c.checked = e.target.checked; });
   lenaoUpdateSelUI();
 };
 $("lenaoDownloadSel").onclick = async () => {
-  const cards = [...$("lenaoResults").querySelectorAll(".gcard")].filter(cd => {
-    const c = cd.querySelector(".gpick"); return c && c.checked;
+  const picked = lenaoSlots.filter((s, i) => {
+    const card = $("lenaoSlots").children[i];
+    const c = card && card.querySelector(".gpick");
+    return s.design && c && c.checked;
   });
-  if (!cards.length) { alert("Chưa chọn áo nào để tải."); return; }
-  for (const cd of cards) { autoDownload(cd._cur, cd._name + "_design"); await new Promise(r => setTimeout(r, 350)); }
+  if (!picked.length) { alert("Chưa chọn áo nào có design để tải."); return; }
+  for (const s of picked) {
+    const durl = await lenaoComposeSlot(s);
+    autoDownload(durl.split(",")[1], s.name + "_design");
+    await new Promise(r => setTimeout(r, 350));
+  }
 };

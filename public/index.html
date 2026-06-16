@@ -478,52 +478,27 @@
     </div>
   </section>
 
-  <!-- ===== VIEW: LÊN ÁO (ghép design lên áo mockup, chỉnh cỡ, tải hàng loạt) ===== -->
+  <!-- ===== VIEW: LÊN ÁO (mỗi mockup 1 design riêng, tải đồng bộ) ===== -->
   <section class="auto-view app-view hidden" id="view-lenao">
-    <div class="auto-wrap">
-      <!-- Cột điều khiển -->
-      <section class="panel">
-        <h2 class="panel-title">👕 Lên áo</h2>
-        <p class="panel-desc">Ghép design lên áo mockup có sẵn, chỉnh to/nhỏ &amp; vị trí, rồi tải về.</p>
-
-        <label class="field-label">Design</label>
-        <label class="dropzone" id="lenaoDrop">
-          <input type="file" id="lenaoFileInput" accept="image/*" hidden />
-          <div class="dz-icon">⬆️</div>
-          <div>Tải design (PNG nền trong suốt)</div>
-          <div class="hint">Hoặc dùng design đang mở ở tab Clone Design.</div>
-        </label>
-        <button class="btn-ghost sm" id="lenaoUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
-        <div class="thumb-row" id="lenaoThumbs"></div>
-
-        <label class="field-label">Chỉnh vị trí &amp; cỡ <span class="hint">(kéo để di chuyển · kéo góc để phóng to/thu nhỏ)</span></label>
-        <div class="le-stage" id="lenaoStage">
-          <img id="lenaoStageShirt" class="le-shirt" alt="" />
-          <div class="le-layer" id="lenaoLayer">
-            <img id="lenaoLayerImg" alt="" />
-            <span class="le-handle" id="lenaoHandle"></span>
-          </div>
-          <div class="le-empty" id="lenaoStageEmpty">Tải design để bắt đầu</div>
-        </div>
-        <input type="range" id="lenaoSize" min="8" max="90" value="42" class="range" title="Cỡ design" />
-
-        <label class="field-label">Chọn áo mockup <span class="hint">(bấm để chọn/bỏ)</span></label>
-        <div class="shirt-pick" id="lenaoShirts"></div>
-      </section>
-
-      <!-- Cột xem trước -->
-      <section class="panel">
-        <div class="gallery-head">
-          <h3>Xem trước trên áo</h3>
-        </div>
-        <div class="result-toolbar hidden" id="lenaoToolbar">
+    <section class="panel">
+      <div class="gallery-head">
+        <h2 class="panel-title" style="margin:0">👕 Lên áo</h2>
+        <div class="result-toolbar" style="margin:0">
           <label class="mini-switch"><input type="checkbox" id="lenaoSelAll" checked /> Chọn tất cả</label>
           <button class="btn-ghost sm" id="lenaoDownloadSel">⬇ Tải đã chọn (0)</button>
         </div>
-        <div class="auto-grid" id="lenaoResults"></div>
-        <div class="gallery-empty" id="lenaoEmpty">Tải design + chọn áo để xem trước.</div>
-      </section>
-    </div>
+      </div>
+      <p class="panel-desc">Mỗi áo tải <b>design riêng</b>, kéo-thả chỉnh vị trí/cỡ, rồi <b>tải đồng bộ</b>. Hoặc dùng design chung cho tất cả.</p>
+      <div class="le-shared">
+        <label class="dropzone sm" id="lenaoAllDrop">
+          <input type="file" id="lenaoAllFile" accept="image/*" hidden />
+          <span>⬆️ Tải 1 design áp cho TẤT CẢ áo</span>
+        </label>
+        <button class="btn-ghost sm" id="lenaoUseCurrentAll">⬅️ Dùng design đang mở cho tất cả</button>
+      </div>
+      <div class="lenao-grid" id="lenaoSlots"></div>
+      <div class="gallery-empty" id="lenaoEmpty">Đang tải áo mockup…</div>
+    </section>
   </section>
 
   <footer class="site-footer">
