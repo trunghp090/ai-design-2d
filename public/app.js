@@ -576,6 +576,8 @@ function showApp(app) {
   document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");
   document.getElementById("view-recolor").classList.toggle("hidden", app !== "recolor");
   document.getElementById("view-addbg").classList.toggle("hidden", app !== "addbg");
+  document.getElementById("view-lenao").classList.toggle("hidden", app !== "lenao");
+  if (app === "lenao") lenaoInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -1063,3 +1065,146 @@ function recolorOnShirt(designB64, shirtUrl) {
 function recolorUpdateSelUI() {
   $("recolorDownloadSel").textContent = "⬇ Tải đã chọn (" + recolorSel.size + ")";
 }
+
+/* =====================================================================
+   TÍNH NĂNG: LÊN ÁO (ghép design lên áo mockup, chỉnh cỡ/vị trí, tải hàng loạt)
+   ===================================================================== */
+let lenaoDesign = null;            // dataURL design
+let lenaoDesignImg = null;         // Image đã load (ghép nhanh khi kéo slider)
+let lenaoShirtList = [];           // [{url,name}]
+const lenaoSel = new Set();        // url áo đang chọn
+const _imgCache = {};              // url -> Promise<Image>
+let lenaoInited = false;
+
+function loadImg(src) {
+  if (_imgCache[src]) return _imgCache[src];
+  _imgCache[src] = new Promise((res, rej) => {
+    const im = new Image(); im.crossOrigin = "anonymous";
+    im.onload = () => res(im); im.onerror = () => rej(new Error("img"));
+    im.src = src;
+  });
+  return _imgCache[src];
+}
+
+async function lenaoInit() {
+  if (lenaoInited) return; lenaoInited = true;
+  try {
+    const data = await (await fetch("/api/mockups")).json();
+    lenaoShirtList = (data.items || []).filter(it => it.side !== "back")
+                      .map(it => ({ url: it.url, name: it.name || "Áo" }));
+  } catch (e) { lenaoShirtList = []; }
+  lenaoShirtList.forEach(s => lenaoSel.add(s.url));   // mặc định chọn hết
+  lenaoRenderShirtPicker();
+  lenaoSyncLabels();
+}
+
+function lenaoRenderShirtPicker() {
+  const box = $("lenaoShirts"); box.innerHTML = "";
+  if (!lenaoShirtList.length) { box.innerHTML = '<p class="hint">Chưa có áo mockup. Tải áo ở tab Clone Design → Mockup.</p>'; return; }
+  lenaoShirtList.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "shirt-opt" + (lenaoSel.has(s.url) ? " on" : "");
+    el.innerHTML = '<div class="chk">✓</div><img src="' + s.url + '" alt=""><div class="nm">' + s.name + '</div>';
+    el.onclick = () => {
+      if (lenaoSel.has(s.url)) lenaoSel.delete(s.url); else lenaoSel.add(s.url);
+      el.classList.toggle("on");
+      lenaoRender();
+    };
+    box.appendChild(el);
+  });
+}
+
+function lenaoSyncLabels() {
+  $("lenaoSizeVal").textContent = $("lenaoSize").value + "%";
+  $("lenaoPosVal").textContent = $("lenaoPos").value + "%";
+}
+
+// ghép 1 design lên 1 áo (đồng bộ, dùng Image đã cache)
+function lenaoCompose(shirtImg) {
+  const sw = shirtImg.naturalWidth, sh = shirtImg.naturalHeight;
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  const x = c.getContext("2d");
+  x.drawImage(shirtImg, 0, 0, sw, sh);
+  if (lenaoDesignImg) {
+    const targetW = sw * (parseInt($("lenaoSize").value, 10) / 100);
+    const scale = targetW / lenaoDesignImg.naturalWidth;
+    const dw = lenaoDesignImg.naturalWidth * scale, dh = lenaoDesignImg.naturalHeight * scale;
+    const dx = (sw - dw) / 2;
+    const dy = sh * (parseInt($("lenaoPos").value, 10) / 100);
+    x.drawImage(lenaoDesignImg, dx, dy, dw, dh);
+  }
+  return c.toDataURL("image/png");
+}
+
+let _lenaoRenderToken = 0;
+async function lenaoRender() {
+  const grid = $("lenaoResults");
+  const sel = lenaoShirtList.filter(s => lenaoSel.has(s.url));
+  if (!lenaoDesign || !sel.length) {
+    grid.innerHTML = ""; $("lenaoEmpty").classList.remove("hidden");
+    $("lenaoEmpty").textContent = !lenaoDesign ? "Tải design + chọn áo để xem trước." : "Chọn ít nhất 1 áo mockup.";
+    $("lenaoDownloadAll").textContent = "⬇ Tải tất cả (0)";
+    return;
+  }
+  $("lenaoEmpty").classList.add("hidden");
+  const token = ++_lenaoRenderToken;
+  // đảm bảo ảnh áo đã load
+  const imgs = {};
+  for (const s of sel) { try { imgs[s.url] = await loadImg(s.url); } catch (e) {} }
+  if (token !== _lenaoRenderToken) return;   // có lần render mới hơn
+  grid.innerHTML = "";
+  sel.forEach(s => {
+    const shirtImg = imgs[s.url]; if (!shirtImg) return;
+    const durl = lenaoCompose(shirtImg);
+    const cur = durl.split(",")[1];
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="' + durl + '" alt="">' +
+      '<div class="gmeta">' + s.name + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+    card._cur = cur; card._name = s.name;
+    card.querySelector("img").onclick = () => openZoom(durl);
+    card.querySelector(".b-zoom").onclick = () => openZoom(durl);
+    card.querySelector(".b-dl").onclick = () => autoDownload(cur, s.name + "_design");
+    grid.appendChild(card);
+  });
+  $("lenaoDownloadAll").textContent = "⬇ Tải tất cả (" + sel.length + ")";
+}
+
+async function lenaoSetDesign(durl) {
+  lenaoDesign = durl;
+  try { lenaoDesignImg = await loadImg(durl); } catch (e) { lenaoDesignImg = null; }
+  // thumb
+  const row = $("lenaoThumbs"); row.innerHTML = "";
+  const d = document.createElement("div"); d.className = "thumb";
+  d.innerHTML = '<img src="' + durl + '" alt=""><button class="thumb-x">×</button>';
+  d.querySelector(".thumb-x").onclick = () => { lenaoDesign = null; lenaoDesignImg = null; row.innerHTML = ""; lenaoRender(); };
+  row.appendChild(d);
+  lenaoRender();
+}
+
+$("lenaoFileInput").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f && f.type.startsWith("image/")) lenaoSetDesign(await fileToDataURL(f));
+};
+(() => {
+  const dz = $("lenaoDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith("image/")) lenaoSetDesign(await fileToDataURL(f));
+  });
+})();
+$("lenaoUseCurrent").onclick = () => {
+  if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
+  lenaoSetDesign("data:image/png;base64," + currentDesign);
+};
+["lenaoSize", "lenaoPos"].forEach(id => $(id).addEventListener("input", () => { lenaoSyncLabels(); lenaoRender(); }));
+$("lenaoDownloadAll").onclick = async () => {
+  const cards = [...$("lenaoResults").querySelectorAll(".gcard")];
+  if (!cards.length) return;
+  for (const cd of cards) { autoDownload(cd._cur, cd._name + "_design"); await new Promise(r => setTimeout(r, 350)); }
+};

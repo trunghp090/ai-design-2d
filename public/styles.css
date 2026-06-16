@@ -228,6 +228,15 @@ textarea.input{resize:vertical;line-height:1.5}
   background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0;background-color:#fafafa}
 .zoom-close{position:fixed;top:18px;right:22px;width:42px;height:42px;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer}
 .zoom-close:hover{background:rgba(255,255,255,.3)}
+/* Lên áo: chọn áo + slider */
+.range{width:100%;accent-color:var(--violet);margin:2px 0 4px}
+.shirt-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.shirt-opt{position:relative;border:2px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;transition:.15s}
+.shirt-opt img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.shirt-opt .nm{font-size:9.5px;color:var(--muted);text-align:center;padding:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shirt-opt.on{border-color:var(--violet);box-shadow:0 0 0 2px var(--violet-soft)}
+.shirt-opt .chk{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:var(--violet);color:#fff;font-size:11px;display:none;align-items:center;justify-content:center;line-height:1}
+.shirt-opt.on .chk{display:flex}
 
 /* gộp tách nền vào tab design */
 .step-label{font-size:13px;font-weight:800;color:var(--violet);margin:8px 0 10px;padding-top:16px;border-top:1px dashed var(--line)}

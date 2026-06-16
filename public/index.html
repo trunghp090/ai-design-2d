@@ -43,6 +43,7 @@
     <button class="app-tab active" data-app="clone">🎨 Clone Design</button>
     <button class="app-tab" data-app="auto">🤖 Auto Research</button>
     <button class="app-tab" data-app="recolor">🎨 Đổi màu áo</button>
+    <button class="app-tab" data-app="lenao">👕 Lên áo</button>
     <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
   </nav>
 
@@ -461,6 +462,46 @@
           <button class="btn-ghost" id="bgUseShirt">👕 Lên áo</button>
           <button class="btn-ghost" id="bgDownload">⬇ Tải PNG</button>
         </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: LÊN ÁO (ghép design lên áo mockup, chỉnh cỡ, tải hàng loạt) ===== -->
+  <section class="auto-view app-view hidden" id="view-lenao">
+    <div class="auto-wrap">
+      <!-- Cột điều khiển -->
+      <section class="panel">
+        <h2 class="panel-title">👕 Lên áo</h2>
+        <p class="panel-desc">Ghép design lên áo mockup có sẵn, chỉnh to/nhỏ &amp; vị trí, rồi tải về.</p>
+
+        <label class="field-label">Design</label>
+        <label class="dropzone" id="lenaoDrop">
+          <input type="file" id="lenaoFileInput" accept="image/*" hidden />
+          <div class="dz-icon">⬆️</div>
+          <div>Tải design (PNG nền trong suốt)</div>
+          <div class="hint">Hoặc dùng design đang mở ở tab Clone Design.</div>
+        </label>
+        <button class="btn-ghost sm" id="lenaoUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
+        <div class="thumb-row" id="lenaoThumbs"></div>
+
+        <label class="field-label">Cỡ design <span id="lenaoSizeVal" class="hint"></span></label>
+        <input type="range" id="lenaoSize" min="15" max="80" value="42" class="range" />
+
+        <label class="field-label">Vị trí dọc <span id="lenaoPosVal" class="hint"></span></label>
+        <input type="range" id="lenaoPos" min="3" max="60" value="26" class="range" />
+
+        <label class="field-label">Chọn áo mockup <span class="hint">(bấm để chọn/bỏ)</span></label>
+        <div class="shirt-pick" id="lenaoShirts"></div>
+      </section>
+
+      <!-- Cột xem trước -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Xem trước trên áo</h3>
+          <button class="btn-ghost sm" id="lenaoDownloadAll">⬇ Tải tất cả (0)</button>
+        </div>
+        <div class="auto-grid" id="lenaoResults"></div>
+        <div class="gallery-empty" id="lenaoEmpty">Tải design + chọn áo để xem trước.</div>
       </section>
     </div>
   </section>
