@@ -490,11 +490,16 @@
         <button class="btn-ghost sm" id="lenaoUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
         <div class="thumb-row" id="lenaoThumbs"></div>
 
-        <label class="field-label">Cỡ design <span id="lenaoSizeVal" class="hint"></span></label>
-        <input type="range" id="lenaoSize" min="15" max="80" value="42" class="range" />
-
-        <label class="field-label">Vị trí dọc <span id="lenaoPosVal" class="hint"></span></label>
-        <input type="range" id="lenaoPos" min="3" max="60" value="26" class="range" />
+        <label class="field-label">Chỉnh vị trí &amp; cỡ <span class="hint">(kéo để di chuyển · kéo góc để phóng to/thu nhỏ)</span></label>
+        <div class="le-stage" id="lenaoStage">
+          <img id="lenaoStageShirt" class="le-shirt" alt="" />
+          <div class="le-layer" id="lenaoLayer">
+            <img id="lenaoLayerImg" alt="" />
+            <span class="le-handle" id="lenaoHandle"></span>
+          </div>
+          <div class="le-empty" id="lenaoStageEmpty">Tải design để bắt đầu</div>
+        </div>
+        <input type="range" id="lenaoSize" min="8" max="90" value="42" class="range" title="Cỡ design" />
 
         <label class="field-label">Chọn áo mockup <span class="hint">(bấm để chọn/bỏ)</span></label>
         <div class="shirt-pick" id="lenaoShirts"></div>
