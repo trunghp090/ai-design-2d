@@ -331,22 +331,24 @@ def openai_chat(messages, json_mode=True, max_tokens=1500):
 
 
 AUTO_SYSTEM = (
-    "Bạn là chuyên gia thiết kế áo thun print-on-demand cho thị trường Việt Nam. "
-    "Bạn được đưa (các) MẪU thiết kế bán chạy. Mục tiêu: tạo các phiên bản GIỮ NGUYÊN "
-    "STYLE của mẫu gốc — cùng hình minh hoạ/illustration, cùng kiểu font, cùng bảng màu, "
-    "cùng bố cục tổng thể — CHỈ THAY ĐỔI PHẦN CHỮ (text) thành nội dung cá nhân hoá mới, "
-    "và chỉnh lại bố cục/khoảng cách/cỡ chữ cho cân đối với text mới. TUYỆT ĐỐI KHÔNG vẽ "
-    "lại hình mới, KHÔNG đổi phong cách, KHÔNG đổi màu chủ đạo.\n"
-    "Với mỗi mẫu: đọc text đang có trong ảnh, rồi đề xuất text MỚI phù hợp niche; chèn "
-    "placeholder cá nhân hoá [TÊN] hoặc [NĂM]/[NGÀY] vào chỗ hợp lý.\n"
+    "Bạn là chuyên gia thiết kế áo thun cá nhân hoá (print-on-demand) cho thị trường "
+    "Việt Nam. Bạn được đưa (các) MẪU thiết kế. Mục tiêu: tạo các bản CÁ NHÂN HOÁ — "
+    "GIỮ NGUYÊN STYLE mẫu gốc (cùng hình minh hoạ/illustration, kiểu font, bảng màu, bố "
+    "cục tổng thể) và CHÈN/THAY phần chữ bằng TÊN và NGÀY/THÁNG/NĂM khách yêu cầu. "
+    "TUYỆT ĐỐI KHÔNG vẽ lại hình mới, KHÔNG đổi phong cách, KHÔNG đổi màu chủ đạo.\n"
+    "Cách làm: đọc text đang có trong ảnh, xác định chỗ đặt TÊN (tiêu đề/điểm nhấn) và "
+    "chỗ đặt NGÀY THÁNG NĂM (dòng phụ/banner/cung tròn). Điền GIÁ TRỊ THẬT khách cung cấp "
+    "vào đúng chỗ, GIỮ NGUYÊN DẤU tiếng Việt, viết hoa/typography theo đúng style mẫu, "
+    "chỉnh cỡ & khoảng cách cho cân đối. Nếu khách đưa NHIỀU tên → mỗi tên là 1 concept "
+    "riêng. Nếu thiếu thông tin gì thì suy luận hợp lý từ mẫu.\n"
     "Trả về JSON đúng dạng: {\"concepts\":[{\"title\":\"tên ngắn tiếng Việt\","
     "\"change_instruction\":\"câu lệnh TIẾNG ANH\",\"src_index\":0}]}.\n"
-    "change_instruction phải: nêu RÕ đổi text cũ nào thành text mới gì (giữ nguyên dấu "
-    "tiếng Việt), nhấn mạnh GIỮ NGUYÊN illustration/font style/colors/composition của bản "
-    "gốc, và chỉnh canh chỉnh/cỡ chữ cho vừa. Ví dụ: \"Keep the cat illustration, fonts, "
-    "colors and layout exactly as in the original; only replace the headline 'BEST CAT MOM' "
-    "with 'YÊU [TÊN]' and adjust its size/spacing so it fits and stays centered.\" "
-    "src_index = chỉ số (0-based) của ảnh mẫu mà concept này dựa vào."
+    "change_instruction phải: nêu RÕ thay text cũ nào thành text mới gì (TÊN, NGÀY THÁNG "
+    "NĂM cụ thể), nhấn mạnh GIỮ NGUYÊN illustration/font style/colors/composition của bản "
+    "gốc, canh chỉnh cho vừa. Ví dụ: \"Keep the bear illustration, fonts, colors and layout "
+    "exactly as in the original; replace the name text with 'Bé An' and the date line with "
+    "'20.11.2024', keep Vietnamese diacritics, match the original font and re-center/resize "
+    "so they fit nicely.\" src_index = chỉ số (0-based) của ảnh mẫu mà concept này dựa vào."
 )
 
 
@@ -355,11 +357,12 @@ def auto_concepts(image_b64_list, niche, n=3):
     Trả list[{title, change_instruction, src_index}]."""
     n = max(1, min(int(n or 3), 8))
     nref = len(image_b64_list or [])
-    niche = (niche or "").strip() or "giữ chủ đề như mẫu gốc, hợp thị hiếu Việt Nam"
+    niche = (niche or "").strip() or "tự chọn tên & ngày tháng năm mẫu phù hợp"
     content = [{
         "type": "text",
-        "text": ("Niche/định hướng nội dung text mới: %s.\nCó %d ảnh mẫu (src_index 0..%d). "
-                 "Hãy tạo đúng %d concept GIỮ NGUYÊN STYLE, chỉ đổi text. "
+        "text": ("THÔNG TIN CÁ NHÂN HOÁ (tên / ngày tháng năm khách cần): %s.\n"
+                 "Có %d ảnh mẫu (src_index 0..%d). Hãy tạo đúng %d concept GIỮ NGUYÊN STYLE "
+                 "mẫu gốc, chỉ điền/đổi TÊN và NGÀY THÁNG NĂM theo thông tin trên. "
                  "Chỉ trả JSON theo schema." % (niche, nref, max(0, nref - 1), n)),
     }]
     for b64 in (image_b64_list or [])[:3]:
