@@ -1183,7 +1183,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_recolor(self, body):
         """Đổi màu theo áo: giữ nguyên design, phối lại màu cho từng màu áo đã chọn.
-        shirt_bg=True -> ghép design lên NỀN ĐẶC màu áo (xem như in trên áo thật)."""
+        Trả bản TÁCH NỀN + hex màu áo -> client tự ghép nền (màu áo / preset) để xem."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         img_src = body.get("image", "")
@@ -1193,7 +1193,6 @@ class Handler(BaseHTTPRequestHandler):
         if not colors:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 màu áo."})
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
-        shirt_bg = bool(body.get("shirt_bg", True))
 
         d, m = fetch_image_bytes(img_src)
         if not d:
@@ -1204,14 +1203,12 @@ class Handler(BaseHTTPRequestHandler):
         for key in colors:
             vi, hexv = RECOLOR[key][0], RECOLOR[key][1]
             try:
-                # luôn vẽ bản tách nền trước (để ghép sạch), rồi tuỳ chọn ghép nền màu áo
+                # vẽ bản TÁCH NỀN (để client ghép nền tuỳ ý), lưu bản này vào lịch sử
                 b64, _ = gen_design(img, "cloner", recolor_instruction(key),
                                     size, True)
-                if shirt_bg:
-                    b64 = flatten_on_color(b64, hexv)
                 g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
                 items.append({"image": b64, "title": "Áo %s" % vi,
-                              "color": key, "gallery": g})
+                              "color": key, "hex": hexv, "gallery": g})
             except urllib.error.HTTPError as e:
                 errors.append("%s: %s" % (vi, openai_error_message(e)))
             except Exception as e:

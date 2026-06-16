@@ -730,26 +730,83 @@ $("recolorUseCurrent").onclick = () => {
   const n = $("recolorNote"); n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design đang mở.";
 };
 
-function recolorRender(items) {
+/* Nền xem trước làm sẵn (ghép client, không tốn credit) */
+const RECOLOR_BG = [
+  { id: "shirt", label: "🎽 Nền áo",   kind: "shirt" },
+  { id: "none",  label: "Trong suốt",  kind: "none" },
+  { id: "white", label: "Trắng",       kind: "solid", c: "#ffffff" },
+  { id: "cream", label: "Kem",         kind: "solid", c: "#f3e9d2" },
+  { id: "black", label: "Đen",         kind: "solid", c: "#1c1c1e" },
+  { id: "rose",  label: "Hồng→Xanh",   kind: "grad", c1: "#ffd2e0", c2: "#c2e0ff", dir: "d" },
+  { id: "sunset",label: "Hoàng hôn",   kind: "grad", c1: "#ffe29f", c2: "#ff719a", dir: "d" },
+  { id: "mint",  label: "Mint",        kind: "grad", c1: "#d9fff0", c2: "#a8e6cf", dir: "v" },
+];
+let recolorBg = "shirt";        // preset đang chọn
+let recolorItems = [];          // kết quả tách nền từ server
+
+function recolorRenderBgPresets() {
+  const box = $("recolorBgPresets"); if (!box) return; box.innerHTML = "";
+  RECOLOR_BG.forEach(p => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (recolorBg === p.id ? " on" : "");
+    let sw = "#ddd";
+    if (p.kind === "solid") sw = p.c;
+    else if (p.kind === "grad") sw = "linear-gradient(135deg," + p.c1 + "," + p.c2 + ")";
+    else if (p.kind === "none") sw = "repeating-conic-gradient(#ccc 0 25%,#fff 0 50%) 0 0/8px 8px";
+    else if (p.kind === "shirt") sw = "linear-gradient(135deg,#1c1c1e 50%,#f5f5f5 50%)";
+    el.innerHTML = '<span class="sw" style="background:' + sw + '"></span>' + p.label + ' <span class="tick">✓</span>';
+    el.onclick = () => { recolorBg = p.id; recolorRenderBgPresets(); recolorRender(); };
+    box.appendChild(el);
+  });
+}
+recolorRenderBgPresets();
+
+// ghép 1 ảnh tách nền lên nền theo preset -> trả dataURL
+function recolorComposite(b64, preset, hex) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      const x = c.getContext("2d");
+      if (preset.kind === "shirt") { x.fillStyle = hex || "#888"; x.fillRect(0, 0, w, h); }
+      else if (preset.kind === "solid") { x.fillStyle = preset.c; x.fillRect(0, 0, w, h); }
+      else if (preset.kind === "grad") {
+        const g = preset.dir === "h" ? x.createLinearGradient(0, 0, w, 0)
+                : preset.dir === "v" ? x.createLinearGradient(0, 0, 0, h)
+                :                       x.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, preset.c1); g.addColorStop(1, preset.c2);
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+      } // "none" -> để trong suốt
+      x.drawImage(img, 0, 0, w, h);
+      res(c.toDataURL("image/png"));
+    };
+    img.src = "data:image/png;base64," + b64;
+  });
+}
+
+async function recolorRender(items) {
+  if (items) recolorItems = items;
   const grid = $("recolorResults"); grid.innerHTML = "";
-  if (!items.length) { $("recolorEmpty").classList.remove("hidden"); return; }
+  if (!recolorItems.length) { $("recolorEmpty").classList.remove("hidden"); return; }
   $("recolorEmpty").classList.add("hidden");
-  items.forEach(it => {
+  const preset = RECOLOR_BG.find(p => p.id === recolorBg) || RECOLOR_BG[0];
+  for (const it of recolorItems) {
+    const durl = await recolorComposite(it.image, preset, it.hex);
+    const cur = durl.split(",")[1];          // base64 đã ghép nền (để tải/lên áo)
     const card = document.createElement("div");
     card.className = "gcard";
     card.innerHTML =
-      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<img src="' + durl + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Bản màu") + '</div>' +
       '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
     card.querySelector(".b-use").onclick = () => {
-      showApp("clone");
-      showDesign(it.image);
-      if (typeof setMockupColor === "function" && it.color) try { setMockupColor(it.color); } catch (e) {}
+      showApp("clone"); showDesign(cur);
       document.querySelector('.rtab[data-rtab="design"]').click();
     };
-    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title);
+    card.querySelector(".b-dl").onclick = () => autoDownload(cur, it.title);
     grid.appendChild(card);
-  });
+  }
 }
 
 $("recolorRunBtn").onclick = async () => {
@@ -766,7 +823,6 @@ $("recolorRunBtn").onclick = async () => {
         image: recolorImg,
         colors: [...recolorPicked],
         size: $("recolorSize").value,
-        shirt_bg: $("recolorShirtBg").checked,
       }),
     });
     const data = await r.json();
