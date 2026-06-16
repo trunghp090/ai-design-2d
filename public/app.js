@@ -574,6 +574,7 @@ function showApp(app) {
   document.querySelectorAll(".app-tab").forEach(t => t.classList.toggle("active", t.dataset.app === app));
   document.getElementById("view-clone").classList.toggle("hidden", app !== "clone");
   document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");
+  document.getElementById("view-recolor").classList.toggle("hidden", app !== "recolor");
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -662,6 +663,121 @@ $("autoRunBtn").onclick = async () => {
     $("autoResults").innerHTML = "";
     $("autoEmpty").classList.remove("hidden");
     $("autoEmpty").textContent = "✗ " + err.message;
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* =====================================================================
+   TÍNH NĂNG: ĐỔI MÀU THEO ÁO (độc lập)
+   ===================================================================== */
+const RECOLOR_LIST = [
+  { key: "black",  vi: "Đen",     sw: "#1c1c1e" },
+  { key: "white",  vi: "Trắng",   sw: "#f5f5f5" },
+  { key: "brown",  vi: "Nâu",     sw: "#6b4a2f" },
+  { key: "sand",   vi: "Be",      sw: "#d8c3a5" },
+  { key: "forest", vi: "Xanh rêu",sw: "#2f5d3a" },
+  { key: "red",    vi: "Đỏ",      sw: "#b3261e" },
+  { key: "maroon", vi: "Đỏ đô",   sw: "#5e1a1d" },
+];
+let recolorImg = null;            // dataURL design đầu vào
+const recolorPicked = new Set(["black", "white"]); // mặc định chọn
+
+function recolorRenderChips() {
+  const box = $("recolorChips"); box.innerHTML = "";
+  RECOLOR_LIST.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (recolorPicked.has(c.key) ? " on" : "");
+    el.innerHTML = '<span class="sw" style="background:' + c.sw + '"></span>' + c.vi + ' <span class="tick">✓</span>';
+    el.onclick = () => {
+      if (recolorPicked.has(c.key)) recolorPicked.delete(c.key); else recolorPicked.add(c.key);
+      recolorRenderChips();
+    };
+    box.appendChild(el);
+  });
+}
+recolorRenderChips();
+
+function recolorRenderThumb() {
+  const row = $("recolorThumbs"); row.innerHTML = "";
+  if (!recolorImg) return;
+  const d = document.createElement("div");
+  d.className = "thumb";
+  d.innerHTML = '<img src="' + recolorImg + '" alt=""><button class="thumb-x">×</button>';
+  d.querySelector(".thumb-x").onclick = () => { recolorImg = null; recolorRenderThumb(); };
+  row.appendChild(d);
+}
+$("recolorFileInput").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f && f.type.startsWith("image/")) { recolorImg = await fileToDataURL(f); recolorRenderThumb(); }
+};
+(() => {
+  const dz = $("recolorDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith("image/")) { recolorImg = await fileToDataURL(f); recolorRenderThumb(); }
+  });
+})();
+$("recolorUseCurrent").onclick = () => {
+  if (!currentDesign) { const n = $("recolorNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa có design nào đang mở ở tab Clone Design."; return; }
+  recolorImg = "data:image/png;base64," + currentDesign;
+  recolorRenderThumb();
+  const n = $("recolorNote"); n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design đang mở.";
+};
+
+function recolorRender(items) {
+  const grid = $("recolorResults"); grid.innerHTML = "";
+  if (!items.length) { $("recolorEmpty").classList.remove("hidden"); return; }
+  $("recolorEmpty").classList.add("hidden");
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Bản màu") + '</div>' +
+      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
+    card.querySelector(".b-use").onclick = () => {
+      showApp("clone");
+      showDesign(it.image);
+      if (typeof setMockupColor === "function" && it.color) try { setMockupColor(it.color); } catch (e) {}
+      document.querySelector('.rtab[data-rtab="design"]').click();
+    };
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title);
+    grid.appendChild(card);
+  });
+}
+
+$("recolorRunBtn").onclick = async () => {
+  const note = $("recolorNote"); note.className = "gen-note"; note.textContent = "";
+  if (!recolorImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải design hoặc bấm 'Dùng design đang mở'."; return; }
+  if (!recolorPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 màu áo."; return; }
+  const btn = $("recolorRunBtn"); btn.disabled = true;
+  $("recolorEmpty").classList.add("hidden");
+  $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang phối lại màu cho ' + recolorPicked.size + ' màu áo… (≈30–60 giây/màu)</div>';
+  try {
+    const r = await fetch("/api/recolor", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: recolorImg,
+        colors: [...recolorPicked],
+        size: $("recolorSize").value,
+        transparent: $("recolorTransparent").checked,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
+    recolorRender(data.items || []);
+    note.className = "gen-note ok";
+    note.textContent = "✓ Đã đổi " + (data.items || []).length + " màu! Đã lưu vào Lịch sử.";
+    if (typeof loadGallery === "function") loadGallery();
+  } catch (err) {
+    $("recolorResults").innerHTML = "";
+    $("recolorEmpty").classList.remove("hidden");
+    $("recolorEmpty").textContent = "✗ " + err.message;
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
   } finally {
     btn.disabled = false;

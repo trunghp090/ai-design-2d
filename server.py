@@ -114,6 +114,40 @@ COLOR_VI = {
     "red": "đỏ", "sand": "be", "forest": "xanh rêu", "pink": "hồng",
 }
 
+# Bảng màu áo cho tính năng "Đổi màu theo áo": key -> (nhãn VN, hex áo, gợi ý phối màu)
+RECOLOR = {
+    "black":  ("đen", "#1c1c1e",
+               "the shirt is DARK, so use bright, light, pastel or white colors with "
+               "light/white outlines; avoid black or very dark elements that vanish on black"),
+    "white":  ("trắng", "#f5f5f5",
+               "the shirt is LIGHT, so use deep, rich, saturated colors with dark/black "
+               "outlines; avoid white or very pale elements that vanish on white"),
+    "brown":  ("nâu", "#6b4a2f",
+               "the shirt is a medium-dark warm BROWN, so use cream, beige, off-white and "
+               "warm pastel tones with light outlines; avoid dark brown that blends in"),
+    "sand":   ("be", "#d8c3a5",
+               "the shirt is a light warm BEIGE, so use deep warm tones (dark brown, maroon, "
+               "forest, navy) with dark outlines; avoid pale or white elements"),
+    "forest": ("xanh rêu", "#2f5d3a",
+               "the shirt is a dark olive/forest GREEN, so use cream, off-white, mustard and "
+               "warm light tones with light outlines; avoid dark green or black"),
+    "red":    ("đỏ", "#b3261e",
+               "the shirt is bright RED, so use white, cream, black and dark contrasting "
+               "tones; avoid red, pink or orange that clash or blend with the red shirt"),
+    "maroon": ("đỏ đô", "#5e1a1d",
+               "the shirt is a dark MAROON/burgundy, so use light gold, cream, white and warm "
+               "pastel tones with light outlines; avoid dark red or black"),
+}
+
+
+def recolor_instruction(key):
+    """Chỉ thị TIẾNG ANH: giữ nguyên design, CHỈ phối lại màu cho hợp màu áo."""
+    vi, hexv, guide = RECOLOR[key]
+    return ("Keep the illustration, text, fonts and composition IDENTICAL — do not redraw "
+            "anything. Re-map ONLY the colors so the design stays vivid and clearly visible "
+            "when printed on a %s (%s) t-shirt: %s. Output only the artwork, no shirt, no "
+            "background." % (vi, hexv, guide))
+
 
 # --------------------------------------------------------------------------- #
 #  Prompt
@@ -951,6 +985,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_generate(body)
         if path == "/api/auto-gen":
             return self.handle_auto_gen(body)
+        if path == "/api/recolor":
+            return self.handle_recolor(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1124,6 +1160,42 @@ class Handler(BaseHTTPRequestHandler):
                 errors.append(str(e))
         if not items:
             return self.json(502, {"error": "Vẽ mẫu lỗi: %s"
+                                   % (errors[0] if errors else "không rõ")})
+        return self.json(200, {"items": items, "errors": errors})
+
+    def handle_recolor(self, body):
+        """Đổi màu theo áo: giữ nguyên design, phối lại màu cho từng màu áo đã chọn."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        img_src = body.get("image", "")
+        if not img_src:
+            return self.json(400, {"error": "Chưa có design đầu vào để đổi màu."})
+        colors = [c for c in (body.get("colors") or []) if c in RECOLOR]
+        if not colors:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 màu áo."})
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        transparent = bool(body.get("transparent", True))
+
+        d, m = fetch_image_bytes(img_src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh design."})
+        img = [(d, m)]
+
+        items, errors = [], []
+        for key in colors:
+            vi = RECOLOR[key][0]
+            try:
+                b64, _ = gen_design(img, "cloner", recolor_instruction(key),
+                                    size, transparent)
+                g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
+                items.append({"image": b64, "title": "Áo %s" % vi,
+                              "color": key, "gallery": g})
+            except urllib.error.HTTPError as e:
+                errors.append("%s: %s" % (vi, openai_error_message(e)))
+            except Exception as e:
+                errors.append("%s: %s" % (vi, e))
+        if not items:
+            return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
 

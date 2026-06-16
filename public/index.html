@@ -42,6 +42,7 @@
   <nav class="app-tabs">
     <button class="app-tab active" data-app="clone">🎨 Clone Design</button>
     <button class="app-tab" data-app="auto">🤖 Auto Research</button>
+    <button class="app-tab" data-app="recolor">🎨 Đổi màu áo</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -329,6 +330,54 @@
         </div>
         <div class="auto-grid" id="autoResults"></div>
         <div class="gallery-empty" id="autoEmpty">Chưa có mẫu nào. Tải ảnh mẫu / gõ niche rồi bấm chạy nhé!</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: ĐỔI MÀU THEO ÁO (tính năng độc lập) ===== -->
+  <section class="auto-view app-view hidden" id="view-recolor">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">🎨 Đổi màu theo áo</h2>
+        <p class="panel-desc">Giữ nguyên hình/chữ/bố cục, AI <b>phối lại màu</b> của design cho hợp & rõ trên từng màu áo.</p>
+
+        <label class="field-label">Design cần đổi màu</label>
+        <label class="dropzone" id="recolorDrop">
+          <input type="file" id="recolorFileInput" accept="image/*" hidden />
+          <div class="dz-icon">⬆️</div>
+          <div>Tải design (PNG nền trong suốt càng tốt)</div>
+          <div class="hint">Hoặc dùng design đang mở ở tab Clone Design.</div>
+        </label>
+        <button class="btn-ghost sm" id="recolorUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
+        <div class="thumb-row" id="recolorThumbs"></div>
+
+        <label class="field-label">Chọn màu áo</label>
+        <div class="color-chips" id="recolorChips"></div>
+
+        <label class="field-label" style="margin-top:12px">Tỉ lệ</label>
+        <select id="recolorSize" class="input">
+          <option value="portrait">Dọc (in áo)</option>
+          <option value="square">Vuông</option>
+          <option value="landscape">Ngang</option>
+        </select>
+
+        <label class="mini-switch" style="margin:10px 0">
+          <input type="checkbox" id="recolorTransparent" checked /> Nền trong suốt (PNG tách nền)
+        </label>
+
+        <button class="btn-primary" id="recolorRunBtn">🎨 Đổi màu theo áo đã chọn</button>
+        <p class="gen-note" id="recolorNote"></p>
+      </section>
+
+      <!-- Cột kết quả -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Bản đổi màu</h3>
+          <span class="hint">Bấm “👕 Lên áo” để xem trên mockup màu tương ứng.</span>
+        </div>
+        <div class="auto-grid" id="recolorResults"></div>
+        <div class="gallery-empty" id="recolorEmpty">Chưa có bản nào. Chọn design + màu áo rồi bấm chạy nhé!</div>
       </section>
     </div>
   </section>
