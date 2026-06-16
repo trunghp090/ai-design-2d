@@ -386,10 +386,16 @@
           <button class="btn-ghost sm" id="recolorDownloadSel">⬇ Tải đã chọn (0)</button>
         </div>
         <div class="shirt-adjust hidden" id="recolorShirtAdjust">
-          <label class="field-label">Cỡ design <span id="recolorDsizeVal" class="hint"></span></label>
-          <input type="range" id="recolorDsize" min="15" max="80" value="42" class="range" />
-          <label class="field-label">Vị trí dọc <span id="recolorDposVal" class="hint"></span></label>
-          <input type="range" id="recolorDpos" min="3" max="60" value="26" class="range" />
+          <label class="field-label">Chỉnh vị trí &amp; cỡ <span class="hint">(kéo để di chuyển · kéo góc để phóng to/thu nhỏ — áp cho mọi áo)</span></label>
+          <div class="le-stage" id="recolorStage" style="max-width:300px">
+            <img id="recolorStageShirt" class="le-shirt" alt="" />
+            <div class="le-layer" id="recolorLayer">
+              <img id="recolorLayerImg" alt="" />
+              <span class="le-handle" id="recolorHandle"></span>
+            </div>
+            <div class="le-empty" id="recolorStageEmpty">—</div>
+          </div>
+          <input type="range" id="recolorDsize" min="8" max="90" value="42" class="range" title="Cỡ design" />
         </div>
         <div class="auto-grid" id="recolorResults"></div>
         <div class="gallery-empty" id="recolorEmpty">Chưa có bản nào. Chọn design + màu áo rồi bấm chạy nhé!</div>

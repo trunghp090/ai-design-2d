@@ -787,10 +787,12 @@ function recolorComposite(b64, preset, hex) {
   });
 }
 
+let _recolorRenderToken = 0;
 async function recolorRender(items) {
   if (items) { recolorItems = items; recolorSel.clear(); if ($("recolorSelAll")) $("recolorSelAll").checked = false; }
-  const grid = $("recolorResults"); grid.innerHTML = "";
+  const grid = $("recolorResults");
   if (!recolorItems.length) {
+    grid.innerHTML = "";
     $("recolorEmpty").classList.remove("hidden");
     $("recolorToolbar").classList.add("hidden");
     return;
@@ -798,19 +800,27 @@ async function recolorRender(items) {
   $("recolorEmpty").classList.add("hidden");
   $("recolorToolbar").classList.remove("hidden");
   $("recolorShirtAdjust").classList.toggle("hidden", recolorView !== "shirt");
-  if (recolorView === "shirt") await recolorLoadShirts();
+  if (recolorView === "shirt") { await recolorLoadShirts(); recolorApplyStage(); }
   const preset = RECOLOR_BG.find(p => p.id === recolorBg) || RECOLOR_BG[0];
-  const scalePct = parseInt($("recolorDsize").value, 10);
-  const posPct = parseInt($("recolorDpos").value, 10);
+  const token = ++_recolorRenderToken;
+
+  // ghép tất cả trước (await), rồi dựng DOM 1 lần -> tránh race khi kéo nhanh
+  const durls = [];
+  for (let i = 0; i < recolorItems.length; i++) {
+    const it = recolorItems[i];
+    let durl;
+    if (recolorView === "shirt" && recolorShirtMap[it.color]) {
+      durl = await recolorOnShirt(it.image, recolorShirtMap[it.color], recolorState);
+    }
+    if (!durl) durl = await recolorComposite(it.image, preset, it.hex);
+    durls.push(durl);
+  }
+  if (token !== _recolorRenderToken) return;   // có lần render mới hơn -> bỏ
+  grid.innerHTML = "";
 
   for (let i = 0; i < recolorItems.length; i++) {
     const it = recolorItems[i];
-    // ẢNH XEM: nền màu (bg) hoặc ghép lên ÁO THẬT (shirt). "Lên áo" chỉ design, ko nền.
-    let durl;
-    if (recolorView === "shirt" && recolorShirtMap[it.color]) {
-      durl = await recolorOnShirt(it.image, recolorShirtMap[it.color], scalePct, posPct);
-    }
-    if (!durl) durl = await recolorComposite(it.image, preset, it.hex);
+    const durl = durls[i];
     const cur = durl.split(",")[1];
 
     const card = document.createElement("div");
@@ -842,15 +852,62 @@ document.querySelectorAll("#recolorViewTabs .tab").forEach(t => t.onclick = () =
   recolorRender();
 });
 // slider chỉnh cỡ / vị trí design khi xem trên áo
-function recolorSyncAdjustLabels() {
-  $("recolorDsizeVal").textContent = $("recolorDsize").value + "%";
-  $("recolorDposVal").textContent = $("recolorDpos").value + "%";
+// vị trí/cỡ design khi lên áo (tâm xPct,yPct + bề ngang wPct) — áp cho mọi áo
+const recolorState = { xPct: 50, yPct: 40, wPct: 42 };
+
+// nạp áo + design đại diện (item đầu) vào khung chỉnh + đặt layer theo state
+function recolorApplyStage() {
+  const rep = recolorItems[0];
+  const shirtUrl = rep && recolorShirtMap[rep.color];
+  const sEl = $("recolorStageShirt"), layer = $("recolorLayer");
+  if (rep && shirtUrl) {
+    sEl.src = shirtUrl; sEl.classList.add("active");
+    $("recolorLayerImg").src = "data:image/png;base64," + rep.image;
+    layer.classList.add("active");
+    $("recolorStageEmpty").style.display = "none";
+  } else {
+    sEl.classList.remove("active"); layer.classList.remove("active");
+    $("recolorStageEmpty").style.display = "";
+  }
+  layer.style.left = recolorState.xPct + "%";
+  layer.style.top = recolorState.yPct + "%";
+  layer.style.width = recolorState.wPct + "%";
+  if ($("recolorDsize")) $("recolorDsize").value = Math.round(recolorState.wPct);
 }
-recolorSyncAdjustLabels();
-["recolorDsize", "recolorDpos"].forEach(id => $(id).addEventListener("input", () => {
-  recolorSyncAdjustLabels();
+$("recolorDsize").addEventListener("input", () => {
+  recolorState.wPct = parseInt($("recolorDsize").value, 10);
+  recolorApplyStage();
   if (recolorView === "shirt") recolorRender();
-}));
+});
+/* Kéo-thả di chuyển + kéo góc resize (giống mockup) */
+(() => {
+  const stage = $("recolorStage"), layer = $("recolorLayer"), handle = $("recolorHandle");
+  let drag = null, rs = null;
+  layer.addEventListener("pointerdown", (e) => {
+    if (e.target.id === "recolorHandle") return;
+    e.preventDefault();
+    drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: recolorState.xPct, y0: recolorState.yPct };
+    layer.setPointerCapture(e.pointerId);
+  });
+  layer.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    recolorState.xPct = Math.max(0, Math.min(100, drag.x0 + (e.clientX - drag.sx) / drag.r.width * 100));
+    recolorState.yPct = Math.max(0, Math.min(100, drag.y0 + (e.clientY - drag.sy) / drag.r.height * 100));
+    recolorApplyStage(); recolorRender();
+  });
+  layer.addEventListener("pointerup", () => { drag = null; });
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    rs = { r: stage.getBoundingClientRect(), sx: e.clientX, w0: recolorState.wPct };
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener("pointermove", (e) => {
+    if (!rs) return;
+    recolorState.wPct = Math.max(8, Math.min(95, rs.w0 + (e.clientX - rs.sx) / rs.r.width * 100 * 2));
+    recolorApplyStage(); recolorRender();
+  });
+  handle.addEventListener("pointerup", () => { rs = null; });
+})();
 $("recolorSelAll").onchange = (e) => {
   recolorSel.clear();
   if (e.target.checked) recolorItems.forEach((_, i) => recolorSel.add(i));
@@ -1047,8 +1104,8 @@ async function recolorLoadShirts() {
   return recolorShirtMap;
 }
 
-// ghép design (trong suốt) lên ảnh ÁO THẬT, đặt vùng ngực, KHÔNG kèm nền màu
-async function recolorOnShirt(designB64, shirtUrl, scalePct, posYPct) {
+// ghép design (trong suốt) lên ảnh ÁO THẬT theo state (tâm xPct,yPct + bề ngang wPct)
+async function recolorOnShirt(designB64, shirtUrl, st) {
   try {
     const shirt = await loadImg(shirtUrl);
     const des = await loadImg("data:image/png;base64," + designB64);
@@ -1056,11 +1113,11 @@ async function recolorOnShirt(designB64, shirtUrl, scalePct, posYPct) {
     const c = document.createElement("canvas"); c.width = sw; c.height = sh;
     const x = c.getContext("2d");
     x.drawImage(shirt, 0, 0, sw, sh);
-    const targetW = sw * ((scalePct || 42) / 100);   // bề ngang design theo slider
-    const scale = targetW / des.naturalWidth;
-    const dw = des.naturalWidth * scale, dh = des.naturalHeight * scale;
-    const dx = (sw - dw) / 2;                          // canh giữa ngang
-    const dy = sh * ((posYPct || 26) / 100);           // vị trí dọc theo slider
+    const dw = sw * ((st.wPct || 42) / 100);
+    const scale = dw / des.naturalWidth;
+    const dh = des.naturalHeight * scale;
+    const dx = sw * ((st.xPct || 50) / 100) - dw / 2;
+    const dy = sh * ((st.yPct || 40) / 100) - dh / 2;
     x.drawImage(des, dx, dy, dw, dh);
     return c.toDataURL("image/png");
   } catch (e) { return null; }
