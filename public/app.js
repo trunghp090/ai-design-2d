@@ -151,22 +151,7 @@ $("rebuildPrompt").onclick = () => { $("useCustomPrompt").checked = false; refre
 ["mode", "transparent"].forEach(id => $(id).addEventListener("change", () => { if (!$("useCustomPrompt").checked) refreshPromptPreview(); }));
 $("promptInput").addEventListener("input", () => { if (!$("useCustomPrompt").checked) refreshPromptPreview(); });
 
-/* Đổi giao diện theo chế độ (riêng Auto) */
-function syncModeUI() {
-  const auto = $("mode").value === "auto";
-  $("generateBtn").textContent = auto ? "🤖 Auto research → vẽ 3 bản" : "✨ Tạo design";
-  $("promptInput").placeholder = auto
-    ? "Niche / ghi chú (tuỳ chọn) — VD: áo couple, mèo cưng, Ngày của Mẹ… Để trống thì AI tự chọn ngách."
-    : "VD: đổi chữ thành 'BEST DAD EVER', đổi màu chủ đạo sang đỏ, thêm hoạ tiết hoa...";
-  $("modeHint").innerHTML = auto
-    ? "🤖 <b>Auto</b>: tải ảnh <b>mẫu hot</b> (Shopee…) — không bắt buộc — AI sẽ nhìn style rồi vẽ lại <b>3 bản cá nhân hoá mới</b> (thêm chỗ điền [TÊN]/[NĂM]). Kết quả ở tab 🤖 Auto."
-    : "Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.";
-}
-$("mode").addEventListener("change", syncModeUI);
-syncModeUI();
-
 $("generateBtn").onclick = async () => {
-  if ($("mode").value === "auto") return runAuto();
   const urls = $("urlInput").value.split("\n").map(s => s.trim()).filter(Boolean);
   const note = $("genNote"); note.className = "gen-note"; note.textContent = "";
   if (!uploaded.length && !urls.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy nhập URL hoặc tải lên ít nhất 1 ảnh áo."; return; }
@@ -205,57 +190,6 @@ $("generateBtn").onclick = async () => {
     $("spinner").classList.add("hidden"); btn.disabled = false;
   }
 };
-
-/* ---------- Chế độ AUTO: AI nhìn mẫu hot -> vẽ lại 3 bản ---------- */
-async function runAuto() {
-  const urls = $("urlInput").value.split("\n").map(s => s.trim()).filter(Boolean);
-  const note = $("genNote"); note.className = "gen-note"; note.textContent = "";
-  const images = [...uploaded, ...urls];
-  const btn = $("generateBtn"); btn.disabled = true;
-  document.querySelector('.rtab[data-rtab="auto"]').click();
-  $("autoEmpty").classList.add("hidden");
-  $("autoGrid").innerHTML = '<div class="gallery-empty">🤖 AI đang nhìn mẫu → nghĩ ý tưởng → vẽ 3 bản… (≈30–60 giây)</div>';
-  try {
-    const r = await fetch("/api/auto-gen", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        images, niche: $("promptInput").value,
-        n: 3, size: $("size").value, transparent: $("transparent").checked,
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
-    renderAuto(data.items || []);
-    note.className = "gen-note ok";
-    note.textContent = "✓ AI đã vẽ " + (data.items || []).length + " mẫu! Bấm 1 mẫu để đưa sang Design.";
-    loadGallery();
-  } catch (err) {
-    $("autoGrid").innerHTML = "";
-    $("autoEmpty").classList.remove("hidden");
-    $("autoEmpty").textContent = "✗ " + err.message;
-    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function renderAuto(items) {
-  const grid = $("autoGrid"); grid.innerHTML = "";
-  if (!items.length) { $("autoEmpty").classList.remove("hidden"); return; }
-  $("autoEmpty").classList.add("hidden");
-  items.forEach(it => {
-    const card = document.createElement("div");
-    card.className = "gcard";
-    card.title = "Bấm để đưa sang Design + lên áo";
-    card.innerHTML = '<img src="data:image/png;base64,' + it.image + '" alt="">' +
-      '<div class="gmeta">' + (it.title || "Mẫu auto") + "</div>";
-    card.onclick = () => {
-      showDesign(it.image);
-      document.querySelector('.rtab[data-rtab="design"]').click();
-    };
-    grid.appendChild(card);
-  });
-}
 
 function showDesign(b64) {
   currentDesign = b64;
@@ -369,7 +303,6 @@ document.querySelectorAll(".rtab").forEach(t => t.onclick = () => {
   t.classList.add("active");
   const tab = t.dataset.rtab;
   $("rpane-design").classList.toggle("hidden", tab !== "design");
-  $("rpane-auto").classList.toggle("hidden", tab !== "auto");
   $("rpane-mockup").classList.toggle("hidden", tab !== "mockup");
   $("rpane-gallery").classList.toggle("hidden", tab !== "gallery");
   if (tab === "mockup") ensureMockupBg();
@@ -633,3 +566,103 @@ async function useGalleryItem(it) {
 $("refreshGallery").onclick = loadGallery;
 
 /* Tách nền giờ TỰ ĐỘNG ngay trong bước clone — không còn bước thủ công. */
+
+/* =====================================================================
+   APP TABS — chuyển giữa các tính năng độc lập (Clone / Auto / …)
+   ===================================================================== */
+function showApp(app) {
+  document.querySelectorAll(".app-tab").forEach(t => t.classList.toggle("active", t.dataset.app === app));
+  document.getElementById("view-clone").classList.toggle("hidden", app !== "clone");
+  document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");
+}
+document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
+
+/* =====================================================================
+   TÍNH NĂNG: AUTO RESEARCH (độc lập — có upload/niche/kết quả riêng)
+   ===================================================================== */
+let autoUploaded = [];
+
+async function autoAddFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/") || autoUploaded.length >= 3) continue;
+    autoUploaded.push(await fileToDataURL(f));
+  }
+  autoRenderThumbs();
+}
+function autoRenderThumbs() {
+  const row = $("autoThumbs"); row.innerHTML = "";
+  autoUploaded.forEach((src, i) => {
+    const d = document.createElement("div");
+    d.className = "thumb";
+    d.innerHTML = '<img src="' + src + '" alt=""><button class="thumb-x">×</button>';
+    d.querySelector(".thumb-x").onclick = () => { autoUploaded.splice(i, 1); autoRenderThumbs(); };
+    row.appendChild(d);
+  });
+}
+$("autoFileInput").onchange = (e) => autoAddFiles(e.target.files);
+(() => {
+  const dz = $("autoDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); autoAddFiles(e.dataTransfer.files); });
+})();
+
+function autoDownload(b64, title) {
+  const a = document.createElement("a");
+  a.href = "data:image/png;base64," + b64;
+  a.download = (title || "auto-design").replace(/[^\w\-]+/g, "_") + ".png";
+  a.click();
+}
+
+function autoRender(items) {
+  const grid = $("autoResults"); grid.innerHTML = "";
+  if (!items.length) { $("autoEmpty").classList.remove("hidden"); return; }
+  $("autoEmpty").classList.add("hidden");
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Mẫu auto") + '</div>' +
+      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
+    card.querySelector(".b-use").onclick = () => {
+      showApp("clone");
+      showDesign(it.image);
+      document.querySelector('.rtab[data-rtab="design"]').click();
+    };
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title);
+    grid.appendChild(card);
+  });
+}
+
+$("autoRunBtn").onclick = async () => {
+  const note = $("autoNote"); note.className = "gen-note"; note.textContent = "";
+  const btn = $("autoRunBtn"); btn.disabled = true;
+  $("autoEmpty").classList.add("hidden");
+  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang nhìn mẫu → nghĩ ý tưởng → vẽ… (≈30–60 giây/mẫu)</div>';
+  try {
+    const r = await fetch("/api/auto-gen", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images: [...autoUploaded],
+        niche: $("autoNiche").value,
+        n: parseInt($("autoCount").value, 10) || 3,
+        size: $("autoSize").value,
+        transparent: $("autoTransparent").checked,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
+    autoRender(data.items || []);
+    note.className = "gen-note ok";
+    note.textContent = "✓ AI đã vẽ " + (data.items || []).length + " mẫu! Đã lưu vào Lịch sử (tab Clone Design).";
+    if (typeof loadGallery === "function") loadGallery();
+  } catch (err) {
+    $("autoResults").innerHTML = "";
+    $("autoEmpty").classList.remove("hidden");
+    $("autoEmpty").textContent = "✗ " + err.message;
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+};

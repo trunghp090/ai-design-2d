@@ -39,7 +39,12 @@
     </div>
   </header>
 
-  <main class="layout">
+  <nav class="app-tabs">
+    <button class="app-tab active" data-app="clone">🎨 Clone Design</button>
+    <button class="app-tab" data-app="auto">🤖 Auto Research</button>
+  </nav>
+
+  <main class="layout app-view" id="view-clone">
     <!-- ===== CỘT TRÁI ===== -->
     <section class="panel">
       <h2 class="panel-title">Trình tạo ảnh</h2>
@@ -50,7 +55,6 @@
         <option value="cloner">Cloner — AI clone design trên áo</option>
         <option value="redesign">Redesign — AI clone &amp; làm đẹp hơn</option>
         <option value="variation">Variation — AI tạo biến thể cùng chủ đề</option>
-        <option value="auto">🤖 Auto — AI nhìn mẫu hot → vẽ lại 3 bản cá nhân hoá</option>
         <option value="extract">🎯 Tách gốc (không AI) — giữ màu y hệt, dự phòng</option>
       </select>
       <p class="hint" id="modeHint">Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.</p>
@@ -133,7 +137,6 @@
     <section class="panel">
       <div class="result-tabs">
         <button class="rtab active" data-rtab="design">🎨 Design</button>
-        <button class="rtab" data-rtab="auto">🤖 Auto</button>
         <button class="rtab" data-rtab="mockup">👕 Mockup</button>
         <button class="rtab" data-rtab="gallery">🕘 Lịch sử</button>
       </div>
@@ -256,16 +259,6 @@
         <p class="hint">Chọn <b>Mặt trước</b> / <b>Mặt sau</b> ở trên — mỗi mặt có ảnh áo &amp; design riêng. Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
       </div>
 
-      <!-- AUTO (AI nhìn mẫu hot -> 3 bản cá nhân hoá) -->
-      <div class="rpane hidden" id="rpane-auto">
-        <div class="gallery-head">
-          <h3>🤖 Auto — AI vẽ lại từ mẫu hot</h3>
-        </div>
-        <p class="hint">Chọn chế độ <b>🤖 Auto</b> bên trái → tải ảnh mẫu bán chạy (vd Shopee) + gõ niche (tuỳ chọn) → bấm chạy. AI sẽ nghĩ 3 concept cá nhân hoá rồi vẽ lại. Bấm 1 mẫu để đưa sang Design + lên áo.</p>
-        <div class="auto-grid" id="autoGrid"></div>
-        <div class="gallery-empty" id="autoEmpty">Chưa có mẫu auto nào. Chọn chế độ 🤖 Auto rồi bấm chạy nhé!</div>
-      </div>
-
       <!-- GALLERY -->
       <div class="rpane hidden" id="rpane-gallery">
         <div class="gallery-head">
@@ -277,6 +270,68 @@
       </div>
     </section>
   </main>
+
+  <!-- ===== VIEW: AUTO RESEARCH (tính năng độc lập) ===== -->
+  <section class="auto-view app-view hidden" id="view-auto">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">🤖 Auto Research</h2>
+        <p class="panel-desc">AI nhìn mẫu bán chạy → tự nghĩ concept cá nhân hoá → vẽ lại nhiều bản mới.</p>
+
+        <label class="field-label">Ảnh mẫu hot (tuỳ chọn)</label>
+        <label class="dropzone" id="autoDrop">
+          <input type="file" id="autoFileInput" accept="image/*" multiple hidden />
+          <div class="dz-icon">⬆️</div>
+          <div>Tải ảnh mẫu bán chạy (Shopee…) — tối đa 3 ảnh</div>
+          <div class="hint">Để trống cũng được: AI sẽ tự nghĩ mẫu theo niche.</div>
+        </label>
+        <div class="thumb-row" id="autoThumbs"></div>
+
+        <label class="field-label">Niche / chủ đề (tuỳ chọn)</label>
+        <input type="text" id="autoNiche" class="input"
+          placeholder="VD: áo couple, mèo cưng, Ngày của Mẹ, hội gym… Để trống → AI tự chọn ngách." />
+
+        <div class="auto-row">
+          <div>
+            <label class="field-label">Số mẫu</label>
+            <select id="autoCount" class="input">
+              <option value="3">3 mẫu</option>
+              <option value="1">1 mẫu</option>
+              <option value="2">2 mẫu</option>
+              <option value="4">4 mẫu</option>
+              <option value="6">6 mẫu</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Tỉ lệ</label>
+            <select id="autoSize" class="input">
+              <option value="portrait">Dọc (in áo)</option>
+              <option value="square">Vuông</option>
+              <option value="landscape">Ngang</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="mini-switch" style="margin:10px 0">
+          <input type="checkbox" id="autoTransparent" checked /> Nền trong suốt (PNG tách nền)
+        </label>
+
+        <button class="btn-primary" id="autoRunBtn">🤖 Auto research → vẽ mẫu</button>
+        <p class="gen-note" id="autoNote"></p>
+      </section>
+
+      <!-- Cột kết quả -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Mẫu AI vẽ ra</h3>
+          <span class="hint">Bấm “👕 Lên áo” để đưa sang Clone Design + mockup.</span>
+        </div>
+        <div class="auto-grid" id="autoResults"></div>
+        <div class="gallery-empty" id="autoEmpty">Chưa có mẫu nào. Tải ảnh mẫu / gõ niche rồi bấm chạy nhé!</div>
+      </section>
+    </div>
+  </section>
 
   <footer class="site-footer">
     © 2026 AI Design 2D · Clone &amp; redesign artwork áo · chạy local bằng Python + gpt-image
