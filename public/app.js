@@ -765,7 +765,7 @@ $("recolorRunBtn").onclick = async () => {
         image: recolorImg,
         colors: [...recolorPicked],
         size: $("recolorSize").value,
-        transparent: $("recolorTransparent").checked,
+        shirt_bg: $("recolorShirtBg").checked,
       }),
     });
     const data = await r.json();

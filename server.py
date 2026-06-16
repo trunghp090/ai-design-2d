@@ -149,6 +149,22 @@ def recolor_instruction(key):
             "background." % (vi, hexv, guide))
 
 
+def flatten_on_color(b64_png, hexv):
+    """Ghép PNG (đã tách nền) lên NỀN ĐẶC màu hex -> PNG mờ đục (xem như trên áo)."""
+    if not HAS_PIL:
+        return b64_png
+    try:
+        im = Image.open(io.BytesIO(base64.b64decode(b64_png))).convert("RGBA")
+        rgb = (int(hexv[1:3], 16), int(hexv[3:5], 16), int(hexv[5:7], 16), 255)
+        bg = Image.new("RGBA", im.size, rgb)
+        bg.alpha_composite(im)
+        out = io.BytesIO()
+        bg.convert("RGB").save(out, "PNG")
+        return base64.b64encode(out.getvalue()).decode()
+    except Exception:
+        return b64_png
+
+
 # --------------------------------------------------------------------------- #
 #  Prompt
 # --------------------------------------------------------------------------- #
@@ -1164,7 +1180,8 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"items": items, "errors": errors})
 
     def handle_recolor(self, body):
-        """Đổi màu theo áo: giữ nguyên design, phối lại màu cho từng màu áo đã chọn."""
+        """Đổi màu theo áo: giữ nguyên design, phối lại màu cho từng màu áo đã chọn.
+        shirt_bg=True -> ghép design lên NỀN ĐẶC màu áo (xem như in trên áo thật)."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         img_src = body.get("image", "")
@@ -1174,7 +1191,7 @@ class Handler(BaseHTTPRequestHandler):
         if not colors:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 màu áo."})
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
-        transparent = bool(body.get("transparent", True))
+        shirt_bg = bool(body.get("shirt_bg", True))
 
         d, m = fetch_image_bytes(img_src)
         if not d:
@@ -1183,10 +1200,13 @@ class Handler(BaseHTTPRequestHandler):
 
         items, errors = [], []
         for key in colors:
-            vi = RECOLOR[key][0]
+            vi, hexv = RECOLOR[key][0], RECOLOR[key][1]
             try:
+                # luôn vẽ bản tách nền trước (để ghép sạch), rồi tuỳ chọn ghép nền màu áo
                 b64, _ = gen_design(img, "cloner", recolor_instruction(key),
-                                    size, transparent)
+                                    size, True)
+                if shirt_bg:
+                    b64 = flatten_on_color(b64, hexv)
                 g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
                 items.append({"image": b64, "title": "Áo %s" % vi,
                               "color": key, "gallery": g})
