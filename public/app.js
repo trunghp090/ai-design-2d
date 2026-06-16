@@ -786,29 +786,72 @@ function recolorComposite(b64, preset, hex) {
 }
 
 async function recolorRender(items) {
-  if (items) recolorItems = items;
+  if (items) { recolorItems = items; recolorSel.clear(); if ($("recolorSelAll")) $("recolorSelAll").checked = false; }
   const grid = $("recolorResults"); grid.innerHTML = "";
-  if (!recolorItems.length) { $("recolorEmpty").classList.remove("hidden"); return; }
+  if (!recolorItems.length) {
+    $("recolorEmpty").classList.remove("hidden");
+    $("recolorToolbar").classList.add("hidden");
+    return;
+  }
   $("recolorEmpty").classList.add("hidden");
+  $("recolorToolbar").classList.remove("hidden");
+  if (recolorView === "shirt") await recolorLoadShirts();
   const preset = RECOLOR_BG.find(p => p.id === recolorBg) || RECOLOR_BG[0];
-  for (const it of recolorItems) {
-    const durl = await recolorComposite(it.image, preset, it.hex);
-    const cur = durl.split(",")[1];          // base64 đã ghép nền (để tải/lên áo)
+
+  for (let i = 0; i < recolorItems.length; i++) {
+    const it = recolorItems[i];
+    // ẢNH XEM: nền màu (bg) hoặc ghép lên ÁO THẬT (shirt). "Lên áo" chỉ design, ko nền.
+    let durl;
+    if (recolorView === "shirt" && recolorShirtMap[it.color]) {
+      durl = await recolorOnShirt(it.image, recolorShirtMap[it.color]);
+    }
+    if (!durl) durl = await recolorComposite(it.image, preset, it.hex);
+    const cur = durl.split(",")[1];
+
     const card = document.createElement("div");
     card.className = "gcard";
     card.innerHTML =
+      '<input type="checkbox" class="gpick"' + (recolorSel.has(i) ? " checked" : "") + ' title="Chọn để tải hàng loạt">' +
       '<img src="' + durl + '" alt="">' +
       '<div class="gmeta"><span class="sw" style="background:' + (it.hex || "#888") +
         '"></span>' + (it.title || "Bản màu") + '</div>' +
-      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
-    card.querySelector(".b-use").onclick = () => {
-      showApp("clone"); showDesign(cur);
-      document.querySelector('.rtab[data-rtab="design"]').click();
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+    card._cur = cur; card._title = it.title;     // lưu ảnh đang xem để tải
+    card.querySelector(".gpick").onchange = (e) => {
+      if (e.target.checked) recolorSel.add(i); else recolorSel.delete(i);
+      recolorUpdateSelUI();
     };
+    card.querySelector("img").onclick = () => openZoom(durl);
+    card.querySelector(".b-zoom").onclick = () => openZoom(durl);
     card.querySelector(".b-dl").onclick = () => autoDownload(cur, it.title);
     grid.appendChild(card);
   }
+  recolorUpdateSelUI();
 }
+
+/* Toolbar: đổi chế độ xem / chọn tất cả / tải hàng loạt */
+document.querySelectorAll("#recolorViewTabs .tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll("#recolorViewTabs .tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  recolorView = t.dataset.rview;
+  recolorRender();
+});
+$("recolorSelAll").onchange = (e) => {
+  recolorSel.clear();
+  if (e.target.checked) recolorItems.forEach((_, i) => recolorSel.add(i));
+  document.querySelectorAll("#recolorResults .gpick").forEach((c, i) => { c.checked = e.target.checked; });
+  recolorUpdateSelUI();
+};
+$("recolorDownloadSel").onclick = async () => {
+  const cards = [...$("recolorResults").querySelectorAll(".gcard")];
+  const picked = [...recolorSel].sort((a, b) => a - b);
+  if (!picked.length) { const n = $("recolorNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa chọn bản nào để tải."; return; }
+  for (const i of picked) {
+    const cd = cards[i]; if (!cd) continue;
+    autoDownload(cd._cur, cd._title || ("ban_" + i));
+    await new Promise(r => setTimeout(r, 350));   // giãn cách để trình duyệt không chặn
+  }
+};
 
 $("recolorRunBtn").onclick = async () => {
   const note = $("recolorNote"); note.className = "gen-note"; note.textContent = "";
@@ -953,3 +996,70 @@ $("bgSaveBtn").onclick = async () => {
     btn.disabled = false;
   }
 };
+
+/* =====================================================================
+   MODAL PHÓNG TO ẢNH (dùng chung)
+   ===================================================================== */
+function openZoom(src) {
+  $("zoomImg").src = src;
+  $("zoomModal").classList.remove("hidden");
+}
+function closeZoom() { $("zoomModal").classList.add("hidden"); $("zoomImg").src = ""; }
+$("zoomClose").onclick = closeZoom;
+$("zoomModal").onclick = (e) => { if (e.target.id === "zoomModal") closeZoom(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeZoom(); });
+
+/* =====================================================================
+   ĐỔI MÀU ÁO: xem "Trên áo thật" + chọn nhiều + tải hàng loạt
+   ===================================================================== */
+let recolorView = "bg";          // "bg" | "shirt"
+let recolorShirtMap = null;      // color -> url ảnh áo thật
+const recolorSel = new Set();    // index card đang chọn
+
+// map màu recolor -> ảnh áo mockup (khớp theo nhãn "Áo <màu>")
+async function recolorLoadShirts() {
+  if (recolorShirtMap) return recolorShirtMap;
+  recolorShirtMap = {};
+  try {
+    const data = await (await fetch("/api/mockups")).json();
+    const items = (data.items || []).filter(it => it.side !== "back");
+    RECOLOR_LIST.forEach(c => {
+      const want = ("áo " + c.vi).toLowerCase();
+      const hit = items.find(it => (it.name || "").toLowerCase() === want);
+      if (hit) recolorShirtMap[c.key] = hit.url;
+    });
+  } catch (e) { /* không có áo -> bỏ qua */ }
+  return recolorShirtMap;
+}
+
+// ghép design (trong suốt) lên ảnh ÁO THẬT, đặt vùng ngực, KHÔNG kèm nền màu
+function recolorOnShirt(designB64, shirtUrl) {
+  return new Promise(res => {
+    const shirt = new Image();
+    shirt.crossOrigin = "anonymous";
+    shirt.onload = () => {
+      const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
+      const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+      const x = c.getContext("2d");
+      x.drawImage(shirt, 0, 0, sw, sh);
+      const des = new Image();
+      des.onload = () => {
+        const dw0 = des.naturalWidth, dh0 = des.naturalHeight;
+        const targetW = sw * 0.42;                 // bề ngang design ~42% áo
+        const scale = targetW / dw0;
+        const dw = dw0 * scale, dh = dh0 * scale;
+        const dx = (sw - dw) / 2;                   // canh giữa
+        const dy = sh * 0.26;                       // vùng ngực
+        x.drawImage(des, dx, dy, dw, dh);
+        res(c.toDataURL("image/png"));
+      };
+      des.src = "data:image/png;base64," + designB64;
+    };
+    shirt.onerror = () => res(null);
+    shirt.src = shirtUrl;
+  });
+}
+
+function recolorUpdateSelUI() {
+  $("recolorDownloadSel").textContent = "⬇ Tải đã chọn (" + recolorSel.size + ")";
+}

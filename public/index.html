@@ -375,13 +375,26 @@
       <section class="panel">
         <div class="gallery-head">
           <h3>Bản đổi màu</h3>
-          <span class="hint">Bấm “👕 Lên áo” để xem trên mockup màu tương ứng.</span>
+        </div>
+        <div class="result-toolbar hidden" id="recolorToolbar">
+          <div class="tabs" id="recolorViewTabs">
+            <button class="tab active" data-rview="bg">🖼️ Xem nền</button>
+            <button class="tab" data-rview="shirt">👕 Lên áo (tất cả)</button>
+          </div>
+          <label class="mini-switch"><input type="checkbox" id="recolorSelAll" /> Chọn tất cả</label>
+          <button class="btn-ghost sm" id="recolorDownloadSel">⬇ Tải đã chọn (0)</button>
         </div>
         <div class="auto-grid" id="recolorResults"></div>
         <div class="gallery-empty" id="recolorEmpty">Chưa có bản nào. Chọn design + màu áo rồi bấm chạy nhé!</div>
       </section>
     </div>
   </section>
+
+  <!-- Modal phóng to ảnh (dùng chung) -->
+  <div class="zoom-modal hidden" id="zoomModal">
+    <button class="zoom-close" id="zoomClose">✕</button>
+    <img id="zoomImg" alt="" />
+  </div>
 
   <!-- ===== VIEW: THÊM NỀN DƯỚI DESIGN (tính năng độc lập) ===== -->
   <section class="auto-view app-view hidden" id="view-addbg">

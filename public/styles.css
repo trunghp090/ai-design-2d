@@ -215,6 +215,19 @@ textarea.input{resize:vertical;line-height:1.5}
 .addbg-preview img{max-width:100%;max-height:480px;border-radius:8px;display:block}
 .addbg-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .addbg-actions .btn-primary{flex:1 1 100%}
+/* Toolbar kết quả đổi màu */
+.result-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.result-toolbar .tabs{margin:0}
+.gcard{position:relative}
+.gcard .gpick{position:absolute;top:6px;left:6px;width:20px;height:20px;cursor:pointer;z-index:2;accent-color:var(--violet)}
+.gcard img{cursor:zoom-in}
+/* Modal phóng to */
+.zoom-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,12,30,.86);display:flex;align-items:center;justify-content:center;padding:24px}
+.zoom-modal img{max-width:94vw;max-height:90vh;border-radius:10px;box-shadow:0 12px 60px rgba(0,0,0,.6);background:
+  linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);
+  background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0;background-color:#fafafa}
+.zoom-close{position:fixed;top:18px;right:22px;width:42px;height:42px;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer}
+.zoom-close:hover{background:rgba(255,255,255,.3)}
 
 /* gộp tách nền vào tab design */
 .step-label{font-size:13px;font-weight:800;color:var(--violet);margin:8px 0 10px;padding-top:16px;border-top:1px dashed var(--line)}
