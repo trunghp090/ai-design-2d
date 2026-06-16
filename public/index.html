@@ -385,6 +385,12 @@
           <label class="mini-switch"><input type="checkbox" id="recolorSelAll" /> Chọn tất cả</label>
           <button class="btn-ghost sm" id="recolorDownloadSel">⬇ Tải đã chọn (0)</button>
         </div>
+        <div class="shirt-adjust hidden" id="recolorShirtAdjust">
+          <label class="field-label">Cỡ design <span id="recolorDsizeVal" class="hint"></span></label>
+          <input type="range" id="recolorDsize" min="15" max="80" value="42" class="range" />
+          <label class="field-label">Vị trí dọc <span id="recolorDposVal" class="hint"></span></label>
+          <input type="range" id="recolorDpos" min="3" max="60" value="26" class="range" />
+        </div>
         <div class="auto-grid" id="recolorResults"></div>
         <div class="gallery-empty" id="recolorEmpty">Chưa có bản nào. Chọn design + màu áo rồi bấm chạy nhé!</div>
       </section>

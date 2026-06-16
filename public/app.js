@@ -797,15 +797,18 @@ async function recolorRender(items) {
   }
   $("recolorEmpty").classList.add("hidden");
   $("recolorToolbar").classList.remove("hidden");
+  $("recolorShirtAdjust").classList.toggle("hidden", recolorView !== "shirt");
   if (recolorView === "shirt") await recolorLoadShirts();
   const preset = RECOLOR_BG.find(p => p.id === recolorBg) || RECOLOR_BG[0];
+  const scalePct = parseInt($("recolorDsize").value, 10);
+  const posPct = parseInt($("recolorDpos").value, 10);
 
   for (let i = 0; i < recolorItems.length; i++) {
     const it = recolorItems[i];
     // ẢNH XEM: nền màu (bg) hoặc ghép lên ÁO THẬT (shirt). "Lên áo" chỉ design, ko nền.
     let durl;
     if (recolorView === "shirt" && recolorShirtMap[it.color]) {
-      durl = await recolorOnShirt(it.image, recolorShirtMap[it.color]);
+      durl = await recolorOnShirt(it.image, recolorShirtMap[it.color], scalePct, posPct);
     }
     if (!durl) durl = await recolorComposite(it.image, preset, it.hex);
     const cur = durl.split(",")[1];
@@ -838,6 +841,16 @@ document.querySelectorAll("#recolorViewTabs .tab").forEach(t => t.onclick = () =
   recolorView = t.dataset.rview;
   recolorRender();
 });
+// slider chỉnh cỡ / vị trí design khi xem trên áo
+function recolorSyncAdjustLabels() {
+  $("recolorDsizeVal").textContent = $("recolorDsize").value + "%";
+  $("recolorDposVal").textContent = $("recolorDpos").value + "%";
+}
+recolorSyncAdjustLabels();
+["recolorDsize", "recolorDpos"].forEach(id => $(id).addEventListener("input", () => {
+  recolorSyncAdjustLabels();
+  if (recolorView === "shirt") recolorRender();
+}));
 $("recolorSelAll").onchange = (e) => {
   recolorSel.clear();
   if (e.target.checked) recolorItems.forEach((_, i) => recolorSel.add(i));
@@ -1035,31 +1048,22 @@ async function recolorLoadShirts() {
 }
 
 // ghép design (trong suốt) lên ảnh ÁO THẬT, đặt vùng ngực, KHÔNG kèm nền màu
-function recolorOnShirt(designB64, shirtUrl) {
-  return new Promise(res => {
-    const shirt = new Image();
-    shirt.crossOrigin = "anonymous";
-    shirt.onload = () => {
-      const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
-      const c = document.createElement("canvas"); c.width = sw; c.height = sh;
-      const x = c.getContext("2d");
-      x.drawImage(shirt, 0, 0, sw, sh);
-      const des = new Image();
-      des.onload = () => {
-        const dw0 = des.naturalWidth, dh0 = des.naturalHeight;
-        const targetW = sw * 0.42;                 // bề ngang design ~42% áo
-        const scale = targetW / dw0;
-        const dw = dw0 * scale, dh = dh0 * scale;
-        const dx = (sw - dw) / 2;                   // canh giữa
-        const dy = sh * 0.26;                       // vùng ngực
-        x.drawImage(des, dx, dy, dw, dh);
-        res(c.toDataURL("image/png"));
-      };
-      des.src = "data:image/png;base64," + designB64;
-    };
-    shirt.onerror = () => res(null);
-    shirt.src = shirtUrl;
-  });
+async function recolorOnShirt(designB64, shirtUrl, scalePct, posYPct) {
+  try {
+    const shirt = await loadImg(shirtUrl);
+    const des = await loadImg("data:image/png;base64," + designB64);
+    const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
+    const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+    const x = c.getContext("2d");
+    x.drawImage(shirt, 0, 0, sw, sh);
+    const targetW = sw * ((scalePct || 42) / 100);   // bề ngang design theo slider
+    const scale = targetW / des.naturalWidth;
+    const dw = des.naturalWidth * scale, dh = des.naturalHeight * scale;
+    const dx = (sw - dw) / 2;                          // canh giữa ngang
+    const dy = sh * ((posYPct || 26) / 100);           // vị trí dọc theo slider
+    x.drawImage(des, dx, dy, dw, dh);
+    return c.toDataURL("image/png");
+  } catch (e) { return null; }
 }
 
 function recolorUpdateSelUI() {

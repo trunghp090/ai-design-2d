@@ -218,6 +218,8 @@ textarea.input{resize:vertical;line-height:1.5}
 /* Toolbar kết quả đổi màu */
 .result-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
 .result-toolbar .tabs{margin:0}
+.shirt-adjust{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#faf9ff}
+.shirt-adjust .field-label{margin-top:6px}
 .gcard{position:relative}
 .gcard .gpick{position:absolute;top:6px;left:6px;width:20px;height:20px;cursor:pointer;z-index:2;accent-color:var(--violet)}
 .gcard img{cursor:zoom-in}
