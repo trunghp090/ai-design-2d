@@ -1219,7 +1219,8 @@ function lenaoRenderSlots() {
         '<div class="le-layer' + (has ? " active" : "") + '"><img alt=""><span class="le-handle"></span></div>' +
         '<div class="le-empty"' + (has ? ' style="display:none"' : "") + '>📁 Tải design cho áo này</div>' +
       '</div>' +
-      '<div class="lacts"><label>📁 Design<input type="file" accept="image/*" hidden></label>' +
+      '<div class="lacts"><label>📁 ' + (has ? "Đổi" : "Design") + '<input type="file" accept="image/*" hidden></label>' +
+        (has ? '<button class="b-del">🗑️ Xoá</button>' : "") +
         '<button class="b-dl">⬇ Tải</button></div>';
     const stage = card.querySelector(".le-stage");
     const layer = card.querySelector(".le-layer");
@@ -1232,6 +1233,12 @@ function lenaoRenderSlots() {
     fileInput.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { await lenaoSetSlotDesign(slot, await fileToDataURL(f)); } e.target.value = ""; };
     card.querySelector(".le-empty").onclick = () => fileInput.click();
     card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
+    const delBtn = card.querySelector(".b-del");
+    if (delBtn) delBtn.onclick = () => {
+      slot.design = null; slot.designImg = null;
+      slot.state = { xPct: 50, yPct: 40, wPct: 42 };
+      lenaoRenderSlots();
+    };
     card.querySelector(".b-dl").onclick = async () => {
       if (!slot.designImg) { alert("Áo này chưa có design."); return; }
       const durl = await lenaoComposeSlot(slot);
@@ -1275,6 +1282,12 @@ $("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f &
 $("lenaoUseCurrentAll").onclick = () => {
   if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
   lenaoApplyAll("data:image/png;base64," + currentDesign);
+};
+$("lenaoClearAll").onclick = () => {
+  if (!lenaoSlots.some(s => s.design)) return;
+  if (!confirm("Xoá design khỏi tất cả áo?")) return;
+  lenaoSlots.forEach(s => { s.design = null; s.designImg = null; s.state = { xPct: 50, yPct: 40, wPct: 42 }; });
+  lenaoRenderSlots();
 };
 $("lenaoSelAll").onchange = (e) => {
   document.querySelectorAll("#lenaoSlots .gpick").forEach(c => { if (!c.disabled) c.checked = e.target.checked; });
