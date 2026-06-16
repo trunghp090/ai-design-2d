@@ -798,7 +798,8 @@ async function recolorRender(items) {
     card.className = "gcard";
     card.innerHTML =
       '<img src="' + durl + '" alt="">' +
-      '<div class="gmeta">' + (it.title || "Bản màu") + '</div>' +
+      '<div class="gmeta"><span class="sw" style="background:' + (it.hex || "#888") +
+        '"></span>' + (it.title || "Bản màu") + '</div>' +
       '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
     card.querySelector(".b-use").onclick = () => {
       showApp("clone"); showDesign(cur);
