@@ -43,6 +43,7 @@
     <button class="app-tab active" data-app="clone">🎨 Clone Design</button>
     <button class="app-tab" data-app="auto">🤖 Auto Research</button>
     <button class="app-tab" data-app="recolor">🎨 Đổi màu áo</button>
+    <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -379,6 +380,75 @@
         </div>
         <div class="auto-grid" id="recolorResults"></div>
         <div class="gallery-empty" id="recolorEmpty">Chưa có bản nào. Chọn design + màu áo rồi bấm chạy nhé!</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: THÊM NỀN DƯỚI DESIGN (tính năng độc lập) ===== -->
+  <section class="auto-view app-view hidden" id="view-addbg">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">🖼️ Thêm nền dưới design</h2>
+        <p class="panel-desc">Đặt nền <b>màu trơn</b> hoặc <b>gradient</b> phía dưới design. Xem trước tức thì, không tốn credit.</p>
+
+        <label class="field-label">Design</label>
+        <label class="dropzone" id="bgDrop">
+          <input type="file" id="bgFileInput" accept="image/*" hidden />
+          <div class="dz-icon">⬆️</div>
+          <div>Tải design (PNG nền trong suốt)</div>
+          <div class="hint">Hoặc dùng design đang mở ở tab Clone Design.</div>
+        </label>
+        <button class="btn-ghost sm" id="bgUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
+        <div class="thumb-row" id="bgThumbs"></div>
+
+        <label class="field-label">Kiểu nền</label>
+        <div class="tabs" id="bgKindTabs">
+          <button class="tab active" data-bgkind="solid">🎨 Màu trơn</button>
+          <button class="tab" data-bgkind="gradient">🌈 Gradient</button>
+        </div>
+
+        <div id="bgSolidPane">
+          <label class="field-label">Màu nền</label>
+          <input type="color" id="bgColor1" class="input" value="#f3e9d2" style="height:46px;padding:4px" />
+        </div>
+
+        <div id="bgGradientPane" class="hidden">
+          <div class="auto-row">
+            <div>
+              <label class="field-label">Màu 1</label>
+              <input type="color" id="bgGcolor1" class="input" value="#ffd2e0" style="height:46px;padding:4px" />
+            </div>
+            <div>
+              <label class="field-label">Màu 2</label>
+              <input type="color" id="bgGcolor2" class="input" value="#c2e0ff" style="height:46px;padding:4px" />
+            </div>
+          </div>
+          <label class="field-label">Hướng</label>
+          <select id="bgGdir" class="input">
+            <option value="v">Dọc (trên → dưới)</option>
+            <option value="h">Ngang (trái → phải)</option>
+            <option value="d">Chéo</option>
+          </select>
+        </div>
+
+        <p class="gen-note" id="bgNote"></p>
+      </section>
+
+      <!-- Cột kết quả (xem trước trực tiếp) -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Xem trước</h3>
+        </div>
+        <div class="addbg-preview" id="bgPreviewWrap">
+          <div class="gallery-empty" id="bgEmpty">Tải design + chọn nền để xem trước ngay.</div>
+          <img id="bgPreview" class="hidden" alt="" />
+        </div>
+        <div class="addbg-actions hidden" id="bgActions">
+          <button class="btn-primary" id="bgSaveBtn">💾 Lưu vào Lịch sử</button>
+          <button class="btn-ghost" id="bgUseShirt">👕 Lên áo</button>
+          <button class="btn-ghost" id="bgDownload">⬇ Tải PNG</button>
+        </div>
       </section>
     </div>
   </section>

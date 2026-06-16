@@ -575,6 +575,7 @@ function showApp(app) {
   document.getElementById("view-clone").classList.toggle("hidden", app !== "clone");
   document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");
   document.getElementById("view-recolor").classList.toggle("hidden", app !== "recolor");
+  document.getElementById("view-addbg").classList.toggle("hidden", app !== "addbg");
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -778,6 +779,118 @@ $("recolorRunBtn").onclick = async () => {
     $("recolorResults").innerHTML = "";
     $("recolorEmpty").classList.remove("hidden");
     $("recolorEmpty").textContent = "✗ " + err.message;
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* =====================================================================
+   TÍNH NĂNG: THÊM NỀN DƯỚI DESIGN (màu trơn / gradient — render client)
+   ===================================================================== */
+let bgImg = null;        // dataURL design đầu vào
+let bgKind = "solid";    // "solid" | "gradient"
+let bgResultB64 = null;  // base64 (không prefix) ảnh đã ghép nền
+
+function bgRenderThumb() {
+  const row = $("bgThumbs"); row.innerHTML = "";
+  if (!bgImg) return;
+  const d = document.createElement("div");
+  d.className = "thumb";
+  d.innerHTML = '<img src="' + bgImg + '" alt=""><button class="thumb-x">×</button>';
+  d.querySelector(".thumb-x").onclick = () => { bgImg = null; bgRenderThumb(); bgRender(); };
+  row.appendChild(d);
+}
+$("bgFileInput").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (f && f.type.startsWith("image/")) { bgImg = await fileToDataURL(f); bgRenderThumb(); bgRender(); }
+};
+(() => {
+  const dz = $("bgDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith("image/")) { bgImg = await fileToDataURL(f); bgRenderThumb(); bgRender(); }
+  });
+})();
+$("bgUseCurrent").onclick = () => {
+  if (!currentDesign) { const n = $("bgNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa có design nào đang mở ở tab Clone Design."; return; }
+  bgImg = "data:image/png;base64," + currentDesign;
+  bgRenderThumb(); bgRender();
+  const n = $("bgNote"); n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design đang mở.";
+};
+
+// chuyển kiểu nền
+document.querySelectorAll("#bgKindTabs .tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll("#bgKindTabs .tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  bgKind = t.dataset.bgkind;
+  $("bgSolidPane").classList.toggle("hidden", bgKind !== "solid");
+  $("bgGradientPane").classList.toggle("hidden", bgKind !== "gradient");
+  bgRender();
+});
+// đổi màu/hướng -> render lại
+["bgColor1", "bgGcolor1", "bgGcolor2", "bgGdir"].forEach(id => $(id).addEventListener("input", bgRender));
+
+function bgRender() {
+  if (!bgImg) {
+    $("bgPreview").classList.add("hidden");
+    $("bgEmpty").classList.remove("hidden");
+    $("bgActions").classList.add("hidden");
+    bgResultB64 = null;
+    return;
+  }
+  const img = new Image();
+  img.onload = () => {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d");
+    if (bgKind === "gradient") {
+      const dir = $("bgGdir").value;
+      const g = dir === "h" ? x.createLinearGradient(0, 0, w, 0)
+              : dir === "d" ? x.createLinearGradient(0, 0, w, h)
+              :               x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, $("bgGcolor1").value);
+      g.addColorStop(1, $("bgGcolor2").value);
+      x.fillStyle = g;
+    } else {
+      x.fillStyle = $("bgColor1").value;
+    }
+    x.fillRect(0, 0, w, h);
+    x.drawImage(img, 0, 0, w, h);
+    const durl = c.toDataURL("image/png");
+    bgResultB64 = durl.split(",")[1];
+    $("bgPreview").src = durl;
+    $("bgPreview").classList.remove("hidden");
+    $("bgEmpty").classList.add("hidden");
+    $("bgActions").classList.remove("hidden");
+  };
+  img.src = bgImg;
+}
+
+$("bgDownload").onclick = () => { if (bgResultB64) autoDownload(bgResultB64, "design-co-nen"); };
+$("bgUseShirt").onclick = () => {
+  if (!bgResultB64) return;
+  showApp("clone");
+  showDesign(bgResultB64);
+  document.querySelector('.rtab[data-rtab="design"]').click();
+};
+$("bgSaveBtn").onclick = async () => {
+  const note = $("bgNote"); note.className = "gen-note"; note.textContent = "";
+  if (!bgResultB64) { note.className = "gen-note err"; note.textContent = "⚠️ Chưa có ảnh để lưu."; return; }
+  const btn = $("bgSaveBtn"); btn.disabled = true;
+  try {
+    const r = await fetch("/api/save-design", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: bgResultB64, mode: "bg", label: "Design + nền" }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã lưu vào Lịch sử (tab Clone Design).";
+    if (typeof loadGallery === "function") loadGallery();
+  } catch (err) {
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
   } finally {
     btn.disabled = false;

@@ -1003,6 +1003,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_auto_gen(body)
         if path == "/api/recolor":
             return self.handle_recolor(body)
+        if path == "/api/save-design":
+            return self.handle_save_design(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1218,6 +1220,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_save_design(self, body):
+        """Lưu 1 ảnh (đã xử lý phía client, vd ghép nền) vào Lịch sử."""
+        img = body.get("image", "")
+        if img.startswith("data:"):
+            img = img.split(",", 1)[1]
+        if not img:
+            return self.json(400, {"error": "Thiếu ảnh."})
+        try:
+            base64.b64decode(img)  # kiểm tra hợp lệ
+        except Exception:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        mode = body.get("mode", "bg")
+        label = (body.get("label", "") or "")[:160]
+        item = gallery_add(img, {"mode": mode, "prompt": label})
+        return self.json(200, {"gallery": item})
 
     def handle_upscale(self, body):
         img = body.get("image", "")

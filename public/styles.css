@@ -206,6 +206,14 @@ textarea.input{resize:vertical;line-height:1.5}
 .cchip.on{border-color:var(--violet);background:var(--violet-soft);color:var(--violet)}
 .cchip .tick{opacity:0;font-size:11px}
 .cchip.on .tick{opacity:1}
+/* Thêm nền - xem trước */
+.addbg-preview{min-height:300px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);border-radius:12px;background:
+  linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);
+  background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0;background-color:#fafafa;padding:10px}
+.addbg-preview img{max-width:100%;max-height:480px;border-radius:8px;display:block}
+.addbg-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.addbg-actions .btn-primary{flex:1 1 100%}
 
 /* gộp tách nền vào tab design */
 .step-label{font-size:13px;font-weight:800;color:var(--violet);margin:8px 0 10px;padding-top:16px;border-top:1px dashed var(--line)}
