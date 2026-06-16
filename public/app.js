@@ -637,9 +637,10 @@ function autoRender(items) {
 
 $("autoRunBtn").onclick = async () => {
   const note = $("autoNote"); note.className = "gen-note"; note.textContent = "";
+  if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ít nhất 1 ảnh mẫu để AI giữ nguyên style."; return; }
   const btn = $("autoRunBtn"); btn.disabled = true;
   $("autoEmpty").classList.add("hidden");
-  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang nhìn mẫu → nghĩ ý tưởng → vẽ… (≈30–60 giây/mẫu)</div>';
+  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang đọc mẫu → giữ style, đổi text → vẽ… (≈30–60 giây/mẫu)</div>';
   try {
     const r = await fetch("/api/auto-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },

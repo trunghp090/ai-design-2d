@@ -281,28 +281,36 @@ def openai_chat(messages, json_mode=True, max_tokens=1500):
 
 
 AUTO_SYSTEM = (
-    "Bạn là chuyên gia thiết kế áo thun thương mại (print-on-demand) cho thị trường "
-    "Việt Nam. Nhiệm vụ: nhìn (các) MẪU BÁN CHẠY được đưa, phân tích style/bố cục/"
-    "typography/chủ đề/màu, rồi ĐỀ XUẤT các mẫu MỚI lấy CẢM HỨNG từ style đó nhưng "
-    "NGUYÊN BẢN — đổi câu chữ, đổi cách sắp xếp, KHÔNG sao chép nguyên văn (tránh vi "
-    "phạm bản quyền). Mỗi mẫu mới phải dễ CÁ NHÂN HOÁ: chèn placeholder rõ ràng như "
-    "[TÊN] hoặc [NĂM]/[NGÀY] vào chỗ hợp lý để sau này điền thông tin khách.\n"
-    "Trả về JSON đúng dạng: {\"concepts\":[{\"title\": \"tên ngắn tiếng Việt\", "
-    "\"image_prompt\": \"câu prompt TIẾNG ANH chi tiết cho AI tạo ảnh\"}]}.\n"
-    "Mỗi image_prompt phải: mô tả thiết kế flat vector/typographic, nền MÀU TRƠN ĐỒNG "
-    "NHẤT (solid plain background) để dễ tách nền, chữ rõ đúng chính tả, KHÔNG mockup áo, "
-    "KHÔNG người mẫu, chỉ riêng artwork. Giữ nguyên các placeholder [TÊN]/[NĂM] trong prompt."
+    "Bạn là chuyên gia thiết kế áo thun print-on-demand cho thị trường Việt Nam. "
+    "Bạn được đưa (các) MẪU thiết kế bán chạy. Mục tiêu: tạo các phiên bản GIỮ NGUYÊN "
+    "STYLE của mẫu gốc — cùng hình minh hoạ/illustration, cùng kiểu font, cùng bảng màu, "
+    "cùng bố cục tổng thể — CHỈ THAY ĐỔI PHẦN CHỮ (text) thành nội dung cá nhân hoá mới, "
+    "và chỉnh lại bố cục/khoảng cách/cỡ chữ cho cân đối với text mới. TUYỆT ĐỐI KHÔNG vẽ "
+    "lại hình mới, KHÔNG đổi phong cách, KHÔNG đổi màu chủ đạo.\n"
+    "Với mỗi mẫu: đọc text đang có trong ảnh, rồi đề xuất text MỚI phù hợp niche; chèn "
+    "placeholder cá nhân hoá [TÊN] hoặc [NĂM]/[NGÀY] vào chỗ hợp lý.\n"
+    "Trả về JSON đúng dạng: {\"concepts\":[{\"title\":\"tên ngắn tiếng Việt\","
+    "\"change_instruction\":\"câu lệnh TIẾNG ANH\",\"src_index\":0}]}.\n"
+    "change_instruction phải: nêu RÕ đổi text cũ nào thành text mới gì (giữ nguyên dấu "
+    "tiếng Việt), nhấn mạnh GIỮ NGUYÊN illustration/font style/colors/composition của bản "
+    "gốc, và chỉnh canh chỉnh/cỡ chữ cho vừa. Ví dụ: \"Keep the cat illustration, fonts, "
+    "colors and layout exactly as in the original; only replace the headline 'BEST CAT MOM' "
+    "with 'YÊU [TÊN]' and adjust its size/spacing so it fits and stays centered.\" "
+    "src_index = chỉ số (0-based) của ảnh mẫu mà concept này dựa vào."
 )
 
 
 def auto_concepts(image_b64_list, niche, n=3):
-    """AI nhìn mẫu hot -> nghĩ n concept cá nhân hoá mới. Trả list[{title, image_prompt}]."""
+    """AI nhìn mẫu -> đề xuất n concept GIỮ STYLE, chỉ đổi text.
+    Trả list[{title, change_instruction, src_index}]."""
     n = max(1, min(int(n or 3), 8))
-    niche = (niche or "").strip() or "tự chọn ngách phù hợp, đang bán chạy"
+    nref = len(image_b64_list or [])
+    niche = (niche or "").strip() or "giữ chủ đề như mẫu gốc, hợp thị hiếu Việt Nam"
     content = [{
         "type": "text",
-        "text": ("Niche/chủ đề: %s.\nHãy tạo đúng %d concept. "
-                 "Chỉ trả JSON theo đúng schema đã yêu cầu." % (niche, n)),
+        "text": ("Niche/định hướng nội dung text mới: %s.\nCó %d ảnh mẫu (src_index 0..%d). "
+                 "Hãy tạo đúng %d concept GIỮ NGUYÊN STYLE, chỉ đổi text. "
+                 "Chỉ trả JSON theo schema." % (niche, nref, max(0, nref - 1), n)),
     }]
     for b64 in (image_b64_list or [])[:3]:
         content.append({"type": "image_url",
@@ -316,10 +324,16 @@ def auto_concepts(image_b64_list, niche, n=3):
         return []
     out = []
     for c in (data.get("concepts") or []):
-        p = (c.get("image_prompt") or "").strip()
-        if p:
-            out.append({"title": (c.get("title") or "Mẫu auto").strip()[:80],
-                        "image_prompt": p})
+        instr = (c.get("change_instruction") or "").strip()
+        if not instr:
+            continue
+        try:
+            si = int(c.get("src_index", 0))
+        except Exception:
+            si = 0
+        si = max(0, min(si, max(0, nref - 1)))
+        out.append({"title": (c.get("title") or "Mẫu auto").strip()[:80],
+                    "change_instruction": instr, "src_index": si})
     return out[:n]
 
 
@@ -1061,7 +1075,8 @@ class Handler(BaseHTTPRequestHandler):
                                "prompt": used_prompt})
 
     def handle_auto_gen(self, body):
-        """Chế độ AUTO: AI nhìn mẫu hot -> nghĩ n concept cá nhân hoá -> vẽ n mẫu."""
+        """Chế độ AUTO: AI nhìn mẫu -> GIỮ NGUYÊN STYLE, chỉ đổi text -> ra n mẫu.
+        Dùng luồng cloner (gen_design) để clone trung thực rồi áp chỉ thị đổi text."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         niche = body.get("niche", "")
@@ -1069,38 +1084,38 @@ class Handler(BaseHTTPRequestHandler):
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
 
-        # Tải ảnh mẫu (tuỳ chọn) -> base64 cho AI nhìn
+        # Tải ảnh mẫu -> giữ cả bytes (để clone) và base64 (để AI nhìn)
         sources = body.get("images") or []
         if isinstance(sources, str):
             sources = [s for s in sources.splitlines() if s.strip()]
-        ref_b64 = []
+        ref_imgs, ref_b64 = [], []
         for s in [x for x in sources if x and x.strip()][:3]:
-            d, _ = fetch_image_bytes(s)
+            d, m = fetch_image_bytes(s)
             if d:
+                ref_imgs.append((d, m))
                 ref_b64.append(base64.b64encode(d).decode())
+        if not ref_imgs:
+            return self.json(400, {"error": "Chế độ Auto cần ít nhất 1 ảnh mẫu để AI "
+                                   "giữ nguyên style. Hãy tải ảnh mẫu lên rồi chạy lại."})
 
-        # Bước 1: AI nghĩ concept
+        # Bước 1: AI đọc mẫu -> đề xuất chỉ thị đổi text (giữ style)
         try:
             concepts = auto_concepts(ref_b64, niche, n)
         except urllib.error.HTTPError as e:
             return self.json(502, {"error": openai_error_message(e)})
         except Exception as e:
-            return self.json(500, {"error": "AI nghĩ mẫu lỗi: %s" % e})
+            return self.json(500, {"error": "AI đọc mẫu lỗi: %s" % e})
         if not concepts:
-            return self.json(400, {"error": "AI chưa nghĩ được mẫu. Thử thêm ảnh mẫu "
-                                   "hoặc gõ rõ niche hơn rồi chạy lại."})
+            return self.json(400, {"error": "AI chưa đề xuất được. Thử ảnh mẫu rõ chữ hơn "
+                                   "hoặc gõ rõ niche rồi chạy lại."})
 
-        # Bước 2: vẽ từng concept (lỗi 1 mẫu thì bỏ qua, vẫn trả các mẫu còn lại)
+        # Bước 2: với mỗi concept -> clone mẫu gốc + áp chỉ thị đổi text (giữ style)
         items, errors = [], []
         for c in concepts:
             try:
-                b64 = openai_generate(c["image_prompt"], size)
-                if transparent and HAS_PIL:
-                    try:
-                        b64 = base64.b64encode(
-                            remove_flat_bg(base64.b64decode(b64))).decode()
-                    except Exception:
-                        pass
+                ref = [ref_imgs[c["src_index"]]]
+                b64, _ = gen_design(ref, "cloner", c["change_instruction"],
+                                    size, transparent)
                 g = gallery_add(b64, {"mode": "auto", "prompt": c["title"]})
                 items.append({"image": b64, "title": c["title"], "gallery": g})
             except urllib.error.HTTPError as e:

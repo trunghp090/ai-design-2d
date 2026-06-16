@@ -277,20 +277,20 @@
       <!-- Cột nhập -->
       <section class="panel">
         <h2 class="panel-title">🤖 Auto Research</h2>
-        <p class="panel-desc">AI nhìn mẫu bán chạy → tự nghĩ concept cá nhân hoá → vẽ lại nhiều bản mới.</p>
+        <p class="panel-desc">AI <b>giữ nguyên style mẫu gốc</b> (hình, font, màu, bố cục) — <b>chỉ đổi text</b> thành nội dung cá nhân hoá và chỉnh bố cục cho vừa.</p>
 
-        <label class="field-label">Ảnh mẫu hot (tuỳ chọn)</label>
+        <label class="field-label">Ảnh mẫu gốc <span style="color:var(--violet)">(bắt buộc)</span></label>
         <label class="dropzone" id="autoDrop">
           <input type="file" id="autoFileInput" accept="image/*" multiple hidden />
           <div class="dz-icon">⬆️</div>
           <div>Tải ảnh mẫu bán chạy (Shopee…) — tối đa 3 ảnh</div>
-          <div class="hint">Để trống cũng được: AI sẽ tự nghĩ mẫu theo niche.</div>
+          <div class="hint">AI sẽ giữ y nguyên style mẫu này, chỉ thay phần chữ.</div>
         </label>
         <div class="thumb-row" id="autoThumbs"></div>
 
-        <label class="field-label">Niche / chủ đề (tuỳ chọn)</label>
+        <label class="field-label">Định hướng text mới / niche (tuỳ chọn)</label>
         <input type="text" id="autoNiche" class="input"
-          placeholder="VD: áo couple, mèo cưng, Ngày của Mẹ, hội gym… Để trống → AI tự chọn ngách." />
+          placeholder="VD: đổi sang tên mèo, theo Ngày của Mẹ, cho hội gym… Để trống → AI tự đặt text hợp mẫu." />
 
         <div class="auto-row">
           <div>
