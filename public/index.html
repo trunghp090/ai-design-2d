@@ -50,6 +50,7 @@
         <option value="cloner">Cloner — AI clone design trên áo</option>
         <option value="redesign">Redesign — AI clone &amp; làm đẹp hơn</option>
         <option value="variation">Variation — AI tạo biến thể cùng chủ đề</option>
+        <option value="auto">🤖 Auto — AI nhìn mẫu hot → vẽ lại 3 bản cá nhân hoá</option>
         <option value="extract">🎯 Tách gốc (không AI) — giữ màu y hệt, dự phòng</option>
       </select>
       <p class="hint" id="modeHint">Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.</p>
@@ -132,6 +133,7 @@
     <section class="panel">
       <div class="result-tabs">
         <button class="rtab active" data-rtab="design">🎨 Design</button>
+        <button class="rtab" data-rtab="auto">🤖 Auto</button>
         <button class="rtab" data-rtab="mockup">👕 Mockup</button>
         <button class="rtab" data-rtab="gallery">🕘 Lịch sử</button>
       </div>
@@ -252,6 +254,16 @@
           <button class="btn-primary sm" id="exportMockup">⬇️ Xuất ảnh demo</button>
         </div>
         <p class="hint">Chọn <b>Mặt trước</b> / <b>Mặt sau</b> ở trên — mỗi mặt có ảnh áo &amp; design riêng. Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
+      </div>
+
+      <!-- AUTO (AI nhìn mẫu hot -> 3 bản cá nhân hoá) -->
+      <div class="rpane hidden" id="rpane-auto">
+        <div class="gallery-head">
+          <h3>🤖 Auto — AI vẽ lại từ mẫu hot</h3>
+        </div>
+        <p class="hint">Chọn chế độ <b>🤖 Auto</b> bên trái → tải ảnh mẫu bán chạy (vd Shopee) + gõ niche (tuỳ chọn) → bấm chạy. AI sẽ nghĩ 3 concept cá nhân hoá rồi vẽ lại. Bấm 1 mẫu để đưa sang Design + lên áo.</p>
+        <div class="auto-grid" id="autoGrid"></div>
+        <div class="gallery-empty" id="autoEmpty">Chưa có mẫu auto nào. Chọn chế độ 🤖 Auto rồi bấm chạy nhé!</div>
       </div>
 
       <!-- GALLERY -->

@@ -151,7 +151,22 @@ $("rebuildPrompt").onclick = () => { $("useCustomPrompt").checked = false; refre
 ["mode", "transparent"].forEach(id => $(id).addEventListener("change", () => { if (!$("useCustomPrompt").checked) refreshPromptPreview(); }));
 $("promptInput").addEventListener("input", () => { if (!$("useCustomPrompt").checked) refreshPromptPreview(); });
 
+/* Đổi giao diện theo chế độ (riêng Auto) */
+function syncModeUI() {
+  const auto = $("mode").value === "auto";
+  $("generateBtn").textContent = auto ? "🤖 Auto research → vẽ 3 bản" : "✨ Tạo design";
+  $("promptInput").placeholder = auto
+    ? "Niche / ghi chú (tuỳ chọn) — VD: áo couple, mèo cưng, Ngày của Mẹ… Để trống thì AI tự chọn ngách."
+    : "VD: đổi chữ thành 'BEST DAD EVER', đổi màu chủ đạo sang đỏ, thêm hoạ tiết hoa...";
+  $("modeHint").innerHTML = auto
+    ? "🤖 <b>Auto</b>: tải ảnh <b>mẫu hot</b> (Shopee…) — không bắt buộc — AI sẽ nhìn style rồi vẽ lại <b>3 bản cá nhân hoá mới</b> (thêm chỗ điền [TÊN]/[NĂM]). Kết quả ở tab 🤖 Auto."
+    : "Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.";
+}
+$("mode").addEventListener("change", syncModeUI);
+syncModeUI();
+
 $("generateBtn").onclick = async () => {
+  if ($("mode").value === "auto") return runAuto();
   const urls = $("urlInput").value.split("\n").map(s => s.trim()).filter(Boolean);
   const note = $("genNote"); note.className = "gen-note"; note.textContent = "";
   if (!uploaded.length && !urls.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy nhập URL hoặc tải lên ít nhất 1 ảnh áo."; return; }
@@ -190,6 +205,57 @@ $("generateBtn").onclick = async () => {
     $("spinner").classList.add("hidden"); btn.disabled = false;
   }
 };
+
+/* ---------- Chế độ AUTO: AI nhìn mẫu hot -> vẽ lại 3 bản ---------- */
+async function runAuto() {
+  const urls = $("urlInput").value.split("\n").map(s => s.trim()).filter(Boolean);
+  const note = $("genNote"); note.className = "gen-note"; note.textContent = "";
+  const images = [...uploaded, ...urls];
+  const btn = $("generateBtn"); btn.disabled = true;
+  document.querySelector('.rtab[data-rtab="auto"]').click();
+  $("autoEmpty").classList.add("hidden");
+  $("autoGrid").innerHTML = '<div class="gallery-empty">🤖 AI đang nhìn mẫu → nghĩ ý tưởng → vẽ 3 bản… (≈30–60 giây)</div>';
+  try {
+    const r = await fetch("/api/auto-gen", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images, niche: $("promptInput").value,
+        n: 3, size: $("size").value, transparent: $("transparent").checked,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
+    renderAuto(data.items || []);
+    note.className = "gen-note ok";
+    note.textContent = "✓ AI đã vẽ " + (data.items || []).length + " mẫu! Bấm 1 mẫu để đưa sang Design.";
+    loadGallery();
+  } catch (err) {
+    $("autoGrid").innerHTML = "";
+    $("autoEmpty").classList.remove("hidden");
+    $("autoEmpty").textContent = "✗ " + err.message;
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderAuto(items) {
+  const grid = $("autoGrid"); grid.innerHTML = "";
+  if (!items.length) { $("autoEmpty").classList.remove("hidden"); return; }
+  $("autoEmpty").classList.add("hidden");
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.title = "Bấm để đưa sang Design + lên áo";
+    card.innerHTML = '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Mẫu auto") + "</div>";
+    card.onclick = () => {
+      showDesign(it.image);
+      document.querySelector('.rtab[data-rtab="design"]').click();
+    };
+    grid.appendChild(card);
+  });
+}
 
 function showDesign(b64) {
   currentDesign = b64;
@@ -303,6 +369,7 @@ document.querySelectorAll(".rtab").forEach(t => t.onclick = () => {
   t.classList.add("active");
   const tab = t.dataset.rtab;
   $("rpane-design").classList.toggle("hidden", tab !== "design");
+  $("rpane-auto").classList.toggle("hidden", tab !== "auto");
   $("rpane-mockup").classList.toggle("hidden", tab !== "mockup");
   $("rpane-gallery").classList.toggle("hidden", tab !== "gallery");
   if (tab === "mockup") ensureMockupBg();

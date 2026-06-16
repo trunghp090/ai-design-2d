@@ -39,6 +39,7 @@ _auth_lock = threading.Lock()
 
 EDITS_URL = "https://api.openai.com/v1/images/edits"
 GEN_URL = "https://api.openai.com/v1/images/generations"
+CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 try:
     from PIL import Image, ImageFilter
@@ -85,6 +86,8 @@ def load_env():
 load_env()
 API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
+# Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
+TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 PORT = int(os.environ.get("PORT", "8000"))
 # Bật đăng nhập? (đặt AUTH_REQUIRED=0 trong .env để tắt — mặc định BẬT)
 AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "1").strip() not in ("0", "false", "no")
@@ -262,6 +265,81 @@ def openai_generate(prompt, size="1024x1024"):
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "application/json")
     return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
+
+
+def openai_chat(messages, json_mode=True, max_tokens=1500):
+    """Gọi AI text/vision (chat completions). Trả về nội dung text của câu trả lời."""
+    payload = {"model": TEXT_MODEL, "messages": messages, "max_tokens": max_tokens}
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    req = urllib.request.Request(CHAT_URL, data=json.dumps(payload).encode(),
+                                 method="POST")
+    req.add_header("Authorization", "Bearer " + API_KEY)
+    req.add_header("Content-Type", "application/json")
+    res = json.loads(_openai_call(req, timeout=120))
+    return res["choices"][0]["message"]["content"]
+
+
+AUTO_SYSTEM = (
+    "Bạn là chuyên gia thiết kế áo thun thương mại (print-on-demand) cho thị trường "
+    "Việt Nam. Nhiệm vụ: nhìn (các) MẪU BÁN CHẠY được đưa, phân tích style/bố cục/"
+    "typography/chủ đề/màu, rồi ĐỀ XUẤT các mẫu MỚI lấy CẢM HỨNG từ style đó nhưng "
+    "NGUYÊN BẢN — đổi câu chữ, đổi cách sắp xếp, KHÔNG sao chép nguyên văn (tránh vi "
+    "phạm bản quyền). Mỗi mẫu mới phải dễ CÁ NHÂN HOÁ: chèn placeholder rõ ràng như "
+    "[TÊN] hoặc [NĂM]/[NGÀY] vào chỗ hợp lý để sau này điền thông tin khách.\n"
+    "Trả về JSON đúng dạng: {\"concepts\":[{\"title\": \"tên ngắn tiếng Việt\", "
+    "\"image_prompt\": \"câu prompt TIẾNG ANH chi tiết cho AI tạo ảnh\"}]}.\n"
+    "Mỗi image_prompt phải: mô tả thiết kế flat vector/typographic, nền MÀU TRƠN ĐỒNG "
+    "NHẤT (solid plain background) để dễ tách nền, chữ rõ đúng chính tả, KHÔNG mockup áo, "
+    "KHÔNG người mẫu, chỉ riêng artwork. Giữ nguyên các placeholder [TÊN]/[NĂM] trong prompt."
+)
+
+
+def auto_concepts(image_b64_list, niche, n=3):
+    """AI nhìn mẫu hot -> nghĩ n concept cá nhân hoá mới. Trả list[{title, image_prompt}]."""
+    n = max(1, min(int(n or 3), 8))
+    niche = (niche or "").strip() or "tự chọn ngách phù hợp, đang bán chạy"
+    content = [{
+        "type": "text",
+        "text": ("Niche/chủ đề: %s.\nHãy tạo đúng %d concept. "
+                 "Chỉ trả JSON theo đúng schema đã yêu cầu." % (niche, n)),
+    }]
+    for b64 in (image_b64_list or [])[:3]:
+        content.append({"type": "image_url",
+                        "image_url": {"url": "data:image/png;base64," + b64}})
+    messages = [{"role": "system", "content": AUTO_SYSTEM},
+                {"role": "user", "content": content}]
+    raw = openai_chat(messages, json_mode=True)
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    out = []
+    for c in (data.get("concepts") or []):
+        p = (c.get("image_prompt") or "").strip()
+        if p:
+            out.append({"title": (c.get("title") or "Mẫu auto").strip()[:80],
+                        "image_prompt": p})
+    return out[:n]
+
+
+def openai_error_message(e):
+    """Đổi HTTPError của OpenAI -> câu báo lỗi tiếng Việt dễ hiểu."""
+    try:
+        detail = e.read().decode("utf-8", "ignore")
+    except Exception:
+        detail = str(e)
+    low = detail.lower()
+    if "moderation_blocked" in low or "safety system" in low:
+        return ("⚠️ OpenAI chặn nội dung này (bộ lọc an toàn — đôi khi chặn nhầm). "
+                "Thử: đổi ảnh mẫu khác · sửa/bớt chi tiết · hoặc bấm chạy lại 1–2 lần.")
+    if e.code in (500, 502, 503, 520):
+        return "OpenAI đang quá tải (lỗi %s). Bấm chạy lại sau giây lát." % e.code
+    if e.code == 401:
+        return "Key OpenAI sai hoặc hết số dư. Kiểm tra lại API key + tài khoản OpenAI."
+    if e.code == 429:
+        return "Gọi quá nhanh / hết hạn mức (429). Đợi chút rồi thử lại."
+    return "OpenAI %s: %s" % (e.code, detail[:300])
 
 
 # --------------------------------------------------------------------------- #
@@ -857,6 +935,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/generate":
             return self.handle_generate(body)
+        if path == "/api/auto-gen":
+            return self.handle_auto_gen(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -979,6 +1059,58 @@ class Handler(BaseHTTPRequestHandler):
         item = gallery_add(b64, {"mode": mode, "prompt": user_prompt})
         return self.json(200, {"image": b64, "mock": False, "gallery": item,
                                "prompt": used_prompt})
+
+    def handle_auto_gen(self, body):
+        """Chế độ AUTO: AI nhìn mẫu hot -> nghĩ n concept cá nhân hoá -> vẽ n mẫu."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        niche = body.get("niche", "")
+        n = max(1, min(int(body.get("n", 3) or 3), 8))
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        transparent = bool(body.get("transparent", True))
+
+        # Tải ảnh mẫu (tuỳ chọn) -> base64 cho AI nhìn
+        sources = body.get("images") or []
+        if isinstance(sources, str):
+            sources = [s for s in sources.splitlines() if s.strip()]
+        ref_b64 = []
+        for s in [x for x in sources if x and x.strip()][:3]:
+            d, _ = fetch_image_bytes(s)
+            if d:
+                ref_b64.append(base64.b64encode(d).decode())
+
+        # Bước 1: AI nghĩ concept
+        try:
+            concepts = auto_concepts(ref_b64, niche, n)
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": "AI nghĩ mẫu lỗi: %s" % e})
+        if not concepts:
+            return self.json(400, {"error": "AI chưa nghĩ được mẫu. Thử thêm ảnh mẫu "
+                                   "hoặc gõ rõ niche hơn rồi chạy lại."})
+
+        # Bước 2: vẽ từng concept (lỗi 1 mẫu thì bỏ qua, vẫn trả các mẫu còn lại)
+        items, errors = [], []
+        for c in concepts:
+            try:
+                b64 = openai_generate(c["image_prompt"], size)
+                if transparent and HAS_PIL:
+                    try:
+                        b64 = base64.b64encode(
+                            remove_flat_bg(base64.b64decode(b64))).decode()
+                    except Exception:
+                        pass
+                g = gallery_add(b64, {"mode": "auto", "prompt": c["title"]})
+                items.append({"image": b64, "title": c["title"], "gallery": g})
+            except urllib.error.HTTPError as e:
+                errors.append(openai_error_message(e))
+            except Exception as e:
+                errors.append(str(e))
+        if not items:
+            return self.json(502, {"error": "Vẽ mẫu lỗi: %s"
+                                   % (errors[0] if errors else "không rõ")})
+        return self.json(200, {"items": items, "errors": errors})
 
     def handle_upscale(self, body):
         img = body.get("image", "")

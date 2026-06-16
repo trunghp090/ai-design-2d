@@ -7,6 +7,7 @@ Mục tiêu: vào domain → trang đăng nhập → đăng ký admin → dùng 
   Gợi ý: Hetzner (rẻ ~€4/th, 4GB) · Vultr · DigitalOcean.
 - 1 **domain** (Namecheap/Porkbun/Tenten/Mắt Bão...).
 - File `.env` ở máy bạn đã có sẵn `OPENAI_API_KEY` (sẽ copy lên cùng code).
+  - (Tuỳ chọn) `OPENAI_TEXT_MODEL=gpt-4o-mini` — model AI "đọc ảnh + nghĩ ý tưởng" cho chế độ 🤖 Auto. Bỏ trống dùng mặc định `gpt-4o-mini` (rẻ, có vision); muốn concept "đỉnh" hơn đặt `gpt-4o`.
 
 ## 1) Trỏ domain về VPS
 DNS của domain → tạo bản ghi:
