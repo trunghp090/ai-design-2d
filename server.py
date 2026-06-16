@@ -693,11 +693,12 @@ def list_mockups():
     for f in files:
         out.append({"file": f, "url": "/mockups/%s" % f,
                     "name": labels.get(f) or derive_label(f),
-                    "mine": not f.startswith("tee_")})
+                    "mine": not f.startswith("tee_"),
+                    "side": "back" if f.startswith("back_") else "front"})
     return out
 
 
-def save_user_mockup(raw, name, color):
+def save_user_mockup(raw, name, color, side="front"):
     os.makedirs(MOCKUP_DIR, exist_ok=True)
     if HAS_PIL:  # chuẩn hoá về PNG (nhận cả JPG/WEBP)
         try:
@@ -710,12 +711,15 @@ def save_user_mockup(raw, name, color):
         label = name or ("Áo " + COLOR_VI.get(color, color))
     else:
         safe = re.sub(r"[^a-zA-Z0-9_-]", "_", (name or ""))[:30]
-        fname = "u%d_%s.png" % (int(time.time() * 1000), safe or "ao")
-        label = name or "Áo của tôi"
+        prefix = "back_" if side == "back" else "u"
+        fname = "%s%d_%s.png" % (prefix, int(time.time() * 1000), safe or "ao")
+        label = name or ("Áo sau" if side == "back" else "Áo trước")
     with open(os.path.join(MOCKUP_DIR, fname), "wb") as f:
         f.write(raw)
     idx = mockup_labels(); idx[fname] = label; save_mockup_labels(idx)
-    return {"file": fname, "url": "/mockups/%s" % fname, "name": label, "mine": not fname.startswith("tee_")}
+    return {"file": fname, "url": "/mockups/%s" % fname, "name": label,
+            "mine": not fname.startswith("tee_"),
+            "side": "back" if fname.startswith("back_") else "front"}
 
 
 # --------------------------------------------------------------------------- #
@@ -881,7 +885,8 @@ class Handler(BaseHTTPRequestHandler):
             img = img.split(",", 1)[1]
         try:
             raw = base64.b64decode(img)
-            item = save_user_mockup(raw, body.get("name", ""), body.get("color"))
+            item = save_user_mockup(raw, body.get("name", ""), body.get("color"),
+                                    body.get("side", "front"))
         except Exception as e:
             return self.json(500, {"error": "Lưu mockup lỗi: %s" % e})
         return self.json(200, item)

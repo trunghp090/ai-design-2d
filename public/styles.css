@@ -129,6 +129,9 @@ textarea.input{resize:vertical;line-height:1.5}
 
 /* mockup */
 .mockup-toolbar{margin-bottom:14px}
+.side-switch{display:flex;gap:8px;background:#f3f0fb;padding:5px;border-radius:12px;margin-bottom:12px}
+.side-btn{flex:1;border:0;background:transparent;padding:9px;border-radius:9px;font-weight:600;font-size:13.5px;color:var(--muted);cursor:pointer;font-family:inherit}
+.side-btn.active{background:#fff;color:var(--violet);box-shadow:0 2px 8px rgba(124,58,237,.12)}
 .mk-label{font-size:13px;font-weight:700}
 .mk-mine-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .mk-thumbs{display:flex;gap:8px;flex-wrap:wrap;min-height:8px}

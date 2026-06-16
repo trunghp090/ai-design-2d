@@ -332,7 +332,7 @@ function buildSwatches() {
 buildSwatches();
 
 function setMockupBg(url) {
-  mockupBgSrc = url; $("mockupBg").src = url;
+  mockupBgSrc = url; $("mockupBg").src = url; $("mockupBg").style.display = "";
   document.querySelectorAll(".mk-thumb").forEach(t => t.classList.toggle("active", t.dataset.url === url));
 }
 
@@ -340,24 +340,27 @@ async function loadMockups(selectFirst) {
   try {
     const r = await fetch("/api/mockups"); const data = await r.json();
     const items = data.items || [];
-    const wrap = $("mkThumbs"); wrap.innerHTML = "";
+    const front = $("mkThumbs"), back = $("mkThumbsBack");
+    front.innerHTML = ""; back.innerHTML = "";
     items.forEach(it => {
       const d = document.createElement("div");
       d.className = "mk-thumb"; d.dataset.url = it.url; d.title = it.name;
       d.innerHTML = `<img src="${it.url}" alt=""><button class="mkdel" title="xoá">×</button>`;
-      d.querySelector("img").onclick = () => setMockupBg(it.url);
+      d.querySelector("img").onclick = () => selectMockupForSide(it.url, it.side);
       d.querySelector(".mkdel").onclick = async (e) => {
         e.stopPropagation();
         await fetch("/api/mockups?file=" + encodeURIComponent(it.file), { method: "DELETE" });
         loadMockups();
       };
-      wrap.appendChild(d);
+      (it.side === "back" ? back : front).appendChild(d);
     });
-    $("mkHint").textContent = items.length
-      ? "Bấm vào áo để chọn. Hover để xoá."
-      : "Chưa có áo nào — bấm “➕ Tải áo lên” để thêm ảnh áo thật của bạn.";
+    $("mkHint").textContent = front.children.length ? "Bấm vào áo để chọn. Hover để xoá." : "Chưa có — bấm “➕ Tải mặt trước”.";
+    $("mkHintBack").textContent = back.children.length ? "Bấm vào áo để chọn. Hover để xoá." : "Chưa có — bấm “➕ Tải mặt sau”.";
     mockupsLoaded = true;
-    if (selectFirst && items.length && !mockupBgSrc) setMockupBg(items[0].url);
+    if (selectFirst && items.length && !mockupBgSrc) {
+      const f = items.find(i => i.side !== "back") || items[0];
+      setMockupBg(f.url);
+    }
     return items;
   } catch (e) { return []; }
 }
@@ -381,9 +384,9 @@ async function ensureMockupBg() {
   if (!mockupsLoaded) await loadMockups(true);
 }
 
-/* tải áo của bạn lên (lưu server) */
-$("mockupFile").onchange = async (e) => {
-  const files = [...e.target.files]; if (!files.length) return;
+/* tải áo của bạn lên (lưu server) — side: front/back */
+async function uploadMockups(files, side) {
+  if (!files.length) return;
   $("mockupLoading").classList.remove("hidden");
   let last = null;
   for (const f of files) {
@@ -392,17 +395,18 @@ $("mockupFile").onchange = async (e) => {
     try {
       const r = await fetch("/api/upload-mockup", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataURL, name }),
+        body: JSON.stringify({ image: dataURL, name, side }),
       });
       const data = await r.json();
       if (r.ok) last = data.url;
     } catch (err) { /* bỏ qua ảnh lỗi */ }
   }
   await loadMockups();
-  if (last) setMockupBg(last);
+  if (last) selectMockupForSide(last, side);
   $("mockupLoading").classList.add("hidden");
-  e.target.value = "";
-};
+}
+$("mockupFile").onchange = async (e) => { await uploadMockups([...e.target.files], "front"); e.target.value = ""; };
+$("mockupFileBack").onchange = async (e) => { await uploadMockups([...e.target.files], "back"); e.target.value = ""; };
 
 /* ---------- mockup: kéo thả / resize / slider ---------- */
 const layer = $("designLayer"), stage = $("mockupStage");
@@ -457,6 +461,54 @@ $("designUpload").onchange = (e) => {
 $("scaleSlider").oninput = (e) => { state.wPct = +e.target.value; applyState(); };
 $("rotateSlider").oninput = (e) => { state.rot = +e.target.value; applyState(); };
 $("resetMockup").onclick = () => { state = { xPct: 50, yPct: 42, wPct: 38, rot: 0 }; applyState(); };
+
+/* ---------- mockup: mặt trước / mặt sau ---------- */
+const sides = {
+  front: { bg: "", design: "", active: false, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
+  back: { bg: "", design: "", active: false, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
+};
+let currentSide = "front";
+
+function snapshotSide() {
+  const s = sides[currentSide];
+  s.bg = $("mockupBg").getAttribute("src") || "";
+  s.design = $("designOnShirt").getAttribute("src") || "";
+  s.active = layer.classList.contains("active");
+  s.state = { ...state };
+}
+function restoreSide() {
+  const s = sides[currentSide];
+  if (s.bg) { $("mockupBg").src = s.bg; $("mockupBg").style.display = ""; mockupBgSrc = s.bg; }
+  else { $("mockupBg").removeAttribute("src"); $("mockupBg").style.display = "none"; mockupBgSrc = null; }
+  if (s.design) $("designOnShirt").src = s.design;
+  else $("designOnShirt").removeAttribute("src");
+  const hasDesign = s.active && !!s.design;
+  layer.classList.toggle("active", hasDesign);
+  $("mockupEmpty").classList.toggle("hidden", hasDesign);
+  state = { ...s.state };
+  applyState();
+  document.querySelectorAll(".mk-thumb").forEach(t => t.classList.toggle("active", t.dataset.url === mockupBgSrc));
+}
+document.querySelectorAll(".side-btn").forEach(b => b.onclick = () => {
+  const side = b.dataset.side;
+  if (side === currentSide) return;
+  snapshotSide();
+  currentSide = side;
+  document.querySelectorAll(".side-btn").forEach(x => x.classList.toggle("active", x === b));
+  restoreSide();
+});
+
+/* chọn 1 áo từ thư viện: tự chuyển sang đúng mặt (trước/sau) rồi đặt làm nền */
+function selectMockupForSide(url, side) {
+  side = side || "front";
+  if (side !== currentSide) {
+    snapshotSide();
+    currentSide = side;
+    document.querySelectorAll(".side-btn").forEach(x => x.classList.toggle("active", x.dataset.side === side));
+    restoreSide();
+  }
+  setMockupBg(url);
+}
 
 /* ---------- xuất ảnh demo ---------- */
 $("exportMockup").onclick = async () => {

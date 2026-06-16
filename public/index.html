@@ -189,20 +189,36 @@
         <div class="mockup-toolbar">
           <div class="mk-mine">
             <div class="mk-mine-head">
-              <span class="mk-label">👕 Áo mockup của bạn</span>
+              <span class="mk-label">👕 Mockup mặt trước áo</span>
               <label class="mk-upload">
                 <input type="file" id="mockupFile" accept="image/*" multiple hidden />
-                ➕ Tải áo lên
+                ➕ Tải mặt trước
               </label>
             </div>
             <div class="mk-thumbs" id="mkThumbs"></div>
-            <p class="hint" id="mkHint">Tải ảnh áo thật của bạn (mỗi màu một ảnh) — lưu lại để dùng mãi. Bấm vào áo để chọn.</p>
+            <p class="hint" id="mkHint">Tải ảnh áo mặt trước — bấm vào áo để chọn.</p>
+          </div>
+          <div class="mk-mine" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+            <div class="mk-mine-head">
+              <span class="mk-label">🔄 Mockup mặt sau áo</span>
+              <label class="mk-upload">
+                <input type="file" id="mockupFileBack" accept="image/*" multiple hidden />
+                ➕ Tải mặt sau
+              </label>
+            </div>
+            <div class="mk-thumbs" id="mkThumbsBack"></div>
+            <p class="hint" id="mkHintBack">Tải ảnh áo mặt sau — bấm vào áo để chọn.</p>
           </div>
           <details class="mk-ai">
             <summary>✨ Hoặc tạo áo bằng AI (nếu chưa có ảnh)</summary>
             <div class="color-row" id="colorRow"></div>
             <p class="hint">Bấm 1 màu → AI tạo áo thật (~30s, tốn 1 credit lần đầu, sau đó lưu lại).</p>
           </details>
+        </div>
+
+        <div class="side-switch" id="sideSwitch">
+          <button class="side-btn active" data-side="front">👕 Mặt trước</button>
+          <button class="side-btn" data-side="back">🔄 Mặt sau</button>
         </div>
 
         <div class="mockup-stage" id="mockupStage">
@@ -235,7 +251,7 @@
           <button class="btn-ghost" id="resetMockup">↺ Căn giữa</button>
           <button class="btn-primary sm" id="exportMockup">⬇️ Xuất ảnh demo</button>
         </div>
-        <p class="hint">Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
+        <p class="hint">Chọn <b>Mặt trước</b> / <b>Mặt sau</b> ở trên — mỗi mặt có ảnh áo &amp; design riêng. Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
       </div>
 
       <!-- GALLERY -->
