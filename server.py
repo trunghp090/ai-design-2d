@@ -25,6 +25,10 @@ import threading
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
+import xml.etree.ElementTree as ET
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -407,6 +411,154 @@ def openai_error_message(e):
     if e.code == 429:
         return "Gọi quá nhanh / hết hạn mức (429). Đợi chút rồi thử lại."
     return "OpenAI %s: %s" % (e.code, detail[:300])
+
+
+# --------------------------------------------------------------------------- #
+#  Đọc Excel (.xlsx) có ẢNH NHÚNG — bằng stdlib (zip + xml)
+# --------------------------------------------------------------------------- #
+_NS_M = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_NS_XDR = "{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}"
+_NS_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+_NS_R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_NS_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+
+
+def _xlsx_ref_rowcol(ref):
+    m = re.match(r"([A-Z]+)(\d+)", ref or "")
+    if not m:
+        return None
+    col = 0
+    for ch in m.group(1):
+        col = col * 26 + (ord(ch) - 64)
+    return int(m.group(2)) - 1, col - 1
+
+
+def parse_xlsx_with_images(raw):
+    """Trả (headers, rows). rows = [{row, cells:{header:val}, image:bytes|None}].
+    Đọc text ô + ảnh nhúng (Insert > Picture) gắn theo dòng."""
+    z = zipfile.ZipFile(io.BytesIO(raw))
+    names = set(z.namelist())
+    shared = []
+    if "xl/sharedStrings.xml" in names:
+        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall(_NS_M + "si"):
+            shared.append("".join((t.text or "") for t in si.iter(_NS_M + "t")))
+    sheets = sorted(n for n in names if re.match(r"xl/worksheets/sheet\d+\.xml$", n))
+    if not sheets:
+        return [], []
+    sheet = sheets[0]
+    cells = {}
+    for c in ET.fromstring(z.read(sheet)).iter(_NS_M + "c"):
+        rc = _xlsx_ref_rowcol(c.get("r"))
+        if not rc:
+            continue
+        v = c.find(_NS_M + "v")
+        if v is None or v.text is None:
+            # ô dạng inlineStr
+            t = c.find(_NS_M + "is")
+            txt = "".join((e.text or "") for e in t.iter(_NS_M + "t")) if t is not None else ""
+            if not txt:
+                continue
+            cells[rc] = txt
+            continue
+        cells[rc] = shared[int(v.text)] if c.get("t") == "s" else v.text
+    # ảnh theo dòng (qua drawing)
+    images = {}
+    sheet_rels = sheet.replace("worksheets/", "worksheets/_rels/") + ".rels"
+    drawing = None
+    if sheet_rels in names:
+        for rel in ET.fromstring(z.read(sheet_rels)).findall(_NS_REL + "Relationship"):
+            if rel.get("Type", "").endswith("/drawing"):
+                drawing = "xl/" + rel.get("Target").replace("../", "")
+    if drawing and drawing in names:
+        drel = drawing.replace("drawings/", "drawings/_rels/") + ".rels"
+        relmap = {}
+        if drel in names:
+            for rel in ET.fromstring(z.read(drel)).findall(_NS_REL + "Relationship"):
+                relmap[rel.get("Id")] = "xl/" + rel.get("Target").replace("../", "")
+        for anc in ET.fromstring(z.read(drawing)):
+            frm = anc.find(_NS_XDR + "from")
+            blip = anc.find(".//" + _NS_A + "blip")
+            if frm is None or blip is None:
+                continue
+            try:
+                rowidx = int(frm.find(_NS_XDR + "row").text)
+            except Exception:
+                continue
+            media = relmap.get(blip.get(_NS_R + "embed"))
+            if media and media in names and rowidx not in images:
+                images[rowidx] = z.read(media)
+    maxcol = max((c for (r, c) in cells), default=-1)
+    headers = [(cells.get((0, c), "") or "").strip() for c in range(maxcol + 1)]
+    rows = []
+    allrows = set(r for (r, c) in cells) | set(images.keys())
+    for r in sorted(x for x in allrows if x >= 1):
+        rec = {"row": r, "image": images.get(r),
+               "cells": {(headers[c] if c < len(headers) and headers[c] else "col%d" % c):
+                         cells.get((r, c), "") for c in range(maxcol + 1)}}
+        rows.append(rec)
+    return headers, rows
+
+
+# --------------------------------------------------------------------------- #
+#  Job chạy nền nhiều luồng (gen hàng loạt từ Excel)
+# --------------------------------------------------------------------------- #
+BATCH_JOBS = {}
+_batch_lock = threading.Lock()
+_batch_seq = [0]
+
+
+def _batch_row_label(cells):
+    """Gộp các ô text thành chuỗi 'Tên: ... ; Ngày: ...' cho AI + nhãn ngắn."""
+    parts = []
+    for k, v in cells.items():
+        v = (str(v) if v is not None else "").strip()
+        if v and not k.startswith("col"):
+            parts.append("%s: %s" % (k, v))
+    return "; ".join(parts)
+
+
+def run_batch_job(job_id, rows, size, transparent):
+    """Mỗi dòng (có ảnh) -> AI giữ style + điền tên/ngày -> lưu gallery. Chạy song song."""
+    def work(rec):
+        cells = rec.get("cells") or {}
+        img = rec.get("image")
+        name = ""
+        for k, v in cells.items():
+            if "tên" in k.lower() or "name" in k.lower():
+                name = (str(v) or "").strip()
+                break
+        label = name or _batch_row_label(cells)[:60] or ("Dòng %d" % rec["row"])
+        if not img:
+            return {"row": rec["row"], "error": "Dòng không có ảnh mẫu", "title": label}
+        try:
+            b64ref = base64.b64encode(img).decode()
+            niche = _batch_row_label(cells) or "tự đặt nội dung hợp mẫu"
+            concepts = auto_concepts([b64ref], niche, 1)
+            if not concepts:
+                return {"row": rec["row"], "error": "AI không đề xuất được", "title": label}
+            b64, _ = gen_design([(img, "image/png")], "cloner",
+                                concepts[0]["change_instruction"], size, transparent)
+            g = gallery_add(b64, {"mode": "batch", "prompt": label})
+            return {"row": rec["row"], "image": b64, "title": label, "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"row": rec["row"], "error": openai_error_message(e), "title": label}
+        except Exception as e:
+            return {"row": rec["row"], "error": str(e), "title": label}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, rows):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
 
 
 # --------------------------------------------------------------------------- #
@@ -925,6 +1077,16 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
             return self.json(200, {"items": list_mockups()})
+        if path == "/api/batch-status":
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            jid = (qs.get("id") or [""])[0]
+            with _batch_lock:
+                job = BATCH_JOBS.get(jid)
+                if not job:
+                    return self.json(404, {"error": "Không thấy job"})
+                return self.json(200, {"total": job["total"], "done": job["done"],
+                                       "finished": job["finished"], "items": job["items"],
+                                       "errors": job["errors"]})
 
         # static: gallery, mockups, public
         if path.startswith("/gallery/"):
@@ -1008,6 +1170,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_recolor(body)
         if path == "/api/save-design":
             return self.handle_save_design(body)
+        if path == "/api/batch-excel":
+            return self.handle_batch_excel(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1220,6 +1384,36 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_batch_excel(self, body):
+        """Nhận file .xlsx (base64) có ảnh nhúng + cột Tên/Ngày -> gen hàng loạt nhiều luồng."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        f = body.get("file", "")
+        if f.startswith("data:"):
+            f = f.split(",", 1)[1]
+        if not f:
+            return self.json(400, {"error": "Chưa có file Excel."})
+        try:
+            raw = base64.b64decode(f)
+            headers, rows = parse_xlsx_with_images(raw)
+        except Exception as e:
+            return self.json(400, {"error": "Đọc Excel lỗi: %s" % e})
+        rows = [r for r in rows if r.get("image")]
+        if not rows:
+            return self.json(400, {"error": "Không thấy ảnh mẫu nhúng trong Excel. Hãy "
+                                   "chèn ảnh bằng Insert > Picture vào từng dòng (mỗi dòng 1 ảnh)."})
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        transparent = bool(body.get("transparent", True))
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "b%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(rows), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_batch_job,
+                             args=(job_id, rows, size, transparent), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(rows), "headers": headers})
 
     def handle_save_design(self, body):
         """Lưu 1 ảnh (đã xử lý phía client, vd ghép nền) vào Lịch sử."""

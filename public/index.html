@@ -45,6 +45,7 @@
     <button class="app-tab" data-app="recolor">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao">👕 Lên áo</button>
     <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
+    <button class="app-tab" data-app="batch">📊 Excel hàng loạt</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -500,6 +501,61 @@
       <div class="lenao-grid" id="lenaoSlots"></div>
       <div class="gallery-empty" id="lenaoEmpty">Đang tải áo mockup…</div>
     </section>
+  </section>
+
+  <!-- ===== VIEW: EXCEL HÀNG LOẠT (đọc ảnh nhúng + Tên/Ngày -> gen nhiều luồng) ===== -->
+  <section class="auto-view app-view hidden" id="view-batch">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">📊 Excel hàng loạt</h2>
+        <p class="panel-desc">Tải 1 file Excel gồm nhiều dòng (mỗi dòng: <b>ảnh mẫu nhúng</b> + cột <b>Tên</b>, <b>Ngày</b>…). AI gen tất cả <b>nhiều luồng song song</b>, lưu vào Lịch sử.</p>
+
+        <label class="field-label">File Excel (.xlsx)</label>
+        <label class="dropzone" id="batchDrop">
+          <input type="file" id="batchFile" accept=".xlsx" hidden />
+          <div class="dz-icon">📊</div>
+          <div id="batchFileName">Bấm để chọn file .xlsx</div>
+          <div class="hint">Mỗi dòng chèn 1 ảnh (Insert &gt; Picture) + cột Tên/Ngày.</div>
+        </label>
+
+        <div class="auto-row">
+          <div>
+            <label class="field-label">Tỉ lệ</label>
+            <select id="batchSize" class="input">
+              <option value="portrait">Dọc (in áo)</option>
+              <option value="square">Vuông</option>
+              <option value="landscape">Ngang</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Nền</label>
+            <select id="batchTransparent" class="input">
+              <option value="1">Trong suốt (PNG)</option>
+              <option value="0">Giữ nền</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="batchRunBtn" style="margin-top:12px">📊 Gen tất cả</button>
+        <div class="batch-progress hidden" id="batchProgress">
+          <div class="bp-bar"><div class="bp-fill" id="batchBar"></div></div>
+          <span id="batchProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="batchNote"></p>
+        <div id="batchErrors" class="batch-errors"></div>
+      </section>
+
+      <!-- Cột kết quả -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Kết quả</h3>
+          <button class="btn-ghost sm" id="batchDownloadAll">⬇ Tải tất cả (0)</button>
+        </div>
+        <div class="auto-grid" id="batchResults"></div>
+        <div class="gallery-empty" id="batchEmpty">Tải file Excel rồi bấm Gen tất cả.</div>
+      </section>
+    </div>
   </section>
 
   <footer class="site-footer">

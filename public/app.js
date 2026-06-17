@@ -577,6 +577,7 @@ function showApp(app) {
   document.getElementById("view-recolor").classList.toggle("hidden", app !== "recolor");
   document.getElementById("view-addbg").classList.toggle("hidden", app !== "addbg");
   document.getElementById("view-lenao").classList.toggle("hidden", app !== "lenao");
+  document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   if (app === "lenao") lenaoInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
@@ -1305,4 +1306,98 @@ $("lenaoDownloadSel").onclick = async () => {
     autoDownload(durl.split(",")[1], s.name + "_design");
     await new Promise(r => setTimeout(r, 350));
   }
+};
+
+/* =====================================================================
+   TÍNH NĂNG: EXCEL HÀNG LOẠT (ảnh nhúng + Tên/Ngày -> gen nhiều luồng)
+   ===================================================================== */
+let batchFileB64 = null;
+let batchPollTimer = null;
+
+$("batchFile").onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  $("batchFileName").textContent = "📄 " + f.name;
+  const r = new FileReader();
+  r.onload = () => { batchFileB64 = r.result.split(",")[1]; };
+  r.readAsDataURL(f);
+};
+
+function batchRenderResults(items) {
+  const grid = $("batchResults");
+  if (!items.length) { $("batchEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("batchEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Mẫu") + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+    card._cur = it.image; card._name = it.title || "mau";
+    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "mau");
+    grid.appendChild(card);
+  });
+  $("batchDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
+}
+
+async function batchPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("batchBar").style.width = pct + "%";
+    $("batchProgText").textContent = "Đã xong " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length + " mẫu" + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length + " lỗi" : "");
+    batchRenderResults(d.items || []);
+    $("batchErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
+    if (d.finished) {
+      clearInterval(batchPollTimer); batchPollTimer = null;
+      $("batchRunBtn").disabled = false;
+      $("batchNote").className = "gen-note ok";
+      $("batchNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " mẫu (đã lưu Lịch sử).";
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } catch (e) { /* tiếp tục poll */ }
+}
+
+$("batchRunBtn").onclick = async () => {
+  const note = $("batchNote"); note.className = "gen-note"; note.textContent = "";
+  if (!batchFileB64) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy chọn file Excel (.xlsx) trước."; return; }
+  const btn = $("batchRunBtn"); btn.disabled = true;
+  $("batchErrors").innerHTML = "";
+  $("batchProgress").classList.remove("hidden");
+  $("batchBar").style.width = "0%"; $("batchProgText").textContent = "Đang đọc Excel…";
+  try {
+    const r = await fetch("/api/batch-excel", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: batchFileB64, size: $("batchSize").value, transparent: $("batchTransparent").value === "1" }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("batchProgText").textContent = "Bắt đầu gen " + d.total + " mẫu (nhiều luồng)…";
+    if (batchPollTimer) clearInterval(batchPollTimer);
+    batchPollTimer = setInterval(() => batchPoll(d.job_id), 2000);
+    batchPoll(d.job_id);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    btn.disabled = false;
+    $("batchProgress").classList.add("hidden");
+  }
+};
+(() => {
+  const dz = $("batchDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault(); dz.classList.remove("drag");
+    const f = e.dataTransfer.files[0]; if (!f) return;
+    $("batchFileName").textContent = "📄 " + f.name;
+    const r = new FileReader(); r.onload = () => { batchFileB64 = r.result.split(",")[1]; }; r.readAsDataURL(f);
+  });
+})();
+$("batchDownloadAll").onclick = async () => {
+  const cards = [...$("batchResults").querySelectorAll(".gcard")];
+  if (!cards.length) return;
+  for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
 };
