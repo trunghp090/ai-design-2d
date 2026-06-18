@@ -843,6 +843,12 @@ DESIGN_STYLES = {
     "comic_pop": ("Comic / Pop-art", "comic pop-art t-shirt graphic, ben-day halftone dots, speech bubble, bold panel, retro comic"),
     "acid_trippy": ("Acid / Psychedelic", "psychedelic acid trippy streetwear t-shirt graphic, melting warped type, swirling shapes, bright contrasting colors"),
     "military": ("Military / Utility", "military utility techwear t-shirt graphic, stencil army font, tactical patches, olive and black"),
+    "anime_nostalgia": ("Anime hoài niệm (TeeLab)",
+        "nostalgic 90s anime illustration t-shirt (TeeLab core-collection style): a soft wholesome "
+        "childhood scene (a kid playing a retro CRT TV game console, sitting on a cloud, Studio "
+        "Ghibli / 90s anime vibe), gentle muted pastel colors, clean thin outlines; above it a small "
+        "neat centered title with a Japanese KATAKANA subtitle line and a tiny English tagline; "
+        "calm, dreamy, nostalgic mood"),
     "cute_mascot": ("Cute mascot (SANCOOL)",
         "cute wholesome animal-mascot t-shirt graphic (SANCOOL style): ONE adorable chibi cartoon "
         "animal (crocodile, dino, bear, cat, duck...) with soft rounded shapes, a tiny speech "

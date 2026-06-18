@@ -1585,6 +1585,7 @@ const DS_STYLES = [
   { key: "comic_pop", label: "💥 Comic / Pop-art", hint: "Halftone chấm bi, bong bóng thoại" },
   { key: "acid_trippy", label: "🌀 Acid / Psychedelic", hint: "Chữ chảy méo, xoáy, màu chói" },
   { key: "military", label: "🎖️ Military / Utility", hint: "Stencil quân đội, patch, olive/đen" },
+  { key: "anime_nostalgia", label: "🎮 Anime hoài niệm (TeeLab) 🔥", hint: "Cảnh tuổi thơ anime 90s + chữ Nhật + tagline, pastel" },
   { key: "cute_mascot", label: "🐊 Cute mascot (SANCOOL) 🔥", hint: "Thú cute + bong bóng thoại + tên + brand ©, pastel" },
   { key: "mascot", label: "👨‍🚀 Mascot minh hoạ (TeeLab) 🔥", hint: "Nhân vật hoạt hình + chữ brand to nền + © năm" },
   { key: "gothic", label: "🖤 Gothic streetwear" },
