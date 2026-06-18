@@ -1555,18 +1555,29 @@ document.querySelectorAll(".cb-copy").forEach(b => b.onclick = () => {
    TÍNH NĂNG: TẠO DESIGN (text-to-image theo phong cách)
    ===================================================================== */
 const DS_STYLES = [
+  { key: "vintage_americana", label: "🏞️ Vintage Americana 🔥", hint: "Hot Shopee · couple/quà · điền tên+năm+địa danh" },
+  { key: "varsity", label: "🎓 Varsity College", hint: "Áo lớp/CLB · tên trường+số+năm" },
+  { key: "minimal_clean", label: "⚪ Minimal Clean", hint: "Tối giản Hàn/Nhật · tên/slogan ngực trái" },
+  { key: "korean_minimal", label: "🌷 Korean Minimal", hint: "Nữ GenZ, couple · biệt danh dễ thương" },
+  { key: "motivational", label: "💪 Motivational Bold", hint: "Slogan to bản lưng · nam streetwear" },
+  { key: "street_racing", label: "🏎️ Street Racing", hint: "Nam mê xe · biển số/năm/garage" },
+  { key: "vintage_washed", label: "🧵 Vintage Washed", hint: "Hiệu ứng cũ bạc màu, chất vintage" },
+  { key: "y2k_graffiti", label: "🫧 Y2K Graffiti", hint: "Bong bóng/graffiti · teen cá tính, rap" },
+  { key: "badge_patch", label: "🏷️ Retro Badge", hint: "Cụm tem/icon vintage · sưu tầm" },
+  { key: "couple_love", label: "💞 Couple tình yêu 🔥", hint: "Tên 2 người + ngày + Since năm" },
+  { key: "city_souvenir", label: "📍 City Souvenir VN", hint: "Đà Lạt/Sài Gòn... + năm + toạ độ" },
+  { key: "statement_bold", label: "🅰️ Statement Bold", hint: "Câu tuyên ngôn to (tránh nhạy cảm)" },
+  { key: "funny_vn", label: "😆 Funny Quote VN 🔥", hint: "Câu cà khịa tiếng Việt · viral, quà vui" },
+  { key: "floral_quote", label: "🌼 Floral + Quote", hint: "Nữ GenZ · hoa + câu nhẹ" },
+  { key: "luxury_minimal", label: "🖤 Luxury Minimal", hint: "Quiet luxury · chữ nhỏ lưng" },
+  { key: "social_club", label: "🎟️ Social Club", hint: "Tên hội/nhóm/lớp + năm" },
+  { key: "sport_statement", label: "🏀 Sport Statement", hint: "Thể thao · tên/số đội (World Cup 2026)" },
+  { key: "liquid_chrome", label: "🪙 Liquid Chrome 3D", hint: "Chữ chrome 3D · teen cá tính" },
+  { key: "scribble", label: "✍️ Scribble Sketch", hint: "Chữ viết tay nguệch ngoạc · nghệ" },
   { key: "gothic", label: "🖤 Gothic streetwear" },
-  { key: "celestial", label: "🌌 Vũ trụ" },
-  { key: "angel", label: "👼 Thiên thần baroque" },
   { key: "skull", label: "💀 Skull dark" },
-  { key: "vintage", label: "📻 Vintage Americana" },
-  { key: "kawaii", label: "🧸 Cute / kawaii" },
-  { key: "typography", label: "🔤 Typography slogan" },
-  { key: "anime", label: "🌸 Anime / manga" },
-  { key: "y2k", label: "🦋 Y2K" },
-  { key: "floral", label: "🌿 Floral line art" },
 ];
-let dsStyle = "gothic";
+let dsStyle = "vintage_americana";
 let dsPollTimer = null;
 let dsInited = false;
 
@@ -1579,10 +1590,13 @@ function dsRenderStyles() {
   DS_STYLES.forEach(s => {
     const el = document.createElement("div");
     el.className = "cchip" + (dsStyle === s.key ? " on" : "");
+    if (s.hint) el.title = s.hint;
     el.innerHTML = s.label + ' <span class="tick">✓</span>';
     el.onclick = () => { dsStyle = s.key; dsRenderStyles(); };
     box.appendChild(el);
   });
+  const cur = DS_STYLES.find(s => s.key === dsStyle);
+  if ($("dsStyleHint")) $("dsStyleHint").textContent = cur && cur.hint ? "💡 " + cur.hint : "";
 }
 function dsRender(items) {
   const grid = $("dsResults");

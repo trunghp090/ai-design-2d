@@ -807,30 +807,83 @@ def product_content(img_bytes, info):
 # --------------------------------------------------------------------------- #
 #  Tạo design từ đầu (text-to-image) theo PHONG CÁCH có sẵn
 # --------------------------------------------------------------------------- #
+# 19 phong cách typography hợp thị hiếu VN (từ file Pinterest+Shopee) + vài style graphic.
 DESIGN_STYLES = {
-    "gothic": ("Gothic streetwear", "dark gothic streetwear, distressed faded print texture, "
-               "blackletter/old-english typography, religious & celestial imagery (weeping angels, "
-               "crosses, skulls, baroque statues), high-contrast grayscale with subtle accents, "
-               "gritty halftone shading, Y2K aesthetic"),
-    "celestial": ("Vũ trụ / celestial", "celestial space aesthetic, astronauts, planets, moons, "
-                  "stars and constellations, retro faded print, muted palette with soft orange and "
-                  "teal accents, dreamy nostalgic vibe"),
-    "angel": ("Thiên thần baroque", "baroque marble cherub and angel statues, weeping angels, soft "
-              "romantic gothic mood, distressed monochrome engraving style with heavy grain"),
-    "skull": ("Skull dark", "dark romantic skulls entwined with death's-head moths and wilting "
-              "roses, vintage engraving/etching style, memento mori, halftone shading, high contrast"),
-    "vintage": ("Vintage Americana", "vintage retro Americana graphic, sun-faded distressed print, "
-                "70s-90s illustration, collegiate/varsity or retro mascot style, warm faded palette"),
-    "kawaii": ("Cute / kawaii", "cute kawaii cartoon, soft pastel colors, chibi characters and "
-               "playful doodles, clean rounded lines, wholesome cheerful vibe"),
-    "typography": ("Typography slogan", "bold typographic design driven by a strong slogan, clean "
-                   "modern type composition, minimal graphic accents, high readability"),
-    "anime": ("Anime / manga", "anime manga style illustration, dynamic character, screentone "
-              "shading, bold confident linework, expressive"),
-    "y2k": ("Y2K", "Y2K early-2000s aesthetic, butterflies, hearts, chrome and glossy elements, "
-            "pink and silver palette, nostalgic playful"),
-    "floral": ("Floral line art", "delicate floral botanical line-art, elegant fine details, "
-               "minimal, single or two-tone, tattoo-flash feel"),
+    "vintage_americana": ("Vintage Americana / Collegiate",
+        "vintage Americana collegiate ringer-tee graphic — a scenic landscape illustration with "
+        "large flowing script plus classic serif lettering and an 'Est. <year>', text layered and "
+        "stacked vertically, washed cream / navy / maroon / earth-brown palette, retro 70s feel"),
+    "varsity": ("Varsity / College Athletic",
+        "varsity college athletic graphic — bold outlined slab/serif varsity letters arched over a "
+        "large central number, 'Athletic Dept' and a year, white / grey / navy / mustard palette, "
+        "American collegiate sport look"),
+    "minimal_clean": ("Minimal Clean Typography",
+        "minimal clean typography — delicate thin sans-serif with wide letter spacing, a small "
+        "left-chest mark and one short centered line, white / cream / black / grey palette, "
+        "Korean/Japanese minimal aesthetic, elegant"),
+    "korean_minimal": ("Korean Minimal Lettering",
+        "Korean minimal lettering — soft light sans-serif, lots of white space, a short English word "
+        "with a tiny cute icon, gentle aesthetic, pastel / cream / beige palette"),
+    "motivational": ("Motivational / Quote Bold",
+        "motivational bold quote — one inspiring word or short phrase printed very large in bold sans "
+        "or serif, full composition, black / cream / red palette, streetwear energy"),
+    "street_racing": ("Street Racing / Automotive",
+        "street racing automotive vintage — a classic or race car illustration centered with retro "
+        "serif/script lettering, a racing number and a year, black / cream / red / olive palette, "
+        "vintage motorsport poster feel"),
+    "vintage_washed": ("Vintage Washed / Distressed",
+        "vintage washed distressed print — faded sun-bleached graphic with cracked ink and grunge "
+        "texture over serif/script lettering, aged worn-in look, faded cream-yellow / brown / "
+        "silver-grey palette"),
+    "y2k_graffiti": ("Y2K Graffiti / Bubble",
+        "Y2K graffiti bubble lettering — chunky bubble/graffiti display letters with a glossy 3D "
+        "effect and bold contrasting colors, pink / purple / black / neon-blue palette, early-2000s "
+        "street energy"),
+    "badge_patch": ("Retro Badge / Patch",
+        "retro streetwear badge/patch collage — several vintage stamps, mascots and small slogans "
+        "arranged like a collected patch set, mixed retro fonts and labels, black / cream / "
+        "burnt-orange palette"),
+    "couple_love": ("Couple / Lời nhắn tình yêu",
+        "couple love-note design — sweet script plus small sans, two names, a date and 'Since "
+        "<year>', heart and infinity icons, symmetric his/her or interlocking composition, cream / "
+        "pink / black palette"),
+    "city_souvenir": ("Local Place / City Souvenir",
+        "local city souvenir tee (Vietnam twist) — a large place or city name with a year and small "
+        "coordinates, travel-souvenir style, serif/block letters, white / cream / navy palette"),
+    "statement_bold": ("Statement / Edgy Bold",
+        "bold statement design — a strong clean declaration in large display type, sometimes a "
+        "gothic blackletter feel, dominating the layout, simple black-and-white palette (keep it "
+        "positive, non-offensive)"),
+    "funny_vn": ("Funny Quote (tiếng Việt)",
+        "funny Vietnamese-quote tee — a witty teasing Vietnamese phrase printed large in a bold "
+        "sans/display font, playful and shareable, black / white / cream palette, gift vibe (keep "
+        "it clean, no profanity)"),
+    "floral_quote": ("Aesthetic Floral + Quote",
+        "aesthetic floral plus quote — small daisies and flowers with a gentle short quote, thin "
+        "serif/script lettering and flower icons, white / cream / pastel palette, cute girly look"),
+    "luxury_minimal": ("Luxury Minimal Back-print",
+        "luxury minimal back-print — tiny refined fashion-label-style text with wide letter spacing, "
+        "a small back cluster with a small chest logo, black / cream / grey palette, quiet-luxury "
+        "feel"),
+    "social_club": ("Social Club / Community",
+        "social club / community design — a fictional 'club' name in script with a small tagline "
+        "below, group aesthetic, cream / white / black palette"),
+    "sport_statement": ("Sport / Athletic Statement",
+        "sport athletic statement — a sport illustration (basketball or football) with a bold slab "
+        "statement like 'Born to win', large composition, black / cream / blue palette"),
+    "liquid_chrome": ("Liquid Chrome / 3D Y2K",
+        "liquid chrome 3D Y2K — glossy liquid-metal chrome 3D lettering, big bold print, dark "
+        "background with blue/silver chrome reflections, edgy music-fan vibe"),
+    "scribble": ("Scribble / Handwritten",
+        "scribble handwritten sketch — messy hand-drawn scribbled/sketch lettering layered over "
+        "itself, artsy street feel, black / red / white palette"),
+    "gothic": ("Gothic streetwear",
+        "dark gothic streetwear, distressed faded print, blackletter typography, religious & "
+        "celestial imagery (weeping angels, crosses, skulls, baroque statues), high-contrast "
+        "grayscale, gritty halftone, Y2K aesthetic"),
+    "skull": ("Skull dark",
+        "dark romantic skulls entwined with death's-head moths and wilting roses, vintage "
+        "engraving/etching style, memento mori, halftone shading, high contrast"),
 }
 
 DESIGN_SYSTEM = (
