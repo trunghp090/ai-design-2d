@@ -810,95 +810,103 @@ def product_content(img_bytes, info):
 # 19 phong cách typography hợp thị hiếu VN (từ file Pinterest+Shopee) + vài style graphic.
 DESIGN_STYLES = {
     "vintage_americana": ("Vintage Americana / Collegiate",
-        "STYLE: vintage Americana collegiate souvenir print. ELEMENTS: a detailed scenic landscape "
-        "illustration (mountains/river/nature) as the centerpiece, framed by text. TYPOGRAPHY: a "
-        "large flowing brush-SCRIPT word combined with a classic vintage SERIF word, plus an "
-        "'Est. <year>'. LAYOUT: centered, several lines of text STACKED VERTICALLY above and below "
-        "the landscape (script on top, serif name, year badge at the bottom). COLORS: washed cream, "
-        "navy, maroon, earth-brown. MOOD: retro 70s, slightly distressed"),
+        "STYLE: vintage Americana collegiate souvenir. LAYOUT: 3 lines of text STACKED VERTICALLY and "
+        "centered — (1) a large flowing brush-SCRIPT name (Pacifico/Allura style) on top, (2) a place "
+        "name in an elegant high-contrast bold SERIF (Playfair Display style), (3) a small spaced-out "
+        "'EST <year>' caps line (Oswald style) at the bottom; optionally a small scenic landscape "
+        "vignette behind. COLORS: cream background #EFE7D6, navy text #1F3A5F, maroon accent #8A2B2B. "
+        "EFFECT: light wash/distress. SAMPLE: 'Trung' / 'DA LAT' / 'EST 1999'"),
     "varsity": ("Varsity / College Athletic",
-        "STYLE: varsity college athletic. TYPOGRAPHY: thick outlined slab/serif VARSITY block "
-        "letters. LAYOUT: a word ARCHED in a curve across the top, a VERY LARGE central number below "
-        "it, and small 'Athletic Dept.' + a year underneath; strong centered symmetry. COLORS: "
-        "white, grey, navy, mustard-yellow. MOOD: American university sports"),
+        "STYLE: varsity college athletic. LAYOUT: a name/team word on TOP, a VERY LARGE central NUMBER "
+        "in the middle, 'ATHL · DEPT' spaced caps at the BOTTOM; centered, optional arched top word. "
+        "FONT: thick collegiate slab block letters (Graduate/Anton style) with a 2-3px OUTLINE. "
+        "COLORS: cream/white background, navy fill #1F3A5F, mustard-gold outline #C9A24B. SAMPLE: "
+        "'MINH' / '68' / 'ATHL · DEPT'"),
     "minimal_clean": ("Minimal Clean Typography",
-        "STYLE: minimal clean typography. TYPOGRAPHY: delicate THIN sans-serif with wide letter "
-        "spacing. LAYOUT: ONE tiny refined word/line placed small on the UPPER-LEFT chest area, lots "
-        "of empty negative space, off-center. COLORS: white, cream, black, heather-grey. MOOD: "
-        "Korean/Japanese minimal, elegant and safe"),
+        "STYLE: minimal clean typography. LAYOUT: ONE tiny refined lowercase line placed SMALL on the "
+        "upper-left chest, huge negative space, off-center. FONT: thin light sans (Inter/Archivo "
+        "Light) with wide letter-spacing. COLORS: white/cream, near-black text #222222. EFFECT: none, "
+        "crisp and clean. SAMPLE: 'stay simple.'"),
     "korean_minimal": ("Korean Minimal Lettering",
-        "STYLE: Korean minimal lettering. TYPOGRAPHY: one short soft English word in light thin "
-        "sans-serif, paired with a tiny minimal line-icon. LAYOUT: small, centered or upper-left, "
-        "lots of white space. COLORS: pastel, cream-white, beige. MOOD: soft cute aesthetic"),
+        "STYLE: Korean minimal lettering. LAYOUT: one short soft lowercase phrase centered or "
+        "upper-left with a tiny minimal line-icon, lots of white space. FONT: rounded light sans "
+        "(Quicksand/Jost style). COLORS: cream-white #F2ECE4 / beige, soft grey text #6B6B6B, pastel "
+        "accents. SAMPLE: 'my little day · soft mood ·'"),
     "motivational": ("Motivational / Quote Bold",
-        "STYLE: motivational bold quote. TYPOGRAPHY: one inspiring English word or short phrase in "
-        "HEAVY bold sans or serif at very large size. LAYOUT: a single large bold text block filling "
-        "the composition, centered. COLORS: black, cream-white, red. MOOD: confident streetwear"),
+        "STYLE: motivational bold quote. LAYOUT: one inspiring English word/short phrase set VERY "
+        "LARGE, centered, filling the area. FONT: heavy condensed bold (Anton/Archivo Black style). "
+        "COLORS: black #131313 with white text, or cream with black text, red accent. SAMPLE: "
+        "'UNSTOPPABLE' / 'STAY HUNGRY'"),
     "street_racing": ("Street Racing / Automotive",
-        "STYLE: vintage street-racing automotive. ELEMENTS: a classic or race CAR illustration in "
-        "the center, plus a racing number. TYPOGRAPHY: retro serif/script lettering and numerals. "
-        "LAYOUT: the car graphic centered, framed by one curved text line ABOVE and one BELOW, with "
-        "a year. COLORS: black, cream, red, olive-green. MOOD: vintage motorsport poster"),
+        "STYLE: vintage street-racing automotive. LAYOUT: a classic/race CAR illustration in the "
+        "center, a retro ITALIC (skewed) word above it, a 'TEAM · number' line below, plus a year. "
+        "FONT: retro racing sans italic (Racing Sans One/Oswald italic) + big Anton numbers. COLORS: "
+        "grey/cream/black, red accent #C0392B, olive-green. EFFECT: slight wash. SAMPLE: 'SAIGON' / "
+        "'RACING TEAM · 99'"),
     "vintage_washed": ("Vintage Washed / Distressed",
-        "STYLE: vintage washed / distressed. TREATMENT: heavily faded, sun-bleached, cracked-ink "
-        "grunge texture applied over the whole graphic. TYPOGRAPHY: serif/script with rough grunge "
-        "edges. LAYOUT: chest or back graphic with an allover worn wash effect. COLORS: faded "
-        "cream-yellow, brown, silver-grey. MOOD: looks worn-in for years"),
+        "STYLE: vintage washed / distressed. EFFECT: heavy faded sun-bleached cracked-ink HALFTONE "
+        "grunge texture all over, 80-90% opacity, grain. FONT: typewriter/serif (Special Elite/"
+        "Playfair) with rough grunge edges. COLORS: faded cream-yellow #E7E0CF, brown #4A3B2A, "
+        "silver-grey. LAYOUT: chest or back graphic, worn-in. SAMPLE: \"GOOD OL' DAYS\" / \"SUMMER '99\""),
     "y2k_graffiti": ("Y2K Graffiti / Bubble",
-        "STYLE: Y2K graffiti bubble. TYPOGRAPHY: chunky rounded BUBBLE/graffiti display letters with "
-        "a glossy 3D outline. LAYOUT: one large high-contrast block on the chest/back. COLORS: bold "
-        "and punchy — pink, purple, black, neon-blue. MOOD: early-2000s rap/street"),
+        "STYLE: Y2K graffiti bubble. LAYOUT: one large rounded BUBBLE/graffiti word, thick OUTLINE + "
+        "drop shadow, glossy. FONT: fat bubble display (Rubik Bubbles/Bungee/Bagel Fat One). COLORS: "
+        "black background, pink fill #FF4FA3, yellow outline #FFE14D (or purple/chrome variant). "
+        "SAMPLE: 'VIBES' / 'HYPE'"),
     "badge_patch": ("Retro Badge / Patch",
-        "STYLE: retro streetwear badge/patch collage. LAYOUT: MANY small vintage stamps, mascots, "
-        "labels and tiny slogans arranged into a clustered grid/collage like a collected patch set, "
-        "scattered and overlapping. TYPOGRAPHY: a mix of several retro fonts inside label shapes. "
-        "COLORS: black, cream, burnt-orange. MOOD: curated vintage collection"),
+        "STYLE: retro streetwear badge/patch collage. LAYOUT: MANY small vintage STAMPS/badges/icons "
+        "(stars ★, 'EST 1998', 'STREETWEAR', 'WORLDWIDE') arranged as a clustered overlapping "
+        "collection. FONT: mix of serif (Libre Baskerville) + condensed (Oswald) inside label shapes. "
+        "COLORS: cream/black/burnt-orange. EFFECT: stamp borders, halftone. SAMPLE: '★ EST 1998 ★' / "
+        "'WORLDWIDE'"),
     "couple_love": ("Couple / Lời nhắn tình yêu",
-        "STYLE: couple love-note. ELEMENTS: heart and infinity icons, TWO names, an anniversary date "
-        "and 'Since <year>'. TYPOGRAPHY: a sweet romantic brush SCRIPT plus small clean sans. "
-        "LAYOUT: symmetric his-and-hers or interlocking centered composition (the two names balanced "
-        "left/right or stacked). COLORS: cream-white, pink, black. MOOD: sweet gift"),
+        "STYLE: couple love-note. LAYOUT: two names on one line joined by a small heart ♥, with a "
+        "small 'Since <year>' line below; centered (or symmetric his/her). FONT: romantic flowing "
+        "SCRIPT (Dancing Script/Great Vibes) for names + small clean sans for the date. COLORS: pink "
+        "background #FBEFF2 / white, rose text #C04060. SAMPLE: 'An ♥ Lan' / 'Since 2021'"),
     "city_souvenir": ("Local Place / City Souvenir",
-        "STYLE: local city-souvenir travel print (Vietnam). TYPOGRAPHY: a LARGE place/city name in "
-        "bold serif/block letters, with a small subline and tiny GPS coordinates. LAYOUT: the big "
-        "place name centered as the hero, a year and coordinates as a small line below. COLORS: "
-        "white, cream, navy. MOOD: tourist souvenir tee"),
+        "STYLE: local city-souvenir travel print (Vietnam). LAYOUT: a LARGE place/city name as the "
+        "hero, with a tiny GPS COORDINATES line and a year below. FONT: bold condensed (Oswald/Anton) "
+        "for the name + monospace (Inconsolata) for coordinates — MUST support Vietnamese diacritics. "
+        "COLORS: white/cream/navy. SAMPLE: 'ĐÀ LẠT' / '11.94°N 108.44°E'"),
     "statement_bold": ("Statement / Edgy Bold",
-        "STYLE: bold statement. TYPOGRAPHY: a short strong declaration in HUGE display type, "
-        "sometimes a gothic blackletter feel. LAYOUT: oversized text dominating the entire chest/"
-        "back as one block. COLORS: simple black & white. MOOD: edgy but positive and non-offensive"),
+        "STYLE: bold statement. LAYOUT: a short strong declaration in HUGE heavy display type "
+        "dominating the whole area as one block. FONT: ultra-bold (Archivo Black/Anton). COLORS: "
+        "simple black & white. SAMPLE: 'NO RULES' / 'STAY REAL' (keep positive, non-offensive)"),
     "funny_vn": ("Funny Quote (tiếng Việt)",
-        "STYLE: funny Vietnamese-quote tee. TYPOGRAPHY: a witty teasing VIETNAMESE sentence "
-        "(keep correct Vietnamese diacritics) set LARGE in a bold sans/display font. LAYOUT: big "
-        "centered text on the chest or back, maybe a tiny doodle accent. COLORS: black, white, "
-        "cream. MOOD: viral playful gift (clean, no profanity)"),
+        "STYLE: funny Vietnamese-quote tee. LAYOUT: a witty teasing VIETNAMESE phrase in 1-2 LARGE "
+        "centered lines; the punchline line in an ACCENT color. FONT: bold Vietnamese-diacritic-safe "
+        "(Be Vietnam Pro Bold / Lato Black) — render Vietnamese tone marks PERFECTLY, do NOT drop or "
+        "misplace diacritics. COLORS: cream/white/black, accent red #C0392B or yellow #FFC83D. "
+        "SAMPLE: 'Bận Rộn' / 'Nhưng Vẫn Đẹp Trai'"),
     "floral_quote": ("Aesthetic Floral + Quote",
-        "STYLE: aesthetic floral + quote. ELEMENTS: small daisies and delicate flowers. TYPOGRAPHY: "
-        "a gentle short quote in thin serif/script. LAYOUT: a small centered chest/back composition "
-        "with flowers wreathing or accenting the quote. COLORS: white, cream, soft pastels. MOOD: "
-        "cute girly aesthetic"),
+        "STYLE: aesthetic floral + quote. LAYOUT: small daisies/flowers above, a gentle ITALIC quote "
+        "in the middle. FONT: elegant italic serif (Cormorant Garamond/Lora italic). COLORS: white/"
+        "cream/pastel, rose text #C56B7A, yellow flowers #FFD24D. SAMPLE: 'live in the moment'"),
     "luxury_minimal": ("Luxury Minimal Back-print",
-        "STYLE: luxury minimal back-print (quiet luxury). TYPOGRAPHY: a small refined "
-        "fashion-label-style text with wide tracking. LAYOUT: a small centered text cluster on the "
-        "UPPER BACK plus a tiny chest logo, lots of empty space. COLORS: black, cream, grey. MOOD: "
-        "high-end understated"),
+        "STYLE: luxury minimal back-print (quiet luxury). LAYOUT: a small refined fashion-label text "
+        "cluster of 2 lines with WIDE letter-spacing in the upper center + a tiny chest logo, lots of "
+        "empty space. FONT: high-end uppercase (Cormorant/Jost/Lato Light), generous tracking. "
+        "COLORS: dark background #16171B with light text #ECECEC, or cream with black. SAMPLE: "
+        "'QUIETLY' / 'RADIANT'  ·  'OFF' / 'DUTY'"),
     "social_club": ("Social Club / Community",
-        "STYLE: social-club / community. TYPOGRAPHY: a fictional 'club' name in a relaxed script "
-        "with a small sans tagline. LAYOUT: the club name centered as the hero over a small subline. "
-        "COLORS: cream, white, black. MOOD: trendy friend-group club"),
+        "STYLE: social-club / community. LAYOUT: a fictional 'club' name in script as the hero, a "
+        "spaced 'C L U B' line, and a small tagline. FONT: relaxed script (Allura/Cookie) + condensed "
+        "(Oswald) for CLUB. COLORS: cream/white/black. SAMPLE: 'Lazy Sunday' / 'C L U B'"),
     "sport_statement": ("Sport / Athletic Statement",
-        "STYLE: sport athletic statement. ELEMENTS: a sport illustration (basketball/football/etc). "
-        "TYPOGRAPHY: a bold heavy BLOCK/SLAB statement like 'Born to win'. LAYOUT: a large back-print "
-        "with the statement big and the sport graphic supporting it. COLORS: black, cream, blue. "
-        "MOOD: energetic sporty"),
+        "STYLE: sport athletic statement. LAYOUT: a strong sport phrase big, with dynamic speed lines "
+        "or a sport icon. FONT: tall condensed athletic (Teko/Anton italic). COLORS: dark background, "
+        "white text, teal accent #19C37D or orange. SAMPLE: 'BORN TO WIN' / 'PLAY HARD'"),
     "liquid_chrome": ("Liquid Chrome / 3D Y2K",
-        "STYLE: liquid chrome 3D Y2K. TYPOGRAPHY: glossy LIQUID-METAL chrome 3D lettering, highly "
-        "reflective and bold. LAYOUT: one large chrome word block on the chest. COLORS: dark "
-        "background with blue/silver chrome reflections. MOOD: edgy futuristic music-fan"),
+        "STYLE: liquid chrome 3D Y2K. LAYOUT: one large word with glossy LIQUID-METAL chrome 3D "
+        "lettering, vertical silver-to-cyan gradient and bright highlights. FONT: futuristic "
+        "(Orbitron/Audiowide). COLORS: black background #0B0F14, chrome gradient silver #DDE6EE to "
+        "cyan #19C3D6. SAMPLE: 'HYPE' / '2K26'"),
     "scribble": ("Scribble / Handwritten",
-        "STYLE: scribble handwritten sketch. TYPOGRAPHY: messy hand-drawn marker/pen SCRIBBLE "
-        "lettering. LAYOUT: layered, overlapping scribbled text lines stacked over each other, "
-        "raw and chaotic. COLORS: black, red, white. MOOD: artsy street/graffiti sketch"),
+        "STYLE: scribble handwritten sketch. LAYOUT: hand-drawn scribbled lettering in overlapping "
+        "layers, plus a small '— handmade —' line. FONT: marker/handwriting (Caveat/Permanent "
+        "Marker/Reenie Beanie). COLORS: white/cream, black text, red accent. SAMPLE: 'be yourself' / "
+        "'just vibe'"),
     "gothic": ("Gothic streetwear",
         "dark gothic streetwear, distressed faded print, blackletter typography, religious & "
         "celestial imagery (weeping angels, crosses, skulls, baroque statues), high-contrast "
@@ -943,6 +951,10 @@ DESIGN_SYSTEM = (
     "couple: brush script mềm; minimal: sans mảnh giãn rộng); thêm texture HALFTONE / distressed "
     "vintage khi hợp; bảng màu GIỚI HẠN 2–4 màu hài hoà (ưu tiên tông sun-faded/muted cho "
     "vintage); nét sạch như screen-print / vector chuyên nghiệp, không rối, không thừa chi tiết.\n"
+    "SAMPLE trong mô tả chỉ là VÍ DỤ bố cục — thay bằng TÊN/ĐỊA DANH/CÂU người dùng nhập; nếu "
+    "không có thì tự nghĩ nội dung hợp phong cách, GIỮ ĐÚNG bố cục & font & màu (hex) đó.\n"
+    "CHỮ TIẾNG VIỆT: render ĐÚNG TẤT CẢ DẤU (sắc/huyền/hỏi/ngã/nặng, ă â ê ô ơ ư đ), KHÔNG mất "
+    "dấu, KHÔNG sai chính tả; dùng kiểu chữ hỗ trợ đầy đủ dấu tiếng Việt.\n"
     "LUÔN kết thúc bằng: 'professional screen-print style t-shirt graphic, balanced composition, "
     "flat front print, isolated artwork on a plain solid white background, print-ready, high "
     "detail, clean bold perfectly-spelled text, no t-shirt, no mockup, no person, no hands "
