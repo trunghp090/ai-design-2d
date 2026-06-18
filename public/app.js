@@ -1576,6 +1576,13 @@ const DS_STYLES = [
   { key: "scribble", label: "✍️ Scribble Sketch", hint: "Chữ viết tay nguệch ngoạc · nghệ" },
   { key: "gothic", label: "🖤 Gothic streetwear" },
   { key: "skull", label: "💀 Skull dark" },
+  { key: "celestial", label: "🌌 Vũ trụ" },
+  { key: "angel", label: "👼 Thiên thần baroque" },
+  { key: "kawaii", label: "🧸 Cute / kawaii" },
+  { key: "typography", label: "🔤 Typography slogan" },
+  { key: "anime", label: "🌸 Anime / manga" },
+  { key: "y2k", label: "🦋 Y2K" },
+  { key: "floral", label: "🌿 Floral line art" },
 ];
 let dsStyle = "vintage_americana";
 let dsPollTimer = null;

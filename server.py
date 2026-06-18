@@ -884,6 +884,27 @@ DESIGN_STYLES = {
     "skull": ("Skull dark",
         "dark romantic skulls entwined with death's-head moths and wilting roses, vintage "
         "engraving/etching style, memento mori, halftone shading, high contrast"),
+    "celestial": ("Vũ trụ / celestial",
+        "celestial space aesthetic, astronauts, planets, moons, stars and constellations, retro "
+        "faded print, muted palette with soft orange and teal accents, dreamy nostalgic vibe"),
+    "angel": ("Thiên thần baroque",
+        "baroque marble cherub and angel statues, weeping angels, soft romantic gothic mood, "
+        "distressed monochrome engraving style with heavy grain"),
+    "kawaii": ("Cute / kawaii",
+        "cute kawaii cartoon, soft pastel colors, chibi characters and playful doodles, clean "
+        "rounded lines, wholesome cheerful vibe"),
+    "typography": ("Typography slogan",
+        "bold typographic design driven by a strong slogan, clean modern type composition, minimal "
+        "graphic accents, high readability"),
+    "anime": ("Anime / manga",
+        "anime manga style illustration, dynamic character, screentone shading, bold confident "
+        "linework, expressive"),
+    "y2k": ("Y2K",
+        "Y2K early-2000s aesthetic, butterflies, hearts, chrome and glossy elements, pink and "
+        "silver palette, nostalgic playful"),
+    "floral": ("Floral line art",
+        "delicate floral botanical line-art, elegant fine details, minimal, single or two-tone, "
+        "tattoo-flash feel"),
 }
 
 DESIGN_SYSTEM = (
