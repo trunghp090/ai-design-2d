@@ -817,6 +817,11 @@ DESIGN_STYLES = {
         "monoline illustration (face, mountain, sun, wave, flower, hand, body...), thin clean "
         "strokes, lots of negative space, 1-2 colors only, tattoo-flash minimal aesthetic, no "
         "background clutter"),
+    "retro_groovy": ("Retro Groovy 70s", "70s retro groovy typography t-shirt — wavy bubbly Cooper-Black/Windsor style letters, sunburst rays, warm faded disco palette (mustard, orange, brown, cream)"),
+    "type_3d": ("3D phồng (inflate)", "glossy 3D inflated puffy balloon typography t-shirt — rounded chunky letters with soft shadows and highlights, playful, bold"),
+    "big_type": ("Chữ to kín áo (kinetic)", "bold oversized stacked typography t-shirt — a few huge words filling the whole print edge to edge, kinetic repeated/justified text block, high-impact, minimal color"),
+    "calligraphy": ("Calligraphy lettering", "elegant calligraphy hand-lettering art t-shirt — fancy flowing script with flourishes and ink pen strokes, refined, single color"),
+    "ransom_collage": ("Ransom / Collage type", "ransom-note collage typography t-shirt — mismatched cut-out letters from magazines and newspapers, punk DIY, torn paper, taped"),
     "korean_minimal": ("Korean Minimal Lettering", "korean minimal lettering t-shirt"),
     "motivational": ("Motivational / Quote Bold", "bold motivational quote t-shirt typography"),
     "street_racing": ("Street Racing / Automotive", "vintage street racing automotive t-shirt"),
