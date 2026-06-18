@@ -872,7 +872,7 @@ DESIGN_STYLES = {
     "angel": ("Thi\xean th\u1ea7n baroque", "baroque cherub angel t-shirt graphic"),
     "kawaii": ("Cute / kawaii", "cute kawaii cartoon t-shirt graphic"),
     "typography": ("Typography slogan", "bold typography slogan t-shirt"),
-    "anime": ("Anime / manga", "anime manga t-shirt graphic"),
+    "anime": ("Anime / manga", "anime/manga t-shirt graphic with CLEAN bold black linework and screentone/halftone shading, a RESTRAINED LIMITED palette (monochrome or just 2-3 muted colors), tasteful and print-friendly for screen printing, NOT oversaturated, NOT rainbow, suited for a wearable t-shirt"),
     "y2k": ("Y2K", "y2k butterfly chrome t-shirt graphic"),
     "floral": ("Floral line art", "floral botanical line-art t-shirt graphic"),
 }
@@ -886,6 +886,8 @@ DESIGN_SYSTEM = (
     "NGÔN NGỮ chữ trên design: dùng tiếng Anh HOẶC tiếng Việt — chọn cái HỢP PHONG CÁCH & ĐẸP "
     "nhất (streetwear/typography/quote thường tiếng Anh cho ngầu), KHÔNG bắt buộc tiếng Việt. "
     "Chỉ khi người dùng nhập sẵn chữ tiếng Việt thì giữ nguyên ĐÚNG DẤU.\n"
+    "MÀU SẮC: ưu tiên bảng màu GỌN (2–4 màu) sạch, tinh tế, dễ in & dễ mặc kiểu áo thun Việt "
+    "Nam — TRÁNH sặc sỡ/rối/cầu vồng (trừ phong cách vốn rực rỡ như Y2K, Vaporwave, Graffiti).\n"
     "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white "
     "background, print-ready, no t-shirt, no mockup, no person'. Trả JSON đúng dạng "
     "{\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"prompt\":\"...\"}]}."
