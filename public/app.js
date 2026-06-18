@@ -1558,6 +1558,7 @@ const DS_STYLES = [
   { key: "vintage_americana", label: "🏞️ Vintage Americana 🔥", hint: "Hot Shopee · couple/quà · điền tên+năm+địa danh", ref: "vintage americana ringer tshirt" },
   { key: "varsity", label: "🎓 Varsity College", hint: "Áo lớp/CLB · tên trường+số+năm", ref: "varsity college tshirt typography" },
   { key: "minimal_clean", label: "⚪ Minimal Clean", hint: "Tối giản Hàn/Nhật · tên/slogan ngực trái", ref: "minimal typography tshirt" },
+  { key: "lineart", label: "🔲 Minimalist line-art", hint: "Vẽ tối giản 1 nét · icon thanh mảnh, tattoo-flash" },
   { key: "korean_minimal", label: "🌷 Korean Minimal", hint: "Nữ GenZ, couple · biệt danh dễ thương", ref: "korean minimal tshirt lettering" },
   { key: "motivational", label: "💪 Motivational Bold", hint: "Slogan to bản lưng · nam streetwear", ref: "motivational quote tshirt typography" },
   { key: "street_racing", label: "🏎️ Street Racing", hint: "Nam mê xe · biển số/năm/garage", ref: "vintage racing tshirt design" },

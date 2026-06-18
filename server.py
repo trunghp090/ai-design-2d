@@ -812,6 +812,11 @@ DESIGN_STYLES = {
     "vintage_americana": ("Vintage Americana / Collegiate", "vintage americana collegiate ringer-tee typography design"),
     "varsity": ("Varsity / College Athletic", "varsity college athletic number t-shirt typography"),
     "minimal_clean": ("Minimal Clean Typography", "minimal clean typography t-shirt"),
+    "lineart": ("Minimalist line-art",
+        "minimalist single-line / fine line-art t-shirt graphic — a simple elegant continuous "
+        "monoline illustration (face, mountain, sun, wave, flower, hand, body...), thin clean "
+        "strokes, lots of negative space, 1-2 colors only, tattoo-flash minimal aesthetic, no "
+        "background clutter"),
     "korean_minimal": ("Korean Minimal Lettering", "korean minimal lettering t-shirt"),
     "motivational": ("Motivational / Quote Bold", "bold motivational quote t-shirt typography"),
     "street_racing": ("Street Racing / Automotive", "vintage street racing automotive t-shirt"),
