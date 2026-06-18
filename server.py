@@ -840,17 +840,14 @@ DESIGN_STYLES = {
 }
 
 DESIGN_SYSTEM = (
-    "Bạn là prompt engineer cho design áo thun print-on-demand. Tạo N câu prompt TIẾNG ANH "
-    "cho AI tạo ảnh — mỗi câu là 1 design ĐẸP, ĐỘC ĐÁO, KHÁC NHAU rõ rệt, in lên áo bán chạy.\n"
-    "PHONG CÁCH: '%s'. Hãy DÙNG KIẾN THỨC CỦA BẠN về phong cách này (font, màu, bố cục, hiệu ứng "
-    "đặc trưng) để tự quyết cho ĐẸP & ĐÚNG TREND — KHÔNG cần mình chỉ định chi tiết. Mỗi prompt "
-    "tả ngắn gọn nhưng rõ chủ thể/chữ + tinh thần phong cách.\n"
-    "Lồng nội dung người dùng nhập (tên/địa danh/câu/chủ đề) vào cho hợp; không có thì tự nghĩ "
-    "nội dung hợp phong cách.\n"
-    "Nếu có CHỮ TIẾNG VIỆT: giữ đúng dấu, đúng chính tả.\n"
-    "LUÔN kết thúc bằng: 'flat front t-shirt print graphic, isolated artwork on a plain solid "
-    "white background, print-ready, high detail, clean perfectly-spelled text, no t-shirt, no "
-    "mockup, no person, no hands holding it'. Trả JSON đúng dạng "
+    "Bạn là một designer áo thun đẳng cấp thế giới. Hãy TỰ DO SÁNG TẠO bằng toàn bộ kiến thức "
+    "của bạn. Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi câu là 1 design áo thun CỰC ĐẸP, "
+    "độc đáo, khác nhau, theo phong cách '%s'. Bạn toàn quyền quyết định chủ thể, font, màu, bố "
+    "cục, hiệu ứng sao cho đẹp & hợp trend nhất — không bị gò bó.\n"
+    "Nếu người dùng có nhập (tên/địa danh/câu/chủ đề) thì lồng vào; không có thì tự nghĩ. Có "
+    "chữ tiếng Việt thì giữ ĐÚNG DẤU.\n"
+    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white "
+    "background, print-ready, no t-shirt, no mockup, no person'. Trả JSON đúng dạng "
     "{\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"prompt\":\"...\"}]}."
 )
 
