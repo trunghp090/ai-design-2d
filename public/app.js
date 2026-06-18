@@ -1085,6 +1085,22 @@ function closeZoom() { $("zoomModal").classList.add("hidden"); $("zoomImg").src 
 $("zoomClose").onclick = closeZoom;
 $("zoomModal").onclick = (e) => { if (e.target.id === "zoomModal") closeZoom(); };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeZoom(); });
+$("zoomDl").onclick = (e) => {
+  e.stopPropagation();
+  const a = document.createElement("a");
+  a.href = $("zoomImg").src; a.download = "design-" + Date.now() + ".png"; a.click();
+};
+$("zoomCopy").onclick = async (e) => {
+  e.stopPropagation();
+  const btn = $("zoomCopy"), old = btn.textContent;
+  try {
+    const blob = await (await fetch($("zoomImg").src)).blob();
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
+    btn.textContent = "✓ Đã copy"; setTimeout(() => btn.textContent = old, 1400);
+  } catch (err) {
+    btn.textContent = "✗ Trình duyệt chặn"; setTimeout(() => btn.textContent = old, 1800);
+  }
+};
 
 /* =====================================================================
    ĐỔI MÀU ÁO: xem "Trên áo thật" + chọn nhiều + tải hàng loạt

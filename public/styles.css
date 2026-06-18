@@ -230,6 +230,9 @@ textarea.input{resize:vertical;line-height:1.5}
   background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0;background-color:#fafafa}
 .zoom-close{position:fixed;top:18px;right:22px;width:42px;height:42px;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:20px;cursor:pointer}
 .zoom-close:hover{background:rgba(255,255,255,.3)}
+.zoom-actions{position:fixed;top:18px;left:22px;display:flex;gap:8px;z-index:10000}
+.zoom-actions button{border:0;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:13px;font-weight:600;padding:9px 14px;cursor:pointer;backdrop-filter:blur(4px)}
+.zoom-actions button:hover{background:var(--violet)}
 /* Lên áo: chọn áo + slider */
 .range{width:100%;accent-color:var(--violet);margin:2px 0 4px}
 .shirt-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
