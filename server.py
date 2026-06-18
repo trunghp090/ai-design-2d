@@ -810,73 +810,95 @@ def product_content(img_bytes, info):
 # 19 phong cách typography hợp thị hiếu VN (từ file Pinterest+Shopee) + vài style graphic.
 DESIGN_STYLES = {
     "vintage_americana": ("Vintage Americana / Collegiate",
-        "vintage Americana collegiate ringer-tee graphic — a scenic landscape illustration with "
-        "large flowing script plus classic serif lettering and an 'Est. <year>', text layered and "
-        "stacked vertically, washed cream / navy / maroon / earth-brown palette, retro 70s feel"),
+        "STYLE: vintage Americana collegiate souvenir print. ELEMENTS: a detailed scenic landscape "
+        "illustration (mountains/river/nature) as the centerpiece, framed by text. TYPOGRAPHY: a "
+        "large flowing brush-SCRIPT word combined with a classic vintage SERIF word, plus an "
+        "'Est. <year>'. LAYOUT: centered, several lines of text STACKED VERTICALLY above and below "
+        "the landscape (script on top, serif name, year badge at the bottom). COLORS: washed cream, "
+        "navy, maroon, earth-brown. MOOD: retro 70s, slightly distressed"),
     "varsity": ("Varsity / College Athletic",
-        "varsity college athletic graphic — bold outlined slab/serif varsity letters arched over a "
-        "large central number, 'Athletic Dept' and a year, white / grey / navy / mustard palette, "
-        "American collegiate sport look"),
+        "STYLE: varsity college athletic. TYPOGRAPHY: thick outlined slab/serif VARSITY block "
+        "letters. LAYOUT: a word ARCHED in a curve across the top, a VERY LARGE central number below "
+        "it, and small 'Athletic Dept.' + a year underneath; strong centered symmetry. COLORS: "
+        "white, grey, navy, mustard-yellow. MOOD: American university sports"),
     "minimal_clean": ("Minimal Clean Typography",
-        "minimal clean typography — delicate thin sans-serif with wide letter spacing, a small "
-        "left-chest mark and one short centered line, white / cream / black / grey palette, "
-        "Korean/Japanese minimal aesthetic, elegant"),
+        "STYLE: minimal clean typography. TYPOGRAPHY: delicate THIN sans-serif with wide letter "
+        "spacing. LAYOUT: ONE tiny refined word/line placed small on the UPPER-LEFT chest area, lots "
+        "of empty negative space, off-center. COLORS: white, cream, black, heather-grey. MOOD: "
+        "Korean/Japanese minimal, elegant and safe"),
     "korean_minimal": ("Korean Minimal Lettering",
-        "Korean minimal lettering — soft light sans-serif, lots of white space, a short English word "
-        "with a tiny cute icon, gentle aesthetic, pastel / cream / beige palette"),
+        "STYLE: Korean minimal lettering. TYPOGRAPHY: one short soft English word in light thin "
+        "sans-serif, paired with a tiny minimal line-icon. LAYOUT: small, centered or upper-left, "
+        "lots of white space. COLORS: pastel, cream-white, beige. MOOD: soft cute aesthetic"),
     "motivational": ("Motivational / Quote Bold",
-        "motivational bold quote — one inspiring word or short phrase printed very large in bold sans "
-        "or serif, full composition, black / cream / red palette, streetwear energy"),
+        "STYLE: motivational bold quote. TYPOGRAPHY: one inspiring English word or short phrase in "
+        "HEAVY bold sans or serif at very large size. LAYOUT: a single large bold text block filling "
+        "the composition, centered. COLORS: black, cream-white, red. MOOD: confident streetwear"),
     "street_racing": ("Street Racing / Automotive",
-        "street racing automotive vintage — a classic or race car illustration centered with retro "
-        "serif/script lettering, a racing number and a year, black / cream / red / olive palette, "
-        "vintage motorsport poster feel"),
+        "STYLE: vintage street-racing automotive. ELEMENTS: a classic or race CAR illustration in "
+        "the center, plus a racing number. TYPOGRAPHY: retro serif/script lettering and numerals. "
+        "LAYOUT: the car graphic centered, framed by one curved text line ABOVE and one BELOW, with "
+        "a year. COLORS: black, cream, red, olive-green. MOOD: vintage motorsport poster"),
     "vintage_washed": ("Vintage Washed / Distressed",
-        "vintage washed distressed print — faded sun-bleached graphic with cracked ink and grunge "
-        "texture over serif/script lettering, aged worn-in look, faded cream-yellow / brown / "
-        "silver-grey palette"),
+        "STYLE: vintage washed / distressed. TREATMENT: heavily faded, sun-bleached, cracked-ink "
+        "grunge texture applied over the whole graphic. TYPOGRAPHY: serif/script with rough grunge "
+        "edges. LAYOUT: chest or back graphic with an allover worn wash effect. COLORS: faded "
+        "cream-yellow, brown, silver-grey. MOOD: looks worn-in for years"),
     "y2k_graffiti": ("Y2K Graffiti / Bubble",
-        "Y2K graffiti bubble lettering — chunky bubble/graffiti display letters with a glossy 3D "
-        "effect and bold contrasting colors, pink / purple / black / neon-blue palette, early-2000s "
-        "street energy"),
+        "STYLE: Y2K graffiti bubble. TYPOGRAPHY: chunky rounded BUBBLE/graffiti display letters with "
+        "a glossy 3D outline. LAYOUT: one large high-contrast block on the chest/back. COLORS: bold "
+        "and punchy — pink, purple, black, neon-blue. MOOD: early-2000s rap/street"),
     "badge_patch": ("Retro Badge / Patch",
-        "retro streetwear badge/patch collage — several vintage stamps, mascots and small slogans "
-        "arranged like a collected patch set, mixed retro fonts and labels, black / cream / "
-        "burnt-orange palette"),
+        "STYLE: retro streetwear badge/patch collage. LAYOUT: MANY small vintage stamps, mascots, "
+        "labels and tiny slogans arranged into a clustered grid/collage like a collected patch set, "
+        "scattered and overlapping. TYPOGRAPHY: a mix of several retro fonts inside label shapes. "
+        "COLORS: black, cream, burnt-orange. MOOD: curated vintage collection"),
     "couple_love": ("Couple / Lời nhắn tình yêu",
-        "couple love-note design — sweet script plus small sans, two names, a date and 'Since "
-        "<year>', heart and infinity icons, symmetric his/her or interlocking composition, cream / "
-        "pink / black palette"),
+        "STYLE: couple love-note. ELEMENTS: heart and infinity icons, TWO names, an anniversary date "
+        "and 'Since <year>'. TYPOGRAPHY: a sweet romantic brush SCRIPT plus small clean sans. "
+        "LAYOUT: symmetric his-and-hers or interlocking centered composition (the two names balanced "
+        "left/right or stacked). COLORS: cream-white, pink, black. MOOD: sweet gift"),
     "city_souvenir": ("Local Place / City Souvenir",
-        "local city souvenir tee (Vietnam twist) — a large place or city name with a year and small "
-        "coordinates, travel-souvenir style, serif/block letters, white / cream / navy palette"),
+        "STYLE: local city-souvenir travel print (Vietnam). TYPOGRAPHY: a LARGE place/city name in "
+        "bold serif/block letters, with a small subline and tiny GPS coordinates. LAYOUT: the big "
+        "place name centered as the hero, a year and coordinates as a small line below. COLORS: "
+        "white, cream, navy. MOOD: tourist souvenir tee"),
     "statement_bold": ("Statement / Edgy Bold",
-        "bold statement design — a strong clean declaration in large display type, sometimes a "
-        "gothic blackletter feel, dominating the layout, simple black-and-white palette (keep it "
-        "positive, non-offensive)"),
+        "STYLE: bold statement. TYPOGRAPHY: a short strong declaration in HUGE display type, "
+        "sometimes a gothic blackletter feel. LAYOUT: oversized text dominating the entire chest/"
+        "back as one block. COLORS: simple black & white. MOOD: edgy but positive and non-offensive"),
     "funny_vn": ("Funny Quote (tiếng Việt)",
-        "funny Vietnamese-quote tee — a witty teasing Vietnamese phrase printed large in a bold "
-        "sans/display font, playful and shareable, black / white / cream palette, gift vibe (keep "
-        "it clean, no profanity)"),
+        "STYLE: funny Vietnamese-quote tee. TYPOGRAPHY: a witty teasing VIETNAMESE sentence "
+        "(keep correct Vietnamese diacritics) set LARGE in a bold sans/display font. LAYOUT: big "
+        "centered text on the chest or back, maybe a tiny doodle accent. COLORS: black, white, "
+        "cream. MOOD: viral playful gift (clean, no profanity)"),
     "floral_quote": ("Aesthetic Floral + Quote",
-        "aesthetic floral plus quote — small daisies and flowers with a gentle short quote, thin "
-        "serif/script lettering and flower icons, white / cream / pastel palette, cute girly look"),
+        "STYLE: aesthetic floral + quote. ELEMENTS: small daisies and delicate flowers. TYPOGRAPHY: "
+        "a gentle short quote in thin serif/script. LAYOUT: a small centered chest/back composition "
+        "with flowers wreathing or accenting the quote. COLORS: white, cream, soft pastels. MOOD: "
+        "cute girly aesthetic"),
     "luxury_minimal": ("Luxury Minimal Back-print",
-        "luxury minimal back-print — tiny refined fashion-label-style text with wide letter spacing, "
-        "a small back cluster with a small chest logo, black / cream / grey palette, quiet-luxury "
-        "feel"),
+        "STYLE: luxury minimal back-print (quiet luxury). TYPOGRAPHY: a small refined "
+        "fashion-label-style text with wide tracking. LAYOUT: a small centered text cluster on the "
+        "UPPER BACK plus a tiny chest logo, lots of empty space. COLORS: black, cream, grey. MOOD: "
+        "high-end understated"),
     "social_club": ("Social Club / Community",
-        "social club / community design — a fictional 'club' name in script with a small tagline "
-        "below, group aesthetic, cream / white / black palette"),
+        "STYLE: social-club / community. TYPOGRAPHY: a fictional 'club' name in a relaxed script "
+        "with a small sans tagline. LAYOUT: the club name centered as the hero over a small subline. "
+        "COLORS: cream, white, black. MOOD: trendy friend-group club"),
     "sport_statement": ("Sport / Athletic Statement",
-        "sport athletic statement — a sport illustration (basketball or football) with a bold slab "
-        "statement like 'Born to win', large composition, black / cream / blue palette"),
+        "STYLE: sport athletic statement. ELEMENTS: a sport illustration (basketball/football/etc). "
+        "TYPOGRAPHY: a bold heavy BLOCK/SLAB statement like 'Born to win'. LAYOUT: a large back-print "
+        "with the statement big and the sport graphic supporting it. COLORS: black, cream, blue. "
+        "MOOD: energetic sporty"),
     "liquid_chrome": ("Liquid Chrome / 3D Y2K",
-        "liquid chrome 3D Y2K — glossy liquid-metal chrome 3D lettering, big bold print, dark "
-        "background with blue/silver chrome reflections, edgy music-fan vibe"),
+        "STYLE: liquid chrome 3D Y2K. TYPOGRAPHY: glossy LIQUID-METAL chrome 3D lettering, highly "
+        "reflective and bold. LAYOUT: one large chrome word block on the chest. COLORS: dark "
+        "background with blue/silver chrome reflections. MOOD: edgy futuristic music-fan"),
     "scribble": ("Scribble / Handwritten",
-        "scribble handwritten sketch — messy hand-drawn scribbled/sketch lettering layered over "
-        "itself, artsy street feel, black / red / white palette"),
+        "STYLE: scribble handwritten sketch. TYPOGRAPHY: messy hand-drawn marker/pen SCRIBBLE "
+        "lettering. LAYOUT: layered, overlapping scribbled text lines stacked over each other, "
+        "raw and chaotic. COLORS: black, red, white. MOOD: artsy street/graffiti sketch"),
     "gothic": ("Gothic streetwear",
         "dark gothic streetwear, distressed faded print, blackletter typography, religious & "
         "celestial imagery (weeping angels, crosses, skulls, baroque statues), high-contrast "
@@ -909,11 +931,15 @@ DESIGN_STYLES = {
 
 DESIGN_SYSTEM = (
     "Bạn là prompt engineer cho design áo thun print-on-demand. Tạo N câu prompt TIẾNG ANH "
-    "cho AI tạo ảnh — mỗi câu là 1 design ĐẸP, ĐỘC ĐÁO, KHÁC NHAU rõ rệt, in lên áo bán chạy. "
-    "Phong cách bắt buộc: %s. Mỗi prompt PHẢI mô tả artwork chi tiết (chủ thể, bố cục, typography) "
-    "và LUÔN kết thúc bằng: 'isolated artwork on a plain solid white background, print-ready, "
-    "high detail, clean bold readable text, no t-shirt, no mockup, no person, no hands holding it'. "
-    "Trả JSON đúng dạng {\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"prompt\":\"...\"}]}."
+    "cho AI tạo ảnh — mỗi câu là 1 design ĐẸP, ĐỘC ĐÁO, KHÁC NHAU rõ rệt, in lên áo bán chạy.\n"
+    "PHONG CÁCH BẮT BUỘC (tuân thủ CHÍNH XÁC mô tả STYLE / ELEMENTS / TYPOGRAPHY / LAYOUT / "
+    "COLORS / MOOD bên dưới — ĐẶC BIỆT phần LAYOUT, tức bố cục in: vị trí chữ, xếp dọc / vòng "
+    "cung / căn giữa / góc trái ngực, kích cỡ tương đối): %s.\n"
+    "Mỗi prompt PHẢI nêu rõ bố cục & typography đúng phong cách trên, đúng bảng màu, và LUÔN "
+    "kết thúc bằng: 'flat front t-shirt print graphic, isolated artwork on a plain solid white "
+    "background, print-ready, high detail, clean bold perfectly-spelled text, no t-shirt, no "
+    "mockup, no person, no hands holding it'. Trả JSON đúng dạng "
+    "{\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"prompt\":\"...\"}]}."
 )
 
 
