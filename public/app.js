@@ -1407,15 +1407,13 @@ $("batchDownloadAll").onclick = async () => {
 /* =====================================================================
    TÍNH NĂNG: ẢNH SẢN PHẨM (gpt-image-2 edits, phong cách Nano Banana)
    ===================================================================== */
-const PROD_SHOTS = [
-  { key: "couple", label: "💑 Couple" },
-  { key: "model_f", label: "👩 Người mẫu nữ" },
-  { key: "model_m", label: "👨 Người mẫu nam" },
-  { key: "flatlay_sofa", label: "🛋️ Flatlay sofa" },
-  { key: "white_bg", label: "⬜ Nền trắng" },
-  { key: "kraft_box", label: "📦 Hộp kraft" },
+const PROD_CATS = [
+  { key: "model", label: "👫 Người mẫu", n: 6 },
+  { key: "flatlay", label: "🛋️ Flatlay sofa", n: 6 },
+  { key: "white", label: "⬜ Nền trắng", n: 5 },
+  { key: "kraft", label: "📦 Hộp kraft", n: 7 },
 ];
-const prodPicked = new Set(["model_f", "flatlay_sofa", "white_bg"]);
+const prodPicked = new Set(["model", "white"]);
 let prodImg = null;
 let prodPollTimer = null;
 let prodInited = false;
@@ -1426,13 +1424,15 @@ function prodInit() {
 }
 function prodRenderShots() {
   const box = $("prodShots"); box.innerHTML = "";
-  PROD_SHOTS.forEach(s => {
+  PROD_CATS.forEach(s => {
     const el = document.createElement("div");
     el.className = "cchip" + (prodPicked.has(s.key) ? " on" : "");
-    el.innerHTML = s.label + ' <span class="tick">✓</span>';
+    el.innerHTML = s.label + " (" + s.n + ")" + ' <span class="tick">✓</span>';
     el.onclick = () => { if (prodPicked.has(s.key)) prodPicked.delete(s.key); else prodPicked.add(s.key); prodRenderShots(); };
     box.appendChild(el);
   });
+  const total = PROD_CATS.filter(c => prodPicked.has(c.key)).reduce((a, c) => a + c.n, 0);
+  $("prodCount").innerHTML = "📸 Sẽ tạo <b>" + total + " ảnh</b> (mỗi ảnh ~30–60s · chạy 3 luồng).";
 }
 function prodSetImg(durl) {
   prodImg = durl;
@@ -1494,7 +1494,7 @@ async function prodPoll(jobId) {
 $("prodRunBtn").onclick = async () => {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   if (!prodImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh sản phẩm trước."; return; }
-  if (!prodPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 loại ảnh."; return; }
+  if (!prodPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 nhóm ảnh."; return; }
   const btn = $("prodRunBtn"); btn.disabled = true;
   $("prodErrors").innerHTML = "";
   $("prodProgress").classList.remove("hidden");
@@ -1502,7 +1502,7 @@ $("prodRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-photos", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, shots: [...prodPicked], bg: $("prodBg").value }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");

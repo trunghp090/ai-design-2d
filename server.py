@@ -626,68 +626,127 @@ PRODUCT_BG = {
                 "and neutral, casual lived-in feel"),
 }
 
-PRODUCT_SHOTS = {
-    "couple": {"label": "Couple (đôi)", "size": "1024x1536"},
-    "model_f": {"label": "Người mẫu nữ", "size": "1024x1536"},
-    "model_m": {"label": "Người mẫu nam", "size": "1024x1536"},
-    "flatlay_sofa": {"label": "Flatlay sofa", "size": "1024x1024"},
-    "white_bg": {"label": "Nền trắng", "size": "1024x1024"},
-    "kraft_box": {"label": "Hộp kraft", "size": "1024x1024"},
+# Mỗi danh mục = nhiều BIẾN THỂ (đúng skill: 6 model + 6 flatlay + 5 nền trắng + 7 kraft = 24)
+PRODUCT_CATS = {
+    "model": {"label": "Người mẫu", "size": "1024x1536", "variants": [
+        ("couple_34", "Couple 3/4"), ("couple_wu", "Couple nửa người"),
+        ("couple_lean", "Couple tựa vai"), ("solo_f", "Solo nữ"),
+        ("solo_m", "Solo nam"), ("chest", "Cận design trên người")]},
+    "flatlay": {"label": "Flatlay sofa", "size": "1024x1024", "variants": [
+        ("spread", "Trải mở"), ("folded", "Gấp gọn"), ("stacked", "Xếp chồng"),
+        ("angled", "Góc nghiêng"), ("close_chest", "Cận ngực"), ("close_zoom", "Cận design")]},
+    "white": {"label": "Nền trắng", "size": "1024x1024", "variants": [
+        ("topdown", "Top-down"), ("rotated", "Xoay nhẹ"), ("diagonal", "Chéo"),
+        ("angled", "Góc nghiêng"), ("closeup", "Cận design")]},
+    "kraft": {"label": "Hộp kraft", "size": "1024x1024", "variants": [
+        ("topdown", "Top-down"), ("angled", "Góc nghiêng"), ("peek", "Hé ra"),
+        ("overlap", "Chồng ngoài hộp"), ("folded_bg", "Hộp làm nền"),
+        ("close_box", "Cận trong hộp"), ("close_one", "Cận 1 design")]},
 }
 
+_FNEG = (" Negative extra: bunched fabric, rolled hem, curled edges, shirt hanging off the surface, "
+         "single oval logo, pill shape logo.")
+_FLAT_BASE = ("flatlay photo of the t-shirt from the reference product image on a light cream "
+              "fabric sofa seat cushion, lying fully on the cushion (not hanging off the edge), "
+              "clean ribbed collar with no tags, the printed design clearly visible exactly as in "
+              "the reference. Soft natural daylight, bright airy neutral, fabric color true to "
+              "life, no props.")
+_WHITE_BASE = ("product photo of the t-shirt from the reference product image on a pure white "
+               "seamless background, oversized form clearly visible, the printed design clearly "
+               "visible exactly as in the reference, clean collar no tags, soft even neutral "
+               "lighting, no props, no shadows.")
+_WNEG = " Negative extra: folded shirt, rolled sleeves, cream or beige or grey background, textured surface."
+_KRAFT_BASE = ("photo of the t-shirt from the reference product image inside a plain unprinted kraft "
+               "FLIP-OPEN box (hinged lid open at the back, NOT a separate lid / shoe box), lined "
+               "with thin white tissue paper, the printed design clearly visible exactly as in the "
+               "reference, soft natural daylight bright neutral, no props besides the kraft box and "
+               "white tissue.")
+_KNEG = (" Negative extra: stickers, ribbons, greeting card, dried flowers, printed box, branded box, "
+         "separate lid box, detached lid, shoe box style lid.")
 
-def product_prompt(shot, bg_key):
+
+def product_prompt(cat, vk, bg_key):
     bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["cafe"])
-    if shot == "couple":
-        return ("A candid casual smartphone photo of a young Vietnamese couple standing side by "
-                "side, shoulders lightly touching, %s. The woman is %s. The man is %s. Both are "
-                "wearing %s (each on their own shirt). Three-quarter shot from mid-thigh up, both "
-                "looking at the camera, %s. Fabric colors stay true to life, well exposed. %s %s"
-                % (bg, _MODEL_F, _MODEL_M, _SHIRT, _EXPR, _CAM, PRODUCT_NEG))
-    if shot in ("model_f", "model_m"):
-        who = _MODEL_F if shot == "model_f" else _MODEL_M
-        pose = ("one hand holding her bag strap" if shot == "model_f"
-                else "one hand relaxed in his pocket")
-        return ("A candid casual smartphone photo of %s, wearing %s. Standing %s. Waist-up shot "
-                "from the waist to the top of the head, %s, looking at the camera, %s. The fabric "
-                "color stays true to life, well exposed and clearly visible. %s %s"
+    if cat == "model":
+        if vk.startswith("couple"):
+            pose = {"couple_34": "Three-quarter shot from mid-thigh up. They stand side by side, "
+                    "shoulders lightly touching, both looking at the camera with bright cheerful smiles.",
+                    "couple_wu": "Waist-up shot. They stand very close, shoulders touching, both "
+                    "facing the camera with bright sparkling eyes and cheerful natural smiles.",
+                    "couple_lean": "Waist-up shot. She leans her head gently on his shoulder, he "
+                    "tilts his head slightly toward hers, both relaxed with gentle cheerful smiles."}[vk]
+            return ("A candid casual smartphone photo of a young Vietnamese couple %s. The woman is "
+                    "%s. The man is %s. Both wearing %s. %s The fabric colors stay true to life, "
+                    "well exposed. %s %s" % (bg, _MODEL_F, _MODEL_M, _SHIRT, pose, _CAM, PRODUCT_NEG))
+        if vk == "chest":
+            return ("A candid casual smartphone photo, chest-level crop of a young Vietnamese person "
+                    "wearing %s — framed from just below the collar to above the waist, NO face "
+                    "visible, slightly off-center angle as if a friend zoomed in on a phone. %s "
+                    "Directional natural daylight from one side creating slight shadow depth on the "
+                    "fabric, dimensional not flat, real cotton fabric texture visible, the design "
+                    "large and clearly readable. %s %s" % (_SHIRT, bg, _CAM, PRODUCT_NEG))
+        who = _MODEL_F if vk == "solo_f" else _MODEL_M
+        pose = ("one hand holding her bag strap" if vk == "solo_f" else "one hand relaxed in his pocket")
+        return ("A candid casual smartphone photo of %s, wearing %s. Standing %s, %s. Waist-up shot "
+                "from the waist to the top of the head, looking at the camera, %s. The fabric color "
+                "stays true to life, well exposed. %s %s"
                 % (who, _SHIRT, bg, pose, _EXPR, _CAM, PRODUCT_NEG))
-    if shot == "flatlay_sofa":
-        return ("Top-down flatlay photo of the t-shirt from the reference product image, laid "
-                "completely flat and open on a light cream fabric sofa seat cushion, lying fully on "
-                "the cushion (not hanging off the edge), body completely flat, sleeves extended "
-                "naturally, hem lying straight, clean ribbed collar with no tags, the printed design "
-                "on the left chest clearly visible exactly as in the reference. Soft natural "
-                "daylight, bright airy neutral, fabric color true to life, no props. %s" % PRODUCT_NEG)
-    if shot == "white_bg":
-        return ("Top-down product photo of the t-shirt from the reference product image, fully "
-                "spread open flat on a pure white seamless background, sleeves extended to both "
-                "sides fully visible from shoulder to cuff, body completely flat, hem straight, "
-                "oversized form clearly visible, the printed design clearly visible exactly as in "
-                "the reference, clean collar no tags, soft even neutral lighting, no props, no "
-                "shadows. %s" % PRODUCT_NEG)
-    # kraft_box
-    return ("Top-down photo of the t-shirt from the reference product image neatly folded into a "
-            "clean rectangle inside a plain unprinted kraft flip-open box (hinged lid open at the "
-            "back) lined with white tissue paper, the printed design on the chest clearly visible "
-            "exactly as in the reference, soft natural daylight, bright neutral, no props besides "
-            "the kraft box and white tissue, no stickers, no ribbons, no card. %s" % PRODUCT_NEG)
+    if cat == "flatlay":
+        v = {"spread": "Laid completely flat and open, body flat, sleeves extended naturally, hem "
+             "lying straight. Shot 90° straight from above.",
+             "folded": "Neatly folded into a clean rectangle (folded twice), hem fully tucked in, no "
+             "fabric sticking out, only the collar and chest with the design visible. Shot 75° slightly angled.",
+             "stacked": "Neatly folded into a clean rectangle, hem fully tucked in, shown as a tidy "
+             "stack. Shot 75° angled.",
+             "angled": "Laid flat and open, shot from the hem side at a 45-55° angle showing the "
+             "oversized form and natural perspective.",
+             "close_chest": "Folded, frame cropped tightly to the chest + design area, no hem visible, "
+             "the design large and readable. Shot 75-80° close crop.",
+             "close_zoom": "Extreme close-up of the left chest — the design and collar fill the frame, "
+             "cotton fabric texture visible. Shot 70°, about 25cm away."}[vk]
+        return ("Top-down %s %s%s %s" % (_FLAT_BASE, v, _FNEG, PRODUCT_NEG))
+    if cat == "white":
+        v = {"topdown": "Fully spread open flat, sleeves extended to both sides fully visible from "
+             "shoulder to cuff, body completely flat, hem straight. Shot 90° from above.",
+             "rotated": "Fully spread open flat but rotated about 15-20° on the frame for a dynamic "
+             "look, sleeves extended. Shot 90° from above.",
+             "diagonal": "Fully spread open flat, oriented along the diagonal of the frame, sleeves "
+             "extended. Shot 90° from above.",
+             "angled": "Fully spread open flat, shot from the hem looking up at 45-55°, showing the "
+             "full length and oversized form.",
+             "closeup": "Frame cropped close to the shoulders, collar, chest and design — no hem "
+             "visible, design large and readable. Shot 80-90°."}[vk]
+        return ("Top-down %s %s%s %s" % (_WHITE_BASE, v, _WNEG, PRODUCT_NEG))
+    # kraft
+    v = {"topdown": "Neatly folded into a clean rectangle inside the box, white tissue open at the "
+         "sides. Shot 90° from above.",
+         "angled": "Neatly folded inside the box, showing the box walls and the flip lid open behind. "
+         "Shot 45-55° from the front.",
+         "peek": "The folded t-shirt leaning slightly against the box wall and peeking out of the "
+         "edge, as if just lifted out, no hands. Shot 50-60° angled.",
+         "overlap": "The t-shirt spread overlapping on a clean white surface OUTSIDE the box, frame "
+         "cropped close, no box in frame. Shot 80-90° from above.",
+         "folded_bg": "The folded t-shirt in front in focus, the kraft flip-open box softly blurred "
+         "behind as the background. Shot 60-70° angled.",
+         "close_box": "Folded inside the box, frame cropped tight to the chest + design, the kraft "
+         "box walls framing both sides. Shot 75-80° close crop.",
+         "close_one": "Extreme close-up of the chest design of the folded shirt inside the box, the "
+         "kraft box wall at the frame edge, fabric texture visible. Shot 70°, about 25cm."}[vk]
+    return ("Top-down %s %s%s %s" % (_KRAFT_BASE, v, _KNEG, PRODUCT_NEG))
 
 
 def run_product_job(job_id, img, shots, bg_key):
     def work(shot):
-        meta = PRODUCT_SHOTS.get(shot)
-        if not meta:
-            return {"error": "Loại ảnh không hợp lệ", "title": shot}
         try:
-            b64 = openai_edit([(img, "image/png")], product_prompt(shot, bg_key),
-                              meta["size"], native_transparent=False)
-            g = gallery_add(b64, {"mode": "product", "prompt": meta["label"]})
-            return {"image": b64, "title": meta["label"], "gallery": g}
+            b64 = openai_edit([(img, "image/png")],
+                              product_prompt(shot["cat"], shot["vk"], bg_key),
+                              shot["size"], native_transparent=False)
+            g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
+            return {"image": b64, "title": shot["label"], "gallery": g}
         except urllib.error.HTTPError as e:
-            return {"error": openai_error_message(e), "title": meta["label"]}
+            return {"error": openai_error_message(e), "title": shot["label"]}
         except Exception as e:
-            return {"error": str(e), "title": meta["label"]}
+            return {"error": str(e), "title": shot["label"]}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
         for res in ex.map(work, shots):
@@ -1599,10 +1658,16 @@ class Handler(BaseHTTPRequestHandler):
         d, _ = fetch_image_bytes(src)
         if not d:
             return self.json(400, {"error": "Không đọc được ảnh sản phẩm."})
-        shots = [s for s in (body.get("shots") or []) if s in PRODUCT_SHOTS]
-        if not shots:
-            return self.json(400, {"error": "Hãy chọn ít nhất 1 loại ảnh."})
-        bg_key = body.get("bg", "santorini")
+        cats = [c for c in (body.get("cats") or []) if c in PRODUCT_CATS]
+        if not cats:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
+        shots = []
+        for c in cats:
+            meta = PRODUCT_CATS[c]
+            for vk, vlabel in meta["variants"]:
+                shots.append({"cat": c, "vk": vk, "size": meta["size"],
+                              "label": "%s · %s" % (meta["label"], vlabel)})
+        bg_key = body.get("bg", "cafe")
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "p%d_%d" % (int(time.time()), _batch_seq[0])
