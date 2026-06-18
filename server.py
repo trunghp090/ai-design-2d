@@ -852,9 +852,20 @@ DESIGN_SYSTEM = (
 )
 
 
-def design_concepts(style_key, theme, text, n):
+def design_concepts(styles, theme, text, n):
+    """styles: list khoá phong cách. Nhiều style -> TRỘN vào cùng mỗi design (fusion)."""
     n = max(1, min(int(n or 3), 8))
-    sd = DESIGN_STYLES.get(style_key, list(DESIGN_STYLES.values())[0])[1]
+    if isinstance(styles, str):
+        styles = [styles]
+    styles = [s for s in styles if s in DESIGN_STYLES] or [list(DESIGN_STYLES)[0]]
+    if len(styles) == 1:
+        sd = DESIGN_STYLES[styles[0]][1]
+    else:
+        descs = " + ".join("(%s)" % DESIGN_STYLES[s][1] for s in styles)
+        names = " + ".join(DESIGN_STYLES[s][0] for s in styles)
+        sd = ("MASH-UP / FUSION nhiều phong cách vào CÙNG MỖI design (kết hợp hài hoà thành 1 "
+              "thể thống nhất, KHÔNG tách rời, KHÔNG chia ô): %s. Các phong cách cần trộn: %s"
+              % (names, descs))
     parts = ["Tạo đúng %d design." % n]
     if (theme or "").strip():
         parts.append("Chủ đề/ngách: %s." % theme.strip())
@@ -881,21 +892,12 @@ DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt cre
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n_each, size, transparent):
-    # Bước 1: gom concept từ NHIỀU phong cách (song song) — gắn tên style vào title
-    def gather(style):
-        try:
-            cs = design_concepts(style, theme, text, n_each)
-            label = DESIGN_STYLES.get(style, (style,))[0]
-            for c in cs:
-                c["title"] = "%s · %s" % (label, c["title"])
-            return cs
-        except Exception:
-            return []
-    concepts = []
-    with ThreadPoolExecutor(max_workers=min(5, max(1, len(styles)))) as ex:
-        for cs in ex.map(gather, styles):
-            concepts.extend(cs or [])
+def run_design_job(job_id, styles, theme, text, n, size, transparent):
+    # Bước 1: AI nghĩ n design — nếu nhiều style thì TRỘN vào mỗi design (fusion)
+    try:
+        concepts = design_concepts(styles, theme, text, n)
+    except Exception:
+        concepts = []
     concepts = concepts[:DESIGN_MAX_TOTAL]
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
@@ -1771,7 +1773,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"items": items, "errors": errors})
 
     def handle_design_gen(self, body):
-        """Tạo design từ đầu: chọn NHIỀU phong cách, mỗi style n mẫu -> gen nhiều luồng."""
+        """Tạo design: chọn NHIỀU phong cách = TRỘN vào cùng mỗi design. n = tổng số mẫu."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         styles = [s for s in (body.get("styles") or []) if s in DESIGN_STYLES]
@@ -1779,13 +1781,10 @@ class Handler(BaseHTTPRequestHandler):
             styles = [body.get("style")]
         if not styles:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 phong cách."})
-        n_each = max(1, min(int(body.get("n", 3) or 3), 8))
-        # trần tổng để khỏi đốt credit
-        if len(styles) * n_each > DESIGN_MAX_TOTAL:
-            n_each = max(1, DESIGN_MAX_TOTAL // len(styles))
+        n = max(1, min(int(body.get("n", 3) or 3), 8))   # tổng số design (mỗi cái trộn các style)
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
-        total_est = min(len(styles) * n_each, DESIGN_MAX_TOTAL)
+        total_est = n
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "g%d_%d" % (int(time.time()), _batch_seq[0])
@@ -1793,7 +1792,7 @@ class Handler(BaseHTTPRequestHandler):
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_design_job,
                              args=(job_id, styles, body.get("theme", ""),
-                                   body.get("text", ""), n_each, size, transparent),
+                                   body.get("text", ""), n, size, transparent),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})

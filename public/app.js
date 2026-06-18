@@ -1605,12 +1605,12 @@ function dsRenderStyles() {
   dsUpdateTotal();
 }
 function dsUpdateTotal() {
-  const per = parseInt(($("dsCount") || {}).value, 10) || 3;
-  let total = dsPicked.size * per;
-  if (total > 24) total = 24;
-  if ($("dsStyleHint")) $("dsStyleHint").innerHTML = dsPicked.size
-    ? "✨ Sẽ tạo <b>" + total + " mẫu</b> (" + dsPicked.size + " phong cách × " + per + ", tối đa 24) · 5 luồng song song"
-    : "⚠️ Chọn ít nhất 1 phong cách";
+  const n = parseInt(($("dsCount") || {}).value, 10) || 3;
+  if (!$("dsStyleHint")) return;
+  if (!dsPicked.size) { $("dsStyleHint").innerHTML = "⚠️ Chọn ít nhất 1 phong cách"; return; }
+  $("dsStyleHint").innerHTML = dsPicked.size > 1
+    ? "🎨 Sẽ tạo <b>" + n + " mẫu</b> — mỗi mẫu <b>TRỘN " + dsPicked.size + " phong cách</b> đã chọn (mash-up)."
+    : "✨ Sẽ tạo <b>" + n + " mẫu</b> phong cách này.";
 }
 let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
 let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
