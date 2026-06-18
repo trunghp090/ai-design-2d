@@ -834,6 +834,15 @@ DESIGN_STYLES = {
     "liquid_chrome": ("Liquid Chrome / 3D Y2K", "liquid chrome 3D y2k t-shirt typography"),
     "scribble": ("Scribble / Handwritten", "scribble handwritten sketch t-shirt typography"),
     "streetwear": ("Streetwear", "modern urban streetwear t-shirt graphic, bold oversized hype/hypebeast aesthetic"),
+    "graffiti_tag": ("Graffiti / Wildstyle", "graffiti wildstyle spray-paint tag t-shirt graphic, urban wall art, drips and bold outlines"),
+    "grunge_punk": ("Grunge / Punk", "grunge punk streetwear t-shirt graphic, distressed photocopy zine aesthetic, ripped collage, safety-pin DIY vibe"),
+    "cyberpunk": ("Cyberpunk / Techwear", "cyberpunk techwear streetwear t-shirt graphic, neon glitch, futuristic HUD, dystopian Japanese signage"),
+    "skate": ("Skate / Skateboard", "skate skateboard streetwear t-shirt graphic, bold cartoon, old-school skate logo vibe"),
+    "rap_bootleg": ("Rap Bootleg 90s", "90s rap bootleg t-shirt graphic, photo halftone portrait with bold arched text and stars, vintage rap tee"),
+    "vaporwave": ("Vaporwave", "vaporwave aesthetic t-shirt graphic, pastel neon pink-cyan, roman marble bust, retro grid, glitch, 80s"),
+    "comic_pop": ("Comic / Pop-art", "comic pop-art t-shirt graphic, ben-day halftone dots, speech bubble, bold panel, retro comic"),
+    "acid_trippy": ("Acid / Psychedelic", "psychedelic acid trippy streetwear t-shirt graphic, melting warped type, swirling shapes, bright contrasting colors"),
+    "military": ("Military / Utility", "military utility techwear t-shirt graphic, stencil army font, tactical patches, olive and black"),
     "mascot": ("Mascot minh hoạ (TeeLab)",
         "Vietnamese illustrated streetwear tee (TeeLab style): a bold cartoon MASCOT/character "
         "(astronaut, robot, animal, monster...) as the hero in the center, placed IN FRONT of LARGE "
@@ -911,6 +920,10 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent):
     except Exception:
         concepts = []
     concepts = concepts[:DESIGN_MAX_TOTAL]
+    # gắn nhãn (các) phong cách vào title kết quả
+    style_tag = " + ".join(DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES)
+    for c in concepts:
+        c["title"] = "[%s] %s" % (style_tag, c.get("title", "Design"))
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
         if not job:
