@@ -1612,9 +1612,14 @@ function dsUpdateTotal() {
     ? "✨ Sẽ tạo <b>" + total + " mẫu</b> (" + dsPicked.size + " phong cách × " + per + ", tối đa 24) · 5 luồng song song"
     : "⚠️ Chọn ít nhất 1 phong cách";
 }
-function dsRender(items) {
+let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
+let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
+function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Math.random(); }
+
+function dsRender() {
   const grid = $("dsResults");
-  if (!items.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  const items = Object.values(dsItems);
+  if (!items.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
   $("dsEmpty").classList.add("hidden");
   grid.innerHTML = "";
   items.forEach(it => {
@@ -1632,31 +1637,37 @@ function dsRender(items) {
   });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
 }
-async function dsPoll(jobId) {
-  try {
-    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
-    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
-    $("dsBar").style.width = pct + "%";
-    $("dsProgText").textContent = "Đã xong " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length : "");
-    dsRender(d.items || []);
-    $("dsErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
-    if (d.finished) {
-      clearInterval(dsPollTimer); dsPollTimer = null;
-      $("dsRunBtn").disabled = false;
-      $("dsNote").className = "gen-note ok";
-      $("dsNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " mẫu (đã lưu Lịch sử).";
-      if (typeof loadGallery === "function") loadGallery();
-    }
-  } catch (e) { /* tiếp tục */ }
+async function dsPollAll() {
+  const active = dsJobs.filter(j => !j.finished);
+  let errs = [];
+  await Promise.all(active.map(async j => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      j.total = d.total; j.done = d.done; j.finished = d.finished;
+      (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
+      (d.errors || []).forEach(e => errs.push(e));
+    } catch (e) { /* thử lại lần sau */ }
+  }));
+  dsRender();
+  const total = dsJobs.reduce((a, j) => a + (j.total || 0), 0);
+  const done = dsJobs.reduce((a, j) => a + (j.done || 0), 0);
+  const running = dsJobs.filter(j => !j.finished).length;
+  $("dsBar").style.width = (total ? Math.round(done / total * 100) : 0) + "%";
+  $("dsProgText").textContent = (running ? ("⏳ " + running + " đợt đang chạy · ") : "✓ Tất cả xong · ")
+    + done + "/" + total + " · ✓ " + Object.keys(dsItems).length + " mẫu";
+  if (errs.length) $("dsErrors").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join("");
+  if (!running) {
+    clearInterval(dsPollTimer); dsPollTimer = null;
+    $("dsNote").className = "gen-note ok";
+    $("dsNote").textContent = "✓ Xong tất cả! " + Object.keys(dsItems).length + " mẫu (đã lưu Lịch sử).";
+    if (typeof loadGallery === "function") loadGallery();
+  }
 }
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
   if (!dsPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 phong cách."; return; }
-  const btn = $("dsRunBtn"); btn.disabled = true;
-  $("dsErrors").innerHTML = "";
   $("dsProgress").classList.remove("hidden");
-  $("dsBar").style.width = "0%"; $("dsProgText").textContent = "AI đang nghĩ mẫu…";
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -1664,13 +1675,13 @@ $("dsRunBtn").onclick = async () => {
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
-    $("dsProgText").textContent = "Đang vẽ " + d.total + " mẫu (nhiều luồng)…";
-    if (dsPollTimer) clearInterval(dsPollTimer);
-    dsPollTimer = setInterval(() => dsPoll(d.job_id), 2500);
-    dsPoll(d.job_id);
+    dsJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    note.className = "gen-note ok";
+    note.textContent = "✓ Đã thêm đợt mới (" + d.total + " mẫu) — bấm tiếp để chạy thêm song song!";
+    if (!dsPollTimer) dsPollTimer = setInterval(dsPollAll, 2500);
+    dsPollAll();
   } catch (err) {
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-    btn.disabled = false; $("dsProgress").classList.add("hidden");
   }
 };
 $("dsDownloadAll").onclick = async () => {
