@@ -580,15 +580,18 @@
         <label class="field-label">Loại ảnh (bấm chọn)</label>
         <div class="color-chips" id="prodShots"></div>
 
-        <label class="field-label" style="margin-top:12px">Bối cảnh người mẫu</label>
+        <label class="field-label" style="margin-top:12px">Bối cảnh người mẫu (đời thường VN)</label>
         <select id="prodBg" class="input">
-          <option value="santorini">Santorini (Hy Lạp)</option>
-          <option value="paris">Paris (ban công)</option>
-          <option value="kyoto">Hoa anh đào Kyoto</option>
-          <option value="yacht">Du thuyền giữa biển</option>
-          <option value="positano">Positano (Amalfi)</option>
-          <option value="forbidden">Tử Cấm Thành</option>
-          <option value="penthouse">Penthouse đêm</option>
+          <option value="cafe">Quán cà phê indie</option>
+          <option value="trasua">Quán trà sữa</option>
+          <option value="street_food">Quán ăn vỉa hè</option>
+          <option value="rooftop">Rooftop café</option>
+          <option value="river">Bờ kè sông/hồ</option>
+          <option value="park">Công viên cây xanh</option>
+          <option value="oldquarter">Phố cổ / hẻm nhỏ</option>
+          <option value="walkingstreet">Phố đi bộ</option>
+          <option value="bedroom">Phòng ngủ sáng</option>
+          <option value="balcony">Ban công chung cư</option>
         </select>
 
         <button class="btn-primary" id="prodRunBtn" style="margin-top:12px">📸 Tạo ảnh sản phẩm</button>
@@ -610,6 +613,31 @@
         <div class="gallery-empty" id="prodEmpty">Tải ảnh áo + chọn loại ảnh rồi bấm Tạo.</div>
       </section>
     </div>
+
+    <!-- Content bán hàng: Facebook + TikTok -->
+    <section class="panel" style="margin-top:20px">
+      <div class="gallery-head">
+        <h3>🛒 Content bán hàng (Facebook + TikTok)</h3>
+        <button class="btn-primary" id="contentRunBtn" style="width:auto;padding:8px 16px">✍️ Tạo content</button>
+      </div>
+      <input type="text" id="contentInfo" class="input"
+        placeholder="(Tuỳ chọn) Tên sản phẩm · giá · tên cặp · link… để AI viết sát hơn" />
+      <p class="gen-note" id="contentNote"></p>
+      <div class="content-grid" id="contentOut" hidden>
+        <div class="content-box">
+          <div class="cb-head">📢 Facebook Ads <button class="btn-ghost sm cb-copy" data-target="cbFacebook">📋 Copy</button></div>
+          <textarea id="cbFacebook" class="input" rows="8" readonly></textarea>
+        </div>
+        <div class="content-box">
+          <div class="cb-head">🎬 Kịch bản TikTok ảnh cuộn <button class="btn-ghost sm cb-copy" data-target="cbScript">📋 Copy</button></div>
+          <textarea id="cbScript" class="input" rows="8" readonly></textarea>
+        </div>
+        <div class="content-box">
+          <div class="cb-head">📱 Caption TikTok <button class="btn-ghost sm cb-copy" data-target="cbCaption">📋 Copy</button></div>
+          <textarea id="cbCaption" class="input" rows="5" readonly></textarea>
+        </div>
+      </div>
+    </section>
   </section>
 
   <footer class="site-footer">

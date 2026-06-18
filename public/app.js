@@ -1408,6 +1408,7 @@ $("batchDownloadAll").onclick = async () => {
    TÍNH NĂNG: ẢNH SẢN PHẨM (gpt-image-2 edits, phong cách Nano Banana)
    ===================================================================== */
 const PROD_SHOTS = [
+  { key: "couple", label: "💑 Couple" },
   { key: "model_f", label: "👩 Người mẫu nữ" },
   { key: "model_m", label: "👨 Người mẫu nam" },
   { key: "flatlay_sofa", label: "🛋️ Flatlay sofa" },
@@ -1519,3 +1520,31 @@ $("prodDownloadAll").onclick = async () => {
   if (!cards.length) return;
   for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
 };
+
+/* ---------- Content bán hàng: Facebook Ads + TikTok ---------- */
+$("contentRunBtn").onclick = async () => {
+  const note = $("contentNote"); note.className = "gen-note"; note.textContent = "";
+  if (!prodImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh sản phẩm (ở trên) trước."; return; }
+  const btn = $("contentRunBtn"); btn.disabled = true; const old = btn.textContent; btn.textContent = "✍️ Đang viết…";
+  try {
+    const r = await fetch("/api/product-content", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: prodImg, info: $("contentInfo").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("cbFacebook").value = d.facebook || "";
+    $("cbScript").value = d.tiktok_script || "";
+    $("cbCaption").value = d.tiktok_caption || "";
+    $("contentOut").hidden = false;
+    note.className = "gen-note ok"; note.textContent = "✓ Đã tạo content! Bấm Copy để dùng.";
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+};
+document.querySelectorAll(".cb-copy").forEach(b => b.onclick = () => {
+  const ta = $(b.dataset.target); ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => { const t = b.textContent; b.textContent = "✓ Đã copy"; setTimeout(() => b.textContent = t, 1200); });
+});

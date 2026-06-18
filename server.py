@@ -593,32 +593,41 @@ _EXPR = ("bright cheerful gentle smile, lips parted slightly showing just the ed
          "sparkling and alive, expression genuinely spontaneous not rehearsed")
 
 PRODUCT_BG = {
-    "santorini": ("on a white-painted stone terrace in Santorini, an iconic blue-domed church "
-                  "behind to the left, white cubist buildings cascading toward the deep blue Aegean "
-                  "sea, pink bougainvillea on a far wall; bright even midday daylight, completely "
-                  "neutral, no warm cast, no harsh shadows"),
-    "paris": ("on a small wrought-iron Parisian balcony, Haussmann buildings with grey-blue "
-              "rooftops across the street, a distant soft glimpse of the Eiffel Tower, a small café "
-              "table with espresso cups; bright flat ambient daylight, clean neutral, airy"),
-    "kyoto": ("under a canopy of pale pink cherry blossoms in full bloom forming a tunnel, a quiet "
-              "grey stone path behind, petals drifting softly; bright daylight filtered softly "
-              "through the blossom canopy, clean neutral"),
-    "yacht": ("on the bow of a sleek white luxury yacht on crystal-clear turquoise ocean, endless "
-              "sea to the horizon, polished white deck, chrome railings; bright high-key daylight "
-              "reflecting off water and white surfaces, neutral, no warm cast"),
-    "positano": ("on a narrow stone stairway in Positano on the Amalfi Coast, pastel houses "
-                 "cascading down the cliff, the deep blue Mediterranean sparkling below, lemon trees "
-                 "in terracotta pots; bright midday light, neutral, airy"),
-    "forbidden": ("in the grand courtyard of the Forbidden City, vermillion red walls and "
-                  "golden-tiled rooftops, pale stone floor, carved white marble balustrades; clear "
-                  "bright sky, bright even neutral daylight"),
-    "penthouse": ("inside a modern penthouse by a floor-to-ceiling window, a nighttime city skyline "
-                  "of bokeh lights outside, a grey velvet sofa edge, polished dark floor; soft "
-                  "neutral bright ambient interior light, faces and fabric clearly visible, no warm "
-                  "cast, no orange tint"),
+    "cafe": ("in a small indie café, white brick walls, large glass windows letting in bright "
+             "daylight, potted greenery on wooden shelves, wooden tables and rattan chairs, terrazzo "
+             "floor; bright even daylight flooding through the windows, neutral, no warm cast, airy"),
+    "trasua": ("in a small bubble-tea shop with pastel light-mint walls, a softly glowing neon sign, "
+               "wooden counter with drinks, small round tables with colorful stools, a large glass "
+               "storefront; bright cheerful interior daylight, neutral white, even"),
+    "street_food": ("at a Vietnamese street-food spot on the sidewalk, low tables and stools, a tiled "
+                    "wall behind, motorbikes parked nearby, a leafy tree providing shade; bright "
+                    "ambient daylight in open shade, even and neutral"),
+    "rooftop": ("on an open-air rooftop café terrace, wooden tables and chairs, potted plants along "
+                "the edge, city rooftops in the background; bright open-sky daylight, high-key, "
+                "neutral, no harsh shadows on the face"),
+    "river": ("on a riverside promenade, black iron railing, a row of green leafy trees, calm water "
+              "behind, clean concrete sidewalk, a few distant pedestrians softly blurred; bright even "
+              "midday daylight, open sky, neutral"),
+    "park": ("in a green city park with a wide walking path, tall trees forming a natural canopy, a "
+             "wooden bench to the side, grass patches; soft dappled daylight through the leaves, "
+             "bright and neutral"),
+    "oldquarter": ("in a narrow alley of the Vietnamese old quarter, aged yellow-painted walls with "
+                   "slightly peeling texture, old wooden doors, potted plants on the ground, a "
+                   "motorbike parked to the side, patches of bright sky above; bright ambient daylight "
+                   "bouncing off the walls, neutral, airy"),
+    "walkingstreet": ("on a daytime pedestrian walking street, wide paved stone walkway, colorful "
+                      "shophouse facades on both sides, trees along the center, a few people far away; "
+                      "bright even daylight, open sky, neutral, clean"),
+    "bedroom": ("in a simple clean bedroom, light grey walls, a neatly made bed with white sheets, a "
+                "small desk with books, a sheer white curtain with bright morning light streaming in; "
+                "bright soft morning daylight, neutral, airy"),
+    "balcony": ("on a small apartment balcony, a concrete railing, a few small potted plants, a view "
+                "of neighbouring buildings and rooftops, bright open sky; natural daylight, bright "
+                "and neutral, casual lived-in feel"),
 }
 
 PRODUCT_SHOTS = {
+    "couple": {"label": "Couple (đôi)", "size": "1024x1536"},
     "model_f": {"label": "Người mẫu nữ", "size": "1024x1536"},
     "model_m": {"label": "Người mẫu nam", "size": "1024x1536"},
     "flatlay_sofa": {"label": "Flatlay sofa", "size": "1024x1024"},
@@ -628,7 +637,13 @@ PRODUCT_SHOTS = {
 
 
 def product_prompt(shot, bg_key):
-    bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["santorini"])
+    bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["cafe"])
+    if shot == "couple":
+        return ("A candid casual smartphone photo of a young Vietnamese couple standing side by "
+                "side, shoulders lightly touching, %s. The woman is %s. The man is %s. Both are "
+                "wearing %s (each on their own shirt). Three-quarter shot from mid-thigh up, both "
+                "looking at the camera, %s. Fabric colors stay true to life, well exposed. %s %s"
+                % (bg, _MODEL_F, _MODEL_M, _SHIRT, _EXPR, _CAM, PRODUCT_NEG))
     if shot in ("model_f", "model_m"):
         who = _MODEL_F if shot == "model_f" else _MODEL_M
         pose = ("one hand holding her bag strap" if shot == "model_f"
@@ -688,6 +703,46 @@ def run_product_job(job_id, img, shots, bg_key):
     with _batch_lock:
         if BATCH_JOBS.get(job_id):
             BATCH_JOBS[job_id]["finished"] = True
+
+
+CONTENT_SYSTEM = (
+    "Bạn là chuyên viết content bán hàng cho shop áo thun couple / quà tặng GenZ Việt Nam "
+    "(brand rieng.vn). Nhìn ảnh sản phẩm để hiểu áo (màu, phong cách, cảm xúc) — KHÔNG bịa "
+    "chi tiết không có. Viết tiếng Việt, giọng trẻ trung tự nhiên như bạn bè, KHÔNG sáo rỗng "
+    "(tránh 'chất lượng cao', 'giá tốt nhất', 'uy tín').\n"
+    "Trả về JSON đúng dạng: {\"facebook\":\"...\",\"tiktok_script\":\"...\",\"tiktok_caption\":\"...\"}.\n\n"
+    "1) facebook — 1 bài Facebook Ads: dòng HOOK gây chú ý (cảm xúc/câu hỏi/pain point cặp đôi "
+    "GenZ) → BODY 2–4 dòng ngắn mô tả sản phẩm tự nhiên → CTA rõ ràng (chèn link/giá nếu có) → "
+    "5–8 hashtag tiếng Việt. Emoji vừa phải, có thể chơi chữ nhẹ.\n\n"
+    "2) tiktok_script — kịch bản TikTok ẢNH CUỘN 7 slide. ZERO nhắc sản phẩm (không 'áo/quà/"
+    "tặng/mua/shop/couple/in tên'). Tối đa 1–2 slide có text overlay (câu ngắn ≤20 chữ, giọng "
+    "nhẹ hơi thơ hiện đại, kiểu 'Gặp đúng người, mọi thứ tự nhiên trở nên dịu dàng...'). Còn lại "
+    "ảnh sạch. Format mỗi dòng: 'SLIDE 1 — ảnh sạch', 'SLIDE 2 📝 \"...\"', ... 'SLIDE 7 — rieng.vn'.\n\n"
+    "3) tiktok_caption — 1–2 dòng tâm sự nhẹ cùng giọng trên (KHÔNG bán hàng) + 1 dòng CTA nhẹ "
+    "('inbox mình nha') + 8–12 hashtag, BẮT BUỘC có #riengvn #áocouple #quàtặngcouple #đồđôi."
+)
+
+
+def product_content(img_bytes, info):
+    """AI nhìn ảnh sản phẩm + info -> JSON {facebook, tiktok_script, tiktok_caption}."""
+    info = (info or "").strip()
+    content = [{"type": "text",
+                "text": ("Thông tin sản phẩm/link (nếu có): %s\nViết content theo schema."
+                         % (info or "(không có — tự suy từ ảnh)"))}]
+    if img_bytes:
+        b64 = base64.b64encode(img_bytes).decode()
+        content.append({"type": "image_url",
+                        "image_url": {"url": "data:image/png;base64," + b64}})
+    messages = [{"role": "system", "content": CONTENT_SYSTEM},
+                {"role": "user", "content": content}]
+    raw = openai_chat(messages, json_mode=True, max_tokens=1800)
+    try:
+        d = json.loads(raw)
+    except Exception:
+        return {"facebook": raw, "tiktok_script": "", "tiktok_caption": ""}
+    return {"facebook": d.get("facebook", ""),
+            "tiktok_script": d.get("tiktok_script", ""),
+            "tiktok_caption": d.get("tiktok_caption", "")}
 
 
 # --------------------------------------------------------------------------- #
@@ -1303,6 +1358,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_batch_excel(body)
         if path == "/api/product-photos":
             return self.handle_product_photos(body)
+        if path == "/api/product-content":
+            return self.handle_product_content(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1515,6 +1572,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_product_content(self, body):
+        """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        img = None
+        if src:
+            img, _ = fetch_image_bytes(src)
+        try:
+            out = product_content(img, body.get("info", ""))
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": "Viết content lỗi: %s" % e})
+        return self.json(200, out)
 
     def handle_product_photos(self, body):
         """Tạo ảnh sản phẩm (model/flatlay/kraft) từ 1 ảnh sản phẩm, gpt-image-2 edits."""
