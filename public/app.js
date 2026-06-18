@@ -1555,25 +1555,25 @@ document.querySelectorAll(".cb-copy").forEach(b => b.onclick = () => {
    TÍNH NĂNG: TẠO DESIGN (text-to-image theo phong cách)
    ===================================================================== */
 const DS_STYLES = [
-  { key: "vintage_americana", label: "🏞️ Vintage Americana 🔥", hint: "Hot Shopee · couple/quà · điền tên+năm+địa danh" },
-  { key: "varsity", label: "🎓 Varsity College", hint: "Áo lớp/CLB · tên trường+số+năm" },
-  { key: "minimal_clean", label: "⚪ Minimal Clean", hint: "Tối giản Hàn/Nhật · tên/slogan ngực trái" },
-  { key: "korean_minimal", label: "🌷 Korean Minimal", hint: "Nữ GenZ, couple · biệt danh dễ thương" },
-  { key: "motivational", label: "💪 Motivational Bold", hint: "Slogan to bản lưng · nam streetwear" },
-  { key: "street_racing", label: "🏎️ Street Racing", hint: "Nam mê xe · biển số/năm/garage" },
-  { key: "vintage_washed", label: "🧵 Vintage Washed", hint: "Hiệu ứng cũ bạc màu, chất vintage" },
-  { key: "y2k_graffiti", label: "🫧 Y2K Graffiti", hint: "Bong bóng/graffiti · teen cá tính, rap" },
-  { key: "badge_patch", label: "🏷️ Retro Badge", hint: "Cụm tem/icon vintage · sưu tầm" },
-  { key: "couple_love", label: "💞 Couple tình yêu 🔥", hint: "Tên 2 người + ngày + Since năm" },
-  { key: "city_souvenir", label: "📍 City Souvenir VN", hint: "Đà Lạt/Sài Gòn... + năm + toạ độ" },
-  { key: "statement_bold", label: "🅰️ Statement Bold", hint: "Câu tuyên ngôn to (tránh nhạy cảm)" },
-  { key: "funny_vn", label: "😆 Funny Quote VN 🔥", hint: "Câu cà khịa tiếng Việt · viral, quà vui" },
-  { key: "floral_quote", label: "🌼 Floral + Quote", hint: "Nữ GenZ · hoa + câu nhẹ" },
-  { key: "luxury_minimal", label: "🖤 Luxury Minimal", hint: "Quiet luxury · chữ nhỏ lưng" },
-  { key: "social_club", label: "🎟️ Social Club", hint: "Tên hội/nhóm/lớp + năm" },
-  { key: "sport_statement", label: "🏀 Sport Statement", hint: "Thể thao · tên/số đội (World Cup 2026)" },
-  { key: "liquid_chrome", label: "🪙 Liquid Chrome 3D", hint: "Chữ chrome 3D · teen cá tính" },
-  { key: "scribble", label: "✍️ Scribble Sketch", hint: "Chữ viết tay nguệch ngoạc · nghệ" },
+  { key: "vintage_americana", label: "🏞️ Vintage Americana 🔥", hint: "Hot Shopee · couple/quà · điền tên+năm+địa danh", ref: "vintage americana ringer tshirt" },
+  { key: "varsity", label: "🎓 Varsity College", hint: "Áo lớp/CLB · tên trường+số+năm", ref: "varsity college tshirt typography" },
+  { key: "minimal_clean", label: "⚪ Minimal Clean", hint: "Tối giản Hàn/Nhật · tên/slogan ngực trái", ref: "minimal typography tshirt" },
+  { key: "korean_minimal", label: "🌷 Korean Minimal", hint: "Nữ GenZ, couple · biệt danh dễ thương", ref: "korean minimal tshirt lettering" },
+  { key: "motivational", label: "💪 Motivational Bold", hint: "Slogan to bản lưng · nam streetwear", ref: "motivational quote tshirt typography" },
+  { key: "street_racing", label: "🏎️ Street Racing", hint: "Nam mê xe · biển số/năm/garage", ref: "vintage racing tshirt design" },
+  { key: "vintage_washed", label: "🧵 Vintage Washed", hint: "Hiệu ứng cũ bạc màu, chất vintage", ref: "vintage washed tshirt typography" },
+  { key: "y2k_graffiti", label: "🫧 Y2K Graffiti", hint: "Bong bóng/graffiti · teen cá tính, rap", ref: "y2k graffiti tshirt typography" },
+  { key: "badge_patch", label: "🏷️ Retro Badge", hint: "Cụm tem/icon vintage · sưu tầm", ref: "retro streetwear patch tshirt" },
+  { key: "couple_love", label: "💞 Couple tình yêu 🔥", hint: "Tên 2 người + ngày + Since năm", ref: "couple matching tshirt typography" },
+  { key: "city_souvenir", label: "📍 City Souvenir VN", hint: "Đà Lạt/Sài Gòn... + năm + toạ độ", ref: "city souvenir tshirt typography" },
+  { key: "statement_bold", label: "🅰️ Statement Bold", hint: "Câu tuyên ngôn to (tránh nhạy cảm)", ref: "bold statement tshirt typography" },
+  { key: "funny_vn", label: "😆 Funny Quote VN 🔥", hint: "Câu cà khịa tiếng Việt · viral, quà vui", ref: "funny quote tshirt typography" },
+  { key: "floral_quote", label: "🌼 Floral + Quote", hint: "Nữ GenZ · hoa + câu nhẹ", ref: "aesthetic floral quote tshirt" },
+  { key: "luxury_minimal", label: "🖤 Luxury Minimal", hint: "Quiet luxury · chữ nhỏ lưng", ref: "luxury minimal back print tshirt" },
+  { key: "social_club", label: "🎟️ Social Club", hint: "Tên hội/nhóm/lớp + năm", ref: "social club tshirt typography" },
+  { key: "sport_statement", label: "🏀 Sport Statement", hint: "Thể thao · tên/số đội (World Cup 2026)", ref: "sport athletic typography tshirt" },
+  { key: "liquid_chrome", label: "🪙 Liquid Chrome 3D", hint: "Chữ chrome 3D · teen cá tính", ref: "chrome 3d typography tshirt" },
+  { key: "scribble", label: "✍️ Scribble Sketch", hint: "Chữ viết tay nguệch ngoạc · nghệ", ref: "scribble handwritten tshirt typography" },
   { key: "gothic", label: "🖤 Gothic streetwear" },
   { key: "skull", label: "💀 Skull dark" },
   { key: "celestial", label: "🌌 Vũ trụ" },
@@ -1604,6 +1604,14 @@ function dsRenderStyles() {
   });
   const cur = DS_STYLES.find(s => s.key === dsStyle);
   if ($("dsStyleHint")) $("dsStyleHint").textContent = cur && cur.hint ? "💡 " + cur.hint : "";
+  const link = $("dsRefLink");
+  if (link) {
+    if (cur && cur.ref) {
+      link.href = "https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(cur.ref);
+      link.textContent = "🔗 Xem mẫu thật trên Pinterest (" + cur.ref + ")";
+      link.style.display = "block";
+    } else { link.style.display = "none"; }
+  }
 }
 function dsRender(items) {
   const grid = $("dsResults");
