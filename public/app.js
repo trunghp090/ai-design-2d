@@ -1574,6 +1574,7 @@ const DS_STYLES = [
   { key: "sport_statement", label: "🏀 Sport Statement", hint: "Thể thao · tên/số đội (World Cup 2026)", ref: "sport athletic typography tshirt" },
   { key: "liquid_chrome", label: "🪙 Liquid Chrome 3D", hint: "Chữ chrome 3D · teen cá tính", ref: "chrome 3d typography tshirt" },
   { key: "scribble", label: "✍️ Scribble Sketch", hint: "Chữ viết tay nguệch ngoạc · nghệ", ref: "scribble handwritten tshirt typography" },
+  { key: "streetwear", label: "🧢 Streetwear", hint: "Urban / hypebeast · graphic bold oversized" },
   { key: "gothic", label: "🖤 Gothic streetwear" },
   { key: "skull", label: "💀 Skull dark" },
   { key: "celestial", label: "🌌 Vũ trụ" },

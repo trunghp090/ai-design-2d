@@ -828,6 +828,7 @@ DESIGN_STYLES = {
     "sport_statement": ("Sport / Athletic Statement", "sport athletic statement t-shirt typography"),
     "liquid_chrome": ("Liquid Chrome / 3D Y2K", "liquid chrome 3D y2k t-shirt typography"),
     "scribble": ("Scribble / Handwritten", "scribble handwritten sketch t-shirt typography"),
+    "streetwear": ("Streetwear", "modern urban streetwear t-shirt graphic, bold oversized hype/hypebeast aesthetic"),
     "gothic": ("Gothic streetwear", "dark gothic streetwear t-shirt graphic"),
     "skull": ("Skull dark", "dark skull memento mori t-shirt graphic"),
     "celestial": ("V\u0169 tr\u1ee5 / celestial", "celestial space astronaut t-shirt graphic"),
