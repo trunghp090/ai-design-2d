@@ -652,9 +652,16 @@
       <!-- Cột nhập -->
       <section class="panel">
         <h2 class="panel-title">✨ Tạo design</h2>
-        <p class="panel-desc">Chọn phong cách → AI tự nghĩ &amp; vẽ ra <b>mẫu đẹp để in áo</b> (nền trắng, tách nền sẵn). Không cần ảnh đầu vào.</p>
+        <p class="panel-desc">Chọn phong cách → AI tự nghĩ &amp; vẽ ra <b>mẫu đẹp để in áo</b> (nền trắng, tách nền sẵn).</p>
 
-        <label class="field-label">Phong cách — chọn NHIỀU = TRỘN vào 1 design 🎨 (🔥 bán chạy VN)</label>
+        <label class="field-label">🖼️ Ảnh tham chiếu (tuỳ chọn) — AI tự nhận style &amp; gen theo</label>
+        <label class="dropzone sm" id="dsRefDrop">
+          <input type="file" id="dsRefFile" accept="image/*" hidden />
+          <span id="dsRefName">⬆️ Tải ảnh mẫu để AI bắt chước phong cách</span>
+        </label>
+        <div class="thumb-row" id="dsRefThumbs"></div>
+
+        <label class="field-label" style="margin-top:10px">Phong cách — chọn NHIỀU = TRỘN vào 1 design 🎨 (bỏ qua nếu đã có ảnh ref)</label>
         <div class="color-chips" id="dsStyles"></div>
         <p class="hint" id="dsStyleHint" style="margin-top:6px"></p>
 

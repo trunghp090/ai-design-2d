@@ -974,22 +974,66 @@ def _parse_designs(raw):
     return out
 
 
+DESIGN_REF_SYSTEM = (
+    "Bạn là designer áo thun. Bạn được đưa 1 ẢNH DESIGN THAM CHIẾU. Hãy:\n"
+    "1) NHẬN DIỆN phong cách của nó (mô tả ngắn; nếu khớp thì nêu TÊN trong danh sách gợi ý).\n"
+    "2) Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi cái là 1 design MỚI NGUYÊN BẢN, CÙNG "
+    "phong cách / tinh thần / bảng màu / bố cục với ảnh tham chiếu (KHÔNG sao chép y hệt; đổi chủ "
+    "thể/chữ cho khác). Lồng chủ đề/chữ người dùng nhập nếu có. Màu gọn, dễ in.\n"
+    "Danh sách phong cách gợi ý: %s.\n"
+    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
+    "print-ready, no t-shirt, no mockup, no person'. "
+    "Trả JSON {\"style\":\"tên phong cách nhận diện\",\"designs\":[{\"title\":\"tên ngắn\","
+    "\"prompt\":\"...\"}]}."
+)
+
+
+def design_concepts_from_ref(ref_bytes, theme, text, n):
+    """Nhìn ảnh tham chiếu -> nhận diện style + tạo n design mới cùng phong cách.
+    Trả (style_detected, list[concept])."""
+    n = max(1, min(int(n or 3), 8))
+    labels = ", ".join(v[0] for v in DESIGN_STYLES.values())
+    parts = ["Tạo đúng %d design mới cùng phong cách ảnh tham chiếu." % n]
+    if (theme or "").strip():
+        parts.append("Chủ đề: %s." % theme.strip())
+    if (text or "").strip():
+        parts.append("Chèn chữ \"%s\"." % text.strip())
+    b64 = base64.b64encode(ref_bytes).decode()
+    content = [{"type": "text", "text": " ".join(parts) + " Chỉ trả JSON."},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+    messages = [{"role": "system", "content": DESIGN_REF_SYSTEM % labels},
+                {"role": "user", "content": content}]
+    detected, concepts = "", []
+    for _attempt in range(2):
+        raw = openai_chat(messages, json_mode=True, max_tokens=2800)
+        concepts = _parse_designs(raw)
+        m = re.search(r'"style"\s*:\s*"([^"]{1,60})"', raw or "")
+        if m:
+            detected = m.group(1)
+        if concepts:
+            break
+    return detected, concepts[:n]
+
+
 DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt credit)
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent):
-    # Bước 1: AI nghĩ n design — nếu nhiều style thì TRỘN vào mỗi design (fusion)
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None):
+    # Bước 1: AI nghĩ n design. Có ảnh ref -> nhận diện style từ ảnh; không thì theo style đã chọn
     err_msg = None
     try:
-        concepts = design_concepts(styles, theme, text, n)
+        if ref:
+            detected, concepts = design_concepts_from_ref(ref, theme, text, n)
+            style_tag = "Ảnh ref" + (": " + detected if detected else "")
+        else:
+            concepts = design_concepts(styles, theme, text, n)
+            style_tag = " + ".join(DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES)
     except urllib.error.HTTPError as e:
-        concepts = []; err_msg = openai_error_message(e)
+        concepts = []; err_msg = openai_error_message(e); style_tag = ""
     except Exception as e:
-        concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e
+        concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e; style_tag = ""
     concepts = concepts[:DESIGN_MAX_TOTAL]
-    # gắn nhãn (các) phong cách vào title kết quả
-    style_tag = " + ".join(DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES)
     for c in concepts:
         c["title"] = "[%s] %s" % (style_tag, c.get("title", "Design"))
     with _batch_lock:
@@ -1867,15 +1911,19 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"items": items, "errors": errors})
 
     def handle_design_gen(self, body):
-        """Tạo design: chọn NHIỀU phong cách = TRỘN vào cùng mỗi design. n = tổng số mẫu."""
+        """Tạo design: theo phong cách đã chọn (trộn), HOẶC theo ẢNH THAM CHIẾU (AI tự nhận style)."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         styles = [s for s in (body.get("styles") or []) if s in DESIGN_STYLES]
         if not styles and body.get("style") in DESIGN_STYLES:   # tương thích cũ
             styles = [body.get("style")]
-        if not styles:
-            return self.json(400, {"error": "Hãy chọn ít nhất 1 phong cách."})
-        n = max(1, min(int(body.get("n", 3) or 3), 8))   # tổng số design (mỗi cái trộn các style)
+        ref_bytes = None
+        ref_src = body.get("ref", "")
+        if ref_src:
+            ref_bytes, _ = fetch_image_bytes(ref_src)
+        if not styles and not ref_bytes:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 phong cách hoặc tải ảnh tham chiếu."})
+        n = max(1, min(int(body.get("n", 3) or 3), 8))
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
         total_est = n
@@ -1886,7 +1934,7 @@ class Handler(BaseHTTPRequestHandler):
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_design_job,
                              args=(job_id, styles, body.get("theme", ""),
-                                   body.get("text", ""), n, size, transparent),
+                                   body.get("text", ""), n, size, transparent, ref_bytes),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})

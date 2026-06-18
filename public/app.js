@@ -1632,10 +1632,28 @@ const dsPicked = new Set(["vintage_americana"]);
 let dsPollTimer = null;
 let dsInited = false;
 
+let dsRefImg = null;   // dataURL ảnh tham chiếu (AI tự nhận style)
 function dsInit() {
   if (dsInited) return; dsInited = true;
   dsRenderStyles();
 }
+function dsSetRef(durl) {
+  dsRefImg = durl;
+  const row = $("dsRefThumbs"); row.innerHTML = "";
+  if (durl) {
+    const d = document.createElement("div"); d.className = "thumb";
+    d.innerHTML = '<img src="' + durl + '" alt=""><button class="thumb-x">×</button>';
+    d.querySelector(".thumb-x").onclick = () => { dsSetRef(null); $("dsRefName").textContent = "⬆️ Tải ảnh mẫu để AI bắt chước phong cách"; };
+    row.appendChild(d);
+  }
+}
+$("dsRefFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { $("dsRefName").textContent = "📄 " + f.name; dsSetRef(await fileToDataURL(f)); } };
+(() => {
+  const dz = $("dsRefDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) { $("dsRefName").textContent = "📄 " + f.name; dsSetRef(await fileToDataURL(f)); } });
+})();
 function dsRenderStyles() {
   const box = $("dsStyles"); box.innerHTML = "";
   DS_STYLES.forEach(s => {
@@ -1710,12 +1728,12 @@ async function dsPollAll() {
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
-  if (!dsPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 phong cách."; return; }
+  if (!dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách hoặc tải ảnh tham chiếu."; return; }
   $("dsProgress").classList.remove("hidden");
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ styles: [...dsPicked], theme: $("dsTheme").value, text: $("dsText").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", theme: $("dsTheme").value, text: $("dsText").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
