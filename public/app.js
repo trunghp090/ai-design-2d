@@ -1604,14 +1604,6 @@ function dsRenderStyles() {
   });
   const cur = DS_STYLES.find(s => s.key === dsStyle);
   if ($("dsStyleHint")) $("dsStyleHint").textContent = cur && cur.hint ? "💡 " + cur.hint : "";
-  const link = $("dsRefLink");
-  if (link) {
-    if (cur && cur.ref) {
-      link.href = "https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(cur.ref);
-      link.textContent = "🔗 Xem mẫu thật trên Pinterest (" + cur.ref + ")";
-      link.style.display = "block";
-    } else { link.style.display = "none"; }
-  }
 }
 function dsRender(items) {
   const grid = $("dsResults");
