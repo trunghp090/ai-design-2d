@@ -1618,6 +1618,15 @@ const DS_STYLES = [
   { key: "anime", label: "🌸 Anime / manga" },
   { key: "y2k", label: "🦋 Y2K" },
   { key: "floral", label: "🌿 Floral line art" },
+  { key: "tattoo_oldschool", label: "⚓ Tattoo old-school", hint: "Tattoo Mỹ cổ: neo, hồng, dao, banner · đỏ-đen" },
+  { key: "ukiyoe", label: "🌊 Nhật cổ / Ukiyo-e", hint: "Sóng, koi, rồng, samurai, hoa anh đào" },
+  { key: "retro_poster", label: "📜 Retro Poster", hint: "Poster du lịch/tuyên truyền cổ, màu trầm" },
+  { key: "pixel_8bit", label: "🕹️ Pixel / 8-bit", hint: "Pixel art arcade retro" },
+  { key: "flat_vector", label: "🟦 Flat Vector", hint: "Vector phẳng hiện đại, màu khối" },
+  { key: "watercolor", label: "💧 Watercolor", hint: "Màu nước loang nhẹ, nghệ thuật" },
+  { key: "engraving", label: "🪶 Engraving cổ điển", hint: "Khắc nét gạch chéo, thực vật/thú, 1 màu" },
+  { key: "abstract_geo", label: "🔺 Abstract / Geometric", hint: "Hình khối Bauhaus, risograph" },
+  { key: "mandala", label: "🪷 Mandala / Zen", hint: "Hoạ tiết đối xứng, sen, hình học thiêng" },
 ];
 const dsPicked = new Set(["vintage_americana"]);
 let dsPollTimer = null;

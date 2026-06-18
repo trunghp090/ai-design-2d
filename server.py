@@ -875,6 +875,15 @@ DESIGN_STYLES = {
     "anime": ("Anime / manga", "anime/manga t-shirt graphic with CLEAN bold black linework and screentone/halftone shading, a RESTRAINED LIMITED palette (monochrome or just 2-3 muted colors), tasteful and print-friendly for screen printing, NOT oversaturated, NOT rainbow, suited for a wearable t-shirt"),
     "y2k": ("Y2K", "y2k butterfly chrome t-shirt graphic"),
     "floral": ("Floral line art", "floral botanical line-art t-shirt graphic"),
+    "tattoo_oldschool": ("Tattoo old-school", "American traditional old-school tattoo-flash t-shirt graphic — bold black outlines, anchors/roses/daggers/swallows/banners, limited red-black-cream palette"),
+    "ukiyoe": ("Nhật cổ / Ukiyo-e", "Japanese ukiyo-e / oriental woodblock t-shirt graphic — great wave, koi, dragon, samurai or oni mask, cherry blossoms, traditional indigo-red-cream palette"),
+    "retro_poster": ("Retro Poster", "vintage retro poster t-shirt graphic — travel/propaganda poster style, bold flat shapes, limited warm muted palette, classic mid-century print"),
+    "pixel_8bit": ("Pixel / 8-bit", "pixel-art 8-bit retro gaming t-shirt graphic — chunky pixels, arcade vibe, limited palette"),
+    "flat_vector": ("Flat Vector", "modern flat vector illustration t-shirt graphic — clean simple shapes, bold flat colors, no gradients, trendy editorial"),
+    "watercolor": ("Watercolor", "soft watercolor painting t-shirt graphic — gentle washes and bleeds, delicate artistic, light airy palette"),
+    "engraving": ("Engraving cổ điển", "vintage engraving / etching t-shirt graphic — fine cross-hatch line shading, classic botanical or animal illustration, monochrome ink"),
+    "abstract_geo": ("Abstract / Geometric", "abstract geometric Bauhaus t-shirt graphic — bold simple shapes, primary blocks, risograph texture, modern minimal art"),
+    "mandala": ("Mandala / Zen", "mandala / zen spiritual t-shirt graphic — symmetric ornate linework, lotus, sacred geometry, calm monoline"),
 }
 
 DESIGN_SYSTEM = (
