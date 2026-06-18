@@ -877,7 +877,37 @@ def design_concepts(style_key, theme, text, n):
     return out[:n]
 
 
-def run_design_job(job_id, concepts, size, transparent):
+DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt credit)
+DESIGN_WORKERS = 5         # số luồng gen ảnh song song
+
+
+def run_design_job(job_id, styles, theme, text, n_each, size, transparent):
+    # Bước 1: gom concept từ NHIỀU phong cách (song song) — gắn tên style vào title
+    def gather(style):
+        try:
+            cs = design_concepts(style, theme, text, n_each)
+            label = DESIGN_STYLES.get(style, (style,))[0]
+            for c in cs:
+                c["title"] = "%s · %s" % (label, c["title"])
+            return cs
+        except Exception:
+            return []
+    concepts = []
+    with ThreadPoolExecutor(max_workers=min(5, max(1, len(styles)))) as ex:
+        for cs in ex.map(gather, styles):
+            concepts.extend(cs or [])
+    concepts = concepts[:DESIGN_MAX_TOTAL]
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(concepts) or 1
+        if not concepts:
+            job["errors"].append("AI chưa nghĩ được mẫu, thử lại.")
+            job["finished"] = True
+            return
+
+    # Bước 2: gen ảnh song song nhiều luồng
     def work(c):
         try:
             b64 = openai_generate(c["prompt"], size)
@@ -894,7 +924,7 @@ def run_design_job(job_id, concepts, size, transparent):
         except Exception as e:
             return {"error": str(e), "title": c["title"]}
 
-    with ThreadPoolExecutor(max_workers=3) as ex:
+    with ThreadPoolExecutor(max_workers=DESIGN_WORKERS) as ex:
         for res in ex.map(work, concepts):
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
@@ -1741,32 +1771,32 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"items": items, "errors": errors})
 
     def handle_design_gen(self, body):
-        """Tạo design từ đầu theo phong cách: AI nghĩ prompt -> gen nhiều mẫu nền trắng."""
+        """Tạo design từ đầu: chọn NHIỀU phong cách, mỗi style n mẫu -> gen nhiều luồng."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
-        style = body.get("style", "gothic")
-        if style not in DESIGN_STYLES:
-            return self.json(400, {"error": "Phong cách không hợp lệ."})
-        n = max(1, min(int(body.get("n", 3) or 3), 8))
+        styles = [s for s in (body.get("styles") or []) if s in DESIGN_STYLES]
+        if not styles and body.get("style") in DESIGN_STYLES:   # tương thích cũ
+            styles = [body.get("style")]
+        if not styles:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 phong cách."})
+        n_each = max(1, min(int(body.get("n", 3) or 3), 8))
+        # trần tổng để khỏi đốt credit
+        if len(styles) * n_each > DESIGN_MAX_TOTAL:
+            n_each = max(1, DESIGN_MAX_TOTAL // len(styles))
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
-        try:
-            concepts = design_concepts(style, body.get("theme", ""), body.get("text", ""), n)
-        except urllib.error.HTTPError as e:
-            return self.json(502, {"error": openai_error_message(e)})
-        except Exception as e:
-            return self.json(500, {"error": "AI nghĩ mẫu lỗi: %s" % e})
-        if not concepts:
-            return self.json(400, {"error": "AI chưa nghĩ được mẫu, thử lại."})
+        total_est = min(len(styles) * n_each, DESIGN_MAX_TOTAL)
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "g%d_%d" % (int(time.time()), _batch_seq[0])
-            BATCH_JOBS[job_id] = {"total": len(concepts), "done": 0, "items": [],
+            BATCH_JOBS[job_id] = {"total": total_est, "done": 0, "items": [],
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_design_job,
-                             args=(job_id, concepts, size, transparent), daemon=True)
+                             args=(job_id, styles, body.get("theme", ""),
+                                   body.get("text", ""), n_each, size, transparent),
+                             daemon=True)
         t.start()
-        return self.json(200, {"job_id": job_id, "total": len(concepts)})
+        return self.json(200, {"job_id": job_id, "total": total_est})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""

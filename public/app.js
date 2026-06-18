@@ -1584,7 +1584,7 @@ const DS_STYLES = [
   { key: "y2k", label: "🦋 Y2K" },
   { key: "floral", label: "🌿 Floral line art" },
 ];
-let dsStyle = "vintage_americana";
+const dsPicked = new Set(["vintage_americana"]);
 let dsPollTimer = null;
 let dsInited = false;
 
@@ -1596,14 +1596,21 @@ function dsRenderStyles() {
   const box = $("dsStyles"); box.innerHTML = "";
   DS_STYLES.forEach(s => {
     const el = document.createElement("div");
-    el.className = "cchip" + (dsStyle === s.key ? " on" : "");
+    el.className = "cchip" + (dsPicked.has(s.key) ? " on" : "");
     if (s.hint) el.title = s.hint;
     el.innerHTML = s.label + ' <span class="tick">✓</span>';
-    el.onclick = () => { dsStyle = s.key; dsRenderStyles(); };
+    el.onclick = () => { if (dsPicked.has(s.key)) dsPicked.delete(s.key); else dsPicked.add(s.key); dsRenderStyles(); };
     box.appendChild(el);
   });
-  const cur = DS_STYLES.find(s => s.key === dsStyle);
-  if ($("dsStyleHint")) $("dsStyleHint").textContent = cur && cur.hint ? "💡 " + cur.hint : "";
+  dsUpdateTotal();
+}
+function dsUpdateTotal() {
+  const per = parseInt(($("dsCount") || {}).value, 10) || 3;
+  let total = dsPicked.size * per;
+  if (total > 24) total = 24;
+  if ($("dsStyleHint")) $("dsStyleHint").innerHTML = dsPicked.size
+    ? "✨ Sẽ tạo <b>" + total + " mẫu</b> (" + dsPicked.size + " phong cách × " + per + ", tối đa 24) · 5 luồng song song"
+    : "⚠️ Chọn ít nhất 1 phong cách";
 }
 function dsRender(items) {
   const grid = $("dsResults");
@@ -1642,8 +1649,10 @@ async function dsPoll(jobId) {
     }
   } catch (e) { /* tiếp tục */ }
 }
+$("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
+  if (!dsPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 phong cách."; return; }
   const btn = $("dsRunBtn"); btn.disabled = true;
   $("dsErrors").innerHTML = "";
   $("dsProgress").classList.remove("hidden");
@@ -1651,7 +1660,7 @@ $("dsRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ style: dsStyle, theme: $("dsTheme").value, text: $("dsText").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+      body: JSON.stringify({ styles: [...dsPicked], theme: $("dsTheme").value, text: $("dsText").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
