@@ -843,6 +843,12 @@ DESIGN_STYLES = {
     "comic_pop": ("Comic / Pop-art", "comic pop-art t-shirt graphic, ben-day halftone dots, speech bubble, bold panel, retro comic"),
     "acid_trippy": ("Acid / Psychedelic", "psychedelic acid trippy streetwear t-shirt graphic, melting warped type, swirling shapes, bright contrasting colors"),
     "military": ("Military / Utility", "military utility techwear t-shirt graphic, stencil army font, tactical patches, olive and black"),
+    "cute_mascot": ("Cute mascot (SANCOOL)",
+        "cute wholesome animal-mascot t-shirt graphic (SANCOOL style): ONE adorable chibi cartoon "
+        "animal (crocodile, dino, bear, cat, duck...) with soft rounded shapes, a tiny speech "
+        "bubble, a few small floating hearts; a cute rounded hand-lettered caption name + a brand "
+        "name + a small 'Copyright ©' line below; soft pastel palette (green, cream, yellow, pink), "
+        "clean kawaii commercial vibe, friendly and simple"),
     "mascot": ("Mascot minh hoạ (TeeLab)",
         "Vietnamese illustrated streetwear tee (TeeLab style): a bold cartoon MASCOT/character "
         "(astronaut, robot, animal, monster...) as the hero in the center, placed IN FRONT of LARGE "
