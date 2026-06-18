@@ -829,6 +829,12 @@ DESIGN_STYLES = {
     "liquid_chrome": ("Liquid Chrome / 3D Y2K", "liquid chrome 3D y2k t-shirt typography"),
     "scribble": ("Scribble / Handwritten", "scribble handwritten sketch t-shirt typography"),
     "streetwear": ("Streetwear", "modern urban streetwear t-shirt graphic, bold oversized hype/hypebeast aesthetic"),
+    "mascot": ("Mascot minh hoạ (TeeLab)",
+        "Vietnamese illustrated streetwear tee (TeeLab style): a bold cartoon MASCOT/character "
+        "(astronaut, robot, animal, monster...) as the hero in the center, placed IN FRONT of LARGE "
+        "stacked stylized brand-name typography in the background; a small brand name + '© <year>' "
+        "tagline line at the bottom; thick clean cartoon outlines, sticker-like, dynamic pose; "
+        "limited bold palette (golden-yellow, teal, white, pink/magenta accents) for a dark shirt"),
     "gothic": ("Gothic streetwear", "dark gothic streetwear t-shirt graphic"),
     "skull": ("Skull dark", "dark skull memento mori t-shirt graphic"),
     "celestial": ("V\u0169 tr\u1ee5 / celestial", "celestial space astronaut t-shirt graphic"),
