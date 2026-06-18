@@ -579,8 +579,10 @@ function showApp(app) {
   document.getElementById("view-lenao").classList.toggle("hidden", app !== "lenao");
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
+  document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
+  if (app === "design") dsInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -1548,3 +1550,101 @@ document.querySelectorAll(".cb-copy").forEach(b => b.onclick = () => {
   const ta = $(b.dataset.target); ta.select();
   navigator.clipboard.writeText(ta.value).then(() => { const t = b.textContent; b.textContent = "✓ Đã copy"; setTimeout(() => b.textContent = t, 1200); });
 });
+
+/* =====================================================================
+   TÍNH NĂNG: TẠO DESIGN (text-to-image theo phong cách)
+   ===================================================================== */
+const DS_STYLES = [
+  { key: "gothic", label: "🖤 Gothic streetwear" },
+  { key: "celestial", label: "🌌 Vũ trụ" },
+  { key: "angel", label: "👼 Thiên thần baroque" },
+  { key: "skull", label: "💀 Skull dark" },
+  { key: "vintage", label: "📻 Vintage Americana" },
+  { key: "kawaii", label: "🧸 Cute / kawaii" },
+  { key: "typography", label: "🔤 Typography slogan" },
+  { key: "anime", label: "🌸 Anime / manga" },
+  { key: "y2k", label: "🦋 Y2K" },
+  { key: "floral", label: "🌿 Floral line art" },
+];
+let dsStyle = "gothic";
+let dsPollTimer = null;
+let dsInited = false;
+
+function dsInit() {
+  if (dsInited) return; dsInited = true;
+  dsRenderStyles();
+}
+function dsRenderStyles() {
+  const box = $("dsStyles"); box.innerHTML = "";
+  DS_STYLES.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (dsStyle === s.key ? " on" : "");
+    el.innerHTML = s.label + ' <span class="tick">✓</span>';
+    el.onclick = () => { dsStyle = s.key; dsRenderStyles(); };
+    box.appendChild(el);
+  });
+}
+function dsRender(items) {
+  const grid = $("dsResults");
+  if (!items.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("dsEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Design") + '</div>' +
+      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
+    card._cur = it.image; card._name = it.title || "design";
+    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
+    grid.appendChild(card);
+  });
+  $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
+}
+async function dsPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("dsBar").style.width = pct + "%";
+    $("dsProgText").textContent = "Đã xong " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length : "");
+    dsRender(d.items || []);
+    $("dsErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
+    if (d.finished) {
+      clearInterval(dsPollTimer); dsPollTimer = null;
+      $("dsRunBtn").disabled = false;
+      $("dsNote").className = "gen-note ok";
+      $("dsNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " mẫu (đã lưu Lịch sử).";
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } catch (e) { /* tiếp tục */ }
+}
+$("dsRunBtn").onclick = async () => {
+  const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
+  const btn = $("dsRunBtn"); btn.disabled = true;
+  $("dsErrors").innerHTML = "";
+  $("dsProgress").classList.remove("hidden");
+  $("dsBar").style.width = "0%"; $("dsProgText").textContent = "AI đang nghĩ mẫu…";
+  try {
+    const r = await fetch("/api/design-gen", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ style: dsStyle, theme: $("dsTheme").value, text: $("dsText").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("dsProgText").textContent = "Đang vẽ " + d.total + " mẫu (nhiều luồng)…";
+    if (dsPollTimer) clearInterval(dsPollTimer);
+    dsPollTimer = setInterval(() => dsPoll(d.job_id), 2500);
+    dsPoll(d.job_id);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    btn.disabled = false; $("dsProgress").classList.add("hidden");
+  }
+};
+$("dsDownloadAll").onclick = async () => {
+  const cards = [...$("dsResults").querySelectorAll(".gcard")];
+  if (!cards.length) return;
+  for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
+};

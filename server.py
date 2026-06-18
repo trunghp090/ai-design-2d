@@ -805,6 +805,103 @@ def product_content(img_bytes, info):
 
 
 # --------------------------------------------------------------------------- #
+#  Tạo design từ đầu (text-to-image) theo PHONG CÁCH có sẵn
+# --------------------------------------------------------------------------- #
+DESIGN_STYLES = {
+    "gothic": ("Gothic streetwear", "dark gothic streetwear, distressed faded print texture, "
+               "blackletter/old-english typography, religious & celestial imagery (weeping angels, "
+               "crosses, skulls, baroque statues), high-contrast grayscale with subtle accents, "
+               "gritty halftone shading, Y2K aesthetic"),
+    "celestial": ("Vũ trụ / celestial", "celestial space aesthetic, astronauts, planets, moons, "
+                  "stars and constellations, retro faded print, muted palette with soft orange and "
+                  "teal accents, dreamy nostalgic vibe"),
+    "angel": ("Thiên thần baroque", "baroque marble cherub and angel statues, weeping angels, soft "
+              "romantic gothic mood, distressed monochrome engraving style with heavy grain"),
+    "skull": ("Skull dark", "dark romantic skulls entwined with death's-head moths and wilting "
+              "roses, vintage engraving/etching style, memento mori, halftone shading, high contrast"),
+    "vintage": ("Vintage Americana", "vintage retro Americana graphic, sun-faded distressed print, "
+                "70s-90s illustration, collegiate/varsity or retro mascot style, warm faded palette"),
+    "kawaii": ("Cute / kawaii", "cute kawaii cartoon, soft pastel colors, chibi characters and "
+               "playful doodles, clean rounded lines, wholesome cheerful vibe"),
+    "typography": ("Typography slogan", "bold typographic design driven by a strong slogan, clean "
+                   "modern type composition, minimal graphic accents, high readability"),
+    "anime": ("Anime / manga", "anime manga style illustration, dynamic character, screentone "
+              "shading, bold confident linework, expressive"),
+    "y2k": ("Y2K", "Y2K early-2000s aesthetic, butterflies, hearts, chrome and glossy elements, "
+            "pink and silver palette, nostalgic playful"),
+    "floral": ("Floral line art", "delicate floral botanical line-art, elegant fine details, "
+               "minimal, single or two-tone, tattoo-flash feel"),
+}
+
+DESIGN_SYSTEM = (
+    "Bạn là prompt engineer cho design áo thun print-on-demand. Tạo N câu prompt TIẾNG ANH "
+    "cho AI tạo ảnh — mỗi câu là 1 design ĐẸP, ĐỘC ĐÁO, KHÁC NHAU rõ rệt, in lên áo bán chạy. "
+    "Phong cách bắt buộc: %s. Mỗi prompt PHẢI mô tả artwork chi tiết (chủ thể, bố cục, typography) "
+    "và LUÔN kết thúc bằng: 'isolated artwork on a plain solid white background, print-ready, "
+    "high detail, clean bold readable text, no t-shirt, no mockup, no person, no hands holding it'. "
+    "Trả JSON đúng dạng {\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"prompt\":\"...\"}]}."
+)
+
+
+def design_concepts(style_key, theme, text, n):
+    n = max(1, min(int(n or 3), 8))
+    sd = DESIGN_STYLES.get(style_key, list(DESIGN_STYLES.values())[0])[1]
+    parts = ["Tạo đúng %d design." % n]
+    if (theme or "").strip():
+        parts.append("Chủ đề/ngách: %s." % theme.strip())
+    if (text or "").strip():
+        parts.append("Chèn dòng chữ \"%s\" vào design (đúng chính tả, nổi bật)." % text.strip())
+    else:
+        parts.append("Tự nghĩ câu chữ/slogan ngắn ấn tượng phù hợp phong cách.")
+    messages = [{"role": "system", "content": DESIGN_SYSTEM % sd},
+                {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
+    raw = openai_chat(messages, json_mode=True, max_tokens=1600)
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    out = []
+    for d in (data.get("designs") or []):
+        p = (d.get("prompt") or "").strip()
+        if p:
+            out.append({"title": (d.get("title") or "Design").strip()[:80], "prompt": p})
+    return out[:n]
+
+
+def run_design_job(job_id, concepts, size, transparent):
+    def work(c):
+        try:
+            b64 = openai_generate(c["prompt"], size)
+            if transparent and HAS_PIL:
+                try:
+                    b64 = base64.b64encode(
+                        remove_flat_bg(base64.b64decode(b64))).decode()
+                except Exception:
+                    pass
+            g = gallery_add(b64, {"mode": "design", "prompt": c["title"]})
+            return {"image": b64, "title": c["title"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": c["title"]}
+        except Exception as e:
+            return {"error": str(e), "title": c["title"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+# --------------------------------------------------------------------------- #
 #  Upscale (Pillow)
 # --------------------------------------------------------------------------- #
 def remove_flat_bg(raw, thresh=45):
@@ -1419,6 +1516,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_product_photos(body)
         if path == "/api/product-content":
             return self.handle_product_content(body)
+        if path == "/api/design-gen":
+            return self.handle_design_gen(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1631,6 +1730,34 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_design_gen(self, body):
+        """Tạo design từ đầu theo phong cách: AI nghĩ prompt -> gen nhiều mẫu nền trắng."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        style = body.get("style", "gothic")
+        if style not in DESIGN_STYLES:
+            return self.json(400, {"error": "Phong cách không hợp lệ."})
+        n = max(1, min(int(body.get("n", 3) or 3), 8))
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        transparent = bool(body.get("transparent", True))
+        try:
+            concepts = design_concepts(style, body.get("theme", ""), body.get("text", ""), n)
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": "AI nghĩ mẫu lỗi: %s" % e})
+        if not concepts:
+            return self.json(400, {"error": "AI chưa nghĩ được mẫu, thử lại."})
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "g%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(concepts), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_design_job,
+                             args=(job_id, concepts, size, transparent), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(concepts)})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""

@@ -47,6 +47,7 @@
     <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
     <button class="app-tab" data-app="batch">📊 Excel hàng loạt</button>
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
+    <button class="app-tab" data-app="design">✨ Tạo design</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -639,6 +640,64 @@
         </div>
       </div>
     </section>
+  </section>
+
+  <!-- ===== VIEW: TẠO DESIGN (text-to-image theo phong cách) ===== -->
+  <section class="auto-view app-view hidden" id="view-design">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">✨ Tạo design</h2>
+        <p class="panel-desc">Chọn phong cách → AI tự nghĩ &amp; vẽ ra <b>mẫu đẹp để in áo</b> (nền trắng, tách nền sẵn). Không cần ảnh đầu vào.</p>
+
+        <label class="field-label">Phong cách (bấm chọn)</label>
+        <div class="color-chips" id="dsStyles"></div>
+
+        <label class="field-label" style="margin-top:12px">Chủ đề / ngách (tuỳ chọn)</label>
+        <input type="text" id="dsTheme" class="input" placeholder="VD: tình yêu, mèo, gym, Đà Lạt, Phật giáo…" />
+
+        <label class="field-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn)</label>
+        <input type="text" id="dsText" class="input" placeholder="VD: REPENTANCE · YÊU · tên brand… (để trống AI tự nghĩ)" />
+
+        <div class="auto-row" style="margin-top:10px">
+          <div>
+            <label class="field-label">Số mẫu</label>
+            <select id="dsCount" class="input">
+              <option value="3">3 mẫu</option>
+              <option value="1">1 mẫu</option>
+              <option value="2">2 mẫu</option>
+              <option value="4">4 mẫu</option>
+              <option value="6">6 mẫu</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Tỉ lệ</label>
+            <select id="dsSize" class="input">
+              <option value="portrait">Dọc (in áo)</option>
+              <option value="square">Vuông</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="dsRunBtn" style="margin-top:12px">✨ Tạo mẫu đẹp</button>
+        <div class="batch-progress hidden" id="dsProgress">
+          <div class="bp-bar"><div class="bp-fill" id="dsBar"></div></div>
+          <span id="dsProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="dsNote"></p>
+        <div id="dsErrors" class="batch-errors"></div>
+      </section>
+
+      <!-- Cột kết quả -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Mẫu đã tạo</h3>
+          <button class="btn-ghost sm" id="dsDownloadAll">⬇ Tải tất cả (0)</button>
+        </div>
+        <div class="auto-grid" id="dsResults"></div>
+        <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
+    </div>
   </section>
 
   <footer class="site-footer">
