@@ -913,17 +913,52 @@ def design_concepts(styles, theme, text, n):
         parts.append("Tự nghĩ câu chữ/slogan ngắn ấn tượng phù hợp phong cách.")
     messages = [{"role": "system", "content": DESIGN_SYSTEM % sd},
                 {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
-    raw = openai_chat(messages, json_mode=True, max_tokens=1600)
-    try:
-        data = json.loads(raw)
-    except Exception:
-        return []
     out = []
-    for d in (data.get("designs") or []):
-        p = (d.get("prompt") or "").strip()
-        if p:
-            out.append({"title": (d.get("title") or "Design").strip()[:80], "prompt": p})
+    for _attempt in range(2):
+        raw = openai_chat(messages, json_mode=True, max_tokens=2800)
+        out = _parse_designs(raw)
+        if out:
+            break
     return out[:n]
+
+
+def _parse_designs(raw):
+    """Parse JSON từ chat — chịu được code fence, JSON lồng, list trần."""
+    if not raw:
+        return []
+    t = raw.strip()
+    if t.startswith("```"):
+        t = t.strip("`")
+        if t[:4].lower() == "json":
+            t = t[4:]
+    data = None
+    try:
+        data = json.loads(t)
+    except Exception:
+        m = re.search(r"[\[{].*[\]}]", t, re.S)
+        if m:
+            try:
+                data = json.loads(m.group(0))
+            except Exception:
+                data = None
+    if data is None:
+        return []
+    arr = []
+    if isinstance(data, list):
+        arr = data
+    elif isinstance(data, dict):
+        arr = data.get("designs")
+        if not isinstance(arr, list):
+            arr = next((v for v in data.values() if isinstance(v, list)), [])
+    out = []
+    for d in (arr or []):
+        if isinstance(d, str) and d.strip():
+            out.append({"title": "Design", "prompt": d.strip()})
+        elif isinstance(d, dict):
+            p = (d.get("prompt") or d.get("design") or d.get("text") or "").strip()
+            if p:
+                out.append({"title": (d.get("title") or "Design").strip()[:80], "prompt": p})
+    return out
 
 
 DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt credit)
@@ -932,10 +967,13 @@ DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 def run_design_job(job_id, styles, theme, text, n, size, transparent):
     # Bước 1: AI nghĩ n design — nếu nhiều style thì TRỘN vào mỗi design (fusion)
+    err_msg = None
     try:
         concepts = design_concepts(styles, theme, text, n)
-    except Exception:
-        concepts = []
+    except urllib.error.HTTPError as e:
+        concepts = []; err_msg = openai_error_message(e)
+    except Exception as e:
+        concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e
     concepts = concepts[:DESIGN_MAX_TOTAL]
     # gắn nhãn (các) phong cách vào title kết quả
     style_tag = " + ".join(DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES)
@@ -947,7 +985,8 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent):
             return
         job["total"] = len(concepts) or 1
         if not concepts:
-            job["errors"].append("AI chưa nghĩ được mẫu, thử lại.")
+            job["errors"].append(err_msg or "AI chưa nghĩ được mẫu — thử lại, "
+                                 "hoặc bớt số phong cách trộn / gõ chủ đề rõ hơn.")
             job["finished"] = True
             return
 
