@@ -578,7 +578,9 @@ function showApp(app) {
   document.getElementById("view-addbg").classList.toggle("hidden", app !== "addbg");
   document.getElementById("view-lenao").classList.toggle("hidden", app !== "lenao");
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
+  document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   if (app === "lenao") lenaoInit();
+  if (app === "product") prodInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -1398,6 +1400,122 @@ $("batchRunBtn").onclick = async () => {
 })();
 $("batchDownloadAll").onclick = async () => {
   const cards = [...$("batchResults").querySelectorAll(".gcard")];
+  if (!cards.length) return;
+  for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
+};
+
+/* =====================================================================
+   TÍNH NĂNG: ẢNH SẢN PHẨM (gpt-image-2 edits, phong cách Nano Banana)
+   ===================================================================== */
+const PROD_SHOTS = [
+  { key: "model_f", label: "👩 Người mẫu nữ" },
+  { key: "model_m", label: "👨 Người mẫu nam" },
+  { key: "flatlay_sofa", label: "🛋️ Flatlay sofa" },
+  { key: "white_bg", label: "⬜ Nền trắng" },
+  { key: "kraft_box", label: "📦 Hộp kraft" },
+];
+const prodPicked = new Set(["model_f", "flatlay_sofa", "white_bg"]);
+let prodImg = null;
+let prodPollTimer = null;
+let prodInited = false;
+
+function prodInit() {
+  if (prodInited) return; prodInited = true;
+  prodRenderShots();
+}
+function prodRenderShots() {
+  const box = $("prodShots"); box.innerHTML = "";
+  PROD_SHOTS.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (prodPicked.has(s.key) ? " on" : "");
+    el.innerHTML = s.label + ' <span class="tick">✓</span>';
+    el.onclick = () => { if (prodPicked.has(s.key)) prodPicked.delete(s.key); else prodPicked.add(s.key); prodRenderShots(); };
+    box.appendChild(el);
+  });
+}
+function prodSetImg(durl) {
+  prodImg = durl;
+  const row = $("prodThumbs"); row.innerHTML = "";
+  const d = document.createElement("div"); d.className = "thumb";
+  d.innerHTML = '<img src="' + durl + '" alt=""><button class="thumb-x">×</button>';
+  d.querySelector(".thumb-x").onclick = () => { prodImg = null; row.innerHTML = ""; };
+  row.appendChild(d);
+}
+$("prodFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { $("prodFileName").textContent = "📄 " + f.name; prodSetImg(await fileToDataURL(f)); } };
+(() => {
+  const dz = $("prodDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) prodSetImg(await fileToDataURL(f)); });
+})();
+$("prodUseCurrent").onclick = () => {
+  if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
+  prodSetImg("data:image/png;base64," + currentDesign);
+};
+
+function prodRender(items) {
+  const grid = $("prodResults");
+  if (!items.length) { $("prodEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("prodEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  items.forEach(it => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="gmeta">' + (it.title || "Ảnh") + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+    card._cur = it.image; card._name = it.title || "anh";
+    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "anh-sp");
+    grid.appendChild(card);
+  });
+  $("prodDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
+}
+async function prodPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("prodBar").style.width = pct + "%";
+    $("prodProgText").textContent = "Đã xong " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length + " lỗi" : "");
+    prodRender(d.items || []);
+    $("prodErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
+    if (d.finished) {
+      clearInterval(prodPollTimer); prodPollTimer = null;
+      $("prodRunBtn").disabled = false;
+      $("prodNote").className = "gen-note ok";
+      $("prodNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " ảnh (đã lưu Lịch sử).";
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } catch (e) { /* tiếp tục */ }
+}
+$("prodRunBtn").onclick = async () => {
+  const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
+  if (!prodImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh sản phẩm trước."; return; }
+  if (!prodPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 loại ảnh."; return; }
+  const btn = $("prodRunBtn"); btn.disabled = true;
+  $("prodErrors").innerHTML = "";
+  $("prodProgress").classList.remove("hidden");
+  $("prodBar").style.width = "0%"; $("prodProgText").textContent = "Đang gửi…";
+  try {
+    const r = await fetch("/api/product-photos", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: prodImg, shots: [...prodPicked], bg: $("prodBg").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("prodProgText").textContent = "Đang tạo " + d.total + " ảnh (nhiều luồng)…";
+    if (prodPollTimer) clearInterval(prodPollTimer);
+    prodPollTimer = setInterval(() => prodPoll(d.job_id), 2500);
+    prodPoll(d.job_id);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    btn.disabled = false; $("prodProgress").classList.add("hidden");
+  }
+};
+$("prodDownloadAll").onclick = async () => {
+  const cards = [...$("prodResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
   for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
 };

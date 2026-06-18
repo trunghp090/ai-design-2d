@@ -46,6 +46,7 @@
     <button class="app-tab" data-app="lenao">👕 Lên áo</button>
     <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
     <button class="app-tab" data-app="batch">📊 Excel hàng loạt</button>
+    <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -554,6 +555,59 @@
         </div>
         <div class="auto-grid" id="batchResults"></div>
         <div class="gallery-empty" id="batchEmpty">Tải file Excel rồi bấm Gen tất cả.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: ẢNH SẢN PHẨM (gpt-image-2 edits theo phong cách Nano Banana) ===== -->
+  <section class="auto-view app-view hidden" id="view-product">
+    <div class="auto-wrap">
+      <!-- Cột nhập -->
+      <section class="panel">
+        <h2 class="panel-title">📸 Ảnh sản phẩm</h2>
+        <p class="panel-desc">Từ 1 ảnh áo (có design) → AI tạo ảnh <b>người mẫu mặc</b> &amp; <b>flatlay</b> như khách thật chụp, giữ đúng design. Dùng gpt-image-2, chạy nhiều luồng.</p>
+
+        <label class="field-label">Ảnh sản phẩm (áo có design)</label>
+        <label class="dropzone" id="prodDrop">
+          <input type="file" id="prodFile" accept="image/*" hidden />
+          <div class="dz-icon">⬆️</div>
+          <div id="prodFileName">Tải ảnh áo (rõ design)</div>
+          <div class="hint">Hoặc dùng design đang mở ở Clone Design.</div>
+        </label>
+        <button class="btn-ghost sm" id="prodUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
+        <div class="thumb-row" id="prodThumbs"></div>
+
+        <label class="field-label">Loại ảnh (bấm chọn)</label>
+        <div class="color-chips" id="prodShots"></div>
+
+        <label class="field-label" style="margin-top:12px">Bối cảnh người mẫu</label>
+        <select id="prodBg" class="input">
+          <option value="santorini">Santorini (Hy Lạp)</option>
+          <option value="paris">Paris (ban công)</option>
+          <option value="kyoto">Hoa anh đào Kyoto</option>
+          <option value="yacht">Du thuyền giữa biển</option>
+          <option value="positano">Positano (Amalfi)</option>
+          <option value="forbidden">Tử Cấm Thành</option>
+          <option value="penthouse">Penthouse đêm</option>
+        </select>
+
+        <button class="btn-primary" id="prodRunBtn" style="margin-top:12px">📸 Tạo ảnh sản phẩm</button>
+        <div class="batch-progress hidden" id="prodProgress">
+          <div class="bp-bar"><div class="bp-fill" id="prodBar"></div></div>
+          <span id="prodProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="prodNote"></p>
+        <div id="prodErrors" class="batch-errors"></div>
+      </section>
+
+      <!-- Cột kết quả -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Ảnh đã tạo</h3>
+          <button class="btn-ghost sm" id="prodDownloadAll">⬇ Tải tất cả (0)</button>
+        </div>
+        <div class="auto-grid" id="prodResults"></div>
+        <div class="gallery-empty" id="prodEmpty">Tải ảnh áo + chọn loại ảnh rồi bấm Tạo.</div>
       </section>
     </div>
   </section>

@@ -562,6 +562,135 @@ def run_batch_job(job_id, rows, size, transparent):
 
 
 # --------------------------------------------------------------------------- #
+#  Ảnh sản phẩm (gpt-image-2 edits) — theo phương pháp Nano Banana "khách thật"
+# --------------------------------------------------------------------------- #
+PRODUCT_NEG = (
+    "Negative: visible pores, skin texture, airbrushed skin, plastic skin, waxy skin, "
+    "beauty mode, portrait mode, skin smoothing, moles on face, acne, blemishes, warm color "
+    "cast, orange tint, yellow tint, golden hour, dark moody, underexposed, film grain, "
+    "vintage, faded, desaturated, stock photo look, oversaturated, deformed hands, mannequin "
+    "pose, HDR, beauty filter, cluttered props, neck label, brand tag, mouth wide open, "
+    "exaggerated smile, forced smile, blank stare, studio lighting, ring light, artificial "
+    "light, fashion editorial look, dramatic shadows, harsh shadows."
+)
+_SHIRT = ("an OVERSIZED t-shirt, its color exactly as in the reference product image, with the "
+          "printed design on the left chest exactly as shown in the reference product image "
+          "(do not redraw or alter the design), clean ribbed crewneck collar with no visible "
+          "tags or labels, natural soft wrinkles only at the underarms")
+_CAM = ("Casual smartphone photo. Sharp, clean, naturally exposed — no beauty filter, no "
+        "portrait blur, no skin smoothing, no grain. Feels like a friend took it. Aspect ratio 4:5.")
+_SKIN = ("clean smooth natural Vietnamese skin, naturally clear, no moles, no blemishes, not "
+         "airbrushed, not plastic")
+_MODEL_F = ("a young Vietnamese woman in her early 20s, petite slim, fair light skin (%s); round "
+            "soft face with gentle features, natural double eyelids, bright kind eyes; long "
+            "straight black hair past the shoulders worn loosely; wearing a beige pleated mini "
+            "skirt and white sneakers" % _SKIN)
+_MODEL_M = ("a young Vietnamese man in his early 20s, tall lean, fair light skin (%s); soft "
+            "youthful face, bright natural eyes; medium-length naturally tousled black hair "
+            "falling loosely across the forehead, not styled; wearing beige wide-leg trousers "
+            "and white sneakers" % _SKIN)
+_EXPR = ("bright cheerful gentle smile, lips parted slightly showing just the edge of teeth, eyes "
+         "sparkling and alive, expression genuinely spontaneous not rehearsed")
+
+PRODUCT_BG = {
+    "santorini": ("on a white-painted stone terrace in Santorini, an iconic blue-domed church "
+                  "behind to the left, white cubist buildings cascading toward the deep blue Aegean "
+                  "sea, pink bougainvillea on a far wall; bright even midday daylight, completely "
+                  "neutral, no warm cast, no harsh shadows"),
+    "paris": ("on a small wrought-iron Parisian balcony, Haussmann buildings with grey-blue "
+              "rooftops across the street, a distant soft glimpse of the Eiffel Tower, a small café "
+              "table with espresso cups; bright flat ambient daylight, clean neutral, airy"),
+    "kyoto": ("under a canopy of pale pink cherry blossoms in full bloom forming a tunnel, a quiet "
+              "grey stone path behind, petals drifting softly; bright daylight filtered softly "
+              "through the blossom canopy, clean neutral"),
+    "yacht": ("on the bow of a sleek white luxury yacht on crystal-clear turquoise ocean, endless "
+              "sea to the horizon, polished white deck, chrome railings; bright high-key daylight "
+              "reflecting off water and white surfaces, neutral, no warm cast"),
+    "positano": ("on a narrow stone stairway in Positano on the Amalfi Coast, pastel houses "
+                 "cascading down the cliff, the deep blue Mediterranean sparkling below, lemon trees "
+                 "in terracotta pots; bright midday light, neutral, airy"),
+    "forbidden": ("in the grand courtyard of the Forbidden City, vermillion red walls and "
+                  "golden-tiled rooftops, pale stone floor, carved white marble balustrades; clear "
+                  "bright sky, bright even neutral daylight"),
+    "penthouse": ("inside a modern penthouse by a floor-to-ceiling window, a nighttime city skyline "
+                  "of bokeh lights outside, a grey velvet sofa edge, polished dark floor; soft "
+                  "neutral bright ambient interior light, faces and fabric clearly visible, no warm "
+                  "cast, no orange tint"),
+}
+
+PRODUCT_SHOTS = {
+    "model_f": {"label": "Người mẫu nữ", "size": "1024x1536"},
+    "model_m": {"label": "Người mẫu nam", "size": "1024x1536"},
+    "flatlay_sofa": {"label": "Flatlay sofa", "size": "1024x1024"},
+    "white_bg": {"label": "Nền trắng", "size": "1024x1024"},
+    "kraft_box": {"label": "Hộp kraft", "size": "1024x1024"},
+}
+
+
+def product_prompt(shot, bg_key):
+    bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["santorini"])
+    if shot in ("model_f", "model_m"):
+        who = _MODEL_F if shot == "model_f" else _MODEL_M
+        pose = ("one hand holding her bag strap" if shot == "model_f"
+                else "one hand relaxed in his pocket")
+        return ("A candid casual smartphone photo of %s, wearing %s. Standing %s. Waist-up shot "
+                "from the waist to the top of the head, %s, looking at the camera, %s. The fabric "
+                "color stays true to life, well exposed and clearly visible. %s %s"
+                % (who, _SHIRT, bg, pose, _EXPR, _CAM, PRODUCT_NEG))
+    if shot == "flatlay_sofa":
+        return ("Top-down flatlay photo of the t-shirt from the reference product image, laid "
+                "completely flat and open on a light cream fabric sofa seat cushion, lying fully on "
+                "the cushion (not hanging off the edge), body completely flat, sleeves extended "
+                "naturally, hem lying straight, clean ribbed collar with no tags, the printed design "
+                "on the left chest clearly visible exactly as in the reference. Soft natural "
+                "daylight, bright airy neutral, fabric color true to life, no props. %s" % PRODUCT_NEG)
+    if shot == "white_bg":
+        return ("Top-down product photo of the t-shirt from the reference product image, fully "
+                "spread open flat on a pure white seamless background, sleeves extended to both "
+                "sides fully visible from shoulder to cuff, body completely flat, hem straight, "
+                "oversized form clearly visible, the printed design clearly visible exactly as in "
+                "the reference, clean collar no tags, soft even neutral lighting, no props, no "
+                "shadows. %s" % PRODUCT_NEG)
+    # kraft_box
+    return ("Top-down photo of the t-shirt from the reference product image neatly folded into a "
+            "clean rectangle inside a plain unprinted kraft flip-open box (hinged lid open at the "
+            "back) lined with white tissue paper, the printed design on the chest clearly visible "
+            "exactly as in the reference, soft natural daylight, bright neutral, no props besides "
+            "the kraft box and white tissue, no stickers, no ribbons, no card. %s" % PRODUCT_NEG)
+
+
+def run_product_job(job_id, img, shots, bg_key):
+    def work(shot):
+        meta = PRODUCT_SHOTS.get(shot)
+        if not meta:
+            return {"error": "Loại ảnh không hợp lệ", "title": shot}
+        try:
+            b64 = openai_edit([(img, "image/png")], product_prompt(shot, bg_key),
+                              meta["size"], native_transparent=False)
+            g = gallery_add(b64, {"mode": "product", "prompt": meta["label"]})
+            return {"image": b64, "title": meta["label"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": meta["label"]}
+        except Exception as e:
+            return {"error": str(e), "title": meta["label"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, shots):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+# --------------------------------------------------------------------------- #
 #  Upscale (Pillow)
 # --------------------------------------------------------------------------- #
 def remove_flat_bg(raw, thresh=45):
@@ -1172,6 +1301,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_save_design(body)
         if path == "/api/batch-excel":
             return self.handle_batch_excel(body)
+        if path == "/api/product-photos":
+            return self.handle_product_photos(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -1384,6 +1515,30 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_product_photos(self, body):
+        """Tạo ảnh sản phẩm (model/flatlay/kraft) từ 1 ảnh sản phẩm, gpt-image-2 edits."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        if not src:
+            return self.json(400, {"error": "Chưa có ảnh sản phẩm."})
+        d, _ = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh sản phẩm."})
+        shots = [s for s in (body.get("shots") or []) if s in PRODUCT_SHOTS]
+        if not shots:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 loại ảnh."})
+        bg_key = body.get("bg", "santorini")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "p%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_product_job, args=(job_id, d, shots, bg_key),
+                             daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(shots)})
 
     def handle_batch_excel(self, body):
         """Nhận file .xlsx (base64) có ảnh nhúng + cột Tên/Ngày -> gen hàng loạt nhiều luồng."""
