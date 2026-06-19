@@ -17,6 +17,7 @@ import io
 import json
 import mimetypes
 import os
+import random
 import re
 import sqlite3
 import struct
@@ -903,6 +904,29 @@ DESIGN_SYSTEM = (
 )
 
 
+# Phong cách có NHÂN VẬT/mascot -> cần đa dạng con vật, tránh lần nào cũng ra 1 con
+_MASCOT_KEYS = {"mascot", "cute_mascot", "kawaii", "anime_nostalgia", "comic_pop"}
+_CHAR_POOL = [
+    "mèo", "cún corgi", "chó shiba", "gấu nâu", "gấu trúc", "cáo", "cá sấu", "khủng long",
+    "thỏ", "ếch", "cú mèo", "hổ con", "sư tử con", "chim cánh cụt", "rái cá", "hà mã",
+    "tê giác", "khỉ", "gấu Bắc Cực", "cá voi", "bạch tuộc", "rồng nhỏ", "kỳ lân",
+    "robot", "phi hành gia", "quái vật nhỏ lông xù", "ma cute", "người tuyết", "ong",
+    "bọ rùa", "vịt vàng", "heo", "cừu", "nai", "sóc", "chuột hamster", "tắc kè hoa",
+]
+
+
+def _variety_hint(styles, n):
+    """Câu nhắc đa dạng chủ thể/nhân vật giữa các design VÀ giữa các lần gen (random pool)."""
+    if any(s in _MASCOT_KEYS for s in styles):
+        pool = _CHAR_POOL[:]
+        random.shuffle(pool)
+        picks = ", ".join(pool[:max(int(n or 3) + 2, 5)])
+        return ("ĐA DẠNG NHÂN VẬT (RẤT QUAN TRỌNG): mỗi design dùng MỘT nhân vật/mascot "
+                "KHÁC NHAU, KHÔNG lặp lại; ĐỪNG mặc định cá sấu/phi hành gia. Lần này ưu tiên "
+                "chọn nhân vật trong nhóm gợi ý NGẪU NHIÊN (mỗi mẫu 1 con khác nhau): %s." % picks)
+    return "Mỗi design có CHỦ THỂ/bố cục KHÁC NHAU, đa dạng, tránh trùng lặp giữa các mẫu."
+
+
 def design_concepts(styles, theme, text, n, year="", same_line=False):
     """styles: list khoá phong cách. Nhiều style -> TRỘN vào cùng mỗi design (fusion)."""
     n = max(1, min(int(n or 3), 8))
@@ -928,6 +952,7 @@ def design_concepts(styles, theme, text, n, year="", same_line=False):
         parts.append("Thêm 1 DÒNG NĂM/SỐ riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, đặt tách khỏi dòng chữ chính (vd phía dưới/góc), cỡ nhỏ hơn, hợp bố cục." % year.strip())
     if same_line:
         parts.append("BẮT BUỘC bố cục chữ: chữ/tên chính phải nằm trên MỘT HÀNG NGANG DUY NHẤT — TUYỆT ĐỐI KHÔNG xếp chồng 2 tầng, KHÔNG tách mỗi từ một dòng, KHÔNG bố cục arched 2 dòng. Trong MỖI image prompt phải ghi rõ 'all words on one single horizontal line, single-line lockup, not stacked'.")
+    parts.append(_variety_hint(styles, n))
     messages = [{"role": "system", "content": DESIGN_SYSTEM % sd},
                 {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
     out = []
@@ -1008,6 +1033,9 @@ def design_concepts_from_ref(ref_bytes, theme, text, n, year="", same_line=False
         parts.append("Thêm 1 dòng năm/số riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, tách khỏi dòng chữ chính, cỡ nhỏ hơn." % year.strip())
     if same_line:
         parts.append("BẮT BUỘC bố cục chữ: chữ/tên chính nằm trên MỘT HÀNG NGANG DUY NHẤT — KHÔNG xếp chồng, KHÔNG tách mỗi từ một dòng, KHÔNG arched 2 tầng. Mỗi image prompt ghi rõ 'all words on one single horizontal line, single-line lockup, not stacked'.")
+    if not (theme or "").strip():
+        _p = _CHAR_POOL[:]; random.shuffle(_p)
+        parts.append("Nếu phong cách có nhân vật/mascot: mỗi design dùng MỘT nhân vật KHÁC NHAU, đa dạng (gợi ý ngẫu nhiên: %s), KHÔNG lặp lại con giống nhau." % ", ".join(_p[:max(int(n or 3) + 2, 5)]))
     b64 = base64.b64encode(ref_bytes).decode()
     content = [{"type": "text", "text": " ".join(parts) + " Chỉ trả JSON."},
                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
