@@ -545,8 +545,9 @@ async function loadGallery() {
     items.forEach(it => {
       const card = document.createElement("div"); card.className = "gcard";
       const label = (it.prompt || it.mode || "design").slice(0, 40);
-      card.innerHTML = `<img src="${it.url}" loading="lazy"><div class="gmeta">${label}</div><button class="gdel" title="xoá">×</button>`;
+      card.innerHTML = `<img src="${it.url}" loading="lazy"><div class="gmeta">${label}</div><button class="gcopy" title="copy ảnh để gửi chỗ khác">📋</button><button class="gdel" title="xoá">×</button>`;
       card.querySelector("img").onclick = () => useGalleryItem(it);
+      card.querySelector(".gcopy").onclick = (e) => { e.stopPropagation(); copyImageToClipboard(it.url, e.currentTarget); };
       card.querySelector(".gdel").onclick = async (e) => {
         e.stopPropagation();
         await fetch("/api/gallery?id=" + it.id, { method: "DELETE" });
@@ -1090,17 +1091,27 @@ $("zoomDl").onclick = (e) => {
   const a = document.createElement("a");
   a.href = $("zoomImg").src; a.download = "design-" + Date.now() + ".png"; a.click();
 };
-$("zoomCopy").onclick = async (e) => {
-  e.stopPropagation();
-  const btn = $("zoomCopy"), old = btn.textContent;
+// Copy ảnh vào clipboard để dán/gửi chỗ khác. Trả Promise<bool>. Chuẩn hoá PNG để dán được mọi nơi.
+async function copyImageToClipboard(src, btn) {
+  const old = btn ? btn.textContent : "";
   try {
-    const blob = await (await fetch($("zoomImg").src)).blob();
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
-    btn.textContent = "✓ Đã copy"; setTimeout(() => btn.textContent = old, 1400);
+    let blob = await (await fetch(src)).blob();
+    // Safari/Chrome chỉ chấp nhận image/png khi ghi clipboard -> ép về PNG qua canvas nếu cần
+    if (blob.type !== "image/png") {
+      const bmp = await createImageBitmap(blob);
+      const cv = document.createElement("canvas"); cv.width = bmp.width; cv.height = bmp.height;
+      cv.getContext("2d").drawImage(bmp, 0, 0);
+      blob = await new Promise(r => cv.toBlob(r, "image/png"));
+    }
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    if (btn) { btn.textContent = "✓ Đã copy"; setTimeout(() => btn.textContent = old, 1400); }
+    return true;
   } catch (err) {
-    btn.textContent = "✗ Trình duyệt chặn"; setTimeout(() => btn.textContent = old, 1800);
+    if (btn) { btn.textContent = "✗ Bị chặn"; setTimeout(() => btn.textContent = old, 1800); }
+    return false;
   }
-};
+}
+$("zoomCopy").onclick = (e) => { e.stopPropagation(); copyImageToClipboard($("zoomImg").src, $("zoomCopy")); };
 
 /* =====================================================================
    ĐỔI MÀU ÁO: xem "Trên áo thật" + chọn nhiều + tải hàng loạt
@@ -1729,10 +1740,11 @@ function dsRender() {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
     grid.appendChild(card);
   });
