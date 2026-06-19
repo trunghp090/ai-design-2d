@@ -679,6 +679,12 @@
 
         <label class="field-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn)</label>
         <input type="text" id="dsText" class="input" placeholder="VD: REPENTANCE · YÊU · tên brand… (để trống AI tự nghĩ)" />
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="hint" style="margin:0">✍️ Chữ hay in áo:</span>
+          <button type="button" id="dsTextShuffle" class="btn-ghost sm">🎲 Đổi gợi ý</button>
+          <button type="button" id="dsTextAll" class="btn-ghost sm">📋 Xem tất cả</button>
+        </div>
+        <div class="color-chips" id="dsTextChips" style="margin-top:6px"></div>
         <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
           <input type="checkbox" id="dsSameLine" /> Tên/chữ 2 từ xếp CÙNG 1 dòng (không xuống dòng)
         </label>

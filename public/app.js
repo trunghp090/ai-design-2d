@@ -1704,6 +1704,43 @@ function dsRenderThemeChips() {
   const sh = $("dsThemeShuffle");
   if (sh) sh.style.display = dsThemeAll ? "none" : "";
 }
+
+// Kho chữ/slogan tiếng Anh hay in áo (streetwear / POD)
+const DS_TEXT_IDEAS = [
+  // Power words 1 từ
+  "VINTAGE", "ORIGINAL", "AUTHENTIC", "TIMELESS", "REBEL", "FEARLESS", "WILD", "DREAMER",
+  "WANDER", "HUSTLE", "LEGEND", "ICONIC", "FREEDOM", "CHAOS", "ENERGY", "WORLDWIDE",
+  "UNLIMITED", "PREMIUM", "FOREVER", "OUTLAW",
+  // Slogan ngắn
+  "Stay Wild", "Good Vibes Only", "Be Yourself", "Never Give Up", "Live Free", "Stay Strong",
+  "Born to Be Wild", "Dream Big", "No Rain No Flowers", "Embrace the Chaos", "Stay Humble",
+  "Work Hard Stay Humble", "Trust the Process", "Keep It Real", "Forever Young", "Wild & Free",
+  "Adventure Awaits", "Stay Golden", "Less Talk More Action", "Soft but Strong",
+  "Main Character", "Not Today", "Lost in the Moment", "Self Made", "Chasing Dreams",
+  "Stay Curious", "Find Your Fire", "Rise & Shine", "Born to Stand Out", "Live the Moment",
+  // Streetwear / club tag
+  "Members Only", "Social Club", "Athletic Dept.", "Off Duty", "Limited Edition",
+  "Sold Out", "Since the 90s", "Worldwide Tour", "Est. 1995", "Premium Quality",
+  // VN vibe (tiếng Việt nổi)
+  "YÊU", "AN YÊN", "BÌNH AN", "TỰ DO", "CỐ LÊN", "SỐNG HẾT MÌNH", "CHẤT", "ĐỈNH",
+];
+let dsTextOffset = 0;
+let dsTextAll = false;
+function dsRenderTextChips() {
+  const box = $("dsTextChips"); if (!box) return; box.innerHTML = "";
+  const list = dsTextAll
+    ? DS_TEXT_IDEAS
+    : Array.from({ length: 12 }, (_, i) => DS_TEXT_IDEAS[(dsTextOffset + i) % DS_TEXT_IDEAS.length]);
+  list.forEach(txt => {
+    const el = document.createElement("div");
+    el.className = "cchip"; el.style.cursor = "pointer";
+    el.textContent = txt;
+    el.onclick = () => { $("dsText").value = txt; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 600); };
+    box.appendChild(el);
+  });
+  const sh = $("dsTextShuffle");
+  if (sh) sh.style.display = dsTextAll ? "none" : "";
+}
 function dsInit() {
   if (dsInited) return; dsInited = true;
   dsRenderCombos();
@@ -1713,6 +1750,11 @@ function dsInit() {
   if (sh) sh.onclick = () => { dsThemeOffset = (dsThemeOffset + 12) % DS_THEME_IDEAS.length; dsRenderThemeChips(); };
   const all = $("dsThemeAll");
   if (all) all.onclick = () => { dsThemeAll = !dsThemeAll; all.textContent = dsThemeAll ? "🔽 Thu gọn" : "📋 Xem tất cả"; dsRenderThemeChips(); };
+  dsRenderTextChips();
+  const tsh = $("dsTextShuffle");
+  if (tsh) tsh.onclick = () => { dsTextOffset = (dsTextOffset + 12) % DS_TEXT_IDEAS.length; dsRenderTextChips(); };
+  const tall = $("dsTextAll");
+  if (tall) tall.onclick = () => { dsTextAll = !dsTextAll; tall.textContent = dsTextAll ? "🔽 Thu gọn" : "📋 Xem tất cả"; dsRenderTextChips(); };
 }
 function dsSetRef(durl) {
   dsRefImg = durl;
