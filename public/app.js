@@ -1682,17 +1682,21 @@ const DS_THEME_IDEAS = [
   "skate / trượt ván", "xe phân khối lớn", "y tá / bác sĩ", "giáo viên", "nông trại / quê",
 ];
 let dsThemeOffset = 0;
+let dsThemeAll = false;
 function dsRenderThemeChips() {
   const box = $("dsThemeChips"); if (!box) return; box.innerHTML = "";
-  const N = 12;
-  for (let i = 0; i < N; i++) {
-    const idea = DS_THEME_IDEAS[(dsThemeOffset + i) % DS_THEME_IDEAS.length];
+  const list = dsThemeAll
+    ? DS_THEME_IDEAS
+    : Array.from({ length: 12 }, (_, i) => DS_THEME_IDEAS[(dsThemeOffset + i) % DS_THEME_IDEAS.length]);
+  list.forEach(idea => {
     const el = document.createElement("div");
     el.className = "cchip"; el.style.cursor = "pointer";
     el.textContent = idea;
     el.onclick = () => { $("dsTheme").value = idea; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 600); };
     box.appendChild(el);
-  }
+  });
+  const sh = $("dsThemeShuffle");
+  if (sh) sh.style.display = dsThemeAll ? "none" : "";
 }
 function dsInit() {
   if (dsInited) return; dsInited = true;
@@ -1701,6 +1705,8 @@ function dsInit() {
   dsRenderThemeChips();
   const sh = $("dsThemeShuffle");
   if (sh) sh.onclick = () => { dsThemeOffset = (dsThemeOffset + 12) % DS_THEME_IDEAS.length; dsRenderThemeChips(); };
+  const all = $("dsThemeAll");
+  if (all) all.onclick = () => { dsThemeAll = !dsThemeAll; all.textContent = dsThemeAll ? "🔽 Thu gọn" : "📋 Xem tất cả"; dsRenderThemeChips(); };
 }
 function dsSetRef(durl) {
   dsRefImg = durl;
