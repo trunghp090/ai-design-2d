@@ -975,11 +975,13 @@ def _parse_designs(raw):
 
 
 DESIGN_REF_SYSTEM = (
-    "Bạn là designer áo thun. Bạn được đưa 1 ẢNH DESIGN THAM CHIẾU. Hãy:\n"
-    "1) NHẬN DIỆN phong cách của nó (mô tả ngắn; nếu khớp thì nêu TÊN trong danh sách gợi ý).\n"
-    "2) Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi cái là 1 design MỚI NGUYÊN BẢN, CÙNG "
-    "phong cách / tinh thần / bảng màu / bố cục với ảnh tham chiếu (KHÔNG sao chép y hệt; đổi chủ "
-    "thể/chữ cho khác). Lồng chủ đề/chữ người dùng nhập nếu có. Màu gọn, dễ in.\n"
+    "Bạn là designer áo thun. Bạn được đưa 1 ẢNH THAM CHIẾU. CHỈ HỌC PHONG CÁCH THỊ GIÁC của nó: "
+    "kỹ thuật vẽ/illustration, BẢNG MÀU, kiểu chữ/typography, texture/hiệu ứng, mood. "
+    "TUYỆT ĐỐI KHÔNG sao chép CHỦ THỂ / nhân vật / chữ / bố cục / nội dung cụ thể của ảnh ref.\n"
+    "1) Nhận diện phong cách (mô tả ngắn; nếu khớp thì nêu TÊN trong danh sách gợi ý).\n"
+    "2) Tạo N câu prompt TIẾNG ANH — mỗi cái là 1 design MỚI với CHỦ ĐỀ/CHỦ THỂ KHÁC HẲN ảnh ref "
+    "(theo chủ đề người dùng nhập; nếu không có thì tự nghĩ chủ đề mới), nhưng áp ĐÚNG phong cách "
+    "(màu + kỹ thuật + kiểu chữ + texture) đã học. Nội dung phải khác ảnh ref rõ rệt. Màu dễ in.\n"
     "Danh sách phong cách gợi ý: %s.\n"
     "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
     "print-ready, no t-shirt, no mockup, no person'. "
