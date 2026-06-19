@@ -207,6 +207,8 @@ textarea.input{resize:vertical;line-height:1.5}
 .cchip.on{border-color:var(--violet);background:var(--violet-soft);color:var(--violet)}
 .cchip .tick{opacity:0;font-size:11px}
 .cchip.on .tick{opacity:1}
+.cchip.combo{background:linear-gradient(90deg,#fff,#f3f0ff);border-color:#d9d2f5}
+.cchip.combo:hover{background:var(--violet-soft);border-color:var(--violet);color:var(--violet)}
 /* Thêm nền - xem trước */
 .addbg-preview{min-height:300px;display:flex;align-items:center;justify-content:center;
   border:1px solid var(--line);border-radius:12px;background:

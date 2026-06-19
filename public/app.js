@@ -1633,8 +1633,35 @@ let dsPollTimer = null;
 let dsInited = false;
 
 let dsRefImg = null;   // dataURL ảnh tham chiếu (AI tự nhận style)
+const DS_COMBOS = [
+  { label: "🧢🧵 Streetwear bạc màu", keys: ["streetwear", "vintage_washed"] },
+  { label: "👨‍🚀🧵 Mascot vintage", keys: ["mascot", "vintage_washed"] },
+  { label: "😆🧢 Áo phố cà khịa", keys: ["funny_vn", "streetwear"] },
+  { label: "💞🌼 Couple hoa nhẹ", keys: ["couple_love", "floral_quote"] },
+  { label: "🖤🌹 Dark hoa hồng", keys: ["gothic", "floral"] },
+  { label: "🫧🪙 Bong bóng chrome", keys: ["y2k_graffiti", "liquid_chrome"] },
+  { label: "🤖👨‍🚀 Mascot tương lai", keys: ["cyberpunk", "mascot"] },
+  { label: "🌊⚓ Nhật cổ tattoo", keys: ["ukiyoe", "tattoo_oldschool"] },
+  { label: "⚪🔲 Tối giản thanh", keys: ["minimal_clean", "lineart"] },
+  { label: "🌴🦋 Retro Y2K", keys: ["vaporwave", "y2k"] },
+  { label: "🎓🏎️ Đua collegiate", keys: ["varsity", "street_racing"] },
+  { label: "📍🏞️ Souvenir VN", keys: ["city_souvenir", "vintage_americana"] },
+  { label: "🐊🌼 Cute hoa lá", keys: ["cute_mascot", "floral_quote"] },
+  { label: "🎮🌊 Anime Nhật", keys: ["anime_nostalgia", "ukiyoe"] },
+];
+function dsRenderCombos() {
+  const box = $("dsCombos"); if (!box) return; box.innerHTML = "";
+  DS_COMBOS.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cchip combo";
+    el.textContent = c.label;
+    el.onclick = () => { dsPicked.clear(); c.keys.forEach(k => dsPicked.add(k)); dsRenderStyles(); };
+    box.appendChild(el);
+  });
+}
 function dsInit() {
   if (dsInited) return; dsInited = true;
+  dsRenderCombos();
   dsRenderStyles();
 }
 function dsSetRef(durl) {
