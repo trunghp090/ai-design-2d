@@ -1681,6 +1681,18 @@ $("dsRefFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f
   dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
   dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) { $("dsRefName").textContent = "📄 " + f.name; dsSetRef(await fileToDataURL(f)); } });
 })();
+// Dán ảnh (Ctrl+V) khi đang ở tab Tạo design -> đặt làm ảnh tham chiếu
+document.addEventListener("paste", async (e) => {
+  if (document.getElementById("view-design").classList.contains("hidden")) return;
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith("image/")) {
+      const f = it.getAsFile();
+      if (f) { e.preventDefault(); $("dsRefName").textContent = "📋 Ảnh dán từ clipboard"; dsSetRef(await fileToDataURL(f)); }
+      return;
+    }
+  }
+});
 function dsRenderStyles() {
   const box = $("dsStyles"); box.innerHTML = "";
   DS_STYLES.forEach(s => {
