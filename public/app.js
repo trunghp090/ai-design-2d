@@ -1670,10 +1670,37 @@ function dsRenderCombos() {
     box.appendChild(el);
   });
 }
+// Kho ý tưởng chủ đề áo (POD VN) — bấm để điền vào ô Chủ đề
+const DS_THEME_IDEAS = [
+  "tình yêu / couple", "mèo cưng", "cún cưng", "gym / tập tạ", "cà phê", "du lịch Đà Lạt",
+  "biển / mùa hè", "Phật giáo / an yên", "cha mẹ / gia đình", "sinh nhật", "bạn thân / hội bạn",
+  "học sinh / sinh viên", "Tết / năm mới", "Giáng sinh", "Halloween", "bóng đá", "âm nhạc / band",
+  "anime / otaku", "game thủ", "cung hoàng đạo", "hoa lá / thực vật", "cây xương rồng",
+  "trà sữa", "đồ ăn vặt", "chữa lành / healing", "động lực / hustle", "cá tính / chất chơi",
+  "Sài Gòn", "Hà Nội", "núi rừng / cắm trại", "đại dương / cá voi", "vũ trụ / phi hành gia",
+  "khủng long", "gấu cute", "phượng hoàng / rồng", "tâm linh / huyền bí", "vintage hoài niệm",
+  "skate / trượt ván", "xe phân khối lớn", "y tá / bác sĩ", "giáo viên", "nông trại / quê",
+];
+let dsThemeOffset = 0;
+function dsRenderThemeChips() {
+  const box = $("dsThemeChips"); if (!box) return; box.innerHTML = "";
+  const N = 12;
+  for (let i = 0; i < N; i++) {
+    const idea = DS_THEME_IDEAS[(dsThemeOffset + i) % DS_THEME_IDEAS.length];
+    const el = document.createElement("div");
+    el.className = "cchip"; el.style.cursor = "pointer";
+    el.textContent = idea;
+    el.onclick = () => { $("dsTheme").value = idea; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 600); };
+    box.appendChild(el);
+  }
+}
 function dsInit() {
   if (dsInited) return; dsInited = true;
   dsRenderCombos();
   dsRenderStyles();
+  dsRenderThemeChips();
+  const sh = $("dsThemeShuffle");
+  if (sh) sh.onclick = () => { dsThemeOffset = (dsThemeOffset + 12) % DS_THEME_IDEAS.length; dsRenderThemeChips(); };
 }
 function dsSetRef(durl) {
   dsRefImg = durl;
