@@ -1784,7 +1784,7 @@ $("dsRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", theme: $("dsTheme").value, text: $("dsText").value, year: $("dsYear").value, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", theme: $("dsTheme").value, text: $("dsText").value, year: $("dsYear").value, same_line: $("dsSameLine").checked, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
