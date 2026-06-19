@@ -1680,6 +1680,12 @@ const DS_THEME_IDEAS = [
   "Sài Gòn", "Hà Nội", "núi rừng / cắm trại", "đại dương / cá voi", "vũ trụ / phi hành gia",
   "khủng long", "gấu cute", "phượng hoàng / rồng", "tâm linh / huyền bí", "vintage hoài niệm",
   "skate / trượt ván", "xe phân khối lớn", "y tá / bác sĩ", "giáo viên", "nông trại / quê",
+  // Mùa & dịp lễ
+  "bốn mùa", "mùa xuân / hoa đào", "mùa hè sôi động", "mùa thu lá vàng", "mùa đông ấm áp",
+  "Tết Trung Thu", "Valentine 14/2", "8/3 phụ nữ", "20/10 phụ nữ VN", "20/11 nhà giáo",
+  "1/6 thiếu nhi", "2/9 Quốc khánh", "30/4 - 1/5", "mùa tựu trường", "mùa cưới",
+  "mùa lễ hội", "mùa hoa (phượng / dã quỳ / tam giác mạch)", "mùa mưa Sài Gòn",
+  "Black Friday / sale", "Tết Dương lịch",
 ];
 let dsThemeOffset = 0;
 let dsThemeAll = false;
