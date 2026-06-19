@@ -903,7 +903,7 @@ DESIGN_SYSTEM = (
 )
 
 
-def design_concepts(styles, theme, text, n):
+def design_concepts(styles, theme, text, n, year=""):
     """styles: list khoá phong cách. Nhiều style -> TRỘN vào cùng mỗi design (fusion)."""
     n = max(1, min(int(n or 3), 8))
     if isinstance(styles, str):
@@ -924,6 +924,8 @@ def design_concepts(styles, theme, text, n):
         parts.append("Chèn dòng chữ \"%s\" vào design (đúng chính tả, nổi bật)." % text.strip())
     else:
         parts.append("Tự nghĩ câu chữ/slogan ngắn ấn tượng phù hợp phong cách.")
+    if (year or "").strip():
+        parts.append("Thêm 1 DÒNG NĂM/SỐ riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, đặt tách khỏi dòng chữ chính (vd phía dưới/góc), cỡ nhỏ hơn, hợp bố cục." % year.strip())
     messages = [{"role": "system", "content": DESIGN_SYSTEM % sd},
                 {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
     out = []
@@ -990,7 +992,7 @@ DESIGN_REF_SYSTEM = (
 )
 
 
-def design_concepts_from_ref(ref_bytes, theme, text, n):
+def design_concepts_from_ref(ref_bytes, theme, text, n, year=""):
     """Nhìn ảnh tham chiếu -> nhận diện style + tạo n design mới cùng phong cách.
     Trả (style_detected, list[concept])."""
     n = max(1, min(int(n or 3), 8))
@@ -1000,6 +1002,8 @@ def design_concepts_from_ref(ref_bytes, theme, text, n):
         parts.append("Chủ đề: %s." % theme.strip())
     if (text or "").strip():
         parts.append("Chèn chữ \"%s\"." % text.strip())
+    if (year or "").strip():
+        parts.append("Thêm 1 dòng năm/số riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, tách khỏi dòng chữ chính, cỡ nhỏ hơn." % year.strip())
     b64 = base64.b64encode(ref_bytes).decode()
     content = [{"type": "text", "text": " ".join(parts) + " Chỉ trả JSON."},
                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
@@ -1021,15 +1025,15 @@ DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt cre
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None):
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year=""):
     # Bước 1: AI nghĩ n design. Có ảnh ref -> nhận diện style từ ảnh; không thì theo style đã chọn
     err_msg = None
     try:
         if ref:
-            detected, concepts = design_concepts_from_ref(ref, theme, text, n)
+            detected, concepts = design_concepts_from_ref(ref, theme, text, n, year)
             style_tag = "Ảnh ref" + (": " + detected if detected else "")
         else:
-            concepts = design_concepts(styles, theme, text, n)
+            concepts = design_concepts(styles, theme, text, n, year)
             style_tag = " + ".join(DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES)
     except urllib.error.HTTPError as e:
         concepts = []; err_msg = openai_error_message(e); style_tag = ""
@@ -1936,7 +1940,8 @@ class Handler(BaseHTTPRequestHandler):
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_design_job,
                              args=(job_id, styles, body.get("theme", ""),
-                                   body.get("text", ""), n, size, transparent, ref_bytes),
+                                   body.get("text", ""), n, size, transparent, ref_bytes,
+                                   body.get("year", "")),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
