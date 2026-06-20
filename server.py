@@ -832,7 +832,7 @@ DESIGN_STYLES = {
     "couple_love": ("Couple / L\u1eddi nh\u1eafn t\xecnh y\xeau", "matching couple t-shirt typography \u2014 modern cute his/her love slogan, soft warm palette, small hearts / paired lockup, clean & trendy for GenZ couples"),
     "city_souvenir": ("Local Place / City Souvenir", "Vietnam local-place souvenir t-shirt — iconic VIETNAMESE city & landmark (Hà Nội, Sài Gòn, Đà Nẵng, Hội An, Huế, Đà Lạt; e.g. Hồ Gươm Tháp Rùa, Khuê Văn Các, Chùa Một Cột, Cầu Rồng, Hội An lanterns, Bến Thành market, Landmark 81), bold place name + small tagline, clean 2–3 color, souvenir/travel vibe (NOT USA/Western cities)"),
     "statement_bold": ("Statement / Edgy Bold", "bold edgy statement t-shirt typography — one huge punchy slogan, distressed grit, RESTRAINED 2-color (mono + a single accent), high-impact and clean (not messy or neon-overload)"),
-    "funny_vn": ("Funny Quote (ti\u1ebfng Vi\u1ec7t)", "funny / meme-style quote t-shirt \u2014 a witty cheeky humorous slogan (Vietnamese or English), BOLD playful chunky or handwritten font, a small funny doodle/sticker, casual fun vibe, bright but clean (NOT elegant, NOT calm script)"),
+    "funny_vn": ("Funny Quote (ti\u1ebfng Vi\u1ec7t)", "funny / meme-style quote t-shirt \u2014 a witty cheeky humorous slogan (English by default), BOLD playful chunky or handwritten font, a small funny doodle/sticker, casual fun vibe, bright but clean (NOT elegant, NOT calm script)"),
     "floral_quote": ("Aesthetic Floral + Quote", "aesthetic floral quote t-shirt"),
     "luxury_minimal": ("Luxury Minimal Back-print", "luxury minimal back-print t-shirt"),
     "social_club": ("Social Club / Community", "collegiate 'social club / community' t-shirt typography — varsity arched club name + 'EST. 20xx' + a place/locale line, tidy badge layout, clean 2-color (cream + navy/maroon)"),
@@ -893,9 +893,9 @@ DESIGN_SYSTEM = (
     "độc đáo, khác nhau, theo phong cách '%s'. Bạn toàn quyền quyết định chủ thể, font, màu, bố "
     "cục, hiệu ứng sao cho đẹp & hợp trend nhất — không bị gò bó.\n"
     "Nếu người dùng có nhập (tên/địa danh/câu/chủ đề) thì lồng vào; không có thì tự nghĩ.\n"
-    "NGÔN NGỮ chữ trên design: dùng tiếng Anh HOẶC tiếng Việt — chọn cái HỢP PHONG CÁCH & ĐẸP "
-    "nhất (streetwear/typography/quote thường tiếng Anh cho ngầu), KHÔNG bắt buộc tiếng Việt. "
-    "Chỉ khi người dùng nhập sẵn chữ tiếng Việt thì giữ nguyên ĐÚNG DẤU.\n"
+    "NGÔN NGỮ chữ trên design: MẶC ĐỊNH dùng TIẾNG ANH (cho ngầu & hợp trend). CHỈ dùng tiếng Việt "
+    "khi người dùng nhập sẵn chữ tiếng Việt — khi đó giữ nguyên ĐÚNG DẤU. Tên địa danh thì giữ "
+    "tên riêng (vd Hà Nội / Hanoi).\n"
     "MÀU SẮC: ưu tiên bảng màu GỌN (2–4 màu) sạch, tinh tế, dễ in & dễ mặc kiểu áo thun Việt "
     "Nam — TRÁNH sặc sỡ/rối/cầu vồng (trừ phong cách vốn rực rỡ như Y2K, Vaporwave, Graffiti).\n"
     "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white "
@@ -1067,8 +1067,8 @@ DESIGN_AUTO_SYSTEM = (
     "Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi câu là 1 design áo thun CỰC ĐẸP, độc đáo, "
     "khác nhau. Bạn toàn quyền quyết định chủ thể, font, màu, bố cục, hiệu ứng sao cho đẹp & hợp "
     "trend nhất.\n"
-    "NGÔN NGỮ chữ trên design: tiếng Anh HOẶC tiếng Việt — chọn cái HỢP PHONG CÁCH & ĐẸP nhất, "
-    "KHÔNG bắt buộc tiếng Việt. Nếu người dùng nhập sẵn chữ tiếng Việt thì giữ nguyên ĐÚNG DẤU.\n"
+    "NGÔN NGỮ chữ trên design: MẶC ĐỊNH dùng TIẾNG ANH. CHỈ dùng tiếng Việt khi người dùng nhập "
+    "sẵn chữ tiếng Việt (giữ nguyên ĐÚNG DẤU). Tên địa danh giữ tên riêng (vd Hà Nội / Hanoi).\n"
     "MÀU SẮC: ưu tiên bảng màu GỌN (2–4 màu) sạch, tinh tế, dễ in & dễ mặc — TRÁNH sặc sỡ/rối "
     "(trừ phong cách vốn rực rỡ như Y2K, Vaporwave, Graffiti).\n"
     "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
