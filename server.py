@@ -999,7 +999,10 @@ def _parse_designs(raw):
         elif isinstance(d, dict):
             p = (d.get("prompt") or d.get("design") or d.get("text") or "").strip()
             if p:
-                out.append({"title": (d.get("title") or "Design").strip()[:80], "prompt": p})
+                item = {"title": (d.get("title") or "Design").strip()[:80], "prompt": p}
+                if (d.get("style") or "").strip():
+                    item["style"] = d.get("style").strip()[:50]
+                out.append(item)
     return out
 
 
@@ -1053,15 +1056,65 @@ def design_concepts_from_ref(ref_bytes, theme, text, n, year="", same_line=False
     return detected, concepts[:n]
 
 
+DESIGN_AUTO_SYSTEM = (
+    "Bạn là giám đốc sáng tạo kiêm designer áo thun đẳng cấp, rất hiểu thị hiếu & thị trường "
+    "áo thun Việt Nam. Người dùng chỉ đưa chủ đề/chữ (hoặc để trống). NHIỆM VỤ: TỰ CHỌN phong "
+    "cách thiết kế PHÙ HỢP & DỄ BÁN, ĐẸP nhất cho từng mẫu — mỗi mẫu có thể MỘT phong cách khác "
+    "nhau, hoặc kết hợp vài phong cách trong 1 mẫu nếu đẹp hơn. Tham khảo (không bắt buộc) các "
+    "phong cách: %s.\n"
+    "Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi câu là 1 design áo thun CỰC ĐẸP, độc đáo, "
+    "khác nhau. Bạn toàn quyền quyết định chủ thể, font, màu, bố cục, hiệu ứng sao cho đẹp & hợp "
+    "trend nhất.\n"
+    "NGÔN NGỮ chữ trên design: tiếng Anh HOẶC tiếng Việt — chọn cái HỢP PHONG CÁCH & ĐẸP nhất, "
+    "KHÔNG bắt buộc tiếng Việt. Nếu người dùng nhập sẵn chữ tiếng Việt thì giữ nguyên ĐÚNG DẤU.\n"
+    "MÀU SẮC: ưu tiên bảng màu GỌN (2–4 màu) sạch, tinh tế, dễ in & dễ mặc — TRÁNH sặc sỡ/rối "
+    "(trừ phong cách vốn rực rỡ như Y2K, Vaporwave, Graffiti).\n"
+    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
+    "print-ready, no t-shirt, no mockup, no person'. Trả JSON đúng dạng "
+    "{\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"style\":\"tên phong cách bạn đã chọn\",\"prompt\":\"...\"}]}."
+)
+
+
+def design_concepts_auto(theme, text, n, year="", same_line=False):
+    """AI tự chọn phong cách hợp nhất cho chủ đề rồi tạo n design. Mỗi concept kèm 'style'."""
+    n = max(1, min(int(n or 3), 8))
+    palette = ", ".join(v[0] for v in DESIGN_STYLES.values())
+    parts = ["Tạo đúng %d design áo thun ĐẸP & DỄ BÁN nhất." % n]
+    if (theme or "").strip():
+        parts.append("Chủ đề/ngách: %s." % theme.strip())
+    if (text or "").strip():
+        parts.append("Chèn dòng chữ \"%s\" vào design (đúng chính tả, nổi bật)." % text.strip())
+    else:
+        parts.append("Tự nghĩ câu chữ/slogan ngắn ấn tượng phù hợp.")
+    if (year or "").strip():
+        parts.append("Thêm 1 DÒNG NĂM/SỐ riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, tách khỏi dòng chữ chính, cỡ nhỏ hơn." % year.strip())
+    if same_line:
+        parts.append("Nếu tên/chữ chính có 2 từ thì đặt CẢ 2 TỪ trên MỘT HÀNG NGANG DUY NHẤT, không xếp chồng; mỗi image prompt ghi rõ 'single-line lockup, not stacked'.")
+    parts.append("Mỗi design CHỦ THỂ/phong cách KHÁC NHAU, đa dạng, tránh trùng lặp.")
+    messages = [{"role": "system", "content": DESIGN_AUTO_SYSTEM % palette},
+                {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
+    out = []
+    for _attempt in range(2):
+        raw = openai_chat(messages, json_mode=True, max_tokens=2800)
+        out = _parse_designs(raw)
+        if out:
+            break
+    return out[:n]
+
+
 DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt credit)
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False):
-    # Bước 1: AI nghĩ n design. Có ảnh ref -> nhận diện style từ ảnh; không thì theo style đã chọn
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False):
+    # Bước 1: AI nghĩ n design. auto_style -> AI tự chọn phong cách; ref -> nhận diện từ ảnh; else theo style đã chọn
     err_msg = None
+    style_tag = ""          # None = tag theo từng concept (auto)
     try:
-        if ref:
+        if auto_style:
+            concepts = design_concepts_auto(theme, text, n, year, same_line)
+            style_tag = None
+        elif ref:
             detected, concepts = design_concepts_from_ref(ref, theme, text, n, year, same_line)
             style_tag = "Ảnh ref" + (": " + detected if detected else "")
         else:
@@ -1073,7 +1126,8 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
         concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e; style_tag = ""
     concepts = concepts[:DESIGN_MAX_TOTAL]
     for c in concepts:
-        c["title"] = "[%s] %s" % (style_tag, c.get("title", "Design"))
+        tag = style_tag if style_tag is not None else ("AI chọn: " + (c.get("style") or "").strip() if (c.get("style") or "").strip() else "AI tự chọn")
+        c["title"] = "[%s] %s" % (tag, c.get("title", "Design"))
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
         if not job:
@@ -1955,12 +2009,13 @@ class Handler(BaseHTTPRequestHandler):
         styles = [s for s in (body.get("styles") or []) if s in DESIGN_STYLES]
         if not styles and body.get("style") in DESIGN_STYLES:   # tương thích cũ
             styles = [body.get("style")]
+        auto_style = bool(body.get("auto_style"))
         ref_bytes = None
         ref_src = body.get("ref", "")
         if ref_src:
             ref_bytes, _ = fetch_image_bytes(ref_src)
-        if not styles and not ref_bytes:
-            return self.json(400, {"error": "Hãy chọn ít nhất 1 phong cách hoặc tải ảnh tham chiếu."})
+        if not auto_style and not styles and not ref_bytes:
+            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', hoặc tải ảnh tham chiếu."})
         n = max(1, min(int(body.get("n", 3) or 3), 8))
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
@@ -1973,7 +2028,8 @@ class Handler(BaseHTTPRequestHandler):
         t = threading.Thread(target=run_design_job,
                              args=(job_id, styles, body.get("theme", ""),
                                    body.get("text", ""), n, size, transparent, ref_bytes,
-                                   body.get("year", ""), bool(body.get("same_line"))),
+                                   body.get("year", ""), bool(body.get("same_line")),
+                                   auto_style),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})

@@ -205,6 +205,10 @@ textarea.input{resize:vertical;line-height:1.5}
 .cchip{display:flex;align-items:center;gap:7px;padding:6px 11px 6px 7px;border:1px solid var(--line);
   border-radius:999px;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);transition:.15s;user-select:none}
 .cchip:hover{border-color:var(--violet)}
+.btn-auto-style{width:100%;margin-top:10px;padding:11px 14px;border:1.5px dashed var(--violet);border-radius:12px;
+  background:var(--violet-soft);color:var(--violet);font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.btn-auto-style:hover{background:var(--violet);color:#fff}
+.btn-auto-style.on{background:var(--violet);color:#fff;border-style:solid;box-shadow:0 4px 14px rgba(124,77,255,.35)}
 .cchip .sw{width:16px;height:16px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}
 .cchip.on{border-color:var(--violet);background:var(--violet-soft);color:var(--violet)}
 .cchip .tick{opacity:0;font-size:11px}

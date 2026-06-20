@@ -1644,6 +1644,7 @@ let dsPollTimer = null;
 let dsInited = false;
 
 let dsRefImg = null;   // dataURL ảnh tham chiếu (AI tự nhận style)
+let dsAuto = false;    // AI tự chọn style đẹp nhất
 const DS_COMBOS = [
   { label: "🧢🧵 Streetwear bạc màu", keys: ["streetwear", "vintage_washed"] },
   { label: "👨‍🚀🧵 Mascot vintage", keys: ["mascot", "vintage_washed"] },
@@ -1755,6 +1756,12 @@ function dsInit() {
   if (tsh) tsh.onclick = () => { dsTextOffset = (dsTextOffset + 12) % DS_TEXT_IDEAS.length; dsRenderTextChips(); };
   const tall = $("dsTextAll");
   if (tall) tall.onclick = () => { dsTextAll = !dsTextAll; tall.textContent = dsTextAll ? "🔽 Thu gọn" : "📋 Xem tất cả"; dsRenderTextChips(); };
+  const ab = $("dsAutoStyle");
+  if (ab) ab.onclick = () => {
+    dsAuto = !dsAuto;
+    ab.classList.toggle("on", dsAuto);
+    ab.textContent = dsAuto ? "🎯 AI tự chọn style: ĐANG BẬT (bấm để tắt)" : "🎯 Để AI tự chọn style đẹp nhất";
+  };
 }
 function dsSetRef(durl) {
   dsRefImg = durl;
@@ -1860,12 +1867,12 @@ async function dsPollAll() {
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
-  if (!dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách hoặc tải ảnh tham chiếu."; return; }
+  if (!dsAuto && !dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách, bật 🎯 AI tự chọn style, hoặc tải ảnh tham chiếu."; return; }
   $("dsProgress").classList.remove("hidden");
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", theme: $("dsTheme").value, text: $("dsText").value, year: $("dsYear").value, same_line: $("dsSameLine").checked, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", auto_style: dsAuto, theme: $("dsTheme").value, text: $("dsText").value, year: $("dsYear").value, same_line: $("dsSameLine").checked, n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
