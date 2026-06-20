@@ -1818,15 +1818,25 @@ function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Mat
 
 function dsRender() {
   const grid = $("dsResults");
-  const items = Object.values(dsItems);
-  if (!items.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
+  let entries = Object.entries(dsItems);   // [key, item]
+  if (!entries.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
   $("dsEmpty").classList.add("hidden");
+  // nếu đã chấm điểm -> sắp xếp điểm cao lên trước
+  const anyRated = entries.some(([, it]) => typeof it.score === "number");
+  if (anyRated) entries = entries.sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
   grid.innerHTML = "";
-  items.forEach(it => {
+  entries.forEach(([key, it]) => {
     const card = document.createElement("div");
     card.className = "gcard";
+    let badge = "";
+    if (typeof it.score === "number") {
+      const push = it.score >= 80;
+      badge = '<div class="ds-score' + (push ? " push" : "") + '">' +
+        (push ? "⭐ Nên đẩy · " : "") + it.score + "/100" +
+        (it.reason ? '<span class="ds-reason">' + it.reason + "</span>" : "") + "</div>";
+    }
     card.innerHTML =
-      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
       '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "design";
@@ -1836,8 +1846,31 @@ function dsRender() {
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
     grid.appendChild(card);
   });
-  $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
+  $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
 }
+$("dsRate").onclick = async () => {
+  const entries = Object.entries(dsItems);
+  if (!entries.length) { return; }
+  const btn = $("dsRate"), old = btn.textContent;
+  btn.disabled = true; btn.textContent = "⏳ Đang chấm…";
+  try {
+    const payload = { items: entries.map(([key, it]) => ({ key, image: it.image })) };
+    const r = await fetch("/api/rate-designs", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi chấm điểm");
+    (d.scores || []).forEach(s => { if (dsItems[s.key]) { dsItems[s.key].score = s.score; dsItems[s.key].reason = s.reason; } });
+    dsRender();
+    const top = (d.scores || []).filter(s => s.score >= 80).length;
+    $("dsNote").className = "gen-note ok";
+    $("dsNote").textContent = "🏆 Đã chấm " + (d.scores || []).length + " mẫu — " + top + " mẫu 'Nên đẩy' (≥80đ), xếp điểm cao lên đầu.";
+  } catch (err) {
+    $("dsNote").className = "gen-note err"; $("dsNote").textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+};
 async function dsPollAll() {
   const active = dsJobs.filter(j => !j.finished);
   let errs = [];

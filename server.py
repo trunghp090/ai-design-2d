@@ -1120,6 +1120,48 @@ def design_concepts_auto(theme, text, n, year="", same_line=False):
     return out[:n]
 
 
+RATE_SYSTEM = (
+    "Bạn là chuyên gia thẩm định thiết kế áo thun POD cho thị trường Việt Nam. Với MỖI design "
+    "được đưa, chấm điểm 0–100 về TIỀM NĂNG BÁN CHẠY ở VN, cân nhắc: thẩm mỹ tổng thể, hợp "
+    "trend & thị hiếu VN, độ rõ ràng & dễ in (không quá nhiều chi tiết/màu), tính thương mại "
+    "(dễ mặc, dễ bán). KHẮT KHE và PHÂN HOÁ điểm rõ (đừng cho tất cả ~80): mẫu xuất sắc 85–95, "
+    "khá 70–84, trung bình 50–69, yếu <50. Kèm 1 lý do NGẮN GỌN tiếng Việt (≤12 từ). "
+    "Trả JSON {\"scores\":[{\"i\":<chỉ số>,\"score\":<số>,\"reason\":\"...\"}]} đúng số lượng."
+)
+
+
+def rate_designs(images_b64):
+    """Chấm điểm list ảnh (base64). Trả list[{score:int, reason:str}] cùng thứ tự."""
+    results = [None] * len(images_b64)
+    BATCH = 6
+    for start in range(0, len(images_b64), BATCH):
+        chunk = images_b64[start:start + BATCH]
+        content = [{"type": "text", "text": "Chấm điểm từng design dưới đây (theo đúng chỉ số i):"}]
+        for idx, b in enumerate(chunk):
+            content.append({"type": "text", "text": "Design i=%d:" % idx})
+            content.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + b}})
+        content.append({"type": "text", "text": "Chỉ trả JSON, đúng %d mục." % len(chunk)})
+        messages = [{"role": "system", "content": RATE_SYSTEM},
+                    {"role": "user", "content": content}]
+        try:
+            raw = openai_chat(messages, json_mode=True, max_tokens=900)
+            data = json.loads(raw)
+            arr = data.get("scores") if isinstance(data, dict) else data
+            if not isinstance(arr, list):
+                arr = next((v for v in data.values() if isinstance(v, list)), [])
+            for item in arr:
+                if not isinstance(item, dict):
+                    continue
+                i = int(item.get("i", -1))
+                if 0 <= i < len(chunk):
+                    sc = max(0, min(100, int(item.get("score", 0) or 0)))
+                    results[start + i] = {"score": sc, "reason": (item.get("reason") or "").strip()[:80]}
+        except Exception:
+            pass
+    # ô nào lỗi -> điểm trung tính
+    return [r or {"score": 0, "reason": "Chưa chấm được"} for r in results]
+
+
 DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt credit)
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
@@ -1807,6 +1849,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_product_content(body)
         if path == "/api/design-gen":
             return self.handle_design_gen(body)
+        if path == "/api/rate-designs":
+            return self.handle_rate_designs(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -2051,6 +2095,34 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
+
+    def handle_rate_designs(self, body):
+        """AI chấm điểm tiềm năng bán chạy cho list design (mỗi item {key, image})."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        items = body.get("items") or []
+        items = items[:DESIGN_MAX_TOTAL]
+        if not items:
+            return self.json(400, {"error": "Không có mẫu để chấm."})
+        keys, imgs = [], []
+        for it in items:
+            b = (it.get("image") or "")
+            if "," in b and b.strip().startswith("data:"):
+                b = b.split(",", 1)[1]
+            if b:
+                keys.append(it.get("key"))
+                imgs.append(b)
+        if not imgs:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        try:
+            rated = rate_designs(imgs)
+        except urllib.error.HTTPError as e:
+            return self.json(400, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(400, {"error": "Lỗi chấm điểm: %s" % e})
+        scores = [{"key": keys[i], "score": rated[i]["score"], "reason": rated[i]["reason"]}
+                  for i in range(len(keys))]
+        return self.json(200, {"scores": scores})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""
