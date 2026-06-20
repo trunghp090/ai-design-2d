@@ -1745,6 +1745,7 @@ function dsRenderTextChips() {
 function dsInit() {
   if (dsInited) return; dsInited = true;
   dsRenderCombos();
+  dsRenderNameCombos();
   dsRenderStyles();
   dsRenderThemeChips();
   const sh = $("dsThemeShuffle");
@@ -1802,6 +1803,7 @@ function dsRenderStyles() {
     el.onclick = () => { if (dsPicked.has(s.key)) dsPicked.delete(s.key); else dsPicked.add(s.key); dsRenderStyles(); };
     box.appendChild(el);
   });
+  dsRenderNameStyles();
   dsUpdateTotal();
 }
 function dsUpdateTotal() {
@@ -1811,6 +1813,48 @@ function dsUpdateTotal() {
   $("dsStyleHint").innerHTML = dsPicked.size > 1
     ? "🎨 Sẽ tạo <b>" + n + " mẫu</b> — mỗi mẫu <b>TRỘN " + dsPicked.size + " phong cách</b> đã chọn (mash-up)."
     : "✨ Sẽ tạo <b>" + n + " mẫu</b> phong cách này.";
+}
+
+/* ===== Cá nhân hoá TÊN: style đơn tốt + mix combo tốt ===== */
+const _dsLabel = (k) => (DS_STYLES.find(s => s.key === k) || {}).label || k;
+// Style đơn tốt nhất cho in tên
+const DS_NAME_STYLES = [
+  "vintage_americana", "varsity", "big_type", "calligraphy", "couple_love",
+  "social_club", "statement_bold", "typography", "minimal_clean", "liquid_chrome",
+  "y2k_graffiti", "streetwear",
+];
+// Mix combo (2 style) hợp cá nhân hoá tên
+const DS_NAME_COMBOS = [
+  { label: "🎓 Tên cổ điển", keys: ["vintage_americana", "badge_patch"] },
+  { label: "🏈 Tên thể thao", keys: ["varsity", "sport_statement"] },
+  { label: "💞 Tên couple", keys: ["couple_love", "calligraphy"] },
+  { label: "✨ Tên GenZ chrome", keys: ["y2k_graffiti", "liquid_chrome"] },
+  { label: "🤍 Tên tối giản", keys: ["minimal_clean", "korean_minimal"] },
+  { label: "🔥 Tên streetwear", keys: ["streetwear", "big_type"] },
+  { label: "🕺 Tên retro", keys: ["retro_groovy", "vintage_washed"] },
+  { label: "🐻 Tên quà cute", keys: ["cute_mascot", "scribble"] },
+  { label: "👑 Tên sang", keys: ["calligraphy", "luxury_minimal"] },
+];
+function dsRenderNameStyles() {
+  const box = $("dsNameStyles"); if (!box) return; box.innerHTML = "";
+  DS_NAME_STYLES.forEach(k => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (dsPicked.has(k) ? " on" : "");
+    el.innerHTML = _dsLabel(k) + ' <span class="tick">✓</span>';
+    el.onclick = () => { if (dsPicked.has(k)) dsPicked.delete(k); else dsPicked.add(k); dsRenderStyles(); };
+    box.appendChild(el);
+  });
+}
+function dsRenderNameCombos() {
+  const box = $("dsNameCombos"); if (!box) return; box.innerHTML = "";
+  DS_NAME_COMBOS.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cchip combo";
+    el.title = c.keys.map(_dsLabel).join(" + ");
+    el.textContent = c.label;
+    el.onclick = () => { dsPicked.clear(); c.keys.forEach(k => dsPicked.add(k)); dsRenderStyles(); };
+    box.appendChild(el);
+  });
 }
 let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
 let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
