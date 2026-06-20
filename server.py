@@ -1062,8 +1062,11 @@ DESIGN_AUTO_SYSTEM = (
     "cách thiết kế PHÙ HỢP & DỄ BÁN, ĐẸP nhất cho từng mẫu. ĐƯỢC PHÉP & KHUYẾN KHÍCH MASH-UP / "
     "TRỘN 2–3 phong cách vào CÙNG 1 mẫu (kết hợp hài hoà thành 1 thể thống nhất, KHÔNG chia ô, "
     "KHÔNG ghép rời rạc) miễn ra mẫu ĐẸP & hợp trend nhất — vd typography + graffiti, mascot + "
-    "vintage, line-art + floral... Mỗi mẫu chọn cách trộn riêng để đa dạng. Tham khảo (không bắt "
-    "buộc) các phong cách: %s.\n"
+    "vintage, line-art + floral... Mỗi mẫu chọn cách trộn riêng để đa dạng. ƯU TIÊN MẶC ĐỊNH chọn "
+    "trong các phong cách BÁN CHẠY ở thị trường Việt Nam dưới đây (được trộn 2–3 cái); chỉ dùng "
+    "phong cách ngoài danh sách khi thật sự hợp chủ đề hơn. MỖI phong cách kèm mô tả đặc trưng "
+    "(ĐÃ chuẩn hoá cho thị trường VN) — khi chọn phong cách nào thì BÁM ĐÚNG mô tả đó (vd City "
+    "Souvenir = địa danh VIỆT NAM, không phải thành phố Tây):\n%s\n"
     "Tạo N câu prompt TIẾNG ANH cho AI tạo ảnh — mỗi câu là 1 design áo thun CỰC ĐẸP, độc đáo, "
     "khác nhau. Bạn toàn quyền quyết định chủ thể, font, màu, bố cục, hiệu ứng sao cho đẹp & hợp "
     "trend nhất.\n"
@@ -1077,10 +1080,23 @@ DESIGN_AUTO_SYSTEM = (
 )
 
 
+# Phong cách BÁN CHẠY ở thị trường VN — ưu tiên cho chế độ AI tự chọn
+VN_HOT_STYLES = [
+    "vintage_americana", "varsity", "typography", "minimal_clean", "korean_minimal",
+    "motivational", "vintage_washed", "badge_patch", "couple_love", "city_souvenir",
+    "statement_bold", "funny_vn", "floral_quote", "luxury_minimal", "social_club",
+    "sport_statement", "scribble", "streetwear", "mascot", "cute_mascot",
+    "anime_nostalgia", "retro_groovy", "big_type", "retro_poster", "lineart",
+    "flat_vector", "y2k_graffiti", "liquid_chrome", "calligraphy", "tattoo_oldschool",
+]
+
+
 def design_concepts_auto(theme, text, n, year="", same_line=False):
     """AI tự chọn phong cách hợp nhất cho chủ đề rồi tạo n design. Mỗi concept kèm 'style'."""
     n = max(1, min(int(n or 3), 8))
-    palette = ", ".join(v[0] for v in DESIGN_STYLES.values())
+    # Kèm LUÔN descriptor (đã tinh chỉnh cho thị trường VN) để AI tự pick bám đúng đặc điểm
+    palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1])
+                        for k in VN_HOT_STYLES if k in DESIGN_STYLES)
     parts = ["Tạo đúng %d design áo thun ĐẸP & DỄ BÁN nhất." % n]
     if (theme or "").strip():
         parts.append("Chủ đề/ngách: %s." % theme.strip())
