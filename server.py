@@ -1136,6 +1136,35 @@ SEGMENTS = {
                       "nhóm mặc đồng bộ"},
 }
 
+# Pool ý tưởng GHÉP ĐÔI/ĐỒNG BỘ — random mỗi lần để tránh lặp (vd couple cứ ra KING & QUEEN)
+_COUPLE_IDEAS = [
+    "King & Queen", "Mr. Right & Mrs. Always Right", "Lock & Key (ổ khoá & chìa khoá)",
+    "Two halves of one heart (2 nửa trái tim ghép)", "Player 1 & Player 2 (game)",
+    "Sun & Moon (mặt trời & mặt trăng)", "His & Hers", "Yin & Yang",
+    "Mr. & Mrs.", "Two puzzle pieces that fit", "Coffee & Cream", "Peanut Butter & Jelly",
+    "Magnet North & South pole", "He's mine & She's mine", "Avocado two halves",
+    "Mr. Bear & Mrs. Bear (gấu chàng & gấu nàng)", "Wifi & Password (kết nối)",
+    "Left wing & Right wing (đôi cánh)", "You complete me (1 câu chia 2 vế)",
+    "Beauty & Beast", "Tom & Jerry vibe (mèo & chuột)", "Cat person & Dog person",
+    "King without Queen / Queen without King", "Since <năm yêu> matching couple",
+    "Captain & Co-captain", "Salt & Pepper", "Day & Night",
+]
+_FAMILY_IDEAS = [
+    "Daddy Bear / Mommy Bear / Baby Bear", "Big Lion / Lioness / Cub", "Papa / Mama / Mini",
+    "The Boss / The Real Boss / The Little Boss", "Captain / Co-pilot / Crew",
+    "Sun / Moon / Star (family galaxy)", "King / Queen / Prince–Princess",
+    "Original / Remix / Limited Edition", "Penguin family (bố/mẹ/bé chim cánh cụt)",
+    "Elephant family", "Dino family (T-Rex bố / mẹ / bé)", "Home Team — Dad/Mom/Kid jersey numbers",
+    "Coffee / Latte / Babyccino", "Bee family (Papa/Mama/Baby bee)",
+]
+_GROUP_IDEAS = [
+    "Class/Team crest badge + name + EST.", "Varsity collegiate team name + number",
+    "Social club emblem", "Squad / Crew wordmark", "Tour-style back print (member list vibe)",
+    "Mascot + team name", "Retro athletic department", "Founding year banner + laurels",
+    "Streetwear hype team logo", "Esports team logo style", "United / Together slogan crest",
+    "Minimal monogram team logo",
+]
+
 # Phong cách hợp THỊ TRƯỜNG VN cho từng tệp (khi không chọn style cụ thể -> AI ưu tiên trong nhóm này)
 SEGMENT_STYLES = {
     "couple": ["couple_love", "vintage_americana", "calligraphy", "typography", "minimal_clean",
@@ -1175,6 +1204,13 @@ def design_concepts_segment(segment, styles, theme, text, year="", same_line=Fal
         "Vai trò từng mẫu (đúng thứ tự): %s." % roles_txt,
         style_line,
     ]
+    ideas = {"couple": _COUPLE_IDEAS, "family": _FAMILY_IDEAS, "group": _GROUP_IDEAS}.get(segment, [])
+    if not (theme or "").strip() and ideas:
+        pool = ideas[:]
+        random.shuffle(pool)
+        parts.append("ĐA DẠNG Ý TƯỞNG — ĐỪNG mặc định lặp lại concept quen (vd couple cứ KING & "
+                     "QUEEN). Lần này LẤY CẢM HỨNG từ MỘT trong các concept GHÉP ĐÔI/ĐỒNG BỘ NGẪU "
+                     "NHIÊN sau (chọn cái hợp & mới mẻ nhất): %s." % "; ".join(pool[:6]))
     if (theme or "").strip():
         parts.append("Chủ đề/ngách: %s." % theme.strip())
     if (text or "").strip():
