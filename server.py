@@ -1171,8 +1171,10 @@ SEGMENT_STYLES = {
                "cute_mascot", "floral_quote", "y2k", "liquid_chrome", "scribble"],
     "family": ["cute_mascot", "mascot", "anime_nostalgia", "vintage_americana", "typography",
                "minimal_clean", "floral_quote", "retro_groovy", "flat_vector", "scribble"],
-    "group": ["vintage_americana", "varsity", "social_club", "badge_patch", "big_type",
-              "statement_bold", "typography", "sport_statement", "streetwear", "retro_groovy"],
+    "group": ["varsity", "social_club", "badge_patch", "vintage_americana", "streetwear",
+              "mascot", "big_type", "statement_bold", "typography", "sport_statement",
+              "retro_poster", "flat_vector", "comic_pop", "military", "graffiti_tag",
+              "minimal_clean", "cute_mascot", "y2k_graffiti"],
 }
 
 
@@ -1189,12 +1191,14 @@ def design_concepts_segment(segment, styles, theme, text, year="", same_line=Fal
         else:
             style_line = "PHONG CÁCH CHUNG (trộn) cho cả bộ: %s." % " + ".join(DESIGN_STYLES[s][1] for s in valid)
     else:
-        rec = SEGMENT_STYLES.get(segment, VN_HOT_STYLES)
-        palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1])
-                            for k in rec if k in DESIGN_STYLES)
-        style_line = ("TỰ CHỌN 1 phong cách CHUNG hợp THỊ TRƯỜNG VIỆT NAM & hợp tệp này cho cả bộ — "
-                      "ưu tiên trong nhóm dưới đây (chọn 1, hoặc trộn 2 nếu đẹp hơn), BÁM ĐÚNG mô tả "
-                      "đã chuẩn hoá VN:\n%s" % palette)
+        rec = [k for k in SEGMENT_STYLES.get(segment, VN_HOT_STYLES) if k in DESIGN_STYLES]
+        random.shuffle(rec)   # xáo trộn -> mỗi lần AI không thấy varsity đầu tiên
+        palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1]) for k in rec)
+        pick = DESIGN_STYLES[rec[0]][0] if rec else ""
+        style_line = ("TỰ CHỌN 1 phong cách CHUNG hợp THỊ TRƯỜNG VIỆT NAM & hợp tệp này — ĐA DẠNG "
+                      "giữa các lần, ĐỪNG lúc nào cũng collegiate/varsity badge. Lần này HÃY THỬ "
+                      "phong cách '%s' (hoặc 1 cái khác trong nhóm) nếu hợp; có thể trộn 2. BÁM ĐÚNG "
+                      "mô tả đã chuẩn hoá VN:\n%s" % (pick, palette))
     if n == 1:
         # vd đội nhóm: cả nhóm mặc 1 áo giống nhau -> chỉ 1 mẫu, không vai trò
         parts = [
