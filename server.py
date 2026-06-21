@@ -1982,6 +1982,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
             return self.handle_personalize(body)
+        if path == "/api/variations":
+            return self.handle_variations(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -2324,6 +2326,55 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 err = "Lỗi cá nhân hoá: %s" % e
             return self.json(400, {"error": err or "Không tạo được bản cá nhân hoá nào."})
+        return self.json(200, {"items": items})
+
+    def handle_variations(self, body):
+        """Tạo thêm các PHIÊN BẢN KHÁC của 1 design (giữ chủ đề & phong cách, đổi bố cục/màu/chi tiết)."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        if not src:
+            return self.json(400, {"error": "Cần ảnh design để tạo phiên bản."})
+        img_bytes, mime = fetch_image_bytes(src)
+        if not img_bytes:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        count = max(1, min(int(body.get("count", 4) or 4), 6))
+        size = "auto"
+        if HAS_PIL:
+            try:
+                im = Image.open(io.BytesIO(img_bytes)); w, h = im.size
+                size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
+            except Exception:
+                pass
+        base = ("Create a fresh creative VARIATION of this t-shirt artwork — KEEP the same core "
+                "theme/subject and overall art style, but make it clearly DIFFERENT from the original. "
+                "Keep any text correct (Vietnamese diacritics intact). Output only the artwork.")
+        variants = [
+            " Variation: a fresh alternate COMPOSITION of the same idea.",
+            " Variation: same theme & style but a DIFFERENT color palette.",
+            " Variation: a more MINIMAL / simplified take.",
+            " Variation: a more DETAILED / richer take with extra decorative elements.",
+            " Variation: restructure the LAYOUT (e.g. badge/emblem, or stacked) for variety.",
+            " Variation: a different MOOD/vibe of the same concept.",
+        ]
+        transparent = bool(body.get("transparent", True))
+
+        def one(i):
+            try:
+                b64, _ = gen_design([(img_bytes, mime or "image/png")], "variation",
+                                    base + variants[i % len(variants)], size, transparent)
+                g = gallery_add(b64, {"mode": "design", "prompt": "Phiên bản khác"})
+                return {"image": b64, "title": "Phiên bản khác #%d" % (i + 1), "gallery": g}
+            except Exception:
+                return None
+
+        items = []
+        with ThreadPoolExecutor(max_workers=min(count, 4)) as ex:
+            for r in ex.map(one, range(count)):
+                if r:
+                    items.append(r)
+        if not items:
+            return self.json(400, {"error": "Không tạo được phiên bản nào — thử lại."})
         return self.json(200, {"items": items})
 
     def handle_product_content(self, body):

@@ -1910,10 +1910,11 @@ function dsRender() {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-name").onclick = () => openPersonalize(it.image);
+    card.querySelector(".b-var").onclick = (e) => dsMakeVariations(it.image, e.currentTarget);
     card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
@@ -1921,6 +1922,29 @@ function dsRender() {
   });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
 }
+/* ===== Tạo thêm phiên bản khác của 1 design ===== */
+async function dsMakeVariations(image, btn) {
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = "⏳…";
+  const note = $("dsNote"); note.className = "gen-note"; note.textContent = "Đang tạo 4 phiên bản khác…";
+  try {
+    const r = await fetch("/api/variations", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image, count: 4, transparent: true }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi tạo phiên bản");
+    (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
+    dsRender();
+    if (typeof loadGallery === "function") loadGallery();
+    note.className = "gen-note ok"; note.textContent = "✓ Đã tạo " + (d.items || []).length + " phiên bản khác — xem ở khung kết quả.";
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
 /* ===== Cá nhân hoá tên: biến mẫu đẹp -> bản có tên ===== */
 let pnImage = null;
 function openPersonalize(image) {
