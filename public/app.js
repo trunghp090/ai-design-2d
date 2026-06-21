@@ -1909,20 +1909,21 @@ $("pnModal").onclick = (e) => { if (e.target.id === "pnModal") closePersonalize(
 $("pnGo").onclick = async () => {
   const name = $("pnName").value.trim();
   if (!name) { $("pnNote").className = "gen-note err"; $("pnNote").textContent = "⚠️ Nhập tên đã."; return; }
+  const count = parseInt($("pnCount").value, 10) || 4;
   const btn = $("pnGo"), old = btn.textContent;
   btn.disabled = true; btn.textContent = "⏳ Đang tạo…";
-  $("pnNote").className = "gen-note"; $("pnNote").textContent = "Đang giữ phong cách & thay tên…";
+  $("pnNote").className = "gen-note"; $("pnNote").textContent = "Đang tạo " + count + " bản (giữ phong cách, thay tên)…";
   try {
     const r = await fetch("/api/personalize", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: pnImage, name, date: $("pnDate").value.trim(), transparent: true }),
+      body: JSON.stringify({ image: pnImage, name, date: $("pnDate").value.trim(), count, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi cá nhân hoá");
-    const it = { image: d.image, title: d.title || ("Cá nhân hoá: " + name), gallery: d.gallery };
-    dsItems[dsItemKey(it)] = it; dsRender();
+    (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
+    dsRender();
     if (typeof loadGallery === "function") loadGallery();
-    $("pnNote").className = "gen-note ok"; $("pnNote").textContent = "✓ Đã tạo bản cá nhân hoá — xem ở khung kết quả.";
+    $("pnNote").className = "gen-note ok"; $("pnNote").textContent = "✓ Đã tạo " + (d.items || []).length + " bản cá nhân hoá — xem ở khung kết quả.";
     setTimeout(closePersonalize, 900);
   } catch (err) {
     $("pnNote").className = "gen-note err"; $("pnNote").textContent = "✗ " + err.message;

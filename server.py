@@ -2146,23 +2146,49 @@ class Handler(BaseHTTPRequestHandler):
                 size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
             except Exception:
                 pass
-        instr = ("Replace the MAIN / largest text in the design with the name \"%s\" — use EXACTLY "
-                 "this text and keep all Vietnamese diacritics correct. Keep the EXACT same art "
-                 "style, layout, fonts, colors and illustration; ONLY swap the main text to this "
-                 "name so the name becomes the focal headline. If the name has 2 words, keep them "
-                 "on one line when the layout allows." % name)
+        count = max(1, min(int(body.get("count", 4) or 4), 6))
+        base = ("Replace the MAIN / largest text in the design with the name \"%s\" — use EXACTLY "
+                "this text and keep all Vietnamese diacritics correct. Keep the EXACT same art "
+                "style, fonts, colors and illustration; ONLY swap the main text to this name so "
+                "the name becomes the focal headline. If the name has 2 words, keep them on one "
+                "line when the layout allows." % name)
         if date:
-            instr += " Set the small secondary line to \"%s\"." % date
+            base += " Set the small secondary line to \"%s\"." % date
+        # mỗi bản 1 gợi ý bố cục khác nhau (vẫn giữ phong cách) -> ra 4-5 lựa chọn
+        variants = [
+            "",
+            " Layout option: keep the original composition as-is.",
+            " Layout option: make the name BIGGER / bolder as the dominant element.",
+            " Layout option: a slightly more decorative arrangement of the name (curve/arch or badge framing) matching the style.",
+            " Layout option: a cleaner, more minimal arrangement with extra breathing space.",
+            " Layout option: rearrange the name and secondary line into a fresh balanced composition.",
+        ]
         transparent = bool(body.get("transparent", True))
-        try:
-            b64, _ = gen_design([(img_bytes, mime or "image/png")], "cloner", instr, size, transparent)
-        except urllib.error.HTTPError as e:
-            return self.json(400, {"error": openai_error_message(e)})
-        except Exception as e:
-            return self.json(400, {"error": "Lỗi cá nhân hoá: %s" % e})
         label = "Cá nhân hoá: " + name + (" · " + date if date else "")
-        g = gallery_add(b64, {"mode": "personalize", "prompt": label})
-        return self.json(200, {"image": b64, "title": label, "gallery": g})
+
+        def one(i):
+            try:
+                b64, _ = gen_design([(img_bytes, mime or "image/png")], "cloner",
+                                    base + variants[i % len(variants)], size, transparent)
+                g = gallery_add(b64, {"mode": "personalize", "prompt": label})
+                return {"image": b64, "title": label + " #%d" % (i + 1), "gallery": g}
+            except Exception:
+                return None
+
+        items, err = [], None
+        with ThreadPoolExecutor(max_workers=min(count, 4)) as ex:
+            for r in ex.map(one, range(count)):
+                if r:
+                    items.append(r)
+        if not items:
+            try:
+                gen_design([(img_bytes, mime or "image/png")], "cloner", base, size, transparent)
+            except urllib.error.HTTPError as e:
+                err = openai_error_message(e)
+            except Exception as e:
+                err = "Lỗi cá nhân hoá: %s" % e
+            return self.json(400, {"error": err or "Không tạo được bản cá nhân hoá nào."})
+        return self.json(200, {"items": items})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""
