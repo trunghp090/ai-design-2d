@@ -181,6 +181,9 @@ textarea.input{resize:vertical;line-height:1.5}
 .gcard .gmeta .sw{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.2);vertical-align:-1px;margin-right:5px}
 .gcard .gdel{position:absolute;top:5px;right:5px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;cursor:pointer;line-height:1;opacity:0;transition:.15s}
 .gcard:hover .gdel{opacity:1}
+.pn-box{position:relative;background:#fff;border-radius:16px;padding:22px;width:min(420px,92vw);
+  text-align:left;box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column}
+.pn-box #pnPreview{align-self:center;background:#f4f2fb}
 .ds-score{position:absolute;top:6px;left:6px;display:flex;flex-direction:column;gap:2px;max-width:80%;
   background:rgba(0,0,0,.62);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;line-height:1.3}
 .ds-score.push{background:linear-gradient(90deg,#7c4dff,#b388ff)}

@@ -416,6 +416,22 @@
     <img id="zoomImg" alt="" />
   </div>
 
+  <!-- ===== MODAL: Cá nhân hoá tên ===== -->
+  <div class="zoom-modal hidden" id="pnModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="pnClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">🪪 Cá nhân hoá tên</h3>
+      <p class="hint" style="margin:0 0 12px">Giữ nguyên phong cách mẫu, thay chữ chính bằng tên bạn nhập.</p>
+      <img id="pnPreview" alt="" style="max-height:160px;border-radius:10px;margin-bottom:12px" />
+      <label class="field-label">Tên (bắt buộc)</label>
+      <input type="text" id="pnName" class="input" placeholder="VD: Phương Anh · Minh Khôi · Hải & Vân" />
+      <label class="field-label" style="margin-top:10px">Dòng phụ / ngày (tuỳ chọn)</label>
+      <input type="text" id="pnDate" class="input" placeholder="VD: 20.10.2026 · EST. 2024 (để trống nếu không cần)" />
+      <button class="btn-primary" id="pnGo" style="width:100%;margin-top:14px">✨ Tạo bản cá nhân hoá</button>
+      <p class="gen-note" id="pnNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
   <!-- ===== VIEW: THÊM NỀN DƯỚI DESIGN (tính năng độc lập) ===== -->
   <section class="auto-view app-view hidden" id="view-addbg">
     <div class="auto-wrap">

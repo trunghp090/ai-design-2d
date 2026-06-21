@@ -1882,9 +1882,10 @@ function dsRender() {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-name").onclick = () => openPersonalize(it.image);
     card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
@@ -1892,6 +1893,43 @@ function dsRender() {
   });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
 }
+/* ===== Cá nhân hoá tên: biến mẫu đẹp -> bản có tên ===== */
+let pnImage = null;
+function openPersonalize(image) {
+  pnImage = image;
+  $("pnPreview").src = "data:image/png;base64," + image;
+  $("pnName").value = ""; $("pnDate").value = "";
+  $("pnNote").textContent = ""; $("pnNote").className = "gen-note";
+  $("pnModal").classList.remove("hidden");
+  setTimeout(() => $("pnName").focus(), 50);
+}
+function closePersonalize() { $("pnModal").classList.add("hidden"); pnImage = null; }
+$("pnClose").onclick = closePersonalize;
+$("pnModal").onclick = (e) => { if (e.target.id === "pnModal") closePersonalize(); };
+$("pnGo").onclick = async () => {
+  const name = $("pnName").value.trim();
+  if (!name) { $("pnNote").className = "gen-note err"; $("pnNote").textContent = "⚠️ Nhập tên đã."; return; }
+  const btn = $("pnGo"), old = btn.textContent;
+  btn.disabled = true; btn.textContent = "⏳ Đang tạo…";
+  $("pnNote").className = "gen-note"; $("pnNote").textContent = "Đang giữ phong cách & thay tên…";
+  try {
+    const r = await fetch("/api/personalize", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: pnImage, name, date: $("pnDate").value.trim(), transparent: true }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi cá nhân hoá");
+    const it = { image: d.image, title: d.title || ("Cá nhân hoá: " + name), gallery: d.gallery };
+    dsItems[dsItemKey(it)] = it; dsRender();
+    if (typeof loadGallery === "function") loadGallery();
+    $("pnNote").className = "gen-note ok"; $("pnNote").textContent = "✓ Đã tạo bản cá nhân hoá — xem ở khung kết quả.";
+    setTimeout(closePersonalize, 900);
+  } catch (err) {
+    $("pnNote").className = "gen-note err"; $("pnNote").textContent = "✗ " + err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+};
 $("dsRate").onclick = async () => {
   const entries = Object.entries(dsItems);
   if (!entries.length) { return; }

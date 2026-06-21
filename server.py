@@ -1851,6 +1851,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_design_gen(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
+        if path == "/api/personalize":
+            return self.handle_personalize(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -2123,6 +2125,44 @@ class Handler(BaseHTTPRequestHandler):
         scores = [{"key": keys[i], "score": rated[i]["score"], "reason": rated[i]["reason"]}
                   for i in range(len(keys))]
         return self.json(200, {"scores": scores})
+
+    def handle_personalize(self, body):
+        """Biến 1 mẫu đẹp -> bản CÁ NHÂN HOÁ: giữ nguyên style, thay chữ chính = tên (img2img)."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        name = (body.get("name") or "").strip()
+        date = (body.get("date") or "").strip()
+        if not src or not name:
+            return self.json(400, {"error": "Cần ảnh mẫu và TÊN cá nhân hoá."})
+        img_bytes, mime = fetch_image_bytes(src)
+        if not img_bytes:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        # giữ đúng tỉ lệ ảnh gốc
+        size = "auto"
+        if HAS_PIL:
+            try:
+                im = Image.open(io.BytesIO(img_bytes)); w, h = im.size
+                size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
+            except Exception:
+                pass
+        instr = ("Replace the MAIN / largest text in the design with the name \"%s\" — use EXACTLY "
+                 "this text and keep all Vietnamese diacritics correct. Keep the EXACT same art "
+                 "style, layout, fonts, colors and illustration; ONLY swap the main text to this "
+                 "name so the name becomes the focal headline. If the name has 2 words, keep them "
+                 "on one line when the layout allows." % name)
+        if date:
+            instr += " Set the small secondary line to \"%s\"." % date
+        transparent = bool(body.get("transparent", True))
+        try:
+            b64, _ = gen_design([(img_bytes, mime or "image/png")], "cloner", instr, size, transparent)
+        except urllib.error.HTTPError as e:
+            return self.json(400, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(400, {"error": "Lỗi cá nhân hoá: %s" % e})
+        label = "Cá nhân hoá: " + name + (" · " + date if date else "")
+        g = gallery_add(b64, {"mode": "personalize", "prompt": label})
+        return self.json(200, {"image": b64, "title": label, "gallery": g})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""
