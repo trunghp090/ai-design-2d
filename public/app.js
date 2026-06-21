@@ -1645,6 +1645,32 @@ let dsInited = false;
 
 let dsRefImg = null;   // dataURL ảnh tham chiếu (AI tự nhận style)
 let dsAuto = false;    // AI tự chọn style đẹp nhất
+let dsSegment = "";    // tệp khách: "" | couple | family | group
+const DS_SEGMENTS = [
+  { key: "", label: "❌ Không (mẫu lẻ)" },
+  { key: "couple", label: "💑 Couple — 2 mẫu đôi" },
+  { key: "family", label: "👨‍👩‍👧 Gia đình — 3 mẫu" },
+  { key: "group", label: "👥 Đội nhóm — 3 mẫu" },
+];
+function dsRenderSegments() {
+  const box = $("dsSegments"); if (!box) return; box.innerHTML = "";
+  DS_SEGMENTS.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (dsSegment === s.key ? " on" : "");
+    el.textContent = s.label;
+    el.onclick = () => { dsSegment = s.key; dsRenderSegments(); dsUpdateSegHint(); };
+    box.appendChild(el);
+  });
+}
+function dsUpdateSegHint() {
+  const h = $("dsSegHint"); if (!h) return;
+  const map = {
+    couple: "💑 Sẽ tạo 1 BỘ <b>2 mẫu đôi</b> (Áo Anh + Áo Em) đồng bộ — chọn style/chủ đề rồi bấm Tạo.",
+    family: "👨‍👩‍👧 Sẽ tạo 1 BỘ <b>3 mẫu gia đình</b> (Bố / Mẹ / Bé) đồng bộ.",
+    group: "👥 Sẽ tạo 1 BỘ <b>3 mẫu đội nhóm</b> đồng bộ (cùng logo/tên/màu).",
+  };
+  h.innerHTML = dsSegment ? map[dsSegment] : "Chọn 1 tệp để tạo nguyên bộ đồng bộ; bỏ trống = mẫu lẻ bình thường.";
+}
 const DS_COMBOS = [
   { label: "🧢🧵 Streetwear bạc màu", keys: ["streetwear", "vintage_washed"] },
   { label: "👨‍🚀🧵 Mascot vintage", keys: ["mascot", "vintage_washed"] },
@@ -1746,6 +1772,8 @@ function dsInit() {
   if (dsInited) return; dsInited = true;
   dsRenderCombos();
   dsRenderNameCombos();
+  dsRenderSegments();
+  dsUpdateSegHint();
   dsRenderStyles();
   dsRenderThemeChips();
   const sh = $("dsThemeShuffle");
@@ -1983,12 +2011,12 @@ async function dsPollAll() {
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
-  if (!dsAuto && !dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách, bật 🎯 AI tự chọn style, hoặc tải ảnh tham chiếu."; return; }
+  if (!dsSegment && !dsAuto && !dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách, tệp khách, bật 🎯 AI tự chọn style, hoặc tải ảnh tham chiếu."; return; }
   $("dsProgress").classList.remove("hidden");
   try {
     const r = await fetch("/api/design-gen", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", auto_style: dsAuto, theme: $("dsTheme").value, text: ($("dsText")?.value || ""), year: $("dsYear").value, same_line: ($("dsSameLine")?.checked || false), n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
+      body: JSON.stringify({ styles: [...dsPicked], ref: dsRefImg || "", auto_style: dsAuto, segment: dsSegment, theme: $("dsTheme").value, text: ($("dsText")?.value || ""), year: $("dsYear").value, same_line: ($("dsSameLine")?.checked || false), n: parseInt($("dsCount").value, 10) || 3, size: $("dsSize").value, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");

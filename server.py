@@ -1120,6 +1120,75 @@ def design_concepts_auto(theme, text, n, year="", same_line=False):
     return out[:n]
 
 
+# Tệp khách -> tạo nguyên 1 BỘ design ĐỒNG BỘ
+SEGMENTS = {
+    "couple": {"name": "Couple", "n": 2,
+               "short": ["Áo Anh (nam)", "Áo Em (nữ)"],
+               "note": "2 mẫu GHÉP ĐÔI bổ trợ nhau (vd KING & QUEEN, 2 nửa trái tim, His & Hers, "
+                       "ổ khoá & chìa khoá) — đứng cạnh nhau thành 1 cặp hoàn chỉnh"},
+    "family": {"name": "Gia đình", "n": 3,
+               "short": ["Bố (Daddy)", "Mẹ (Mommy)", "Bé (Kid)"],
+               "note": "bộ GIA ĐÌNH đồng bộ (vd Daddy Bear / Mommy Bear / Baby Bear) — cùng nhân vật/"
+                       "chủ đề/màu, đổi chữ & cỡ nhân vật theo vai bố / mẹ / bé"},
+    "group": {"name": "Đội nhóm", "n": 3,
+              "short": ["Mẫu chủ đạo", "Biến thể 2", "Biến thể 3"],
+              "note": "bộ ĐỒNG PHỤC nhóm: cùng logo/tên nhóm/màu/khẩu hiệu, 3 biến thể bố cục để cả "
+                      "nhóm mặc đồng bộ"},
+}
+
+
+def design_concepts_segment(segment, styles, theme, text, year="", same_line=False, auto_style=False):
+    """Tạo 1 BỘ design đồng bộ theo tệp khách (couple/gia đình/nhóm). Trả list[concept]."""
+    seg = SEGMENTS.get(segment)
+    if not seg:
+        return []
+    n = seg["n"]
+    valid = [s for s in (styles or []) if s in DESIGN_STYLES]
+    if not auto_style and valid:
+        if len(valid) == 1:
+            style_line = "PHONG CÁCH CHUNG cho cả bộ: %s." % DESIGN_STYLES[valid[0]][1]
+        else:
+            style_line = "PHONG CÁCH CHUNG (trộn) cho cả bộ: %s." % " + ".join(DESIGN_STYLES[s][1] for s in valid)
+    else:
+        palette = ", ".join(DESIGN_STYLES[k][0] for k in VN_HOT_STYLES if k in DESIGN_STYLES)
+        style_line = "TỰ CHỌN 1 phong cách CHUNG hợp & dễ bán cho cả bộ (ưu tiên: %s)." % palette
+    roles_txt = "; ".join("Mẫu %d = %s" % (i + 1, r) for i, r in enumerate(seg["short"]))
+    parts = [
+        "Tạo 1 BỘ gồm ĐÚNG %d design ĐỒNG BỘ để mặc CHUNG cho %s." % (n, seg["name"]),
+        "CÙNG concept, CÙNG phong cách, CÙNG bảng màu & chủ đề -> đứng cạnh nhau trông như 1 SET; "
+        "KHÁC nhau theo VAI TRÒ.",
+        "Đặc điểm bộ: %s." % seg["note"],
+        "Vai trò từng mẫu (đúng thứ tự): %s." % roles_txt,
+        style_line,
+    ]
+    if (theme or "").strip():
+        parts.append("Chủ đề/ngách: %s." % theme.strip())
+    if (text or "").strip():
+        parts.append("Lồng chữ \"%s\" hợp lý theo vai trò." % text.strip())
+    if same_line:
+        parts.append("Tên/chữ 2 từ thì đặt trên 1 hàng ngang (single-line lockup).")
+    parts.append("NGÔN NGỮ chữ MẶC ĐỊNH tiếng Anh (chỉ tiếng Việt nếu user nhập sẵn). Màu GỌN 2–4 màu, dễ in.")
+    parts.append("Mỗi prompt TIẾNG ANH, KẾT THÚC bằng 'isolated t-shirt print graphic on a plain solid "
+                 "white background, print-ready, no t-shirt, no mockup, no person'.")
+    parts.append("title = vai trò ngắn của mẫu. Trả JSON {\"designs\":[{\"title\":\"...\",\"prompt\":\"...\"}]} đúng %d mục." % n)
+    sys = ("Bạn là designer áo thun chuyên thiết kế BỘ ĐỒNG BỘ (couple / gia đình / hội nhóm) cho thị "
+           "trường Việt Nam — các mẫu trong bộ phải ăn khớp như một set khi mặc chung.")
+    messages = [{"role": "system", "content": sys},
+                {"role": "user", "content": " ".join(parts)}]
+    out = []
+    for _attempt in range(2):
+        raw = openai_chat(messages, json_mode=True, max_tokens=2800)
+        out = _parse_designs(raw)
+        if out:
+            break
+    out = out[:n]
+    # gắn nhãn vai trò chuẩn theo thứ tự
+    for i, c in enumerate(out):
+        role = seg["short"][i] if i < len(seg["short"]) else ("Mẫu %d" % (i + 1))
+        c["title"] = "%s — %s" % (role, c.get("title", "Design"))
+    return out
+
+
 RATE_SYSTEM = (
     "Bạn là chuyên gia thẩm định thiết kế áo thun POD cho thị trường Việt Nam. Với MỖI design "
     "được đưa, chấm điểm 0–100 về TIỀM NĂNG BÁN CHẠY ở VN, cân nhắc: thẩm mỹ tổng thể, hợp "
@@ -1166,12 +1235,15 @@ DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt cre
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False):
-    # Bước 1: AI nghĩ n design. auto_style -> AI tự chọn phong cách; ref -> nhận diện từ ảnh; else theo style đã chọn
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False, segment=""):
+    # Bước 1: AI nghĩ n design. segment -> bộ đồng bộ; auto_style -> AI tự chọn; ref -> từ ảnh; else theo style
     err_msg = None
     style_tag = ""          # None = tag theo từng concept (auto)
     try:
-        if auto_style:
+        if segment in SEGMENTS:
+            concepts = design_concepts_segment(segment, styles, theme, text, year, same_line, auto_style)
+            style_tag = SEGMENTS[segment]["name"]
+        elif auto_style:
             concepts = design_concepts_auto(theme, text, n, year, same_line)
             style_tag = None
         elif ref:
@@ -2074,13 +2146,19 @@ class Handler(BaseHTTPRequestHandler):
         if not styles and body.get("style") in DESIGN_STYLES:   # tương thích cũ
             styles = [body.get("style")]
         auto_style = bool(body.get("auto_style"))
+        segment = body.get("segment", "")
+        if segment not in SEGMENTS:
+            segment = ""
         ref_bytes = None
         ref_src = body.get("ref", "")
         if ref_src:
             ref_bytes, _ = fetch_image_bytes(ref_src)
-        if not auto_style and not styles and not ref_bytes:
-            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', hoặc tải ảnh tham chiếu."})
-        n = max(1, min(int(body.get("n", 3) or 3), 8))
+        if not segment and not auto_style and not styles and not ref_bytes:
+            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', chọn tệp khách, hoặc tải ảnh tham chiếu."})
+        if segment:
+            n = SEGMENTS[segment]["n"]      # bộ đồng bộ -> số mẫu cố định theo tệp
+        else:
+            n = max(1, min(int(body.get("n", 3) or 3), 8))
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
         transparent = bool(body.get("transparent", True))
         total_est = n
@@ -2093,7 +2171,7 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, styles, body.get("theme", ""),
                                    body.get("text", ""), n, size, transparent, ref_bytes,
                                    body.get("year", ""), bool(body.get("same_line")),
-                                   auto_style),
+                                   auto_style, segment),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
