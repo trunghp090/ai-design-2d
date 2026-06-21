@@ -1130,10 +1130,10 @@ SEGMENTS = {
                "short": ["Bố (Daddy)", "Mẹ (Mommy)", "Bé (Kid)"],
                "note": "bộ GIA ĐÌNH đồng bộ (vd Daddy Bear / Mommy Bear / Baby Bear) — cùng nhân vật/"
                        "chủ đề/màu, đổi chữ & cỡ nhân vật theo vai bố / mẹ / bé"},
-    "group": {"name": "Đội nhóm", "n": 3,
-              "short": ["Mẫu chủ đạo", "Biến thể 2", "Biến thể 3"],
-              "note": "bộ ĐỒNG PHỤC nhóm: cùng logo/tên nhóm/màu/khẩu hiệu, 3 biến thể bố cục để cả "
-                      "nhóm mặc đồng bộ"},
+    "group": {"name": "Đội nhóm", "n": 1,
+              "short": ["Áo đồng phục"],
+              "note": "1 mẫu áo ĐỒNG PHỤC để CẢ NHÓM mặc GIỐNG NHAU (logo/tên nhóm/khẩu hiệu/màu), "
+                      "không chia vai trò"},
 }
 
 # Pool ý tưởng GHÉP ĐÔI/ĐỒNG BỘ — random mỗi lần để tránh lặp (vd couple cứ ra KING & QUEEN)
@@ -1195,15 +1195,22 @@ def design_concepts_segment(segment, styles, theme, text, year="", same_line=Fal
         style_line = ("TỰ CHỌN 1 phong cách CHUNG hợp THỊ TRƯỜNG VIỆT NAM & hợp tệp này cho cả bộ — "
                       "ưu tiên trong nhóm dưới đây (chọn 1, hoặc trộn 2 nếu đẹp hơn), BÁM ĐÚNG mô tả "
                       "đã chuẩn hoá VN:\n%s" % palette)
-    roles_txt = "; ".join("Mẫu %d = %s" % (i + 1, r) for i, r in enumerate(seg["short"]))
-    parts = [
-        "Tạo 1 BỘ gồm ĐÚNG %d design ĐỒNG BỘ để mặc CHUNG cho %s." % (n, seg["name"]),
-        "CÙNG concept, CÙNG phong cách, CÙNG bảng màu & chủ đề -> đứng cạnh nhau trông như 1 SET; "
-        "KHÁC nhau theo VAI TRÒ.",
-        "Đặc điểm bộ: %s." % seg["note"],
-        "Vai trò từng mẫu (đúng thứ tự): %s." % roles_txt,
-        style_line,
-    ]
+    if n == 1:
+        # vd đội nhóm: cả nhóm mặc 1 áo giống nhau -> chỉ 1 mẫu, không vai trò
+        parts = [
+            "Tạo ĐÚNG 1 mẫu áo cho %s — %s." % (seg["name"], seg["note"]),
+            style_line,
+        ]
+    else:
+        roles_txt = "; ".join("Mẫu %d = %s" % (i + 1, r) for i, r in enumerate(seg["short"]))
+        parts = [
+            "Tạo 1 BỘ gồm ĐÚNG %d design ĐỒNG BỘ để mặc CHUNG cho %s." % (n, seg["name"]),
+            "CÙNG concept, CÙNG phong cách, CÙNG bảng màu & chủ đề -> đứng cạnh nhau trông như 1 SET; "
+            "KHÁC nhau theo VAI TRÒ.",
+            "Đặc điểm bộ: %s." % seg["note"],
+            "Vai trò từng mẫu (đúng thứ tự): %s." % roles_txt,
+            style_line,
+        ]
     ideas = {"couple": _COUPLE_IDEAS, "family": _FAMILY_IDEAS, "group": _GROUP_IDEAS}.get(segment, [])
     if not (theme or "").strip() and ideas:
         pool = ideas[:]

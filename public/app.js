@@ -1650,7 +1650,7 @@ const DS_SEGMENTS = [
   { key: "", label: "❌ Không (mẫu lẻ)" },
   { key: "couple", label: "💑 Couple — 2 mẫu đôi" },
   { key: "family", label: "👨‍👩‍👧 Gia đình — 3 mẫu" },
-  { key: "group", label: "👥 Đội nhóm — 3 mẫu" },
+  { key: "group", label: "👥 Đội nhóm — 1 mẫu (đồng phục)" },
 ];
 function dsRenderSegments() {
   const box = $("dsSegments"); if (!box) return; box.innerHTML = "";
@@ -1667,7 +1667,7 @@ function dsUpdateSegHint() {
   const map = {
     couple: "💑 Sẽ tạo 1 BỘ <b>2 mẫu đôi</b> (Áo Anh + Áo Em) đồng bộ — chọn style/chủ đề rồi bấm Tạo.",
     family: "👨‍👩‍👧 Sẽ tạo 1 BỘ <b>3 mẫu gia đình</b> (Bố / Mẹ / Bé) đồng bộ.",
-    group: "👥 Sẽ tạo 1 BỘ <b>3 mẫu đội nhóm</b> đồng bộ (cùng logo/tên/màu).",
+    group: "👥 Sẽ tạo <b>1 mẫu áo đồng phục</b> cho cả nhóm (mọi người mặc giống nhau) — bấm tạo nhiều lần để có thêm phương án.",
   };
   h.innerHTML = dsSegment ? map[dsSegment] : "Chọn 1 tệp để tạo nguyên bộ đồng bộ; bỏ trống = mẫu lẻ bình thường.";
 }
