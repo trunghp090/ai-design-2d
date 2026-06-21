@@ -1136,6 +1136,16 @@ SEGMENTS = {
                       "nhóm mặc đồng bộ"},
 }
 
+# Phong cách hợp THỊ TRƯỜNG VN cho từng tệp (khi không chọn style cụ thể -> AI ưu tiên trong nhóm này)
+SEGMENT_STYLES = {
+    "couple": ["couple_love", "vintage_americana", "calligraphy", "typography", "minimal_clean",
+               "cute_mascot", "floral_quote", "y2k", "liquid_chrome", "scribble"],
+    "family": ["cute_mascot", "mascot", "anime_nostalgia", "vintage_americana", "typography",
+               "minimal_clean", "floral_quote", "retro_groovy", "flat_vector", "scribble"],
+    "group": ["vintage_americana", "varsity", "social_club", "badge_patch", "big_type",
+              "statement_bold", "typography", "sport_statement", "streetwear", "retro_groovy"],
+}
+
 
 def design_concepts_segment(segment, styles, theme, text, year="", same_line=False, auto_style=False):
     """Tạo 1 BỘ design đồng bộ theo tệp khách (couple/gia đình/nhóm). Trả list[concept]."""
@@ -1150,8 +1160,12 @@ def design_concepts_segment(segment, styles, theme, text, year="", same_line=Fal
         else:
             style_line = "PHONG CÁCH CHUNG (trộn) cho cả bộ: %s." % " + ".join(DESIGN_STYLES[s][1] for s in valid)
     else:
-        palette = ", ".join(DESIGN_STYLES[k][0] for k in VN_HOT_STYLES if k in DESIGN_STYLES)
-        style_line = "TỰ CHỌN 1 phong cách CHUNG hợp & dễ bán cho cả bộ (ưu tiên: %s)." % palette
+        rec = SEGMENT_STYLES.get(segment, VN_HOT_STYLES)
+        palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1])
+                            for k in rec if k in DESIGN_STYLES)
+        style_line = ("TỰ CHỌN 1 phong cách CHUNG hợp THỊ TRƯỜNG VIỆT NAM & hợp tệp này cho cả bộ — "
+                      "ưu tiên trong nhóm dưới đây (chọn 1, hoặc trộn 2 nếu đẹp hơn), BÁM ĐÚNG mô tả "
+                      "đã chuẩn hoá VN:\n%s" % palette)
     roles_txt = "; ".join("Mẫu %d = %s" % (i + 1, r) for i, r in enumerate(seg["short"]))
     parts = [
         "Tạo 1 BỘ gồm ĐÚNG %d design ĐỒNG BỘ để mặc CHUNG cho %s." % (n, seg["name"]),
