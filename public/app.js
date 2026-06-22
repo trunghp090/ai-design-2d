@@ -2102,6 +2102,23 @@ function shopInit() {
   dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); shopAddFiles(e.dataTransfer.files); });
   $("shopClear").onclick = () => { shopItems = []; shopRender(); };
   $("shopPush").onclick = shopPush;
+  $("shopSizeFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) shopSetSizeChart(await fileToDataURL(f), f.name); e.target.value = ""; };
+  const sz = $("shopSizeDrop");
+  sz.addEventListener("dragover", e => { e.preventDefault(); sz.classList.add("drag"); });
+  sz.addEventListener("dragleave", () => sz.classList.remove("drag"));
+  sz.addEventListener("drop", async e => { e.preventDefault(); sz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) shopSetSizeChart(await fileToDataURL(f), f.name); });
+}
+let shopSizeChart = "";   // dataURL ảnh bảng size dùng chung
+function shopSetSizeChart(durl, name) {
+  shopSizeChart = durl ? durl.split(",")[1] : "";
+  const row = $("shopSizeThumb"); row.innerHTML = "";
+  if (durl) {
+    const d = document.createElement("div"); d.className = "thumb";
+    d.innerHTML = '<img src="' + durl + '" alt=""><button class="thumb-x">×</button>';
+    d.querySelector(".thumb-x").onclick = () => { shopSetSizeChart("", ""); $("shopSizeName").textContent = "⬆️ Tải ảnh bảng size (tuỳ chọn — dùng chung cho tất cả)"; };
+    row.appendChild(d);
+    $("shopSizeName").textContent = "📐 " + (name || "Đã chọn ảnh bảng size");
+  }
 }
 
 async function shopCheckStatus() {
@@ -2181,6 +2198,9 @@ async function shopPush() {
         ai: $("shopAi").checked,
         productType: ($("shopType").value || "").trim(),
         vendor: ($("shopVendor").value || "").trim(),
+        collection: ($("shopCollection").value || "").trim(),
+        category: ($("shopCategory").value || "").trim(),
+        sizeChart: shopSizeChart || "",
         description: ($("shopDesc").value || "").trim(),
         sizes: $("shopUseSizes").checked
           ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)

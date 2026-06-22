@@ -789,11 +789,24 @@
           </div>
         </div>
 
-        <label class="field-label" style="margin-top:10px">Loại / Vendor (tuỳ chọn)</label>
+        <label class="field-label" style="margin-top:10px">Loại (Type) / Vendor</label>
         <div class="auto-row">
-          <input type="text" id="shopType" class="input" placeholder="Loại: Áo thun" />
-          <input type="text" id="shopVendor" class="input" placeholder="Vendor: RIENG.VN" />
+          <input type="text" id="shopType" class="input" value="Customizer" placeholder="Type" />
+          <input type="text" id="shopVendor" class="input" value="TeeInBlue" placeholder="Vendor" />
         </div>
+
+        <label class="field-label" style="margin-top:10px">Bộ sưu tập / Danh mục</label>
+        <div class="auto-row">
+          <input type="text" id="shopCollection" class="input" value="ÁO THUN" placeholder="Collection: ÁO THUN" />
+          <input type="text" id="shopCategory" class="input" value="T-Shirts" placeholder="Category: T-Shirts" />
+        </div>
+
+        <label class="field-label" style="margin-top:10px">📐 Ảnh bảng size (đính kèm đầu media mỗi SP)</label>
+        <label class="dropzone sm" id="shopSizeDrop">
+          <input type="file" id="shopSizeFile" accept="image/*" hidden />
+          <span id="shopSizeName">⬆️ Tải ảnh bảng size (tuỳ chọn — dùng chung cho tất cả)</span>
+        </label>
+        <div class="thumb-row" id="shopSizeThumb"></div>
 
         <label class="field-label" style="margin-top:10px">📝 Mô tả mặc định (tuỳ chọn — dùng khi không bật AI)</label>
         <textarea id="shopDesc" class="input" rows="3" placeholder="VD: Áo thun cotton 100%, form rộng unisex, in chất lượng cao, freesize…"></textarea>
