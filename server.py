@@ -2401,8 +2401,11 @@ class Handler(BaseHTTPRequestHandler):
         #   1) upload ảnh -> staged upload / dùng URL công khai
         #   2) productCreate (GraphQL): title, descriptionHtml (mô tả per-item hoặc body.description),
         #      status, productType (vd 'Customizer'), vendor (vd 'TeeInBlue'), category (T-Shirts),
-        #      images (nếu body.sizeChart -> ảnh bảng size đặt ĐẦU media), collection (body.collection 'ÁO THUN'
-        #      -> tìm/ tạo collection rồi add); nếu body.sizes -> options=['Size'] + 1 variant/size (cùng giá)
+        #      images (nếu body.sizeChart -> ảnh bảng size đặt ĐẦU media, rồi tất cả ảnh variant màu),
+        #      collection (body.collection 'ÁO THUN' -> tìm/tạo rồi add).
+        #      VARIANT: mỗi item.variants[] = {image, color}. options=['Color','Size'] (Size từ body.sizes),
+        #      tạo variant Color×Size (cùng giá); GÁN ẢNH theo Color (mediaId của ảnh màu -> variant.mediaId).
+        #      Nếu chỉ 1 variant không màu -> sản phẩm đơn options=['Size'].
         #   3) nếu ai=True -> openai_chat (vision) viết title + mô tả SEO + tag từ ảnh (ưu tiên hơn mô tả nhập tay)
         #   LƯU Ý: 'Customizer' (YOURNAME) do app TeeInBlue quản lý -> Admin API chỉ set field cơ bản,
         #          phần cá nhân hoá tên phải bật trong app TeeInBlue.

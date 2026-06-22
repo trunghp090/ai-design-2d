@@ -1247,14 +1247,18 @@ async function lenaoPushToShopify() {
   const btn = $("lenaoToShopify"), old = btn.textContent;
   btn.disabled = true; btn.textContent = "⏳ Đang ghép…";
   try {
+    // Gộp tất cả áo đã chọn thành 1 SẢN PHẨM, mỗi áo = 1 variant màu (có ảnh riêng)
+    const variants = [];
     for (const s of picked) {
       const durl = await lenaoComposeSlot(s);
-      shopItems.push({ image: durl.split(",")[1], fname: s.name, title: "", description: "", price: "", status: "DRAFT", result: null });
+      const color = (s.name || "").replace(/^áo\s+/i, "").trim() || "Mặc định";
+      variants.push({ image: durl.split(",")[1], color });
     }
+    shopItems.push({ title: "", description: "", price: "", status: "DRAFT", result: null, variants });
     showApp("shopify");
     shopRender();
     const note = $("shopNote"); note.className = "gen-note ok";
-    note.textContent = "✓ Đã chuyển " + picked.length + " ảnh áo sang đây — nhập giá rồi bấm Đẩy.";
+    note.textContent = "✓ Đã tạo 1 sản phẩm với " + variants.length + " variant màu — nhập giá rồi bấm Đẩy.";
   } finally {
     btn.disabled = false; btn.textContent = old;
   }
@@ -2139,13 +2143,14 @@ async function shopCheckStatus() {
 }
 
 async function shopAddFiles(files) {
+  // mỗi ảnh upload -> 1 sản phẩm (1 variant). Đẩy từ Lên áo -> 1 SP nhiều variant màu.
   for (const f of files) {
     if (!f.type.startsWith("image/")) continue;
     const durl = await fileToDataURL(f);
     shopItems.push({
-      image: durl.split(",")[1], fname: f.name,
       title: "", description: "", price: ($("shopPrice").value || "").trim(),
       status: $("shopStatus").value, result: null,
+      variants: [{ image: durl.split(",")[1], color: "" }],
     });
   }
   shopRender();
@@ -2163,14 +2168,23 @@ function shopRender() {
       ? (it.result.ok ? '<a class="shop-link" href="' + (it.result.url || "#") + '" target="_blank">✅ Đã tạo →</a>'
                       : '<span class="shop-err">✗ ' + (it.result.error || "lỗi") + "</span>")
       : "";
+    const vars = it.variants || [];
+    const vthumbs = vars.map((v, vi) =>
+      '<div class="shop-var">' +
+        '<img src="data:image/png;base64,' + v.image + '" alt="">' +
+        '<input class="shop-var-c" data-vi="' + vi + '" placeholder="Màu" value="' + (v.color || "").replace(/"/g, "&quot;") + '">' +
+        '<button class="shop-var-x" data-vi="' + vi + '" title="bỏ variant">×</button>' +
+      "</div>").join("");
     row.innerHTML =
-      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<img src="data:image/png;base64,' + (vars[0] ? vars[0].image : "") + '" alt="">' +
       '<div class="shop-fields">' +
         '<input class="input sm shop-t" placeholder="Tên sản phẩm (để trống = AI tự viết)" value="' + (it.title || "").replace(/"/g, "&quot;") + '">' +
         '<textarea class="input sm shop-d" rows="2" placeholder="Mô tả (để trống = AI tự viết / dùng mặc định)">' + (it.description || "") + '</textarea>' +
         '<div class="shop-mini"><input class="input sm shop-p" placeholder="Giá VND" value="' + (it.price || "") + '">' +
         '<select class="input sm shop-s"><option value="DRAFT"' + (it.status === "DRAFT" ? " selected" : "") + '>Nháp</option><option value="ACTIVE"' + (it.status === "ACTIVE" ? " selected" : "") + '>Đăng bán</option></select>' +
         '<button class="shop-x">✕</button></div>' +
+        '<div class="shop-vlabel">🎨 ' + vars.length + ' variant màu (mỗi màu 1 ảnh):</div>' +
+        '<div class="shop-variants">' + vthumbs + "</div>" +
         '<div class="shop-res">' + resv + "</div>" +
       "</div>";
     row.querySelector(".shop-t").oninput = (e) => it.title = e.target.value;
@@ -2178,6 +2192,12 @@ function shopRender() {
     row.querySelector(".shop-p").oninput = (e) => it.price = e.target.value;
     row.querySelector(".shop-s").onchange = (e) => it.status = e.target.value;
     row.querySelector(".shop-x").onclick = () => { shopItems.splice(i, 1); shopRender(); };
+    row.querySelectorAll(".shop-var-c").forEach(inp => inp.oninput = (e) => { vars[+e.target.dataset.vi].color = e.target.value; });
+    row.querySelectorAll(".shop-var-x").forEach(b => b.onclick = (e) => {
+      vars.splice(+e.target.dataset.vi, 1);
+      if (!vars.length) shopItems.splice(i, 1);
+      shopRender();
+    });
     box.appendChild(row);
   });
 }
@@ -2205,7 +2225,7 @@ async function shopPush() {
         sizes: $("shopUseSizes").checked
           ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)
           : [],
-        items: shopItems.map(it => ({ image: it.image, title: it.title, description: it.description, price: it.price, status: it.status })),
+        items: shopItems.map(it => ({ title: it.title, description: it.description, price: it.price, status: it.status, variants: (it.variants || []).map(v => ({ image: v.image, color: v.color })) })),
       }),
     });
     const d = await r.json();
