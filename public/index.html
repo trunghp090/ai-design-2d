@@ -48,6 +48,7 @@
     <button class="app-tab" data-app="batch">📊 Excel hàng loạt</button>
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="design">✨ Tạo design</button>
+    <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -753,6 +754,66 @@
         </div>
         <div class="auto-grid" id="dsResults"></div>
         <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: ĐẨY SHOPIFY (tạo sản phẩm từ ảnh đã setup) ===== -->
+  <section class="auto-view app-view hidden" id="view-shopify">
+    <div class="auto-wrap">
+      <!-- Cột cấu hình -->
+      <section class="panel">
+        <h2 class="panel-title">🛍️ Đẩy sản phẩm lên Shopify</h2>
+        <p class="panel-desc">Chọn ảnh sản phẩm đã setup → AI tự viết tên/mô tả → đẩy hàng loạt lên shop. <b>Mỗi ảnh = 1 sản phẩm.</b></p>
+
+        <div id="shopBanner" class="shop-banner">Đang kiểm tra kết nối Shopify…</div>
+
+        <label class="field-label" style="margin-top:12px">🖼️ Ảnh sản phẩm (kéo-thả / chọn nhiều)</label>
+        <label class="dropzone" id="shopDrop">
+          <input type="file" id="shopFile" accept="image/*" multiple hidden />
+          <span id="shopDropName">⬆️ Tải / kéo-thả nhiều ảnh sản phẩm đã setup sẵn</span>
+        </label>
+
+        <div class="auto-row" style="margin-top:12px">
+          <div>
+            <label class="field-label">Giá mặc định (VND)</label>
+            <input type="text" id="shopPrice" class="input" placeholder="VD: 199000" />
+          </div>
+          <div>
+            <label class="field-label">Trạng thái</label>
+            <select id="shopStatus" class="input">
+              <option value="DRAFT">Nháp (duyệt trước)</option>
+              <option value="ACTIVE">Đăng bán luôn</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="field-label" style="margin-top:10px">Loại / Vendor (tuỳ chọn)</label>
+        <div class="auto-row">
+          <input type="text" id="shopType" class="input" placeholder="Loại: Áo thun" />
+          <input type="text" id="shopVendor" class="input" placeholder="Vendor: RIENG.VN" />
+        </div>
+
+        <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:10px;font-size:13px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="shopAi" checked /> 🤖 AI tự viết tên + mô tả SEO + tag từ ảnh (bỏ tick = tự nhập tên)
+        </label>
+
+        <button class="btn-primary" id="shopPush" style="margin-top:14px">🚀 Đẩy tất cả lên Shopify</button>
+        <div class="batch-progress hidden" id="shopProgress">
+          <div class="bp-bar"><div class="bp-fill" id="shopBar"></div></div>
+          <span id="shopProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="shopNote"></p>
+      </section>
+
+      <!-- Cột danh sách sản phẩm -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Sản phẩm sẽ đẩy (<span id="shopCount">0</span>)</h3>
+          <button class="btn-ghost sm" id="shopClear">🗑️ Xoá hết</button>
+        </div>
+        <div id="shopList"></div>
+        <div class="gallery-empty" id="shopEmpty">Tải ảnh sản phẩm vào để bắt đầu.</div>
       </section>
     </div>
   </section>

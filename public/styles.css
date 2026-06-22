@@ -321,3 +321,20 @@ textarea.input{resize:vertical;line-height:1.5}
 .ed-bg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding-left:6px;border-left:1px solid var(--line)}
 
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:26px;border-top:1px solid var(--line);margin-top:20px}
+
+/* ===== Đẩy Shopify ===== */
+.shop-banner{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;background:#f4f2fb;border:1px solid var(--line)}
+.shop-banner.ok{background:#eafaf0;border-color:#bfe8cf;color:#176b3a}
+.shop-banner.warn{background:#fff7e6;border-color:#ffe0a3;color:#8a5a00}
+.shop-row{display:flex;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff}
+.shop-row>img{width:72px;height:72px;object-fit:contain;border-radius:8px;background:#f4f2fb;flex:none}
+.shop-fields{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.shop-mini{display:flex;gap:6px}
+.shop-mini .shop-p{flex:1}
+.shop-mini .shop-s{width:104px;flex:none}
+.input.sm{padding:6px 9px;font-size:12.5px}
+.shop-x{width:30px;flex:none;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;color:#c0392b}
+.shop-x:hover{border-color:#c0392b}
+.shop-res{font-size:12px;min-height:0}
+.shop-link{color:var(--violet);font-weight:600;text-decoration:none}
+.shop-err{color:#c0392b}

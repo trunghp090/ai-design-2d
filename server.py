@@ -93,6 +93,9 @@ API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
+# Shopify Admin API (đẩy sản phẩm) — sẽ cấu hình sau
+SHOPIFY_DOMAIN = os.environ.get("SHOPIFY_DOMAIN", "").strip()        # vd: xxx.myshopify.com
+SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # Admin API token shpat_...
 PORT = int(os.environ.get("PORT", "8000"))
 # Bật đăng nhập? (đặt AUTH_REQUIRED=0 trong .env để tắt — mặc định BẬT)
 AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "1").strip() not in ("0", "false", "no")
@@ -1881,6 +1884,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
             return self.json(200, {"items": list_mockups()})
+        if path == "/api/shopify-status":
+            return self.json(200, {"configured": bool(SHOPIFY_TOKEN and SHOPIFY_DOMAIN),
+                                   "shop": SHOPIFY_DOMAIN})
         if path == "/api/batch-status":
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             jid = (qs.get("id") or [""])[0]
@@ -1988,6 +1994,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_personalize(body)
         if path == "/api/variations":
             return self.handle_variations(body)
+        if path == "/api/shopify-push":
+            return self.handle_shopify_push(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -2380,6 +2388,20 @@ class Handler(BaseHTTPRequestHandler):
         if not items:
             return self.json(400, {"error": "Không tạo được phiên bản nào — thử lại."})
         return self.json(200, {"items": items})
+
+    def handle_shopify_push(self, body):
+        """Đẩy sản phẩm lên Shopify. (Giao diện đã sẵn sàng — phần kết nối Admin API cấu hình sau.)"""
+        items = body.get("items") or []
+        if not items:
+            return self.json(400, {"error": "Chưa có sản phẩm nào để đẩy."})
+        if not (SHOPIFY_TOKEN and SHOPIFY_DOMAIN):
+            return self.json(400, {"error": "Chưa cấu hình Shopify (SHOPIFY_DOMAIN + SHOPIFY_TOKEN "
+                                   "trong .env). Giao diện đã sẵn sàng; thêm token rồi sẽ đẩy thật."})
+        # TODO: kết nối Shopify Admin API thật ở bước sau:
+        #   1) upload ảnh -> staged upload / dùng URL công khai
+        #   2) productCreate (GraphQL) với title/descriptionHtml/price/status/images
+        #   3) nếu ai=True -> dùng openai_chat (vision) viết title + mô tả + tag từ ảnh trước
+        return self.json(501, {"error": "Phần kết nối Shopify đang chờ cấu hình token — sẽ bật sau."})
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""

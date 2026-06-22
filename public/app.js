@@ -581,9 +581,11 @@ function showApp(app) {
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
+  document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
+  if (app === "shopify") shopInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -2058,3 +2060,114 @@ $("dsDownloadAll").onclick = async () => {
   if (!cards.length) return;
   for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
 };
+
+/* =====================================================================
+   ĐẨY SHOPIFY: chọn ảnh đã setup -> AI viết tên/mô tả -> tạo sản phẩm
+   ===================================================================== */
+let shopInited = false;
+let shopItems = [];   // [{image(b64), fname, title, price, status, result}]
+
+function shopInit() {
+  if (shopInited) return; shopInited = true;
+  shopCheckStatus();
+  $("shopFile").onchange = (e) => shopAddFiles(e.target.files);
+  const dz = $("shopDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); shopAddFiles(e.dataTransfer.files); });
+  $("shopClear").onclick = () => { shopItems = []; shopRender(); };
+  $("shopPush").onclick = shopPush;
+}
+
+async function shopCheckStatus() {
+  const b = $("shopBanner");
+  try {
+    const d = await (await fetch("/api/shopify-status")).json();
+    if (d.configured) {
+      b.className = "shop-banner ok";
+      b.innerHTML = "✅ Đã kết nối shop <b>" + (d.shop || "Shopify") + "</b> — sẵn sàng đẩy sản phẩm.";
+    } else {
+      b.className = "shop-banner warn";
+      b.innerHTML = "⚠️ Chưa cấu hình Shopify token — giao diện đã sẵn sàng, cần thêm Admin API token để đẩy thật. (Vẫn xem trước được danh sách.)";
+    }
+  } catch (e) {
+    b.className = "shop-banner warn";
+    b.innerHTML = "⚠️ Chưa kết nối được Shopify (chưa cấu hình).";
+  }
+}
+
+async function shopAddFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/")) continue;
+    const durl = await fileToDataURL(f);
+    shopItems.push({
+      image: durl.split(",")[1], fname: f.name,
+      title: "", price: ($("shopPrice").value || "").trim(),
+      status: $("shopStatus").value, result: null,
+    });
+  }
+  shopRender();
+}
+
+function shopRender() {
+  const box = $("shopList");
+  $("shopCount").textContent = shopItems.length;
+  $("shopEmpty").classList.toggle("hidden", shopItems.length > 0);
+  box.innerHTML = "";
+  shopItems.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "shop-row";
+    const resv = it.result
+      ? (it.result.ok ? '<a class="shop-link" href="' + (it.result.url || "#") + '" target="_blank">✅ Đã tạo →</a>'
+                      : '<span class="shop-err">✗ ' + (it.result.error || "lỗi") + "</span>")
+      : "";
+    row.innerHTML =
+      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
+      '<div class="shop-fields">' +
+        '<input class="input sm shop-t" placeholder="Tên sản phẩm (để trống = AI tự viết)" value="' + (it.title || "").replace(/"/g, "&quot;") + '">' +
+        '<div class="shop-mini"><input class="input sm shop-p" placeholder="Giá VND" value="' + (it.price || "") + '">' +
+        '<select class="input sm shop-s"><option value="DRAFT"' + (it.status === "DRAFT" ? " selected" : "") + '>Nháp</option><option value="ACTIVE"' + (it.status === "ACTIVE" ? " selected" : "") + '>Đăng bán</option></select>' +
+        '<button class="shop-x">✕</button></div>' +
+        '<div class="shop-res">' + resv + "</div>" +
+      "</div>";
+    row.querySelector(".shop-t").oninput = (e) => it.title = e.target.value;
+    row.querySelector(".shop-p").oninput = (e) => it.price = e.target.value;
+    row.querySelector(".shop-s").onchange = (e) => it.status = e.target.value;
+    row.querySelector(".shop-x").onclick = () => { shopItems.splice(i, 1); shopRender(); };
+    box.appendChild(row);
+  });
+}
+
+async function shopPush() {
+  const note = $("shopNote"); note.className = "gen-note"; note.textContent = "";
+  if (!shopItems.length) { note.className = "gen-note err"; note.textContent = "⚠️ Chưa có sản phẩm nào."; return; }
+  const defPrice = ($("shopPrice").value || "").trim();
+  shopItems.forEach(it => { if (!it.price && defPrice) it.price = defPrice; });
+  if (shopItems.some(it => !it.price)) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập giá (mặc định hoặc từng sản phẩm)."; return; }
+  $("shopProgress").classList.remove("hidden");
+  $("shopBar").style.width = "0%"; $("shopProgText").textContent = "Đang đẩy…";
+  $("shopPush").disabled = true;
+  try {
+    const r = await fetch("/api/shopify-push", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ai: $("shopAi").checked,
+        productType: ($("shopType").value || "").trim(),
+        vendor: ($("shopVendor").value || "").trim(),
+        items: shopItems.map(it => ({ image: it.image, title: it.title, price: it.price, status: it.status })),
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi đẩy Shopify");
+    (d.results || []).forEach((res, i) => { if (shopItems[i]) shopItems[i].result = res; });
+    shopRender();
+    const ok = (d.results || []).filter(x => x.ok).length;
+    note.className = "gen-note ok"; note.textContent = "✓ Đã đẩy " + ok + "/" + shopItems.length + " sản phẩm.";
+    $("shopBar").style.width = "100%"; $("shopProgText").textContent = "Xong";
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    $("shopProgText").textContent = "Lỗi";
+  } finally {
+    $("shopPush").disabled = false;
+  }
+}
