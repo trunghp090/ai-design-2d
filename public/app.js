@@ -1249,7 +1249,7 @@ async function lenaoPushToShopify() {
   try {
     for (const s of picked) {
       const durl = await lenaoComposeSlot(s);
-      shopItems.push({ image: durl.split(",")[1], fname: s.name, title: "", price: "", status: "DRAFT", result: null });
+      shopItems.push({ image: durl.split(",")[1], fname: s.name, title: "", description: "", price: "", status: "DRAFT", result: null });
     }
     showApp("shopify");
     shopRender();
@@ -2127,7 +2127,7 @@ async function shopAddFiles(files) {
     const durl = await fileToDataURL(f);
     shopItems.push({
       image: durl.split(",")[1], fname: f.name,
-      title: "", price: ($("shopPrice").value || "").trim(),
+      title: "", description: "", price: ($("shopPrice").value || "").trim(),
       status: $("shopStatus").value, result: null,
     });
   }
@@ -2150,12 +2150,14 @@ function shopRender() {
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="shop-fields">' +
         '<input class="input sm shop-t" placeholder="Tên sản phẩm (để trống = AI tự viết)" value="' + (it.title || "").replace(/"/g, "&quot;") + '">' +
+        '<textarea class="input sm shop-d" rows="2" placeholder="Mô tả (để trống = AI tự viết / dùng mặc định)">' + (it.description || "") + '</textarea>' +
         '<div class="shop-mini"><input class="input sm shop-p" placeholder="Giá VND" value="' + (it.price || "") + '">' +
         '<select class="input sm shop-s"><option value="DRAFT"' + (it.status === "DRAFT" ? " selected" : "") + '>Nháp</option><option value="ACTIVE"' + (it.status === "ACTIVE" ? " selected" : "") + '>Đăng bán</option></select>' +
         '<button class="shop-x">✕</button></div>' +
         '<div class="shop-res">' + resv + "</div>" +
       "</div>";
     row.querySelector(".shop-t").oninput = (e) => it.title = e.target.value;
+    row.querySelector(".shop-d").oninput = (e) => it.description = e.target.value;
     row.querySelector(".shop-p").oninput = (e) => it.price = e.target.value;
     row.querySelector(".shop-s").onchange = (e) => it.status = e.target.value;
     row.querySelector(".shop-x").onclick = () => { shopItems.splice(i, 1); shopRender(); };
@@ -2179,7 +2181,11 @@ async function shopPush() {
         ai: $("shopAi").checked,
         productType: ($("shopType").value || "").trim(),
         vendor: ($("shopVendor").value || "").trim(),
-        items: shopItems.map(it => ({ image: it.image, title: it.title, price: it.price, status: it.status })),
+        description: ($("shopDesc").value || "").trim(),
+        sizes: $("shopUseSizes").checked
+          ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)
+          : [],
+        items: shopItems.map(it => ({ image: it.image, title: it.title, description: it.description, price: it.price, status: it.status })),
       }),
     });
     const d = await r.json();

@@ -2399,8 +2399,9 @@ class Handler(BaseHTTPRequestHandler):
                                    "trong .env). Giao diện đã sẵn sàng; thêm token rồi sẽ đẩy thật."})
         # TODO: kết nối Shopify Admin API thật ở bước sau:
         #   1) upload ảnh -> staged upload / dùng URL công khai
-        #   2) productCreate (GraphQL) với title/descriptionHtml/price/status/images
-        #   3) nếu ai=True -> dùng openai_chat (vision) viết title + mô tả + tag từ ảnh trước
+        #   2) productCreate (GraphQL): title, descriptionHtml (mô tả per-item hoặc body.description),
+        #      status, productType/vendor, images; nếu body.sizes -> options=["Size"] + 1 variant/size (cùng giá)
+        #   3) nếu ai=True -> openai_chat (vision) viết title + mô tả SEO + tag từ ảnh (ưu tiên hơn mô tả nhập tay)
         return self.json(501, {"error": "Phần kết nối Shopify đang chờ cấu hình token — sẽ bật sau."})
 
     def handle_product_content(self, body):
