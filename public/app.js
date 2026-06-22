@@ -2144,6 +2144,15 @@ async function shopCheckStatus() {
   const b = $("shopBanner");
   try {
     const d = await (await fetch("/api/shopify-status")).json();
+    // nạp danh sách theme template nếu shop trả về
+    if (Array.isArray(d.templates) && d.templates.length && $("shopTemplate")) {
+      const sel = $("shopTemplate");
+      d.templates.forEach(t => {
+        if ([...sel.options].some(o => o.value === t.value)) return;
+        const o = document.createElement("option"); o.value = t.value; o.textContent = t.label || t.value;
+        sel.appendChild(o);
+      });
+    }
     if (d.configured) {
       b.className = "shop-banner ok";
       b.innerHTML = "✅ Đã kết nối shop <b>" + (d.shop || "Shopify") + "</b> — sẵn sàng đẩy sản phẩm.";
@@ -2235,6 +2244,7 @@ async function shopPush() {
         vendor: ($("shopVendor").value || "").trim(),
         collection: ($("shopCollection").value || "").trim(),
         category: ($("shopCategory").value || "").trim(),
+        templateSuffix: ($("shopTemplate").value || "").trim(),
         sizeChart: shopSizeChart || "",
         description: ($("shopDesc").value || "").trim(),
         sizes: $("shopUseSizes").checked

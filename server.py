@@ -2401,6 +2401,8 @@ class Handler(BaseHTTPRequestHandler):
         #   1) upload ảnh -> staged upload / dùng URL công khai
         #   2) productCreate (GraphQL): title, descriptionHtml (mô tả per-item hoặc body.description),
         #      status, productType (vd 'Customizer'), vendor (vd 'TeeInBlue'), category (T-Shirts),
+        #      templateSuffix (body.templateSuffix, '' = Default product); /api/shopify-status nên trả
+        #      thêm templates[] (đọc theme files product.*.json) để FE đổ vào select,
         #      images (nếu body.sizeChart -> ảnh bảng size đặt ĐẦU media, rồi tất cả ảnh variant màu),
         #      collection (body.collection 'ÁO THUN' -> tìm/tạo rồi add).
         #      VARIANT: mỗi item.variants[] = {image, color}. options=['Color','Size'] (Size từ body.sizes),
