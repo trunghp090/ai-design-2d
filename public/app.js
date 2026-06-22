@@ -1234,6 +1234,30 @@ function lenaoAttachEditor(stage, layer, handle, slot) {
 function lenaoUpdateSelUI() {
   const n = [...document.querySelectorAll("#lenaoSlots .gpick")].filter(c => c.checked && !c.disabled).length;
   $("lenaoDownloadSel").textContent = "⬇ Tải đã chọn (" + n + ")";
+  if ($("lenaoToShopify")) $("lenaoToShopify").textContent = "🛍️ Đẩy Shopify (" + n + ")";
+}
+// Lấy các áo đã chọn (có design) -> ghép ảnh -> nạp vào tab Đẩy Shopify
+async function lenaoPushToShopify() {
+  const picked = lenaoSlots.filter((s, i) => {
+    const card = $("lenaoSlots").children[i];
+    const c = card && card.querySelector(".gpick");
+    return s.design && c && c.checked;
+  });
+  if (!picked.length) { alert("Chưa chọn áo nào có design để đẩy."); return; }
+  const btn = $("lenaoToShopify"), old = btn.textContent;
+  btn.disabled = true; btn.textContent = "⏳ Đang ghép…";
+  try {
+    for (const s of picked) {
+      const durl = await lenaoComposeSlot(s);
+      shopItems.push({ image: durl.split(",")[1], fname: s.name, title: "", price: "", status: "DRAFT", result: null });
+    }
+    showApp("shopify");
+    shopRender();
+    const note = $("shopNote"); note.className = "gen-note ok";
+    note.textContent = "✓ Đã chuyển " + picked.length + " ảnh áo sang đây — nhập giá rồi bấm Đẩy.";
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
 }
 
 function lenaoRenderSlots() {
@@ -1327,6 +1351,7 @@ $("lenaoSelAll").onchange = (e) => {
   document.querySelectorAll("#lenaoSlots .gpick").forEach(c => { if (!c.disabled) c.checked = e.target.checked; });
   lenaoUpdateSelUI();
 };
+$("lenaoToShopify").onclick = lenaoPushToShopify;
 $("lenaoDownloadSel").onclick = async () => {
   const picked = lenaoSlots.filter((s, i) => {
     const card = $("lenaoSlots").children[i];
