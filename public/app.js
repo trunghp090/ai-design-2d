@@ -1514,7 +1514,10 @@ $("prodUseCurrent").onclick = () => {
   prodSetImg("data:image/png;base64," + currentDesign);
 };
 
+let prodLastItems = [];
 function prodRender(items) {
+  prodLastItems = items || [];
+  if ($("prodToShopify")) $("prodToShopify").textContent = "🛍️ Đẩy Shopify (" + prodLastItems.length + ")";
   const grid = $("prodResults");
   if (!items.length) { $("prodEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
   $("prodEmpty").classList.add("hidden");
@@ -1579,6 +1582,18 @@ $("prodDownloadAll").onclick = async () => {
   const cards = [...$("prodResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
   for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
+};
+// Đẩy các ảnh sản phẩm thành 1 SP Shopify (ảnh marketing = media, không phải variant màu)
+$("prodToShopify").onclick = () => {
+  if (!prodLastItems.length) { alert("Chưa có ảnh sản phẩm nào."); return; }
+  shopItems.push({
+    title: "", description: "", price: "", status: "DRAFT", result: null,
+    variants: prodLastItems.map(it => ({ image: it.image, color: "" })),  // color rỗng = ảnh media
+  });
+  showApp("shopify");
+  shopRender();
+  const note = $("shopNote"); note.className = "gen-note ok";
+  note.textContent = "✓ Đã tạo 1 sản phẩm với " + prodLastItems.length + " ảnh — nhập giá rồi bấm Đẩy.";
 };
 
 /* ---------- Content bán hàng: Facebook Ads + TikTok ---------- */
@@ -2183,7 +2198,7 @@ function shopRender() {
         '<div class="shop-mini"><input class="input sm shop-p" placeholder="Giá VND" value="' + (it.price || "") + '">' +
         '<select class="input sm shop-s"><option value="DRAFT"' + (it.status === "DRAFT" ? " selected" : "") + '>Nháp</option><option value="ACTIVE"' + (it.status === "ACTIVE" ? " selected" : "") + '>Đăng bán</option></select>' +
         '<button class="shop-x">✕</button></div>' +
-        '<div class="shop-vlabel">🎨 ' + vars.length + ' variant màu (mỗi màu 1 ảnh):</div>' +
+        '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh):" : "🖼️ " + vars.length + " ảnh sản phẩm (media):") + "</div>" +
         '<div class="shop-variants">' + vthumbs + "</div>" +
         '<div class="shop-res">' + resv + "</div>" +
       "</div>";
