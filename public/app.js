@@ -2369,30 +2369,57 @@ async function shoplistLoad() {
 }
 
 /* ===== Cập nhật ảnh cho sản phẩm Shopify có sẵn ===== */
-let imgState = { id: null, name: "", images: [] };
+let imgState = { id: null, name: "", uploads: [], prodSel: new Set() };
+function imgFinalImages() {
+  return [...imgState.uploads, ...[...imgState.prodSel].map(i => (prodLastItems[i] || {}).image).filter(Boolean)];
+}
 function openImgUpdate(p) {
-  imgState = { id: p.id, name: p.title || "", images: [] };
+  imgState = { id: p.id, name: p.title || "", uploads: [], prodSel: new Set() };
   $("imgProdName").textContent = "Sản phẩm: " + (p.title || p.id);
-  $("imgThumbs").innerHTML = ""; $("imgDropName").textContent = "⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm";
   $("imgNote").textContent = ""; $("imgNote").className = "gen-note";
   document.querySelector('input[name="imgMode"][value="append"]').checked = true;
+  imgRenderProdPick();
+  imgRenderUploads();
   $("imgModal").classList.remove("hidden");
 }
-function closeImgUpdate() { $("imgModal").classList.add("hidden"); imgState = { id: null, name: "", images: [] }; }
+function closeImgUpdate() { $("imgModal").classList.add("hidden"); imgState = { id: null, name: "", uploads: [], prodSel: new Set() }; }
+// lưới chọn từ ảnh sản phẩm đã tạo (tab Ảnh sản phẩm)
+function imgRenderProdPick() {
+  const box = $("imgProdPick"); if (!box) return; box.innerHTML = "";
+  const items = (typeof prodLastItems !== "undefined" && prodLastItems) ? prodLastItems : [];
+  if (!items.length) {
+    box.innerHTML = '<p class="hint" style="margin:0">Chưa có ảnh — vào tab "📸 Ảnh sản phẩm" tạo ảnh trước, rồi quay lại đây.</p>';
+    return;
+  }
+  items.forEach((it, i) => {
+    const d = document.createElement("div");
+    d.className = "img-cell" + (imgState.prodSel.has(i) ? " on" : "");
+    d.innerHTML = '<img src="data:image/png;base64,' + it.image + '">' + (imgState.prodSel.has(i) ? '<span class="img-tick">✓</span>' : "");
+    d.onclick = () => { if (imgState.prodSel.has(i)) imgState.prodSel.delete(i); else imgState.prodSel.add(i); imgRenderProdPick(); imgCount(); };
+    box.appendChild(d);
+  });
+}
+function imgRenderUploads() {
+  const row = $("imgThumbs"); row.innerHTML = "";
+  imgState.uploads.forEach((b, i) => {
+    const d = document.createElement("div"); d.className = "thumb";
+    d.innerHTML = '<img src="data:image/png;base64,' + b + '"><button class="thumb-x">×</button>';
+    d.querySelector(".thumb-x").onclick = () => { imgState.uploads.splice(i, 1); imgRenderUploads(); imgCount(); };
+    row.appendChild(d);
+  });
+  imgCount();
+}
+function imgCount() {
+  const n = imgFinalImages().length;
+  $("imgDropName").textContent = n ? ("✅ Đã chọn " + n + " ảnh") : "⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm";
+}
 async function imgAddFiles(files) {
   for (const f of files) {
     if (!f.type.startsWith("image/")) continue;
     const durl = await fileToDataURL(f);
-    imgState.images.push(durl.split(",")[1]);
+    imgState.uploads.push(durl.split(",")[1]);
   }
-  const row = $("imgThumbs"); row.innerHTML = "";
-  imgState.images.forEach((b, i) => {
-    const d = document.createElement("div"); d.className = "thumb";
-    d.innerHTML = '<img src="data:image/png;base64,' + b + '"><button class="thumb-x">×</button>';
-    d.querySelector(".thumb-x").onclick = () => { imgState.images.splice(i, 1); imgAddFiles([]); };
-    row.appendChild(d);
-  });
-  $("imgDropName").textContent = imgState.images.length ? ("✅ " + imgState.images.length + " ảnh — tải thêm nếu cần") : "⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm";
+  imgRenderUploads();
 }
 $("imgClose").onclick = closeImgUpdate;
 $("imgModal").onclick = (e) => { if (e.target.id === "imgModal") closeImgUpdate(); };
@@ -2405,7 +2432,8 @@ $("imgFile").onchange = (e) => { imgAddFiles(e.target.files); e.target.value = "
 })();
 $("imgGo").onclick = async () => {
   if (!imgState.id) return;
-  if (!imgState.images.length) { $("imgNote").className = "gen-note err"; $("imgNote").textContent = "⚠️ Chưa chọn ảnh."; return; }
+  const images = imgFinalImages();
+  if (!images.length) { $("imgNote").className = "gen-note err"; $("imgNote").textContent = "⚠️ Chưa chọn ảnh."; return; }
   const mode = document.querySelector('input[name="imgMode"]:checked').value;
   if (mode === "replace" && !confirm("Thay TOÀN BỘ ảnh sẽ xoá hết ảnh cũ (kể cả ảnh variant/bảng size). Tiếp tục?")) return;
   const btn = $("imgGo"), old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang tải…";
@@ -2413,7 +2441,7 @@ $("imgGo").onclick = async () => {
   try {
     const r = await fetch("/api/shopify-add-images", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: imgState.id, images: imgState.images, mode }),
+      body: JSON.stringify({ id: imgState.id, images, mode }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi cập nhật ảnh");
