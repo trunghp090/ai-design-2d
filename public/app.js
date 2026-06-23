@@ -1503,13 +1503,33 @@ function prodInit() {
 async function prodCheckEngine() {
   try {
     const d = await (await fetch("/api/engines")).json();
-    const cb = $("prodNano"), hint = $("prodNanoHint");
-    if (d.gemini) {
-      if (cb) { cb.disabled = false; cb.checked = true; }
-      if (hint) hint.innerHTML = "✅ Đã kết nối Nano Banana Pro (" + (d.model || "") + ").";
-    } else {
-      if (cb) { cb.disabled = true; cb.checked = false; }
-      if (hint) hint.innerHTML = "⚠️ Chưa cấu hình GEMINI_API_KEY — đang dùng gpt-image. Thêm key để bật Nano Banana Pro.";
+    // Dropdown chọn model gen ảnh
+    const sel = $("prodEngine"), hint = $("prodNanoHint");
+    if (sel) {
+      const engines = d.engines || [];
+      sel.innerHTML = "";
+      engines.forEach(e => {
+        const o = document.createElement("option");
+        o.value = e.id;
+        o.textContent = e.label + (e.available ? "" : " — chưa có key");
+        o.disabled = !e.available;
+        sel.appendChild(o);
+      });
+      // chọn mặc định model tốt nhất đang khả dụng
+      const def = d.default_engine || (engines.find(e => e.available) || {}).id;
+      if (def) sel.value = def;
+      const cur = engines.find(e => e.id === sel.value) || {};
+      const updateHint = () => {
+        const e = engines.find(x => x.id === sel.value) || {};
+        if (hint) hint.innerHTML = e.available
+          ? "✅ Dùng <b>" + (e.label || "") + "</b>" + (e.model ? " (" + e.model + ")" : "") + "."
+          : "⚠️ Model này chưa có API key — chọn model khác hoặc thêm key.";
+      };
+      sel.onchange = updateHint;
+      updateHint();
+      if (!d.gemini && hint && cur.kind !== "gemini") {
+        hint.innerHTML += " <span style='opacity:.8'>Thêm <b>GEMINI_API_KEY</b> để bật Nano Banana.</span>";
+      }
     }
     // AI tự viết prompt: ưu tiên Claude, fallback OpenAI vision
     const acb = $("prodAi"), ahint = $("prodAiHint");
@@ -1644,7 +1664,7 @@ $("prodRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-photos", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, nano: !!($("prodNano") && $("prodNano").checked), ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
@@ -1774,7 +1794,7 @@ $("prodRenderBtn").onclick = async () => {
     const r = await fetch("/api/product-render", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        image: prodImg, nano: !!($("prodNano") && $("prodNano").checked),
+        image: prodImg, engine: ($("prodEngine") && $("prodEngine").value) || "",
         prompts: picks.map(p => ({ title: p.title, prompt: p.prompt, size: p.size, aspect: p.aspect })),
       }),
     });

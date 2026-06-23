@@ -310,8 +310,8 @@ def _openai_call(req, timeout=300, tries=3):
     raise last
 
 
-def gemini_edit(images, prompt, aspect=""):
-    """Nano Banana Pro (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
+def gemini_edit(images, prompt, aspect="", model=""):
+    """Nano Banana (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY")
     parts = [{"text": prompt}]
@@ -323,7 +323,7 @@ def gemini_edit(images, prompt, aspect=""):
         gen["imageConfig"] = {"aspectRatio": aspect}   # vd "4:5", "1:1"
     payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": gen}
     url = ("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
-           % GEMINI_IMAGE_MODEL)
+           % (model or GEMINI_IMAGE_MODEL))
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("x-goog-api-key", GEMINI_API_KEY)
@@ -350,10 +350,56 @@ def _aspect_for(size):
     return "1:1"
 
 
-def gen_shot(images, prompt, size, use_nano, aspect=""):
-    """Sinh 1 ảnh sản phẩm: Nano Banana Pro nếu bật & có key, không thì OpenAI gpt-image."""
-    if use_nano and GEMINI_API_KEY:
-        return gemini_edit(images, prompt, aspect or _aspect_for(size))
+# Các model gen ảnh cho user chọn. id -> {label, kind, model}
+IMAGE_ENGINES = [
+    {"id": "openai",       "label": "OpenAI gpt-image",                 "kind": "openai", "model": ""},
+    {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image-preview"},
+    {"id": "gemini_flash", "label": "Nano Banana (Gemini 2.5 Flash)",   "kind": "gemini", "model": "gemini-2.5-flash-image"},
+]
+
+
+def engine_info(engine_id):
+    for e in IMAGE_ENGINES:
+        if e["id"] == engine_id:
+            return e
+    return IMAGE_ENGINES[0]
+
+
+def engines_status():
+    """Danh sách model gen ảnh + tình trạng khả dụng (cho dropdown frontend)."""
+    out = []
+    for e in IMAGE_ENGINES:
+        avail = bool(API_KEY) if e["kind"] == "openai" else bool(GEMINI_API_KEY)
+        m = e["model"]
+        if e["id"] == "gemini_pro":
+            m = GEMINI_IMAGE_MODEL or e["model"]   # cho phép override qua env
+        out.append({"id": e["id"], "label": e["label"], "kind": e["kind"],
+                    "model": m, "available": avail})
+    return out
+
+
+def resolve_engine_id(body):
+    """Lấy model gen ảnh từ body (field 'engine'), tương thích payload cũ ('nano'),
+    fallback nếu thiếu key, mặc định model tốt nhất đang có."""
+    eid = (body.get("engine") or "").strip()
+    if not eid and body.get("nano"):           # payload cũ: nano=true
+        eid = "gemini_pro"
+    if eid:
+        info = engine_info(eid)
+        if info["kind"] == "gemini" and not GEMINI_API_KEY:
+            return "openai" if API_KEY else eid
+        if info["kind"] == "openai" and not API_KEY and GEMINI_API_KEY:
+            return "gemini_pro"
+        return eid
+    return "gemini_pro" if GEMINI_API_KEY else "openai"   # mặc định
+
+
+def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model=""):
+    """Sinh 1 ảnh sản phẩm theo MODEL được chọn (engine). Gemini nếu là kind gemini & có key."""
+    info = engine_info(engine)
+    if info["kind"] == "gemini" and GEMINI_API_KEY:
+        mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
+        return gemini_edit(images, prompt, aspect or _aspect_for(size), mdl)
     return openai_edit(images, prompt, size, native_transparent=False)
 
 
@@ -1079,13 +1125,13 @@ def product_prompt_ai(img_bytes, cat, vk, bg_key):
         return base
 
 
-def run_product_job(job_id, img, shots, bg_key, use_nano=False, ai_prompt=False):
+def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
     def work(shot):
         try:
             prompt = (product_prompt_ai(img, shot["cat"], shot["vk"], bg_key) if ai_prompt
                       else product_prompt(shot["cat"], shot["vk"], bg_key))
             b64 = gen_shot([(img, "image/png")], prompt,
-                           shot["size"], use_nano, shot.get("aspect", ""))
+                           shot["size"], engine, shot.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
             return {"image": b64, "title": shot["label"], "gallery": g}
         except urllib.error.HTTPError as e:
@@ -1140,13 +1186,13 @@ def run_prompt_job(job_id, img, shots, bg_key):
             BATCH_JOBS[job_id]["finished"] = True
 
 
-def run_render_job(job_id, img, picks, use_nano=False):
-    """BƯỚC 2: gen ảnh từ các prompt người dùng ĐÃ CHỌN (Nano Banana nếu bật)."""
+def run_render_job(job_id, img, picks, engine="openai"):
+    """BƯỚC 2: gen ảnh từ các prompt người dùng ĐÃ CHỌN, theo model (engine) đã chọn."""
     def work(p):
         title = p.get("title") or "Ảnh"
         try:
             b64 = gen_shot([(img, "image/png")], p["prompt"],
-                           p.get("size") or "1024x1024", use_nano, p.get("aspect", ""))
+                           p.get("size") or "1024x1024", engine, p.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": title})
             return {"image": b64, "title": title, "gallery": g}
         except urllib.error.HTTPError as e:
@@ -2303,7 +2349,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/engines":
             return self.json(200, {"gemini": bool(GEMINI_API_KEY), "model": GEMINI_IMAGE_MODEL,
                                    "claude": bool(ANTHROPIC_API_KEY), "openai_vision": bool(API_KEY),
-                                   "claude_model": ANTHROPIC_MODEL})
+                                   "claude_model": ANTHROPIC_MODEL,
+                                   "engines": engines_status(),
+                                   "default_engine": resolve_engine_id({})})
         if path == "/api/shopify-products":
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})
@@ -3077,7 +3125,7 @@ class Handler(BaseHTTPRequestHandler):
                 shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp,
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
-        use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
+        engine = resolve_engine_id(body)
         # AI tự viết prompt (Claude/OpenAI vision) — cần ANTHROPIC_API_KEY hoặc OPENAI_API_KEY.
         ai_prompt = bool(body.get("ai_prompt")) and bool(ANTHROPIC_API_KEY or API_KEY)
         with _batch_lock:
@@ -3086,7 +3134,7 @@ class Handler(BaseHTTPRequestHandler):
             BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_product_job,
-                             args=(job_id, d, shots, bg_key, use_nano, ai_prompt),
+                             args=(job_id, d, shots, bg_key, engine, ai_prompt),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})
@@ -3143,13 +3191,13 @@ class Handler(BaseHTTPRequestHandler):
                           "size": p.get("size") or "1024x1024", "aspect": p.get("aspect", "")})
         if not picks:
             return self.json(400, {"error": "Chưa chọn prompt nào để gen."})
-        use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
+        engine = resolve_engine_id(body)
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "pr%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(picks), "done": 0, "items": [],
                                   "errors": [], "finished": False}
-        t = threading.Thread(target=run_render_job, args=(job_id, d, picks, use_nano),
+        t = threading.Thread(target=run_render_job, args=(job_id, d, picks, engine),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(picks)})
