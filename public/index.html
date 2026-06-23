@@ -49,6 +49,7 @@
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="design">✨ Tạo design</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
+    <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
 
   <main class="layout app-view" id="view-clone">
@@ -795,7 +796,7 @@
         <label class="field-label" style="margin-top:10px">Loại (Type) / Vendor</label>
         <div class="auto-row">
           <input type="text" id="shopType" class="input" value="Áo thun" placeholder="Type" />
-          <input type="text" id="shopVendor" class="input" value="RIENG.VN" placeholder="Vendor" />
+          <input type="text" id="shopVendor" class="input" value="RIENGVN" placeholder="Vendor" />
         </div>
 
         <label class="field-label" style="margin-top:10px">Bộ sưu tập / Danh mục</label>
@@ -849,6 +850,20 @@
         <div class="gallery-empty" id="shopEmpty">Tải ảnh sản phẩm vào để bắt đầu.</div>
       </section>
     </div>
+  </section>
+
+  <!-- ===== VIEW: DANH SÁCH SẢN PHẨM SHOPIFY ===== -->
+  <section class="auto-view app-view hidden" id="view-shoplist">
+    <section class="panel">
+      <div class="gallery-head">
+        <h2 class="panel-title" style="margin:0">📦 Sản phẩm trên Shopify</h2>
+        <button class="btn-ghost sm" id="shoplistRefresh">🔄 Tải lại</button>
+      </div>
+      <p class="panel-desc">Danh sách 50 sản phẩm mới nhất trên shop. Bấm để mở trên Shopify hoặc xoá.</p>
+      <div id="shoplistBanner" class="shop-banner" style="margin-bottom:14px">Đang tải…</div>
+      <div class="auto-grid" id="shoplistGrid"></div>
+      <div class="gallery-empty hidden" id="shoplistEmpty">Chưa có sản phẩm nào.</div>
+    </section>
   </section>
 
   <footer class="site-footer">

@@ -1985,6 +1985,28 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN})
             return self.json(200, {"configured": True, "shop": shop})
+        if path == "/api/shopify-products":
+            if not shopify_configured():
+                return self.json(400, {"error": "Chưa cấu hình Shopify."})
+            try:
+                st, d = shopify_api("GET", "products.json?limit=50&order=created_at+desc")
+                if st != 200:
+                    return self.json(400, {"error": "Lỗi tải sản phẩm: %s" % json.dumps(d)[:200]})
+            except Exception as e:
+                return self.json(400, {"error": "Lỗi tải sản phẩm: %s" % e})
+            out = []
+            for p in (d.get("products") or []):
+                vs = p.get("variants") or []
+                prices = sorted(set(v.get("price") for v in vs if v.get("price")))
+                img = (p.get("image") or {}).get("src") or ((p.get("images") or [{}])[0].get("src") if p.get("images") else "")
+                out.append({
+                    "id": p["id"], "title": p.get("title", ""), "status": p.get("status", ""),
+                    "image": img, "variants": len(vs),
+                    "price_min": prices[0] if prices else "", "price_max": prices[-1] if prices else "",
+                    "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, p["id"]),
+                    "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else "",
+                })
+            return self.json(200, {"products": out})
         if path == "/api/batch-status":
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             jid = (qs.get("id") or [""])[0]
@@ -2094,6 +2116,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_variations(body)
         if path == "/api/shopify-push":
             return self.handle_shopify_push(body)
+        if path == "/api/shopify-delete":
+            if not shopify_configured():
+                return self.json(400, {"error": "Chưa cấu hình Shopify."})
+            pid = body.get("id")
+            if not pid:
+                return self.json(400, {"error": "Thiếu id sản phẩm."})
+            try:
+                st, d = shopify_api("DELETE", "products/%s.json" % pid)
+                if st not in (200, 204):
+                    return self.json(400, {"error": "Xoá lỗi: %s" % json.dumps(d)[:150]})
+            except Exception as e:
+                return self.json(400, {"error": "Xoá lỗi: %s" % e})
+            return self.json(200, {"ok": True})
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":

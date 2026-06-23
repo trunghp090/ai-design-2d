@@ -346,3 +346,10 @@ textarea.input{resize:vertical;line-height:1.5}
 .shop-var>img{width:62px;height:62px;object-fit:contain;border-radius:8px;background:#f4f2fb;border:1px solid var(--line)}
 .shop-var-c{width:62px;margin-top:3px;border:1px solid var(--line);border-radius:6px;padding:3px 5px;font-size:11px;text-align:center}
 .shop-var-x{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:11px;cursor:pointer;line-height:1}
+
+/* Danh sách SP Shopify */
+.sl-info{font-size:11.5px;color:var(--muted);padding:0 8px 4px}
+.sl-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;background:#eee;color:#666}
+.sl-badge.on{background:#eafaf0;color:#176b3a}
+.sl-noimg{height:150px;display:grid;place-items:center;color:var(--muted);font-size:12px;background:#f4f2fb}
+.gcard .gacts .b-del:hover{border-color:#c0392b;color:#c0392b}

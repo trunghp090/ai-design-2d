@@ -582,10 +582,12 @@ function showApp(app) {
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
+  document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
   if (app === "shopify") shopInit();
+  if (app === "shoplist") shoplistInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -2265,5 +2267,51 @@ async function shopPush() {
     $("shopProgText").textContent = "Lỗi";
   } finally {
     $("shopPush").disabled = false;
+  }
+}
+
+/* =====================================================================
+   DANH SÁCH SẢN PHẨM SHOPIFY (xem + xoá)
+   ===================================================================== */
+let shoplistInited = false;
+function shoplistInit() {
+  if (!shoplistInited) { shoplistInited = true; $("shoplistRefresh").onclick = shoplistLoad; }
+  shoplistLoad();
+}
+async function shoplistLoad() {
+  const grid = $("shoplistGrid"), banner = $("shoplistBanner");
+  banner.className = "shop-banner"; banner.textContent = "Đang tải…";
+  grid.innerHTML = ""; $("shoplistEmpty").classList.add("hidden");
+  try {
+    const d = await (await fetch("/api/shopify-products")).json();
+    if (d.error) throw new Error(d.error);
+    const ps = d.products || [];
+    banner.className = "shop-banner ok"; banner.innerHTML = "✅ " + ps.length + " sản phẩm mới nhất.";
+    if (!ps.length) { $("shoplistEmpty").classList.remove("hidden"); return; }
+    ps.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "gcard";
+      const price = p.price_min ? (p.price_min === p.price_max ? p.price_min : p.price_min + "–" + p.price_max) + "đ" : "";
+      const stt = p.status === "active" ? '<span class="sl-badge on">Đang bán</span>' : '<span class="sl-badge">Nháp</span>';
+      card.innerHTML =
+        (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
+        '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
+        '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
+        '<div class="gacts"><button class="b-open">↗ Mở</button><button class="b-del">🗑️ Xoá</button></div>';
+      card.querySelector(".b-open").onclick = () => window.open(p.url, "_blank");
+      card.querySelector(".b-del").onclick = async (e) => {
+        if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
+        const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
+        try {
+          const r = await fetch("/api/shopify-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+          const dd = await r.json();
+          if (!r.ok) throw new Error(dd.error || "Lỗi xoá");
+          card.remove();
+        } catch (err) { alert("✗ " + err.message); btn.disabled = false; btn.textContent = "🗑️ Xoá"; }
+      };
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    banner.className = "shop-banner warn"; banner.textContent = "⚠️ " + err.message;
   }
 }
