@@ -2595,6 +2595,7 @@ class Handler(BaseHTTPRequestHandler):
         # 4) Add vào collection
         if coll_id:
             shopify_api("POST", "collects.json", {"collect": {"product_id": pid, "collection_id": coll_id}})
+        # (Sản phẩm đẩy lên là độc lập — không liên quan app TeeInBlue)
         handle = prod.get("handle", "")
         return {"ok": True, "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, pid),
                 "store_url": ("https://rieng.vn/products/%s" % handle) if handle else "",
