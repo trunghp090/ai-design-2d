@@ -1997,11 +1997,23 @@ class Handler(BaseHTTPRequestHandler):
             out = []
             for p in (d.get("products") or []):
                 vs = p.get("variants") or []
+                imgs = p.get("images") or []
                 prices = sorted(set(v.get("price") for v in vs if v.get("price")))
-                img = (p.get("image") or {}).get("src") or ((p.get("images") or [{}])[0].get("src") if p.get("images") else "")
+                img = (p.get("image") or {}).get("src") or (imgs[0].get("src") if imgs else "")
+                # map image_id -> src để gán ảnh cho từng variant
+                id2src = {im.get("id"): im.get("src") for im in imgs}
+                options = [{"name": o.get("name"), "values": o.get("values") or []} for o in (p.get("options") or [])]
+                # gom variant theo từng tổ hợp option, kèm ảnh
+                vlist = []
+                for v in vs:
+                    opts = [v.get("option1"), v.get("option2"), v.get("option3")]
+                    opts = [o for o in opts if o]
+                    vlist.append({"title": " / ".join(opts), "price": v.get("price", ""),
+                                  "image": id2src.get(v.get("image_id")) or ""})
                 out.append({
                     "id": p["id"], "title": p.get("title", ""), "status": p.get("status", ""),
-                    "image": img, "variants": len(vs),
+                    "image": img, "variants": len(vs), "options": options,
+                    "variant_list": vlist[:60], "images": [im.get("src") for im in imgs][:12],
                     "price_min": prices[0] if prices else "", "price_max": prices[-1] if prices else "",
                     "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, p["id"]),
                     "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else "",

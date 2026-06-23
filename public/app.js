@@ -2293,10 +2293,26 @@ async function shoplistLoad() {
       card.className = "gcard";
       const price = p.price_min ? (p.price_min === p.price_max ? p.price_min : p.price_min + "–" + p.price_max) + "đ" : "";
       const stt = p.status === "active" ? '<span class="sl-badge on">Đang bán</span>' : '<span class="sl-badge">Nháp</span>';
+      // tóm tắt options (Color: ... / Size: ...)
+      const optSum = (p.options || []).filter(o => !(o.values.length === 1 && o.values[0] === "Default Title"))
+        .map(o => '<span class="sl-opt"><b>' + o.name + ':</b> ' + (o.values || []).join(", ") + "</span>").join("");
+      // ảnh variant riêng biệt (gom theo ảnh, kèm nhãn màu) — giống trang setup Shopify
+      const seen = {}, vt = [];
+      (p.variant_list || []).forEach(v => {
+        if (!v.image || seen[v.image]) return; seen[v.image] = 1;
+        const label = (v.title || "").split(" / ")[0];
+        vt.push('<div class="shop-var"><img src="' + v.image + '" alt=""><div class="shop-var-c" style="border:0">' + label + "</div></div>");
+      });
+      const variantBlock = (optSum || vt.length)
+        ? '<details class="sl-variants"><summary>🎨 Xem variant (' + p.variants + ")</summary>" +
+          (optSum ? '<div class="sl-opts">' + optSum + "</div>" : "") +
+          (vt.length ? '<div class="shop-variants">' + vt.join("") + "</div>" : "") + "</details>"
+        : "";
       card.innerHTML =
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
+        variantBlock +
         '<div class="gacts"><button class="b-open">↗ Mở</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-open").onclick = () => window.open(p.url, "_blank");
       card.querySelector(".b-del").onclick = async (e) => {
