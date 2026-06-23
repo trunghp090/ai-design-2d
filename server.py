@@ -462,6 +462,36 @@ def shop_norm_color(c):
     return SHOP_COLOR_NORM.get(c.lower(), c)
 
 
+# Mô tả mặc định (size + thông tin + bảo quản) — tự thêm vào mọi sản phẩm
+SHOP_DEFAULT_DESC_HTML = (
+    "<p>Các bạn vui lòng tham khảo kỹ thông số về size áo theo bảng trên.</p>"
+    "<p><strong>THÔNG TIN SẢN PHẨM:</strong></p>"
+    "<ul>"
+    "<li>Màu nhuộm được xử lý nhiệt và giặt công nghiệp nên có độ bền màu cao</li>"
+    "<li>Form áo rộng, phù hợp với nhiều phong cách và dáng người khác nhau</li>"
+    "<li>Được kiểm hàng và chấp nhận đổi trả nếu sản phẩm có sai sót về chất lượng</li>"
+    "</ul>"
+    "<p><strong>HƯỚNG DẪN BẢO QUẢN:</strong></p>"
+    "<ul>"
+    "<li>Nên giặt áo bằng tay và bằng nước lạnh để tránh bị sờn, dãn áo</li>"
+    "<li>Lộn trái áo trước khi giặt để hình in bền màu lâu hơn</li>"
+    "<li>Hạn chế ngâm áo lâu trong nước hoặc dùng chất tẩy mạnh, đặc biệt đối với áo có màu</li>"
+    "<li>Phơi nắng hoặc ủi áo dưới nhiệt độ vừa phải giúp hạn chế tình trạng sờn vải, giữ màu áo luôn như mới</li>"
+    "</ul>"
+)
+
+
+def shop_text_to_html(t):
+    """Chuỗi mô tả thường -> HTML (giữ xuống dòng). Nếu đã là HTML thì giữ nguyên."""
+    t = (t or "").strip()
+    if not t:
+        return ""
+    if "<" in t and ">" in t:
+        return t
+    paras = [p.strip() for p in t.split("\n\n") if p.strip()]
+    return "".join("<p>%s</p>" % p.replace("\n", "<br>") for p in paras)
+
+
 SHOP_LISTING_SYSTEM = (
     "Bạn là chuyên gia bán áo thun online ở Việt Nam. Nhìn ảnh sản phẩm áo, viết nội dung đăng bán "
     "HẤP DẪN & CHUẨN SEO cho shop Việt: tên sản phẩm ngắn gọn thu hút (tiếng Việt), mô tả HTML 2–4 câu "
@@ -2623,17 +2653,22 @@ class Handler(BaseHTTPRequestHandler):
         # màu chuẩn hoá + có map swatch không
         std_for = {id(v): shop_norm_color(v.get("color")) for v in variants_in}
         all_mapped = has_color and all(std_for[id(v)] in SHOP_COLOR_META for v in variants_in)
-        # 1) Nội dung
+        # 1) Nội dung: intro (AI/tự nhập) + khối mô tả mặc định (size + bảo quản)
         title = (it.get("title") or "").strip()
-        body_html = (it.get("description") or "").strip() or def_desc
+        custom = (it.get("description") or "").strip() or def_desc
         tags = []
-        if use_ai and (not title or not body_html):
+        ai_html = ""
+        if use_ai and (not title or not custom):
             ai = shopify_listing(variants_in[0]["image"])
             title = title or ai.get("title", "")
-            body_html = body_html or ai.get("body_html", "")
+            ai_html = ai.get("body_html", "")
             tags = ai.get("tags", [])
         if not title:
             title = "Áo thun in"
+        intro = shop_text_to_html(custom) if custom else ai_html
+        body_html = intro or ""
+        if "BẢO QUẢN" not in body_html:   # tránh thêm trùng nếu user đã tự nhập
+            body_html = (body_html + SHOP_DEFAULT_DESC_HTML) if body_html else SHOP_DEFAULT_DESC_HTML
         price = str(it.get("price") or "0").strip()
 
         # 2) Options
