@@ -93,6 +93,9 @@ API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
+# Gemini "Nano Banana Pro" (ảnh chân thực hơn cho ảnh sản phẩm)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview").strip()
 # Shopify Admin API (đẩy sản phẩm)
 SHOPIFY_DOMAIN = os.environ.get("SHOPIFY_DOMAIN", "").strip()        # vd: xxx.myshopify.com
 SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # token cố định (tuỳ chọn)
@@ -300,6 +303,53 @@ def _openai_call(req, timeout=300, tries=3):
             time.sleep(2 * (attempt + 1))
             continue
     raise last
+
+
+def gemini_edit(images, prompt, aspect=""):
+    """Nano Banana Pro (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY")
+    parts = [{"text": prompt}]
+    for d, m in images:
+        parts.append({"inline_data": {"mime_type": m or "image/png",
+                                      "data": base64.b64encode(d).decode()}})
+    gen = {"responseModalities": ["IMAGE"]}
+    if aspect:
+        gen["imageConfig"] = {"aspectRatio": aspect}   # vd "4:5", "1:1"
+    payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": gen}
+    url = ("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
+           % GEMINI_IMAGE_MODEL)
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("x-goog-api-key", GEMINI_API_KEY)
+    res = json.loads(_openai_call(req, timeout=300))
+    for cand in res.get("candidates", []):
+        for p in (cand.get("content") or {}).get("parts", []):
+            inl = p.get("inline_data") or p.get("inlineData")
+            if inl and inl.get("data"):
+                return inl["data"]
+    raise RuntimeError("Gemini không trả ảnh (%s)" % json.dumps(res)[:200])
+
+
+# size "WxH" -> tỉ lệ Gemini gần nhất
+def _aspect_for(size):
+    try:
+        w, h = (size or "").lower().split("x")
+        w, h = int(w), int(h)
+    except Exception:
+        return "1:1"
+    if h > w * 1.15:
+        return "4:5"
+    if w > h * 1.15:
+        return "3:2"
+    return "1:1"
+
+
+def gen_shot(images, prompt, size, use_nano):
+    """Sinh 1 ảnh sản phẩm: Nano Banana Pro nếu bật & có key, không thì OpenAI gpt-image."""
+    if use_nano and GEMINI_API_KEY:
+        return gemini_edit(images, prompt, _aspect_for(size))
+    return openai_edit(images, prompt, size, native_transparent=False)
 
 
 def openai_edit(images, prompt, size, native_transparent):
@@ -938,12 +988,12 @@ def product_prompt(cat, vk, bg_key):
     return ("Top-down %s %s%s %s" % (_KRAFT_BASE, v, _KNEG, PRODUCT_NEG))
 
 
-def run_product_job(job_id, img, shots, bg_key):
+def run_product_job(job_id, img, shots, bg_key, use_nano=False):
     def work(shot):
         try:
-            b64 = openai_edit([(img, "image/png")],
-                              product_prompt(shot["cat"], shot["vk"], bg_key),
-                              shot["size"], native_transparent=False)
+            b64 = gen_shot([(img, "image/png")],
+                           product_prompt(shot["cat"], shot["vk"], bg_key),
+                           shot["size"], use_nano)
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
             return {"image": b64, "title": shot["label"], "gallery": g}
         except urllib.error.HTTPError as e:
@@ -2097,6 +2147,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN})
             return self.json(200, {"configured": True, "shop": shop})
+        if path == "/api/engines":
+            return self.json(200, {"gemini": bool(GEMINI_API_KEY), "model": GEMINI_IMAGE_MODEL})
         if path == "/api/shopify-products":
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})
@@ -2863,12 +2915,13 @@ class Handler(BaseHTTPRequestHandler):
                 shots.append({"cat": c, "vk": vk, "size": meta["size"],
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
+        use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "p%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
                                   "errors": [], "finished": False}
-        t = threading.Thread(target=run_product_job, args=(job_id, d, shots, bg_key),
+        t = threading.Thread(target=run_product_job, args=(job_id, d, shots, bg_key, use_nano),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})

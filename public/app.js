@@ -1492,12 +1492,26 @@ let prodInited = false;
 function prodInit() {
   if (prodInited) return; prodInited = true;
   prodRenderShots();
+  prodCheckEngine();
   if ($("prodHistRefresh")) $("prodHistRefresh").onclick = prodLoadHistory;
   if ($("prodHistToShop")) $("prodHistToShop").onclick = () => {
     if (!prodHistSel.size) { alert("Tích chọn ít nhất 1 ảnh trong lịch sử."); return; }
     openPickProd([...prodHistSel].map(u => ({ url: u })));
   };
   prodLoadHistory();
+}
+async function prodCheckEngine() {
+  try {
+    const d = await (await fetch("/api/engines")).json();
+    const cb = $("prodNano"), hint = $("prodNanoHint");
+    if (d.gemini) {
+      if (cb) { cb.disabled = false; cb.checked = true; }
+      if (hint) hint.innerHTML = "✅ Đã kết nối Nano Banana Pro (" + (d.model || "") + ").";
+    } else {
+      if (cb) { cb.disabled = true; cb.checked = false; }
+      if (hint) hint.innerHTML = "⚠️ Chưa cấu hình GEMINI_API_KEY — đang dùng gpt-image. Thêm key để bật Nano Banana Pro.";
+    }
+  } catch (e) { /* im lặng */ }
 }
 // Lịch sử ảnh sản phẩm đã tạo (gallery mode=product)
 let prodHistSel = new Set();   // url các ảnh được tích chọn
@@ -1618,7 +1632,7 @@ $("prodRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-photos", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, nano: !!($("prodNano") && $("prodNano").checked) }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
