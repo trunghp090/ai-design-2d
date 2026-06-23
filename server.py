@@ -96,6 +96,11 @@ TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 # Gemini "Nano Banana Pro" (ảnh chân thực hơn cho ảnh sản phẩm)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview").strip()
+# Claude API (Anthropic) — viết prompt ảnh sản phẩm chân thực, nhìn ảnh áo (vision).
+# Đây là "Claude viết prompt" mà skill nano-banana dựa vào, gọi qua API key (KHÔNG phải agent).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8").strip()
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 # Shopify Admin API (đẩy sản phẩm)
 SHOPIFY_DOMAIN = os.environ.get("SHOPIFY_DOMAIN", "").strip()        # vd: xxx.myshopify.com
 SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # token cố định (tuỳ chọn)
@@ -396,6 +401,38 @@ def openai_chat(messages, json_mode=True, max_tokens=1500):
     req.add_header("Content-Type", "application/json")
     res = json.loads(_openai_call(req, timeout=120))
     return res["choices"][0]["message"]["content"]
+
+
+def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700):
+    """Gọi Claude API (Anthropic Messages) có vision: nhìn 1 ảnh + chỉ dẫn -> trả text.
+
+    Dùng cho việc 'Claude viết prompt ảnh sản phẩm'. Gọi qua API key, không phải agent.
+    """
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("Chưa cấu hình ANTHROPIC_API_KEY")
+    b64 = base64.b64encode(img_bytes).decode()
+    payload = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": max_tokens,
+        "system": system,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image", "source": {"type": "base64",
+                                             "media_type": media, "data": b64}},
+            ],
+        }],
+    }
+    req = urllib.request.Request(ANTHROPIC_URL, data=json.dumps(payload).encode(),
+                                 method="POST")
+    req.add_header("x-api-key", ANTHROPIC_API_KEY)
+    req.add_header("anthropic-version", "2023-06-01")
+    req.add_header("Content-Type", "application/json")
+    res = json.loads(_openai_call(req, timeout=120))
+    # Trả về text của các block type=="text"; bỏ qua thinking/khác.
+    parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
+    return "\n".join(p for p in parts if p).strip()
 
 
 # --------------------------------------------------------------------------- #
@@ -995,11 +1032,59 @@ def product_prompt(cat, vk, bg_key):
     return ("Top-down %s %s%s %s" % (_KRAFT_BASE, v, _KNEG, PRODUCT_NEG))
 
 
-def run_product_job(job_id, img, shots, bg_key, use_nano=False):
+# AI (OpenAI vision) tự viết prompt từ ảnh design — thay vai trò "Claude viết prompt" trong skill
+PRODUCT_PROMPT_SYSTEM = (
+    "Bạn là chuyên gia viết prompt ảnh sản phẩm áo thun SIÊU THỰC (phong cách Nano Banana). "
+    "Bạn được đưa ẢNH MỘT CHIẾC ÁO ĐÃ CÓ SẴN DESIGN. Hãy viết MỘT prompt TIẾNG ANH cho model "
+    "tạo ảnh, mô tả một CẢNH THẬT như ảnh chụp đời thường. QUY TẮC BẮT BUỘC: KHÔNG mô tả/đặt tên/"
+    "vẽ lại nội dung design — GIỮ NGUYÊN design từ ảnh tham chiếu (same artwork, SAME SIZE, SAME "
+    "POSITION, không thu nhỏ/dời/redraw). Tả kỹ: bối cảnh, ánh sáng tự nhiên, chất vải cotton thật "
+    "có nếp gấp & bóng đổ mềm, (nếu có người) da thật & biểu cảm tự nhiên, cảm giác ảnh chụp bằng "
+    "điện thoại; cực kỳ photorealistic, NOT 3D render, NOT CGI, NOT illustration, NOT AI-looking. "
+    "Chỉ trả về CÂU PROMPT thuần, không giải thích, không markdown."
+)
+
+
+def product_prompt_ai(img_bytes, cat, vk, bg_key):
+    """AI nhìn ảnh áo -> tự viết prompt chân thực cho shot này. Lỗi -> prompt mẫu.
+
+    Ưu tiên Claude API (Anthropic, có ANTHROPIC_API_KEY) — đúng kiểu skill nano-banana;
+    nếu không có thì dùng OpenAI vision (gpt-4o-mini). Cả hai lỗi -> prompt mẫu cứng.
+    """
+    base = product_prompt(cat, vk, bg_key)   # gợi ý loại ảnh + bối cảnh + pose
+    instr = ("Loại ảnh & bối cảnh cần đạt (tham khảo, hãy viết lại tự nhiên & chi tiết hơn): "
+             + base + " — Viết 1 prompt tiếng Anh siêu thực cho ảnh áo dưới đây, "
+             "GIỮ NGUYÊN design. Chỉ trả prompt.")
+    # 1) Claude (nếu có key)
+    if ANTHROPIC_API_KEY:
+        try:
+            p = claude_vision(PRODUCT_PROMPT_SYSTEM, instr, img_bytes, max_tokens=700)
+            p = (p or "").strip().strip('"')
+            if len(p) > 30:
+                return p
+        except Exception:
+            pass
+    # 2) OpenAI vision (fallback)
+    b64 = base64.b64encode(img_bytes).decode()
+    content = [
+        {"type": "text", "text": instr},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
+    ]
+    try:
+        p = openai_chat([{"role": "system", "content": PRODUCT_PROMPT_SYSTEM},
+                         {"role": "user", "content": content}], json_mode=False, max_tokens=600)
+        p = (p or "").strip().strip('"')
+        return p if len(p) > 30 else base
+    except Exception:
+        return base
+
+
+def run_product_job(job_id, img, shots, bg_key, use_nano=False, ai_prompt=False):
     def work(shot):
         try:
-            b64 = gen_shot([(img, "image/png")],
-                           product_prompt(shot["cat"], shot["vk"], bg_key),
+            prompt = (product_prompt_ai(img, shot["cat"], shot["vk"], bg_key) if ai_prompt
+                      else product_prompt(shot["cat"], shot["vk"], bg_key))
+            b64 = gen_shot([(img, "image/png")], prompt,
                            shot["size"], use_nano, shot.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
             return {"image": b64, "title": shot["label"], "gallery": g}
@@ -2155,7 +2240,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN})
             return self.json(200, {"configured": True, "shop": shop})
         if path == "/api/engines":
-            return self.json(200, {"gemini": bool(GEMINI_API_KEY), "model": GEMINI_IMAGE_MODEL})
+            return self.json(200, {"gemini": bool(GEMINI_API_KEY), "model": GEMINI_IMAGE_MODEL,
+                                   "claude": bool(ANTHROPIC_API_KEY), "openai_vision": bool(API_KEY),
+                                   "claude_model": ANTHROPIC_MODEL})
         if path == "/api/shopify-products":
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})
@@ -2926,12 +3013,15 @@ class Handler(BaseHTTPRequestHandler):
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
         use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
+        # AI tự viết prompt (Claude/OpenAI vision) — cần ANTHROPIC_API_KEY hoặc OPENAI_API_KEY.
+        ai_prompt = bool(body.get("ai_prompt")) and bool(ANTHROPIC_API_KEY or API_KEY)
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "p%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
                                   "errors": [], "finished": False}
-        t = threading.Thread(target=run_product_job, args=(job_id, d, shots, bg_key, use_nano),
+        t = threading.Thread(target=run_product_job,
+                             args=(job_id, d, shots, bg_key, use_nano, ai_prompt),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})

@@ -1511,6 +1511,18 @@ async function prodCheckEngine() {
       if (cb) { cb.disabled = true; cb.checked = false; }
       if (hint) hint.innerHTML = "⚠️ Chưa cấu hình GEMINI_API_KEY — đang dùng gpt-image. Thêm key để bật Nano Banana Pro.";
     }
+    // AI tự viết prompt: ưu tiên Claude, fallback OpenAI vision
+    const acb = $("prodAi"), ahint = $("prodAiHint");
+    if (d.claude) {
+      if (acb) { acb.disabled = false; acb.checked = true; }
+      if (ahint) ahint.innerHTML = "✅ Claude (" + (d.claude_model || "") + ") sẽ nhìn ảnh áo và tự viết prompt chân thực.";
+    } else if (d.openai_vision) {
+      if (acb) { acb.disabled = false; acb.checked = true; }
+      if (ahint) ahint.innerHTML = "✅ Dùng OpenAI vision viết prompt. Thêm <b>ANTHROPIC_API_KEY</b> để Claude viết (đúng kiểu skill, đẹp hơn).";
+    } else {
+      if (acb) { acb.disabled = true; acb.checked = false; }
+      if (ahint) ahint.innerHTML = "⚠️ Chưa có ANTHROPIC_API_KEY / OPENAI_API_KEY — dùng prompt mẫu cứng (dễ bị giả).";
+    }
   } catch (e) { /* im lặng */ }
 }
 // Lịch sử ảnh sản phẩm đã tạo (gallery mode=product)
@@ -1632,7 +1644,7 @@ $("prodRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-photos", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, nano: !!($("prodNano") && $("prodNano").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, nano: !!($("prodNano") && $("prodNano").checked), ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
