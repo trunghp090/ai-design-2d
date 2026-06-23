@@ -402,6 +402,60 @@ def shopify_collection_id(title):
     return ((d or {}).get("custom_collection") or {}).get("id")
 
 
+def shopify_graphql(query, variables=None):
+    url = "https://%s/admin/api/%s/graphql.json" % (SHOPIFY_DOMAIN, SHOPIFY_API_VER)
+    data = json.dumps({"query": query, "variables": variables or {}}).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("X-Shopify-Access-Token", shopify_token())
+    req.add_header("Content-Type", "application/json")
+    r = urllib.request.urlopen(req, timeout=60)
+    return json.loads(r.read().decode("utf-8", "ignore"))
+
+
+# ===== Khuôn sản phẩm áo thun (copy từ SP mẫu 'test 1' trên RIENG.VN) =====
+SHOP_CATEGORY = "gid://shopify/TaxonomyCategory/aa-1-13-8"   # Apparel > Clothing Tops > T-Shirts
+SHOP_COLOR_META = {   # tên màu chuẩn -> metaobject swatch (shopify.color-pattern)
+    "Màu đen": "gid://shopify/Metaobject/150711369776",
+    "Màu trắng": "gid://shopify/Metaobject/150711205936",
+    "Màu xanh rêu": "gid://shopify/Metaobject/150711500848",
+    "Màu be": "gid://shopify/Metaobject/150711599152",
+    "Màu đỏ": "gid://shopify/Metaobject/150711435312",
+    "Đỏ đô": "gid://shopify/Metaobject/150607102000",
+    "Màu nâu": "gid://shopify/Metaobject/150711631920",
+}
+SHOP_SIZE_META = {
+    "S": "gid://shopify/Metaobject/150607200304", "M": "gid://shopify/Metaobject/150607265840",
+    "L": "gid://shopify/Metaobject/150607298608", "XL": "gid://shopify/Metaobject/150607364144",
+    "XXL": "gid://shopify/Metaobject/150607429680",
+}
+# tên màu từ tool (Lên áo) -> tên màu chuẩn
+SHOP_COLOR_NORM = {
+    "đen": "Màu đen", "trắng": "Màu trắng", "trang": "Màu trắng",
+    "xanh rêu": "Màu xanh rêu", "xanh reu": "Màu xanh rêu",
+    "be": "Màu be", "đỏ": "Màu đỏ", "do": "Màu đỏ",
+    "đỏ đô": "Đỏ đô", "do do": "Đỏ đô", "nâu": "Màu nâu", "nau": "Màu nâu",
+}
+SHOP_FIXED_METAFIELDS = [
+    {"namespace": "shopify", "key": "sleeve-length-type", "type": "list.metaobject_reference",
+     "value": '["gid://shopify/Metaobject/167585382448"]'},                 # Ngắn
+    {"namespace": "shopify", "key": "age-group", "type": "list.metaobject_reference",
+     "value": '["gid://shopify/Metaobject/167585316912"]'},                 # Người lớn
+    {"namespace": "shopify", "key": "neckline", "type": "list.metaobject_reference",
+     "value": '["gid://shopify/Metaobject/167585284144"]'},                 # Tròn cao
+    {"namespace": "shopify", "key": "target-gender", "type": "list.metaobject_reference",
+     "value": '["gid://shopify/Metaobject/167585349680"]'},                 # Cả nam lẫn nữ
+    {"namespace": "shopify", "key": "top-length-type", "type": "list.metaobject_reference",
+     "value": '["gid://shopify/Metaobject/167585251376","gid://shopify/Metaobject/167585415216"]'},  # Vừa, Dài
+    {"namespace": "mm-google-shopping", "key": "google_product_category", "type": "string", "value": "212"},
+    {"namespace": "mc-facebook", "key": "google_product_category", "type": "string", "value": "212"},
+]
+
+
+def shop_norm_color(c):
+    c = (c or "").strip()
+    return SHOP_COLOR_NORM.get(c.lower(), c)
+
+
 SHOP_LISTING_SYSTEM = (
     "Bạn là chuyên gia bán áo thun online ở Việt Nam. Nhìn ảnh sản phẩm áo, viết nội dung đăng bán "
     "HẤP DẪN & CHUẨN SEO cho shop Việt: tên sản phẩm ngắn gọn thu hút (tiếng Việt), mô tả HTML 2–4 câu "
@@ -2559,9 +2613,11 @@ class Handler(BaseHTTPRequestHandler):
         variants_in = [v for v in (it.get("variants") or []) if v.get("image")]
         if not variants_in:
             return {"ok": False, "error": "Sản phẩm không có ảnh."}
-        colors = [(v.get("color") or "").strip() for v in variants_in]
-        has_color = any(colors)
-        # 1) Nội dung: AI viết hoặc dùng nhập tay/mặc định
+        has_color = any((v.get("color") or "").strip() for v in variants_in)
+        # màu chuẩn hoá + có map swatch không
+        std_for = {id(v): shop_norm_color(v.get("color")) for v in variants_in}
+        all_mapped = has_color and all(std_for[id(v)] in SHOP_COLOR_META for v in variants_in)
+        # 1) Nội dung
         title = (it.get("title") or "").strip()
         body_html = (it.get("description") or "").strip() or def_desc
         tags = []
@@ -2572,68 +2628,106 @@ class Handler(BaseHTTPRequestHandler):
             tags = ai.get("tags", [])
         if not title:
             title = "Áo thun in"
-        # 2) Options + variants
-        size_vals = sizes or [""]
-        opt_names, var_list = [], []
         price = str(it.get("price") or "0").strip()
+
+        # 2) Options
+        product_options = []
+        distinct_colors = []
         if has_color:
-            opt_names = ["Color"] + (["Size"] if sizes else [])
-            for ci, v in enumerate(variants_in):
-                c = colors[ci] or ("Màu %d" % (ci + 1))
-                for s in size_vals:
-                    vv = {"option1": c, "price": price}
-                    if sizes:
-                        vv["option2"] = s
-                    var_list.append(vv)
-        else:
-            opt_names = ["Size"] if sizes else ["Title"]
-            for s in size_vals:
-                var_list.append({"option1": s or "Default Title", "price": price})
-        product = {
-            "title": title, "body_html": body_html,
-            "status": "active" if (it.get("status") == "ACTIVE") else "draft",
-            "options": [{"name": n} for n in opt_names],
-            "variants": var_list,
+            seen = set()
+            for v in variants_in:
+                c = std_for[id(v)]
+                if c not in seen:
+                    seen.add(c); distinct_colors.append(c)
+            if all_mapped:
+                product_options.append({"name": "Màu", "linkedMetafield": {
+                    "namespace": "shopify", "key": "color-pattern",
+                    "values": [SHOP_COLOR_META[c] for c in distinct_colors]}})
+            else:
+                product_options.append({"name": "Màu", "values": [{"name": c} for c in distinct_colors]})
+        if sizes:
+            product_options.append({"name": "Size", "values": [{"name": s} for s in sizes]})
+
+        # 3) Variants
+        gql_variants = []
+        for v in variants_in:
+            c = std_for[id(v)]
+            for s in (sizes or [None]):
+                ov = []
+                if has_color:
+                    ov.append({"optionName": "Màu",
+                               "linkedMetafieldValue": SHOP_COLOR_META[c]} if all_mapped
+                              else {"optionName": "Màu", "name": c})
+                if s is not None:
+                    ov.append({"optionName": "Size", "name": s})
+                vv = {"price": price}
+                if ov:
+                    vv["optionValues"] = ov
+                gql_variants.append(vv)
+
+        # 4) Metafields (category metafields theo khuôn)
+        metafields = list(SHOP_FIXED_METAFIELDS)
+        sz_gids = [SHOP_SIZE_META[s] for s in sizes if s in SHOP_SIZE_META]
+        if sz_gids:
+            metafields.append({"namespace": "shopify", "key": "size", "type": "list.metaobject_reference",
+                               "value": json.dumps(sz_gids)})
+
+        prod_input = {
+            "title": title, "descriptionHtml": body_html,
+            "status": "ACTIVE" if (it.get("status") == "ACTIVE") else "DRAFT",
+            "category": SHOP_CATEGORY,
+            "productType": ptype or "Áo thun", "vendor": vendor or "RIENGVN",
+            "metafields": metafields,
         }
-        if ptype:
-            product["product_type"] = ptype
-        if vendor:
-            product["vendor"] = vendor
         if tmpl:
-            product["template_suffix"] = tmpl
+            prod_input["templateSuffix"] = tmpl
         if tags:
-            product["tags"] = ", ".join(tags)
-        st, d = shopify_api("POST", "products.json", {"product": product})
-        if st not in (200, 201):
-            return {"ok": False, "error": "Tạo SP lỗi: %s" % json.dumps(d.get("errors", d))[:200]}
-        prod = d["product"]
-        pid = prod["id"]
-        # map color -> variant ids (gán ảnh theo màu)
+            prod_input["tags"] = tags
+        if product_options:
+            prod_input["productOptions"] = product_options
+        if gql_variants:
+            prod_input["variants"] = gql_variants
+        if coll_id:
+            prod_input["collections"] = ["gid://shopify/Collection/%s" % coll_id]
+
+        q = ("mutation s($input: ProductSetInput!){ productSet(synchronous:true, input:$input){ "
+             "product{ id handle variants(first:100){ nodes{ id selectedOptions{ name value } } } } "
+             "userErrors{ field message } } }")
+        res = shopify_graphql(q, {"input": prod_input})
+        if res.get("errors"):
+            return {"ok": False, "error": "GraphQL: %s" % json.dumps(res["errors"])[:200]}
+        ps = (res.get("data") or {}).get("productSet") or {}
+        errs = ps.get("userErrors") or []
+        if errs:
+            return {"ok": False, "error": "; ".join(e.get("message", "") for e in errs)[:250]}
+        prod = ps.get("product") or {}
+        gid = prod.get("id", "")
+        pid = int(gid.split("/")[-1]) if gid else 0
+        # map màu -> numeric variant ids (để gán ảnh)
         color_vids = {}
-        for v in prod["variants"]:
-            color_vids.setdefault(v.get("option1"), []).append(v["id"])
-        # 3) Ảnh: bảng size trước (nếu có), rồi ảnh từng màu (gán variant_ids)
+        for vn in (prod.get("variants") or {}).get("nodes", []):
+            cval = next((o["value"] for o in vn.get("selectedOptions", []) if o["name"] == "Màu"), None)
+            vid = int(vn["id"].split("/")[-1])
+            color_vids.setdefault(cval, []).append(vid)
+
+        # 5) Ảnh qua REST: bảng size (đầu) -> ảnh từng màu (gán variant_ids)
         pos = 1
         if size_chart:
             b = size_chart.split(",", 1)[1] if size_chart.startswith("data:") else size_chart
             shopify_api("POST", "products/%d/images.json" % pid,
                         {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
             pos += 1
-        for ci, v in enumerate(variants_in):
+        for v in variants_in:
             img = {"attachment": v["image"], "position": pos}
             if has_color:
-                c = colors[ci] or ("Màu %d" % (ci + 1))
-                if color_vids.get(c):
-                    img["variant_ids"] = color_vids[c]
+                vids = color_vids.get(std_for[id(v)])
+                if vids:
+                    img["variant_ids"] = vids
             shopify_api("POST", "products/%d/images.json" % pid, {"image": img})
             pos += 1
-        # 4) Add vào collection
-        if coll_id:
-            shopify_api("POST", "collects.json", {"collect": {"product_id": pid, "collection_id": coll_id}})
-        # (Sản phẩm đẩy lên là độc lập — không liên quan app TeeInBlue)
-        handle = prod.get("handle", "")
+
         return {"ok": True, "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, pid),
-                "store_url": ("https://rieng.vn/products/%s" % handle) if handle else "",
+                "store_url": ("https://rieng.vn/products/%s" % prod.get("handle", "")) if prod.get("handle") else "",
                 "title": title}
 
     def handle_product_content(self, body):
