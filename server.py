@@ -2221,6 +2221,30 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_variations(body)
         if path == "/api/shopify-push":
             return self.handle_shopify_push(body)
+        if path == "/api/shopify-add-images":
+            if not shopify_configured():
+                return self.json(400, {"error": "Chưa cấu hình Shopify."})
+            pid = body.get("id")
+            imgs = body.get("images") or []
+            mode = body.get("mode", "append")
+            if not pid or not imgs:
+                return self.json(400, {"error": "Thiếu sản phẩm hoặc ảnh."})
+            try:
+                if mode == "replace":
+                    st, d = shopify_api("GET", "products/%s/images.json" % pid)
+                    for im in (d or {}).get("images", []):
+                        shopify_api("DELETE", "products/%s/images/%s.json" % (pid, im["id"]))
+                n = 0
+                for im in imgs:
+                    b = im.split(",", 1)[1] if str(im).startswith("data:") else im
+                    if not b:
+                        continue
+                    st, _ = shopify_api("POST", "products/%s/images.json" % pid, {"image": {"attachment": b}})
+                    if st in (200, 201):
+                        n += 1
+            except Exception as e:
+                return self.json(400, {"error": "Lỗi cập nhật ảnh: %s" % e})
+            return self.json(200, {"ok": True, "count": n})
         if path == "/api/shopify-delete":
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})

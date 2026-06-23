@@ -2341,7 +2341,7 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-open">🌐 Xem trang bán</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+        '<div class="gacts"><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-open").onclick = () => {
         if (p.status !== "active") {
           if (!confirm("Sản phẩm đang NHÁP nên trang bán chưa công khai (có thể 404). Vẫn mở?")) return;
@@ -2350,6 +2350,7 @@ async function shoplistLoad() {
       };
       card.querySelector("img")?.addEventListener("click", () => window.open(p.store_url || p.url, "_blank"));
       card.querySelector(".b-admin").onclick = () => window.open(p.url, "_blank");
+      card.querySelector(".b-img").onclick = () => openImgUpdate(p);
       card.querySelector(".b-del").onclick = async (e) => {
         if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
         const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
@@ -2366,3 +2367,59 @@ async function shoplistLoad() {
     banner.className = "shop-banner warn"; banner.textContent = "⚠️ " + err.message;
   }
 }
+
+/* ===== Cập nhật ảnh cho sản phẩm Shopify có sẵn ===== */
+let imgState = { id: null, name: "", images: [] };
+function openImgUpdate(p) {
+  imgState = { id: p.id, name: p.title || "", images: [] };
+  $("imgProdName").textContent = "Sản phẩm: " + (p.title || p.id);
+  $("imgThumbs").innerHTML = ""; $("imgDropName").textContent = "⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm";
+  $("imgNote").textContent = ""; $("imgNote").className = "gen-note";
+  document.querySelector('input[name="imgMode"][value="append"]').checked = true;
+  $("imgModal").classList.remove("hidden");
+}
+function closeImgUpdate() { $("imgModal").classList.add("hidden"); imgState = { id: null, name: "", images: [] }; }
+async function imgAddFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/")) continue;
+    const durl = await fileToDataURL(f);
+    imgState.images.push(durl.split(",")[1]);
+  }
+  const row = $("imgThumbs"); row.innerHTML = "";
+  imgState.images.forEach((b, i) => {
+    const d = document.createElement("div"); d.className = "thumb";
+    d.innerHTML = '<img src="data:image/png;base64,' + b + '"><button class="thumb-x">×</button>';
+    d.querySelector(".thumb-x").onclick = () => { imgState.images.splice(i, 1); imgAddFiles([]); };
+    row.appendChild(d);
+  });
+  $("imgDropName").textContent = imgState.images.length ? ("✅ " + imgState.images.length + " ảnh — tải thêm nếu cần") : "⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm";
+}
+$("imgClose").onclick = closeImgUpdate;
+$("imgModal").onclick = (e) => { if (e.target.id === "imgModal") closeImgUpdate(); };
+$("imgFile").onchange = (e) => { imgAddFiles(e.target.files); e.target.value = ""; };
+(() => {
+  const dz = $("imgDrop");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); imgAddFiles(e.dataTransfer.files); });
+})();
+$("imgGo").onclick = async () => {
+  if (!imgState.id) return;
+  if (!imgState.images.length) { $("imgNote").className = "gen-note err"; $("imgNote").textContent = "⚠️ Chưa chọn ảnh."; return; }
+  const mode = document.querySelector('input[name="imgMode"]:checked').value;
+  if (mode === "replace" && !confirm("Thay TOÀN BỘ ảnh sẽ xoá hết ảnh cũ (kể cả ảnh variant/bảng size). Tiếp tục?")) return;
+  const btn = $("imgGo"), old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang tải…";
+  $("imgNote").className = "gen-note"; $("imgNote").textContent = "Đang cập nhật ảnh…";
+  try {
+    const r = await fetch("/api/shopify-add-images", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: imgState.id, images: imgState.images, mode }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi cập nhật ảnh");
+    $("imgNote").className = "gen-note ok"; $("imgNote").textContent = "✓ Đã thêm " + d.count + " ảnh.";
+    setTimeout(() => { closeImgUpdate(); if (typeof shoplistLoad === "function") shoplistLoad(); }, 900);
+  } catch (err) {
+    $("imgNote").className = "gen-note err"; $("imgNote").textContent = "✗ " + err.message;
+  } finally { btn.disabled = false; btn.textContent = old; }
+};

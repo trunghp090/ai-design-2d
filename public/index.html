@@ -441,6 +441,28 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Cập nhật ảnh sản phẩm Shopify ===== -->
+  <div class="zoom-modal hidden" id="imgModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="imgClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">🖼️ Cập nhật ảnh sản phẩm</h3>
+      <p class="hint" id="imgProdName" style="margin:0 0 12px"></p>
+      <label class="dropzone sm" id="imgDrop">
+        <input type="file" id="imgFile" accept="image/*" multiple hidden />
+        <span id="imgDropName">⬆️ Tải / kéo-thả ảnh sản phẩm cần thêm</span>
+      </label>
+      <div class="thumb-row" id="imgThumbs"></div>
+      <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:10px;font-size:13px;color:var(--muted)">
+        <input type="radio" name="imgMode" value="append" checked /> Thêm vào ảnh hiện có
+      </label>
+      <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:4px;font-size:13px;color:var(--muted)">
+        <input type="radio" name="imgMode" value="replace" /> Thay TOÀN BỘ ảnh (xoá ảnh cũ)
+      </label>
+      <button class="btn-primary" id="imgGo" style="width:100%;margin-top:14px">⬆️ Cập nhật ảnh</button>
+      <p class="gen-note" id="imgNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
   <!-- ===== VIEW: THÊM NỀN DƯỚI DESIGN (tính năng độc lập) ===== -->
   <section class="auto-view app-view hidden" id="view-addbg">
     <div class="auto-wrap">
