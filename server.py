@@ -770,11 +770,14 @@ PRODUCT_NEG = (
     "light, fashion editorial look, dramatic shadows, harsh shadows."
 )
 _SHIRT = ("an OVERSIZED t-shirt, its color exactly as in the reference product image, with the "
-          "printed design on the left chest exactly as shown in the reference product image "
-          "(do not redraw or alter the design), clean ribbed crewneck collar with no visible "
-          "tags or labels, natural soft wrinkles only at the underarms")
+          "printed graphic reproduced EXACTLY as in the reference product image — same artwork, "
+          "SAME SIZE & SCALE, SAME POSITION on the shirt; do NOT shrink, enlarge, move, re-center, "
+          "crop or redraw the design, keep it just as large and placed as in the reference; clean "
+          "ribbed crewneck collar with no visible tags or labels, natural soft cotton wrinkles")
 _CAM = ("Casual smartphone photo. Sharp, clean, naturally exposed — no beauty filter, no "
-        "portrait blur, no skin smoothing, no grain. Feels like a friend took it. Aspect ratio 4:5.")
+        "portrait blur, no skin smoothing, no grain. Feels like a friend took it. Aspect ratio 4:5. "
+        "Photorealistic real photograph, true cotton fabric texture with natural fabric folds, real "
+        "skin and lighting; NOT a 3D render, NOT CGI, NOT illustration, NOT AI-looking.")
 _SKIN = ("clean smooth natural Vietnamese skin, naturally clear, no moles, no blemishes, not "
          "airbrushed, not plastic")
 _MODEL_F = ("a young Vietnamese woman in her early 20s, petite slim, fair light skin (%s); round "
@@ -840,23 +843,27 @@ PRODUCT_CATS = {
         ("close_box", "Cận trong hộp"), ("close_one", "Cận 1 design")]},
 }
 
+# Giữ design + chân thực (vân vải, bóng đổ mềm) — tránh trông như sticker phẳng/3D giả
+_DESIGN_KEEP = ("the printed design reproduced EXACTLY as in the reference — same artwork, SAME SIZE "
+                "& SCALE, SAME POSITION on the shirt, do NOT shrink/move/re-center/redraw it; ")
+_PHOTOREAL = (" Photorealistic real product photograph: true-to-life cotton fabric with visible weave "
+              "texture and natural soft wrinkles, soft realistic contact shadow under the fabric for "
+              "depth. NOT a 3D render, NOT CGI, NOT illustration, NOT a flat sticker, NOT AI-looking.")
 _FNEG = (" Negative extra: bunched fabric, rolled hem, curled edges, shirt hanging off the surface, "
-         "single oval logo, pill shape logo.")
+         "single oval logo, pill shape logo, flat sticker look, 3D render, plastic fabric.")
 _FLAT_BASE = ("flatlay photo of the t-shirt from the reference product image on a light cream "
               "fabric sofa seat cushion, lying fully on the cushion (not hanging off the edge), "
-              "clean ribbed collar with no tags, the printed design clearly visible exactly as in "
-              "the reference. Soft natural daylight, bright airy neutral, fabric color true to "
-              "life, no props.")
+              "clean ribbed collar with no tags, " + _DESIGN_KEEP + "Soft natural daylight, bright "
+              "airy neutral, fabric color true to life, no props." + _PHOTOREAL)
 _WHITE_BASE = ("product photo of the t-shirt from the reference product image on a pure white "
-               "seamless background, oversized form clearly visible, the printed design clearly "
-               "visible exactly as in the reference, clean collar no tags, soft even neutral "
-               "lighting, no props, no shadows.")
-_WNEG = " Negative extra: folded shirt, rolled sleeves, cream or beige or grey background, textured surface."
+               "seamless background, oversized form clearly visible, " + _DESIGN_KEEP + "clean "
+               "collar no tags, soft even neutral lighting with a soft natural contact shadow under "
+               "the shirt (not floating), real cotton texture with subtle natural wrinkles, no props." + _PHOTOREAL)
+_WNEG = " Negative extra: folded shirt, rolled sleeves, cream or beige or grey background, textured surface, flat sticker look, 3D render, stiff cardboard fabric."
 _KRAFT_BASE = ("photo of the t-shirt from the reference product image inside a plain unprinted kraft "
                "FLIP-OPEN box (hinged lid open at the back, NOT a separate lid / shoe box), lined "
-               "with thin white tissue paper, the printed design clearly visible exactly as in the "
-               "reference, soft natural daylight bright neutral, no props besides the kraft box and "
-               "white tissue.")
+               "with thin white tissue paper, " + _DESIGN_KEEP + "soft natural daylight bright "
+               "neutral, no props besides the kraft box and white tissue." + _PHOTOREAL)
 _KNEG = (" Negative extra: stickers, ribbons, greeting card, dried flowers, printed box, branded box, "
          "separate lid box, detached lid, shoe box style lid.")
 
