@@ -1238,6 +1238,16 @@ function lenaoUpdateSelUI() {
   $("lenaoDownloadSel").textContent = "⬇ Tải đã chọn (" + n + ")";
   if ($("lenaoToShopify")) $("lenaoToShopify").textContent = "🛍️ Đẩy Shopify (" + n + ")";
 }
+// màu áo (mockup) -> tên màu CHUẨN Shopify (khớp swatch)
+const LENAO_COLOR_STD = {
+  "trắng": "Màu trắng", "trang": "Màu trắng", "đen": "Màu đen", "den": "Màu đen",
+  "be": "Màu be", "nâu": "Màu nâu", "nau": "Màu nâu", "đỏ": "Màu đỏ", "do": "Màu đỏ",
+  "đỏ đô": "Đỏ đô", "do do": "Đỏ đô", "xanh rêu": "Màu xanh rêu", "xanh reu": "Màu xanh rêu",
+};
+function lenaoColorStd(name) {
+  const c = (name || "").replace(/^áo\s+/i, "").trim();
+  return LENAO_COLOR_STD[c.toLowerCase()] || (c ? ("Màu " + c) : "Mặc định");
+}
 // Lấy các áo đã chọn (có design) -> ghép ảnh -> nạp vào tab Đẩy Shopify
 async function lenaoPushToShopify() {
   const picked = lenaoSlots.filter((s, i) => {
@@ -1253,8 +1263,7 @@ async function lenaoPushToShopify() {
     const variants = [];
     for (const s of picked) {
       const durl = await lenaoComposeSlot(s);
-      const color = (s.name || "").replace(/^áo\s+/i, "").trim() || "Mặc định";
-      variants.push({ image: durl.split(",")[1], color });
+      variants.push({ image: durl.split(",")[1], color: lenaoColorStd(s.name) });
     }
     shopItems.push({ title: "", description: "", price: "", status: "DRAFT", result: null, variants });
     showApp("shopify");
