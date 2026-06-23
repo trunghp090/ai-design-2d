@@ -2123,6 +2123,10 @@ function shopInit() {
   dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); shopAddFiles(e.dataTransfer.files); });
   $("shopClear").onclick = () => { shopItems = []; shopRender(); };
   $("shopPush").onclick = shopPush;
+  // đổi size/giá -> cập nhật bảng Color×Size preview
+  $("shopUseSizes").addEventListener("change", () => shopRender());
+  $("shopSizes").addEventListener("input", () => shopRender());
+  $("shopPrice").addEventListener("input", () => { if (!shopItems.some(it => it.price)) shopRender(); });
   $("shopSizeFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) shopSetSizeChart(await fileToDataURL(f), f.name); e.target.value = ""; };
   const sz = $("shopSizeDrop");
   sz.addEventListener("dragover", e => { e.preventDefault(); sz.classList.add("drag"); });
@@ -2182,6 +2186,36 @@ async function shopAddFiles(files) {
   shopRender();
 }
 
+function shopCurrentSizes() {
+  return $("shopUseSizes").checked
+    ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean) : [];
+}
+// Bảng đủ Color×Size (như trang setup Shopify) — preview sẽ tạo
+function shopMatrixHtml(it) {
+  const vars = it.variants || [];
+  const hasColor = vars.some(v => (v.color || "").trim());
+  const sizes = shopCurrentSizes();
+  const price = ((it.price || $("shopPrice").value || "").trim()) || "—";
+  const priceTxt = price === "—" ? "(chưa có giá)" : price + "đ";
+  const rows = [];
+  const esc = s => (s || "").replace(/</g, "&lt;");
+  if (hasColor) {
+    vars.forEach(v => {
+      const c = (v.color || "").trim() || "Màu";
+      const sz = sizes.length ? sizes : [""];
+      sz.forEach(s => rows.push(
+        '<div class="vm-row"><img src="data:image/png;base64,' + v.image + '"><span class="vm-name">' +
+        esc(c) + (s ? " / " + esc(s) : "") + '</span><span class="vm-price">' + priceTxt + "</span></div>"));
+    });
+  } else {
+    const sz = sizes.length ? sizes : ["Mặc định"];
+    const im = vars[0] ? '<img src="data:image/png;base64,' + vars[0].image + '">' : "";
+    sz.forEach(s => rows.push('<div class="vm-row">' + im + '<span class="vm-name">' + esc(s) + '</span><span class="vm-price">' + priceTxt + "</span></div>"));
+  }
+  if (!rows.length) return "";
+  return '<details class="vm-box"><summary>🧩 Xem đủ ' + rows.length + ' variant (Color×Size)</summary>' +
+    '<div class="vm-list">' + rows.join("") + "</div></details>";
+}
 function shopRender() {
   const box = $("shopList");
   $("shopCount").textContent = shopItems.length;
@@ -2211,6 +2245,7 @@ function shopRender() {
         '<button class="shop-x">✕</button></div>' +
         '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh):" : "🖼️ " + vars.length + " ảnh sản phẩm (media):") + "</div>" +
         '<div class="shop-variants">' + vthumbs + "</div>" +
+        shopMatrixHtml(it) +
         '<div class="shop-res">' + resv + "</div>" +
       "</div>";
     row.querySelector(".shop-t").oninput = (e) => it.title = e.target.value;
@@ -2293,26 +2328,10 @@ async function shoplistLoad() {
       card.className = "gcard";
       const price = p.price_min ? (p.price_min === p.price_max ? p.price_min : p.price_min + "–" + p.price_max) + "đ" : "";
       const stt = p.status === "active" ? '<span class="sl-badge on">Đang bán</span>' : '<span class="sl-badge">Nháp</span>';
-      // tóm tắt options (Color: ... / Size: ...)
-      const optSum = (p.options || []).filter(o => !(o.values.length === 1 && o.values[0] === "Default Title"))
-        .map(o => '<span class="sl-opt"><b>' + o.name + ':</b> ' + (o.values || []).join(", ") + "</span>").join("");
-      // ảnh variant riêng biệt (gom theo ảnh, kèm nhãn màu) — giống trang setup Shopify
-      const seen = {}, vt = [];
-      (p.variant_list || []).forEach(v => {
-        if (!v.image || seen[v.image]) return; seen[v.image] = 1;
-        const label = (v.title || "").split(" / ")[0];
-        vt.push('<div class="shop-var"><img src="' + v.image + '" alt=""><div class="shop-var-c" style="border:0">' + label + "</div></div>");
-      });
-      const variantBlock = (optSum || vt.length)
-        ? '<details class="sl-variants"><summary>🎨 Xem variant (' + p.variants + ")</summary>" +
-          (optSum ? '<div class="sl-opts">' + optSum + "</div>" : "") +
-          (vt.length ? '<div class="shop-variants">' + vt.join("") + "</div>" : "") + "</details>"
-        : "";
       card.innerHTML =
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        variantBlock +
         '<div class="gacts"><button class="b-open">↗ Mở</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-open").onclick = () => window.open(p.url, "_blank");
       card.querySelector(".b-del").onclick = async (e) => {

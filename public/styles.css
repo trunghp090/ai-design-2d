@@ -360,3 +360,13 @@ textarea.input{resize:vertical;line-height:1.5}
 .sl-opts{display:flex;flex-direction:column;gap:3px;margin:6px 0}
 .sl-opt{font-size:11.5px;color:var(--ink)}
 .sl-variants .shop-variants{margin-top:6px}
+
+/* Bảng Color×Size trong tab Đẩy Shopify */
+.vm-box{margin-top:6px;font-size:12px}
+.vm-box summary{cursor:pointer;color:var(--violet);font-weight:600}
+.vm-list{margin-top:6px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.vm-row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-bottom:1px solid var(--line)}
+.vm-row:last-child{border-bottom:0}
+.vm-row img{width:30px;height:30px;object-fit:contain;border-radius:5px;background:#f4f2fb;flex:none}
+.vm-name{flex:1;font-size:12px}
+.vm-price{font-size:11.5px;color:var(--muted);font-weight:600}
