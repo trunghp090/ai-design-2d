@@ -345,11 +345,18 @@ def _aspect_for(size):
     return "1:1"
 
 
-def gen_shot(images, prompt, size, use_nano):
+def gen_shot(images, prompt, size, use_nano, aspect=""):
     """Sinh 1 ảnh sản phẩm: Nano Banana Pro nếu bật & có key, không thì OpenAI gpt-image."""
     if use_nano and GEMINI_API_KEY:
-        return gemini_edit(images, prompt, _aspect_for(size))
+        return gemini_edit(images, prompt, aspect or _aspect_for(size))
     return openai_edit(images, prompt, size, native_transparent=False)
+
+
+# tỉ lệ chọn -> (size gpt-image gần nhất, aspect Gemini)
+ASPECT_TO_SIZE = {
+    "1:1": "1024x1024", "4:5": "1024x1536", "2:3": "1024x1536", "3:4": "1024x1536",
+    "9:16": "1024x1536", "3:2": "1536x1024", "4:3": "1536x1024", "16:9": "1536x1024",
+}
 
 
 def openai_edit(images, prompt, size, native_transparent):
@@ -993,7 +1000,7 @@ def run_product_job(job_id, img, shots, bg_key, use_nano=False):
         try:
             b64 = gen_shot([(img, "image/png")],
                            product_prompt(shot["cat"], shot["vk"], bg_key),
-                           shot["size"], use_nano)
+                           shot["size"], use_nano, shot.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
             return {"image": b64, "title": shot["label"], "gallery": g}
         except urllib.error.HTTPError as e:
@@ -2908,11 +2915,14 @@ class Handler(BaseHTTPRequestHandler):
         cats = [c for c in (body.get("cats") or []) if c in PRODUCT_CATS]
         if not cats:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
+        aspect = (body.get("aspect") or "auto").strip()
         shots = []
         for c in cats:
             meta = PRODUCT_CATS[c]
             for vk, vlabel in meta["variants"]:
-                shots.append({"cat": c, "vk": vk, "size": meta["size"],
+                sz = ASPECT_TO_SIZE.get(aspect, meta["size"]) if aspect != "auto" else meta["size"]
+                asp = aspect if aspect != "auto" else ""
+                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp,
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
         use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
