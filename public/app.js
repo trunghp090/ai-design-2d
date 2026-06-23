@@ -2332,8 +2332,15 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-open">↗ Mở</button><button class="b-del">🗑️ Xoá</button></div>';
-      card.querySelector(".b-open").onclick = () => window.open(p.url, "_blank");
+        '<div class="gacts"><button class="b-open">🌐 Xem trang bán</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+      card.querySelector(".b-open").onclick = () => {
+        if (p.status !== "active") {
+          if (!confirm("Sản phẩm đang NHÁP nên trang bán chưa công khai (có thể 404). Vẫn mở?")) return;
+        }
+        window.open(p.store_url || p.url, "_blank");
+      };
+      card.querySelector("img")?.addEventListener("click", () => window.open(p.store_url || p.url, "_blank"));
+      card.querySelector(".b-admin").onclick = () => window.open(p.url, "_blank");
       card.querySelector(".b-del").onclick = async (e) => {
         if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
         const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
