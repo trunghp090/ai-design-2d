@@ -2790,22 +2790,31 @@ class Handler(BaseHTTPRequestHandler):
             vid = int(vn["id"].split("/")[-1])
             color_vids.setdefault(cval, []).append(vid)
 
-        # 5) Ảnh qua REST: bảng size (đầu, mặc định nếu user không tải) -> ảnh từng màu
-        pos = 1
-        chart = size_chart or shop_default_size_chart()
-        if chart:
-            b = chart.split(",", 1)[1] if chart.startswith("data:") else chart
-            shopify_api("POST", "products/%d/images.json" % pid,
-                        {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
-            pos += 1
-        for v in variants_in:
+        # 5) Ảnh qua REST: ẢNH BÌA (ảnh được chọn) đứng đầu -> bảng size -> các ảnh còn lại
+        def attach(v, pos):
             img = {"attachment": v["image"], "position": pos}
             if has_color:
                 vids = color_vids.get(std_for[id(v)])
                 if vids:
                     img["variant_ids"] = vids
             shopify_api("POST", "products/%d/images.json" % pid, {"image": img})
+
+        cover = int(it.get("cover") or 0)
+        if cover < 0 or cover >= len(variants_in):
+            cover = 0
+        order = [cover] + [i for i in range(len(variants_in)) if i != cover]
+        pos = 1
+        # ảnh bìa = ảnh variant được chọn (vị trí 1 = featured)
+        attach(variants_in[order[0]], pos); pos += 1
+        # bảng size đặt ngay sau ảnh bìa
+        chart = size_chart or shop_default_size_chart()
+        if chart:
+            b = chart.split(",", 1)[1] if chart.startswith("data:") else chart
+            shopify_api("POST", "products/%d/images.json" % pid,
+                        {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
             pos += 1
+        for i in order[1:]:
+            attach(variants_in[i], pos); pos += 1
 
         return {"ok": True, "url": shop_admin_url(pid),
                 "store_url": ("https://rieng.vn/products/%s" % prod.get("handle", "")) if prod.get("handle") else "",
