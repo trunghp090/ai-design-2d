@@ -93,9 +93,12 @@ API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
-# Shopify Admin API (đẩy sản phẩm) — sẽ cấu hình sau
+# Shopify Admin API (đẩy sản phẩm)
 SHOPIFY_DOMAIN = os.environ.get("SHOPIFY_DOMAIN", "").strip()        # vd: xxx.myshopify.com
-SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # Admin API token shpat_...
+SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # token cố định (tuỳ chọn)
+SHOPIFY_CLIENT_ID = os.environ.get("SHOPIFY_CLIENT_ID", "").strip()       # dev-dashboard app -> client_credentials
+SHOPIFY_CLIENT_SECRET = os.environ.get("SHOPIFY_CLIENT_SECRET", "").strip()
+SHOPIFY_API_VER = os.environ.get("SHOPIFY_API_VER", "2024-10").strip()
 PORT = int(os.environ.get("PORT", "8000"))
 # Bật đăng nhập? (đặt AUTH_REQUIRED=0 trong .env để tắt — mặc định BẬT)
 AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "1").strip() not in ("0", "false", "no")
@@ -336,6 +339,90 @@ def openai_chat(messages, json_mode=True, max_tokens=1500):
     req.add_header("Content-Type", "application/json")
     res = json.loads(_openai_call(req, timeout=120))
     return res["choices"][0]["message"]["content"]
+
+
+# --------------------------------------------------------------------------- #
+#  Shopify Admin API
+# --------------------------------------------------------------------------- #
+_shopify_tok = {"token": "", "exp": 0}
+
+
+def shopify_configured():
+    return bool(SHOPIFY_DOMAIN and (SHOPIFY_TOKEN or (SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET)))
+
+
+def shopify_token():
+    """Trả access token. Ưu tiên token cố định; nếu không, xin bằng client_credentials (cache 24h)."""
+    if SHOPIFY_TOKEN:
+        return SHOPIFY_TOKEN
+    if _shopify_tok["token"] and _shopify_tok["exp"] - 60 > time.time():
+        return _shopify_tok["token"]
+    data = urllib.parse.urlencode({
+        "grant_type": "client_credentials",
+        "client_id": SHOPIFY_CLIENT_ID,
+        "client_secret": SHOPIFY_CLIENT_SECRET,
+    }).encode()
+    req = urllib.request.Request("https://%s/admin/oauth/access_token" % SHOPIFY_DOMAIN,
+                                 data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    res = json.loads(urllib.request.urlopen(req, timeout=30).read())
+    _shopify_tok["token"] = res["access_token"]
+    _shopify_tok["exp"] = time.time() + int(res.get("expires_in", 86399))
+    return _shopify_tok["token"]
+
+
+def shopify_api(method, path, body=None):
+    """Gọi REST Admin API. path vd 'products.json'. Trả (status, json|text)."""
+    url = "https://%s/admin/api/%s/%s" % (SHOPIFY_DOMAIN, SHOPIFY_API_VER, path)
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("X-Shopify-Access-Token", shopify_token())
+    req.add_header("Content-Type", "application/json")
+    try:
+        r = urllib.request.urlopen(req, timeout=60)
+        raw = r.read().decode("utf-8", "ignore")
+        return r.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", "ignore")
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, {"errors": raw}
+
+
+def shopify_collection_id(title):
+    """Tìm custom collection theo tên, không có thì tạo. Trả id (int) hoặc None."""
+    if not title:
+        return None
+    st, d = shopify_api("GET", "custom_collections.json?title=%s" % urllib.parse.quote(title))
+    cols = (d or {}).get("custom_collections") or []
+    if cols:
+        return cols[0]["id"]
+    st, d = shopify_api("POST", "custom_collections.json", {"custom_collection": {"title": title}})
+    return ((d or {}).get("custom_collection") or {}).get("id")
+
+
+SHOP_LISTING_SYSTEM = (
+    "Bạn là chuyên gia bán áo thun online ở Việt Nam. Nhìn ảnh sản phẩm áo, viết nội dung đăng bán "
+    "HẤP DẪN & CHUẨN SEO cho shop Việt: tên sản phẩm ngắn gọn thu hút (tiếng Việt), mô tả HTML 2–4 câu "
+    "(chất liệu cotton, form rộng unisex, in sắc nét, dịp tặng/mặc), và 4–8 tag tiếng Việt. "
+    "Trả JSON {\"title\":\"...\",\"body_html\":\"<p>...</p>\",\"tags\":[\"...\"]}"
+)
+
+
+def shopify_listing(image_b64):
+    """AI nhìn ảnh -> {title, body_html, tags}. Lỗi -> {}."""
+    content = [{"type": "text", "text": "Viết nội dung đăng bán cho áo này. Chỉ trả JSON."},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + image_b64}}]
+    try:
+        raw = openai_chat([{"role": "system", "content": SHOP_LISTING_SYSTEM},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=600)
+        d = json.loads(raw)
+        return {"title": (d.get("title") or "").strip(),
+                "body_html": (d.get("body_html") or "").strip(),
+                "tags": d.get("tags") or []}
+    except Exception:
+        return {}
 
 
 AUTO_SYSTEM = (
@@ -1885,8 +1972,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/mockups":
             return self.json(200, {"items": list_mockups()})
         if path == "/api/shopify-status":
-            return self.json(200, {"configured": bool(SHOPIFY_TOKEN and SHOPIFY_DOMAIN),
-                                   "shop": SHOPIFY_DOMAIN})
+            if not shopify_configured():
+                return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN})
+            shop = SHOPIFY_DOMAIN
+            try:
+                st, d = shopify_api("GET", "shop.json")
+                if st == 200:
+                    shop = (d.get("shop") or {}).get("name") or SHOPIFY_DOMAIN
+                else:
+                    return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN,
+                                           "error": "token/scope lỗi"})
+            except Exception:
+                return self.json(200, {"configured": False, "shop": SHOPIFY_DOMAIN})
+            return self.json(200, {"configured": True, "shop": shop})
         if path == "/api/batch-status":
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             jid = (qs.get("id") or [""])[0]
@@ -2390,28 +2488,117 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"items": items})
 
     def handle_shopify_push(self, body):
-        """Đẩy sản phẩm lên Shopify. (Giao diện đã sẵn sàng — phần kết nối Admin API cấu hình sau.)"""
+        """Đẩy sản phẩm lên Shopify thật (REST Admin API). Mỗi item -> 1 product (Color×Size variant)."""
         items = body.get("items") or []
         if not items:
             return self.json(400, {"error": "Chưa có sản phẩm nào để đẩy."})
-        if not (SHOPIFY_TOKEN and SHOPIFY_DOMAIN):
-            return self.json(400, {"error": "Chưa cấu hình Shopify (SHOPIFY_DOMAIN + SHOPIFY_TOKEN "
-                                   "trong .env). Giao diện đã sẵn sàng; thêm token rồi sẽ đẩy thật."})
-        # TODO: kết nối Shopify Admin API thật ở bước sau:
-        #   1) upload ảnh -> staged upload / dùng URL công khai
-        #   2) productCreate (GraphQL): title, descriptionHtml (mô tả per-item hoặc body.description),
-        #      status, productType (vd 'Customizer'), vendor (vd 'TeeInBlue'), category (T-Shirts),
-        #      templateSuffix (body.templateSuffix, '' = Default product); /api/shopify-status nên trả
-        #      thêm templates[] (đọc theme files product.*.json) để FE đổ vào select,
-        #      images (nếu body.sizeChart -> ảnh bảng size đặt ĐẦU media, rồi tất cả ảnh variant màu),
-        #      collection (body.collection 'ÁO THUN' -> tìm/tạo rồi add).
-        #      VARIANT: mỗi item.variants[] = {image, color}. options=['Color','Size'] (Size từ body.sizes),
-        #      tạo variant Color×Size (cùng giá); GÁN ẢNH theo Color (mediaId của ảnh màu -> variant.mediaId).
-        #      Nếu chỉ 1 variant không màu -> sản phẩm đơn options=['Size'].
-        #   3) nếu ai=True -> openai_chat (vision) viết title + mô tả SEO + tag từ ảnh (ưu tiên hơn mô tả nhập tay)
-        #   LƯU Ý: 'Customizer' (YOURNAME) do app TeeInBlue quản lý -> Admin API chỉ set field cơ bản,
-        #          phần cá nhân hoá tên phải bật trong app TeeInBlue.
-        return self.json(501, {"error": "Phần kết nối Shopify đang chờ cấu hình token — sẽ bật sau."})
+        if not shopify_configured():
+            return self.json(400, {"error": "Chưa cấu hình Shopify (SHOPIFY_DOMAIN + token/client trong .env)."})
+        use_ai = bool(body.get("ai"))
+        ptype = (body.get("productType") or "").strip()
+        vendor = (body.get("vendor") or "").strip()
+        category = (body.get("category") or "").strip()
+        tmpl = (body.get("templateSuffix") or "").strip()
+        def_desc = (body.get("description") or "").strip()
+        sizes = [s for s in (body.get("sizes") or []) if str(s).strip()]
+        size_chart = (body.get("sizeChart") or "").strip()
+        coll_title = (body.get("collection") or "").strip()
+        coll_id = None
+        try:
+            coll_id = shopify_collection_id(coll_title) if coll_title else None
+        except Exception:
+            coll_id = None
+
+        results = []
+        for it in items:
+            try:
+                results.append(self._shopify_one(it, use_ai, ptype, vendor, category, tmpl,
+                                                 def_desc, sizes, size_chart, coll_id))
+            except urllib.error.HTTPError as e:
+                results.append({"ok": False, "error": openai_error_message(e)})
+            except Exception as e:
+                results.append({"ok": False, "error": str(e)})
+        return self.json(200, {"results": results})
+
+    def _shopify_one(self, it, use_ai, ptype, vendor, category, tmpl, def_desc, sizes, size_chart, coll_id):
+        variants_in = [v for v in (it.get("variants") or []) if v.get("image")]
+        if not variants_in:
+            return {"ok": False, "error": "Sản phẩm không có ảnh."}
+        colors = [(v.get("color") or "").strip() for v in variants_in]
+        has_color = any(colors)
+        # 1) Nội dung: AI viết hoặc dùng nhập tay/mặc định
+        title = (it.get("title") or "").strip()
+        body_html = (it.get("description") or "").strip() or def_desc
+        tags = []
+        if use_ai and (not title or not body_html):
+            ai = shopify_listing(variants_in[0]["image"])
+            title = title or ai.get("title", "")
+            body_html = body_html or ai.get("body_html", "")
+            tags = ai.get("tags", [])
+        if not title:
+            title = "Áo thun in"
+        # 2) Options + variants
+        size_vals = sizes or [""]
+        opt_names, var_list = [], []
+        price = str(it.get("price") or "0").strip()
+        if has_color:
+            opt_names = ["Color"] + (["Size"] if sizes else [])
+            for ci, v in enumerate(variants_in):
+                c = colors[ci] or ("Màu %d" % (ci + 1))
+                for s in size_vals:
+                    vv = {"option1": c, "price": price}
+                    if sizes:
+                        vv["option2"] = s
+                    var_list.append(vv)
+        else:
+            opt_names = ["Size"] if sizes else ["Title"]
+            for s in size_vals:
+                var_list.append({"option1": s or "Default Title", "price": price})
+        product = {
+            "title": title, "body_html": body_html,
+            "status": "active" if (it.get("status") == "ACTIVE") else "draft",
+            "options": [{"name": n} for n in opt_names],
+            "variants": var_list,
+        }
+        if ptype:
+            product["product_type"] = ptype
+        if vendor:
+            product["vendor"] = vendor
+        if tmpl:
+            product["template_suffix"] = tmpl
+        if tags:
+            product["tags"] = ", ".join(tags)
+        st, d = shopify_api("POST", "products.json", {"product": product})
+        if st not in (200, 201):
+            return {"ok": False, "error": "Tạo SP lỗi: %s" % json.dumps(d.get("errors", d))[:200]}
+        prod = d["product"]
+        pid = prod["id"]
+        # map color -> variant ids (gán ảnh theo màu)
+        color_vids = {}
+        for v in prod["variants"]:
+            color_vids.setdefault(v.get("option1"), []).append(v["id"])
+        # 3) Ảnh: bảng size trước (nếu có), rồi ảnh từng màu (gán variant_ids)
+        pos = 1
+        if size_chart:
+            b = size_chart.split(",", 1)[1] if size_chart.startswith("data:") else size_chart
+            shopify_api("POST", "products/%d/images.json" % pid,
+                        {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
+            pos += 1
+        for ci, v in enumerate(variants_in):
+            img = {"attachment": v["image"], "position": pos}
+            if has_color:
+                c = colors[ci] or ("Màu %d" % (ci + 1))
+                if color_vids.get(c):
+                    img["variant_ids"] = color_vids[c]
+            shopify_api("POST", "products/%d/images.json" % pid, {"image": img})
+            pos += 1
+        # 4) Add vào collection
+        if coll_id:
+            shopify_api("POST", "collects.json", {"collect": {"product_id": pid, "collection_id": coll_id}})
+        handle = prod.get("handle", "")
+        return {"ok": True, "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, pid),
+                "store_url": ("https://rieng.vn/products/%s" % handle) if handle else "",
+                "title": title}
 
     def handle_product_content(self, body):
         """Viết content bán hàng (Facebook Ads + TikTok script + caption) từ ảnh sản phẩm."""
