@@ -402,6 +402,12 @@ def shopify_collection_id(title):
     return ((d or {}).get("custom_collection") or {}).get("id")
 
 
+def shop_admin_url(pid):
+    """URL trang sản phẩm trên admin Shopify mới: admin.shopify.com/store/<handle>/products/<id>."""
+    handle = SHOPIFY_DOMAIN.replace(".myshopify.com", "")
+    return "https://admin.shopify.com/store/%s/products/%s" % (handle, pid)
+
+
 def shopify_graphql(query, variables=None):
     url = "https://%s/admin/api/%s/graphql.json" % (SHOPIFY_DOMAIN, SHOPIFY_API_VER)
     data = json.dumps({"query": query, "variables": variables or {}}).encode()
@@ -2057,7 +2063,7 @@ class Handler(BaseHTTPRequestHandler):
                     "id": p["id"], "title": p.get("title", ""), "status": p.get("status", ""),
                     "image": img, "variants": len(vs),
                     "price_min": prices[0] if prices else "", "price_max": prices[-1] if prices else "",
-                    "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, p["id"]),
+                    "url": shop_admin_url(p["id"]),
                     "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else "",
                 })
             return self.json(200, {"products": out})
@@ -2726,7 +2732,7 @@ class Handler(BaseHTTPRequestHandler):
             shopify_api("POST", "products/%d/images.json" % pid, {"image": img})
             pos += 1
 
-        return {"ok": True, "url": "https://%s/admin/products/%d" % (SHOPIFY_DOMAIN, pid),
+        return {"ok": True, "url": shop_admin_url(pid),
                 "store_url": ("https://rieng.vn/products/%s" % prod.get("handle", "")) if prod.get("handle") else "",
                 "title": title}
 
