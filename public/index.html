@@ -684,7 +684,22 @@
         </label>
         <p class="hint" id="prodAiHint" style="margin-top:2px"></p>
 
-        <button class="btn-primary" id="prodRunBtn" style="margin-top:12px">📸 Tạo ảnh sản phẩm</button>
+        <!-- Quy trình 2 bước: Claude sinh prompt → bạn duyệt/chọn → Nano Banana gen -->
+        <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px;background:rgba(127,127,127,.04)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">✍️ Quy trình duyệt prompt (khuyên dùng)</div>
+          <p class="hint" style="margin:0 0 10px">Claude nhìn ảnh áo → viết prompt cho từng góc → <b>bạn sửa/chọn</b> prompt → Nano Banana gen ảnh.</p>
+          <button class="btn-primary" id="prodGenPromptBtn">✍️ Bước 1 · Sinh prompt từ ảnh</button>
+          <div class="batch-progress hidden" id="prodPpProgress" style="margin-top:8px">
+            <div class="bp-bar"><div class="bp-fill" id="prodPpBar"></div></div>
+            <span id="prodPpText" class="hint"></span>
+          </div>
+          <p class="gen-note" id="prodPpNote"></p>
+        </div>
+
+        <details style="margin-top:12px">
+          <summary class="hint" style="cursor:pointer">⚡ Hoặc gen nhanh 1 phát (AI tự chọn prompt, không duyệt)</summary>
+          <button class="btn-ghost" id="prodRunBtn" style="margin-top:8px;width:100%">📸 Tạo ảnh sản phẩm ngay</button>
+        </details>
         <div class="batch-progress hidden" id="prodProgress">
           <div class="bp-bar"><div class="bp-fill" id="prodBar"></div></div>
           <span id="prodProgText" class="hint"></span>
@@ -695,6 +710,23 @@
 
       <!-- Cột kết quả -->
       <section class="panel">
+        <!-- Bước 2: prompt đề xuất — duyệt, sửa, chọn rồi gen -->
+        <div id="prodPromptWrap" class="hidden" style="margin-bottom:18px">
+          <div class="gallery-head">
+            <h3>✍️ Prompt đề xuất — sửa & chọn để gen</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-ghost sm" id="prodPromptAll">Chọn tất cả</button>
+              <button class="btn-primary sm" id="prodRenderBtn">🎨 Gen ảnh đã chọn (0)</button>
+            </div>
+          </div>
+          <p class="hint" style="margin:-6px 0 10px">Tick prompt muốn dùng · sửa trực tiếp nếu cần · bấm Gen (Nano Banana).</p>
+          <div id="prodPromptList" class="pp-list"></div>
+          <div class="batch-progress hidden" id="prodRenderProgress" style="margin-top:10px">
+            <div class="bp-bar"><div class="bp-fill" id="prodRenderBar"></div></div>
+            <span id="prodRenderText" class="hint"></span>
+          </div>
+        </div>
+
         <div class="gallery-head">
           <h3>Ảnh đã tạo</h3>
           <div style="display:flex;gap:8px">

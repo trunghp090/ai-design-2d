@@ -1109,6 +1109,67 @@ def run_product_job(job_id, img, shots, bg_key, use_nano=False, ai_prompt=False)
             BATCH_JOBS[job_id]["finished"] = True
 
 
+def run_prompt_job(job_id, img, shots, bg_key):
+    """BƯỚC 1: AI nhìn ảnh áo -> sinh prompt cho từng shot (chưa gen ảnh).
+
+    Mỗi item = {title, prompt, size, aspect}. Người dùng sẽ duyệt/sửa/chọn rồi mới gen.
+    """
+    def work(shot):
+        try:
+            prompt = product_prompt_ai(img, shot["cat"], shot["vk"], bg_key)
+            return {"title": shot["label"], "prompt": prompt,
+                    "size": shot["size"], "aspect": shot.get("aspect", "")}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": shot["label"]}
+        except Exception as e:
+            return {"error": str(e), "title": shot["label"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, shots):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+def run_render_job(job_id, img, picks, use_nano=False):
+    """BƯỚC 2: gen ảnh từ các prompt người dùng ĐÃ CHỌN (Nano Banana nếu bật)."""
+    def work(p):
+        title = p.get("title") or "Ảnh"
+        try:
+            b64 = gen_shot([(img, "image/png")], p["prompt"],
+                           p.get("size") or "1024x1024", use_nano, p.get("aspect", ""))
+            g = gallery_add(b64, {"mode": "product", "prompt": title})
+            return {"image": b64, "title": title, "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": title}
+        except Exception as e:
+            return {"error": str(e), "title": title}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, picks):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 CONTENT_SYSTEM = (
     "Bạn là chuyên viết content bán hàng cho shop áo thun couple / quà tặng GenZ Việt Nam "
     "(brand rieng.vn). Nhìn ảnh sản phẩm để hiểu áo (màu, phong cách, cảm xúc) — KHÔNG bịa "
@@ -2362,6 +2423,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_batch_excel(body)
         if path == "/api/product-photos":
             return self.handle_product_photos(body)
+        if path == "/api/product-prompts":
+            return self.handle_product_prompts(body)
+        if path == "/api/product-render":
+            return self.handle_product_render(body)
         if path == "/api/product-content":
             return self.handle_product_content(body)
         if path == "/api/design-gen":
@@ -3025,6 +3090,69 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})
+
+    def handle_product_prompts(self, body):
+        """BƯỚC 1: AI nhìn ảnh áo -> sinh prompt cho các shot (để user duyệt trước khi gen)."""
+        if not (ANTHROPIC_API_KEY or API_KEY):
+            return self.json(400, {"error": "Chưa cấu hình ANTHROPIC_API_KEY hoặc OPENAI_API_KEY."})
+        src = body.get("image", "")
+        if not src:
+            return self.json(400, {"error": "Chưa có ảnh sản phẩm."})
+        d, _ = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh sản phẩm."})
+        cats = [c for c in (body.get("cats") or []) if c in PRODUCT_CATS]
+        if not cats:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
+        aspect = (body.get("aspect") or "auto").strip()
+        shots = []
+        for c in cats:
+            meta = PRODUCT_CATS[c]
+            for vk, vlabel in meta["variants"]:
+                sz = ASPECT_TO_SIZE.get(aspect, meta["size"]) if aspect != "auto" else meta["size"]
+                asp = aspect if aspect != "auto" else ""
+                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp,
+                              "label": "%s · %s" % (meta["label"], vlabel)})
+        bg_key = body.get("bg", "cafe")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pp%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_prompt_job, args=(job_id, d, shots, bg_key),
+                             daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(shots)})
+
+    def handle_product_render(self, body):
+        """BƯỚC 2: gen ảnh từ các prompt người dùng đã chọn (Nano Banana nếu bật)."""
+        if not API_KEY and not GEMINI_API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY / GEMINI_API_KEY."})
+        src = body.get("image", "")
+        if not src:
+            return self.json(400, {"error": "Chưa có ảnh sản phẩm."})
+        d, _ = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh sản phẩm."})
+        picks = []
+        for p in (body.get("prompts") or []):
+            txt = (p.get("prompt") or "").strip()
+            if len(txt) < 10:
+                continue
+            picks.append({"prompt": txt, "title": (p.get("title") or "Ảnh").strip(),
+                          "size": p.get("size") or "1024x1024", "aspect": p.get("aspect", "")})
+        if not picks:
+            return self.json(400, {"error": "Chưa chọn prompt nào để gen."})
+        use_nano = bool(body.get("nano")) and bool(GEMINI_API_KEY)
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pr%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(picks), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_render_job, args=(job_id, d, picks, use_nano),
+                             daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(picks)})
 
     def handle_batch_excel(self, body):
         """Nhận file .xlsx (base64) có ảnh nhúng + cột Tên/Ngày -> gen hàng loạt nhiều luồng."""

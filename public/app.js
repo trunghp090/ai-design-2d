@@ -1662,6 +1662,133 @@ $("prodDownloadAll").onclick = async () => {
   if (!cards.length) return;
   for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
 };
+
+/* ---------- Quy trình 2 bước: Claude sinh prompt → duyệt/chọn → Nano Banana gen ---------- */
+let prodPromptItems = [];        // {title, prompt, size, aspect, sel}
+let prodPpTimer = null, prodRenderTimer = null;
+
+function prodRenderBtnLabel() {
+  const n = prodPromptItems.filter(p => p.sel).length;
+  if ($("prodRenderBtn")) $("prodRenderBtn").textContent = "🎨 Gen ảnh đã chọn (" + n + ")";
+}
+function prodRenderPromptList() {
+  const box = $("prodPromptList"); if (!box) return;
+  box.innerHTML = "";
+  prodPromptItems.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "pp-item" + (p.sel ? " on" : "");
+    el.innerHTML =
+      '<div class="pp-item-head">' +
+        '<input type="checkbox"' + (p.sel ? " checked" : "") + '>' +
+        '<span class="pp-item-title">' + (p.title || ("Prompt " + (i + 1))) + '</span>' +
+      '</div>' +
+      '<textarea spellcheck="false"></textarea>';
+    const ta = el.querySelector("textarea"); ta.value = p.prompt || "";
+    ta.oninput = () => { p.prompt = ta.value; };
+    const cb = el.querySelector("input");
+    const toggle = () => { p.sel = cb.checked; el.classList.toggle("on", p.sel); prodRenderBtnLabel(); };
+    cb.onchange = toggle;
+    el.querySelector(".pp-item-title").onclick = () => { cb.checked = !cb.checked; toggle(); };
+    box.appendChild(el);
+  });
+  prodRenderBtnLabel();
+}
+async function prodPpPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("prodPpBar").style.width = pct + "%";
+    $("prodPpText").textContent = "Đã sinh " + (d.items || []).length + "/" + d.total + " prompt"
+      + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length + " lỗi" : "");
+    // nạp prompt mới (giữ nguyên sửa/chọn của các prompt đã có)
+    const have = prodPromptItems.length;
+    (d.items || []).slice(have).forEach(it => prodPromptItems.push({
+      title: it.title, prompt: it.prompt, size: it.size, aspect: it.aspect || "", sel: true,
+    }));
+    if ((d.items || []).length > have) prodRenderPromptList();
+    if (d.finished) {
+      clearInterval(prodPpTimer); prodPpTimer = null;
+      $("prodGenPromptBtn").disabled = false;
+      $("prodPpNote").className = "gen-note ok";
+      $("prodPpNote").textContent = "✓ Đã sinh " + prodPromptItems.length + " prompt — sửa/chọn rồi bấm Gen.";
+      setTimeout(() => $("prodPpProgress").classList.add("hidden"), 600);
+    }
+  } catch (e) { /* tiếp tục */ }
+}
+$("prodGenPromptBtn").onclick = async () => {
+  const note = $("prodPpNote"); note.className = "gen-note"; note.textContent = "";
+  if (!prodImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh sản phẩm trước."; return; }
+  if (!prodPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 nhóm ảnh."; return; }
+  prodPromptItems = []; prodRenderPromptList();
+  $("prodPromptWrap").classList.remove("hidden");
+  const btn = $("prodGenPromptBtn"); btn.disabled = true;
+  $("prodPpProgress").classList.remove("hidden");
+  $("prodPpBar").style.width = "0%"; $("prodPpText").textContent = "AI đang đọc ảnh & viết prompt…";
+  try {
+    const r = await fetch("/api/product-prompts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    if (prodPpTimer) clearInterval(prodPpTimer);
+    prodPpTimer = setInterval(() => prodPpPoll(d.job_id), 2000);
+    prodPpPoll(d.job_id);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    btn.disabled = false; $("prodPpProgress").classList.add("hidden");
+  }
+};
+$("prodPromptAll").onclick = () => {
+  const allSel = prodPromptItems.length && prodPromptItems.every(p => p.sel);
+  prodPromptItems.forEach(p => p.sel = !allSel);
+  prodRenderPromptList();
+};
+async function prodRenderPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("prodRenderBar").style.width = pct + "%";
+    $("prodRenderText").textContent = "Đã gen " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length
+      + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length + " lỗi" : "");
+    prodRender(d.items || []);
+    $("prodErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
+    if (d.finished) {
+      clearInterval(prodRenderTimer); prodRenderTimer = null;
+      $("prodRenderBtn").disabled = false;
+      setTimeout(() => $("prodRenderProgress").classList.add("hidden"), 600);
+      prodLoadHistory();
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } catch (e) { /* tiếp tục */ }
+}
+$("prodRenderBtn").onclick = async () => {
+  const picks = prodPromptItems.filter(p => p.sel && (p.prompt || "").trim().length > 10);
+  if (!picks.length) { alert("Tick ít nhất 1 prompt (và prompt phải có nội dung)."); return; }
+  if (!prodImg) { alert("Thiếu ảnh sản phẩm."); return; }
+  const btn = $("prodRenderBtn"); btn.disabled = true;
+  $("prodErrors").innerHTML = "";
+  $("prodRenderProgress").classList.remove("hidden");
+  $("prodRenderBar").style.width = "0%"; $("prodRenderText").textContent = "Đang gửi…";
+  try {
+    const r = await fetch("/api/product-render", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: prodImg, nano: !!($("prodNano") && $("prodNano").checked),
+        prompts: picks.map(p => ({ title: p.title, prompt: p.prompt, size: p.size, aspect: p.aspect })),
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("prodRenderText").textContent = "Đang gen " + d.total + " ảnh (nhiều luồng)…";
+    if (prodRenderTimer) clearInterval(prodRenderTimer);
+    prodRenderTimer = setInterval(() => prodRenderPoll(d.job_id), 2500);
+    prodRenderPoll(d.job_id);
+  } catch (err) {
+    btn.disabled = false; $("prodRenderProgress").classList.add("hidden");
+    alert("✗ " + err.message);
+  }
+};
 // Đẩy các ảnh sản phẩm thành 1 SP Shopify (ảnh marketing = media, không phải variant màu)
 $("prodToShopify").onclick = () => {
   if (!prodLastItems.length) { alert("Chưa có ảnh sản phẩm nào."); return; }

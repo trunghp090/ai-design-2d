@@ -393,3 +393,12 @@ textarea.input{resize:vertical;line-height:1.5}
 .pp-noimg{width:40px;height:40px;display:grid;place-items:center;color:var(--muted);background:#f4f2fb;border-radius:6px;flex:none}
 .pp-name{font-size:13px;font-weight:600}
 #pickProdList{display:block}
+
+/* Prompt review (Ảnh sản phẩm — duyệt prompt trước khi gen) */
+.pp-list{display:flex;flex-direction:column;gap:10px}
+.pp-item{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card,#fff);transition:border-color .15s,background .15s}
+.pp-item.on{border-color:var(--violet);background:var(--violet-soft)}
+.pp-item-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pp-item-head input{flex:none}
+.pp-item-title{font-size:13px;font-weight:600;flex:1;cursor:pointer}
+.pp-item textarea{width:100%;font-size:12.5px;line-height:1.5;border:1px solid var(--line);border-radius:8px;padding:8px;resize:vertical;min-height:64px;background:transparent;color:inherit;font-family:inherit}
