@@ -1492,6 +1492,33 @@ let prodInited = false;
 function prodInit() {
   if (prodInited) return; prodInited = true;
   prodRenderShots();
+  if ($("prodHistRefresh")) $("prodHistRefresh").onclick = prodLoadHistory;
+  prodLoadHistory();
+}
+// Lịch sử ảnh sản phẩm đã tạo (gallery mode=product)
+async function prodLoadHistory() {
+  const grid = $("prodHistory"); if (!grid) return;
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    const items = (d.items || []).filter(it => it.mode === "product");
+    $("prodHistEmpty").classList.toggle("hidden", items.length > 0);
+    grid.innerHTML = "";
+    items.forEach(it => {
+      const card = document.createElement("div"); card.className = "gcard";
+      card.innerHTML =
+        '<img src="' + it.url + '" loading="lazy" alt="">' +
+        '<div class="gmeta">' + (it.prompt || "Ảnh SP") + '</div>' +
+        '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-dl">⬇ Tải</button></div>';
+      card.querySelector("img").onclick = () => openZoom(it.url);
+      card.querySelector(".b-zoom").onclick = () => openZoom(it.url);
+      card.querySelector(".b-dl").onclick = async () => {
+        const b = await (await fetch(it.url)).blob();
+        const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
+        autoDownload(b64, (it.prompt || "anh-sp"));
+      };
+      grid.appendChild(card);
+    });
+  } catch (e) { /* im lặng */ }
 }
 function prodRenderShots() {
   const box = $("prodShots"); box.innerHTML = "";
@@ -1561,6 +1588,7 @@ async function prodPoll(jobId) {
       $("prodRunBtn").disabled = false;
       $("prodNote").className = "gen-note ok";
       $("prodNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " ảnh (đã lưu Lịch sử).";
+      prodLoadHistory();
       if (typeof loadGallery === "function") loadGallery();
     }
   } catch (e) { /* tiếp tục */ }

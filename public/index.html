@@ -44,8 +44,6 @@
     <button class="app-tab" data-app="auto">🤖 Auto Research</button>
     <button class="app-tab" data-app="recolor">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao">👕 Lên áo</button>
-    <button class="app-tab" data-app="addbg">🖼️ Thêm nền</button>
-    <button class="app-tab" data-app="batch">📊 Excel hàng loạt</button>
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="design">✨ Tạo design</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
@@ -671,6 +669,13 @@
         </div>
         <div class="auto-grid" id="prodResults"></div>
         <div class="gallery-empty" id="prodEmpty">Tải ảnh áo + chọn loại ảnh rồi bấm Tạo.</div>
+
+        <div class="gallery-head" style="margin-top:20px">
+          <h3>📁 Ảnh sản phẩm đã tạo (lịch sử)</h3>
+          <button class="btn-ghost sm" id="prodHistRefresh">🔄 Tải lại</button>
+        </div>
+        <div class="auto-grid" id="prodHistory"></div>
+        <div class="gallery-empty" id="prodHistEmpty">Chưa có ảnh sản phẩm nào trong lịch sử.</div>
       </section>
     </div>
 
