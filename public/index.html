@@ -439,6 +439,18 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Chọn sản phẩm Shopify để đưa ảnh vào ===== -->
+  <div class="zoom-modal hidden" id="pickProdModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="pickProdClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">🛍️ Đưa ảnh vào sản phẩm</h3>
+      <p class="hint" id="pickProdInfo" style="margin:0 0 10px"></p>
+      <input type="text" id="pickProdSearch" class="input" placeholder="🔎 Tìm sản phẩm theo tên…" />
+      <div class="img-pick" id="pickProdList" style="max-height:320px;margin-top:10px"></div>
+      <p class="gen-note" id="pickProdNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Cập nhật ảnh sản phẩm Shopify ===== -->
   <div class="zoom-modal hidden" id="imgModal">
     <div class="pn-box" onclick="event.stopPropagation()">
@@ -672,8 +684,12 @@
 
         <div class="gallery-head" style="margin-top:20px">
           <h3>📁 Ảnh sản phẩm đã tạo (lịch sử)</h3>
-          <button class="btn-ghost sm" id="prodHistRefresh">🔄 Tải lại</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn-ghost sm strong" id="prodHistToShop">🛍️ Đưa vào SP Shopify (0)</button>
+            <button class="btn-ghost sm" id="prodHistRefresh">🔄 Tải lại</button>
+          </div>
         </div>
+        <p class="hint" style="margin:-8px 0 8px">Tích chọn ảnh → bấm "Đưa vào SP Shopify" → chọn sản phẩm.</p>
         <div class="auto-grid" id="prodHistory"></div>
         <div class="gallery-empty" id="prodHistEmpty">Chưa có ảnh sản phẩm nào trong lịch sử.</div>
       </section>

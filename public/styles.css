@@ -383,3 +383,13 @@ textarea.input{resize:vertical;line-height:1.5}
 .shop-cover-badge{position:absolute;top:-6px;left:-6px;background:var(--violet);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px}
 .shop-var-cover{position:absolute;top:-7px;left:-7px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:11px;cursor:pointer;line-height:1;padding:0;opacity:.85}
 .shop-var-cover:hover{opacity:1;background:var(--violet)}
+
+/* Chọn ảnh lịch sử + chọn SP để đưa ảnh vào */
+.gcard .hsel{position:absolute;top:5px;left:5px;z-index:2;background:rgba(255,255,255,.85);border-radius:5px;padding:1px 3px;line-height:1}
+.gcard .hsel input{width:16px;height:16px;accent-color:var(--violet);cursor:pointer}
+.pp-row{display:flex;align-items:center;gap:10px;width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:#fff;margin-bottom:6px}
+.pp-row:hover{border-color:var(--violet);background:var(--violet-soft)}
+.pp-row img{width:40px;height:40px;object-fit:contain;border-radius:6px;background:#f4f2fb;flex:none}
+.pp-noimg{width:40px;height:40px;display:grid;place-items:center;color:var(--muted);background:#f4f2fb;border-radius:6px;flex:none}
+.pp-name{font-size:13px;font-weight:600}
+#pickProdList{display:block}

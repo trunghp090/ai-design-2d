@@ -1493,23 +1493,37 @@ function prodInit() {
   if (prodInited) return; prodInited = true;
   prodRenderShots();
   if ($("prodHistRefresh")) $("prodHistRefresh").onclick = prodLoadHistory;
+  if ($("prodHistToShop")) $("prodHistToShop").onclick = () => {
+    if (!prodHistSel.size) { alert("Tích chọn ít nhất 1 ảnh trong lịch sử."); return; }
+    openPickProd([...prodHistSel].map(u => ({ url: u })));
+  };
   prodLoadHistory();
 }
 // Lịch sử ảnh sản phẩm đã tạo (gallery mode=product)
+let prodHistSel = new Set();   // url các ảnh được tích chọn
+function prodHistSelUpdate() {
+  if ($("prodHistToShop")) $("prodHistToShop").textContent = "🛍️ Đưa vào SP Shopify (" + prodHistSel.size + ")";
+}
 async function prodLoadHistory() {
   const grid = $("prodHistory"); if (!grid) return;
   try {
     const d = await (await fetch("/api/gallery")).json();
     const items = (d.items || []).filter(it => it.mode === "product");
     $("prodHistEmpty").classList.toggle("hidden", items.length > 0);
+    prodHistSel = new Set(); prodHistSelUpdate();
     grid.innerHTML = "";
     items.forEach(it => {
       const card = document.createElement("div"); card.className = "gcard";
       card.innerHTML =
+        '<label class="hsel"><input type="checkbox"></label>' +
         '<img src="' + it.url + '" loading="lazy" alt="">' +
         '<div class="gmeta">' + (it.prompt || "Ảnh SP") + '</div>' +
         '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-dl">⬇ Tải</button></div>';
       card.querySelector("img").onclick = () => openZoom(it.url);
+      card.querySelector(".hsel input").onchange = (e) => {
+        if (e.target.checked) prodHistSel.add(it.url); else prodHistSel.delete(it.url);
+        prodHistSelUpdate();
+      };
       card.querySelector(".b-zoom").onclick = () => openZoom(it.url);
       card.querySelector(".b-dl").onclick = async () => {
         const b = await (await fetch(it.url)).blob();
@@ -2496,3 +2510,60 @@ $("imgGo").onclick = async () => {
     $("imgNote").className = "gen-note err"; $("imgNote").textContent = "✗ " + err.message;
   } finally { btn.disabled = false; btn.textContent = old; }
 };
+
+/* ===== Chọn sản phẩm Shopify để đưa ảnh vào (từ tab Ảnh sản phẩm) ===== */
+let pickProdImages = [];   // [{url}|{image}]
+let pickProdAll = [];      // danh sách SP Shopify
+async function openPickProd(images) {
+  pickProdImages = images || [];
+  $("pickProdInfo").textContent = "Sẽ thêm " + pickProdImages.length + " ảnh vào sản phẩm bạn chọn.";
+  $("pickProdNote").textContent = ""; $("pickProdNote").className = "gen-note";
+  $("pickProdSearch").value = "";
+  $("pickProdList").innerHTML = '<p class="hint" style="margin:0">Đang tải sản phẩm…</p>';
+  $("pickProdModal").classList.remove("hidden");
+  try {
+    const d = await (await fetch("/api/shopify-products")).json();
+    pickProdAll = d.products || [];
+    pickProdRenderList("");
+  } catch (e) {
+    $("pickProdList").innerHTML = '<p class="hint" style="margin:0">⚠️ Không tải được sản phẩm (kiểm tra kết nối Shopify).</p>';
+  }
+}
+function pickProdRenderList(q) {
+  const box = $("pickProdList"); box.innerHTML = "";
+  const kw = (q || "").toLowerCase().trim();
+  const list = pickProdAll.filter(p => !kw || (p.title || "").toLowerCase().includes(kw));
+  if (!list.length) { box.innerHTML = '<p class="hint" style="margin:0">Không có sản phẩm.</p>'; return; }
+  list.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "pp-row";
+    row.innerHTML = (p.image ? '<img src="' + p.image + '">' : '<div class="pp-noimg">—</div>') +
+      '<span class="pp-name">' + (p.title || "SP") + '</span>';
+    row.onclick = () => pickProdAdd(p);
+    box.appendChild(row);
+  });
+}
+async function pickProdAdd(p) {
+  const note = $("pickProdNote"); note.className = "gen-note"; note.textContent = "Đang thêm ảnh vào \"" + (p.title || "") + "\"…";
+  try {
+    const imgs = [];
+    for (const im of pickProdImages) {
+      if (im.image) { imgs.push(im.image); continue; }
+      const b = await (await fetch(im.url)).blob();
+      imgs.push(await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }));
+    }
+    const r = await fetch("/api/shopify-add-images", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: p.id, images: imgs, mode: "append" }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã thêm " + d.count + " ảnh vào \"" + (p.title || "") + "\".";
+    setTimeout(() => $("pickProdModal").classList.add("hidden"), 1200);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  }
+}
+$("pickProdClose").onclick = () => $("pickProdModal").classList.add("hidden");
+$("pickProdModal").onclick = (e) => { if (e.target.id === "pickProdModal") $("pickProdModal").classList.add("hidden"); };
+$("pickProdSearch").oninput = (e) => pickProdRenderList(e.target.value);
