@@ -481,6 +481,21 @@ SHOP_DEFAULT_DESC_HTML = (
 )
 
 
+_shop_size_chart_b64 = [None]   # cache base64 ảnh bảng size mặc định
+
+
+def shop_default_size_chart():
+    """Ảnh bảng size mặc định (base64) trong public/size-chart-default.png."""
+    if _shop_size_chart_b64[0] is None:
+        p = os.path.join(ROOT, "public", "size-chart-default.png")
+        try:
+            with open(p, "rb") as f:
+                _shop_size_chart_b64[0] = base64.b64encode(f.read()).decode()
+        except Exception:
+            _shop_size_chart_b64[0] = ""
+    return _shop_size_chart_b64[0]
+
+
 def shop_text_to_html(t):
     """Chuỗi mô tả thường -> HTML (giữ xuống dòng). Nếu đã là HTML thì giữ nguyên."""
     t = (t or "").strip()
@@ -2751,10 +2766,11 @@ class Handler(BaseHTTPRequestHandler):
             vid = int(vn["id"].split("/")[-1])
             color_vids.setdefault(cval, []).append(vid)
 
-        # 5) Ảnh qua REST: bảng size (đầu) -> ảnh từng màu (gán variant_ids)
+        # 5) Ảnh qua REST: bảng size (đầu, mặc định nếu user không tải) -> ảnh từng màu
         pos = 1
-        if size_chart:
-            b = size_chart.split(",", 1)[1] if size_chart.startswith("data:") else size_chart
+        chart = size_chart or shop_default_size_chart()
+        if chart:
+            b = chart.split(",", 1)[1] if chart.startswith("data:") else chart
             shopify_api("POST", "products/%d/images.json" % pid,
                         {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
             pos += 1
