@@ -2984,13 +2984,30 @@ async function apDoRecolor() {
       () => { clearInterval(apT2); apT2 = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ Đổi màu xong — bấm “Tiếp: Lên áo”."; setTimeout(() => $("apP2").classList.add("hidden"), 600); }), 2500);
   } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apP2").classList.add("hidden"); }
 }
+// LUÔN nở ra ĐỦ 7 màu áo (dù chỉ đổi màu vài màu): màu chưa đổi dùng bản phối gần nhất
+const AP_ALL_COLORS = ["white", "black", "brown", "sand", "forest", "red", "maroon"];
+const AP_DARK = new Set(["black", "brown", "forest", "maroon", "red"]); // áo tối -> cần design sáng
+const AP_COLOR_VI = {};
+(function () { RECOLOR_LIST.forEach(c => AP_COLOR_VI[c.key] = c.vi); })();
+function apShotsFromItems(items, startDi) {
+  const out = [];
+  items.forEach((it, k) => {
+    const di = startDi + k;
+    const byColor = {}; (it.variants || []).forEach(v => byColor[v.color] = v.recolored);
+    const lightRef = byColor.white || byColor.sand || null;  // phối cho áo sáng
+    const darkRef = byColor.black || byColor.forest || byColor.maroon || byColor.brown || byColor.red || null; // phối cho áo tối
+    const named = it.image || it.named || it.design;
+    AP_ALL_COLORS.forEach(col => {
+      const rec = byColor[col] || (AP_DARK.has(col) ? (darkRef || lightRef || named) : (lightRef || darkRef || named));
+      out.push({ di: di, name: it.name, date: it.date, role: it.role, tep: it.tep,
+        color: col, color_vi: AP_COLOR_VI[col] || col, recolored: rec, state: { x: 50, y: 43, w: 40 }, shirt: null });
+    });
+  });
+  return out;
+}
 function apToStep4() {
   if (!apRecolored.length) { alert("Chưa có mẫu đã đổi màu."); return; }
-  apShots = [];
-  apRecolored.forEach((it, di) => (it.variants || []).forEach(v => {
-    apShots.push({ di: di, name: it.name, date: it.date, role: it.role, tep: it.tep,
-      color: v.color, color_vi: v.color_vi, recolored: v.recolored, state: { x: 50, y: 43, w: 40 }, shirt: null });
-  }));
+  apShots = apShotsFromItems(apRecolored, 0);
   apSel = new Set(); apGoStep(4); apRenderShirts();
 }
 
@@ -3103,9 +3120,7 @@ async function apAddOld() {
         clearInterval(apTO2); apTO2 = null; btn.disabled = false; $("apPO").classList.add("hidden");
         const start = apRecolored.length;
         apRecolored = apRecolored.concat(items);
-        items.forEach((it, k) => (it.variants || []).forEach(v => apShots.push({
-          di: start + k, name: it.name, date: it.date, role: it.role, tep: it.tep,
-          color: v.color, color_vi: v.color_vi, recolored: v.recolored, state: { x: 50, y: 43, w: 40 }, shirt: null })));
+        apShots = apShots.concat(apShotsFromItems(items, start));
         apRenderShirts();
         $("apOldWrap").classList.add("hidden");
       }), 2500);
