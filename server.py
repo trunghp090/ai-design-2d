@@ -427,8 +427,22 @@ def resolve_engine_id(body):
     return "gemini_pro" if GEMINI_API_KEY else "openai"   # mặc định
 
 
+# Khoá design: ép model giữ NGUYÊN design từ ảnh ref (chống vẽ lại khác mẫu gốc)
+_DESIGN_LOCK = (
+    "CRITICAL — PRESERVE THE DESIGN EXACTLY: the printed graphic, illustration, text, letters, "
+    "wording, spelling, fonts, colors and logo on the shirt MUST be copied PIXEL-FOR-PIXEL and "
+    "IDENTICAL to the attached reference product image. Treat the design as a fixed locked sticker: "
+    "do NOT redraw, re-interpret, restyle, regenerate, translate, paraphrase, add, remove, recolor, "
+    "resize, move or re-center any part of it — same artwork, same text, same colors, same size and "
+    "same position on the chest as the reference. Only the surrounding scene, shirt fabric, people "
+    "and background may change. "
+)
+
+
 def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model=""):
-    """Sinh 1 ảnh sản phẩm theo MODEL được chọn (engine). Gemini nếu là kind gemini & có key."""
+    """Sinh 1 ảnh sản phẩm theo MODEL được chọn (engine). Gemini nếu là kind gemini & có key.
+    Luôn chèn KHOÁ DESIGN để giữ đúng mẫu gốc."""
+    prompt = _DESIGN_LOCK + (prompt or "")
     info = engine_info(engine)
     if info["kind"] == "gemini" and GEMINI_API_KEY:
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
