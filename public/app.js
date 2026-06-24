@@ -640,12 +640,13 @@ function autoRender(items) {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Mẫu auto") + '</div>' +
-      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card.querySelector(".b-use").onclick = () => {
       showApp("clone");
       showDesign(it.image);
       document.querySelector('.rtab[data-rtab="design"]').click();
     };
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title);
     grid.appendChild(card);
   });
@@ -842,7 +843,7 @@ async function recolorRender(items) {
       '<img src="' + durl + '" alt="">' +
       '<div class="gmeta"><span class="sw" style="background:' + (it.hex || "#888") +
         '"></span>' + (it.title || "Bản màu") + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = cur; card._title = it.title;     // lưu ảnh đang xem để tải
     card.querySelector(".gpick").onchange = (e) => {
       if (e.target.checked) recolorSel.add(i); else recolorSel.delete(i);
@@ -850,6 +851,7 @@ async function recolorRender(items) {
     };
     card.querySelector("img").onclick = () => openZoom(durl);
     card.querySelector(".b-zoom").onclick = () => openZoom(durl);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(durl, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(cur, it.title);
     grid.appendChild(card);
   }
@@ -1463,10 +1465,11 @@ function batchRenderResults(items) {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Mẫu") + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "mau";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "mau");
     grid.appendChild(card);
   });
@@ -1639,8 +1642,9 @@ async function prodLoadHistory() {
         '<label class="hsel"><input type="checkbox"></label>' +
         '<img src="' + it.url + '" loading="lazy" alt="">' +
         '<div class="gmeta">' + (it.prompt || "Ảnh SP") + '</div>' +
-        '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-dl">⬇ Tải</button></div>';
+        '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
       card.querySelector("img").onclick = () => openZoom(it.url);
+      card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(it.url, e.currentTarget);
       card.querySelector(".hsel input").onchange = (e) => {
         if (e.target.checked) prodHistSel.add(it.url); else prodHistSel.delete(it.url);
         prodHistSelUpdate();
@@ -1701,10 +1705,11 @@ function prodRender(items) {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Ảnh") + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     card._cur = it.image; card._name = it.title || "anh";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + it.image);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "anh-sp");
     grid.appendChild(card);
   });
@@ -2974,12 +2979,14 @@ async function apEditItem(it, card) {
 }
 function apAttachActions(card, it) {
   card.querySelector(".b-shirt").onclick = () => apPreviewItem(it);
+  const cp = card.querySelector(".b-copy");
+  if (cp) cp.onclick = (e) => copyImageToClipboard("data:image/png;base64," + (it.image || it.named || it.design), e.currentTarget);
   const doFix = () => apEditItem(it, card);
   card.querySelector(".ap-fixbtn").onclick = doFix;
   card.querySelector(".ap-fixin").onkeydown = (e) => { if (e.key === "Enter") doFix(); };
 }
 const AP_ACTIONS_HTML =
-  '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button></div>' +
+  '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button><button class="b-copy">📋 Copy</button></div>' +
   '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Yêu cầu sửa (vd: tên to hơn)…"><button class="ap-fixbtn">Sửa</button></div>';
 
 /* ---------- BƯỚC 1: tạo design cá nhân hoá ---------- */
@@ -3129,10 +3136,11 @@ async function apRenderShirts() {
         '<label>↕ <input type="range" class="ap-y" min="20" max="75" value="' + s.state.y + '"></label>' +
         '<label>⤢ <input type="range" class="ap-w" min="15" max="70" value="' + s.state.w + '"></label>' +
       '</div>' +
-      '<div class="gacts"><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
     const idx = i;
     card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apSel.add(idx); else apSel.delete(idx); apShopN(); };
     const mainImg = card.querySelector(".ap-main"); mainImg.onclick = () => openZoom(mainImg.src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(mainImg.src, e.currentTarget);
     let t = null;
     const onSlide = () => {
       s.state.x = +card.querySelector(".ap-x").value; s.state.y = +card.querySelector(".ap-y").value; s.state.w = +card.querySelector(".ap-w").value;
