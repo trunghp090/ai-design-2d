@@ -2156,8 +2156,19 @@ function dsRenderTextChips() {
   const sh = $("dsTextShuffle");
   if (sh) sh.style.display = dsTextAll ? "none" : "";
 }
+let dsCanvaLink = "";
+try { dsCanvaLink = localStorage.getItem("canvaLink") || ""; } catch (e) {}
 function dsInit() {
   if (dsInited) return; dsInited = true;
+  const cl = $("dsCanvaLink"), cs = $("dsCanvaSave");
+  if (cl) {
+    cl.value = dsCanvaLink;
+    if (cs) cs.onclick = () => {
+      dsCanvaLink = (cl.value || "").trim();
+      try { localStorage.setItem("canvaLink", dsCanvaLink); } catch (e) {}
+      cs.textContent = "✓ Đã lưu"; setTimeout(() => cs.textContent = "💾 Lưu link", 1300);
+    };
+  }
   dsRenderCombos();
   dsRenderNameCombos();
   dsRenderSegments();
@@ -2298,7 +2309,7 @@ function dsRender() {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>' +
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>' +
       '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Nhập nội dung chỉnh sửa…"><button class="ds-fixbtn">Sửa</button></div>';
     card._cur = it.image; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
@@ -2311,6 +2322,11 @@ function dsRender() {
     card.querySelector(".b-var").onclick = (e) => dsMakeVariations(it.image, e.currentTarget);
     card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
+    card.querySelector(".b-canva").onclick = async (e) => {
+      if (!dsCanvaLink) { alert("Chưa có link Canva. Dán link Canva vào ô phía trên rồi bấm 💾 Lưu link."); $("dsCanvaLink") && $("dsCanvaLink").focus(); return; }
+      await copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);  // copy sẵn để dán vào Canva
+      window.open(dsCanvaLink, "_blank");
+    };
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
     const dsFixin = card.querySelector(".ds-fixin"), dsFixbtn = card.querySelector(".ds-fixbtn");
     const dsDoFix = async () => {
