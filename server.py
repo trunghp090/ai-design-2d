@@ -1960,7 +1960,7 @@ AUTO_PIPE_SYSTEM = """Bạn là giám đốc sáng tạo shop áo thun PRINT-ON-
 
 Trả về JSON: {"items":[{...}, ...]} với mỗi item:
 - "tep": 1 trong "single" | "couple" | "family" | "group" (đa dạng; ưu tiên single & couple).
-- "name": TÊN để in. single = 1 tên (vd "Linh"); couple = 2 tên cách bởi "&" (vd "Minh & An"); family = tên Bố/Mẹ/Bé cách bởi "/" (vd "Nam / Hoa / Bi"); group = 1 tên nhóm (vd "Hội Cú Đêm"). Tên Việt tự nhiên, giữ dấu.
+- "name": TÊN người để in. MỖI tên là TÊN VIỆT 2 CHỮ (tên đệm + tên, vd "Phương Linh", "Minh Anh", "Quốc Bảo", "Thuỳ Trang"). single = 1 tên 2 chữ; couple = 2 tên 2 chữ cách bởi "&" (vd "Minh Anh & Phương Linh"); family = tên Bố/Mẹ/Bé MỖI tên 2 chữ cách bởi "/" (vd "Quốc Nam / Thu Hà / Bảo Bi"); group = 1 tên nhóm. Tên Việt tự nhiên, giữ dấu.
 - "date": NGÀY THÁNG NĂM in kèm tên (vd "20.10.2025", "Since 2020", "12/03/2024"). Hợp ngữ cảnh (couple = ngày kỷ niệm; single = ngày ý nghĩa).
 - "theme": chủ đề/ngách ngắn (vd "mèo cưng", "cà phê đôi", "tuổi Dần", "hội bạn thân").
 - "color": MÀU ÁO gợi ý hợp nhất, CHỈ 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
@@ -1969,10 +1969,10 @@ QUY TẮC: mỗi item khác nhau hẳn (tệp/tên/chủ đề/màu đa dạng).
 
 
 _SEG_DESC = {
-    "single": "TỆP CÁ NHÂN — 1 người, \"name\" là 1 tên",
-    "couple": "TỆP COUPLE — 2 người, \"name\" là 2 tên cách bởi \"&\" (vd \"Minh & An\")",
-    "family": "TỆP GIA ĐÌNH — bố/mẹ/bé, \"name\" là tên cách bởi \"/\" (vd \"Nam / Hoa / Bi\")",
-    "group": "TỆP ĐỘI NHÓM — \"name\" là 1 tên nhóm (vd \"Hội Cú Đêm\")",
+    "single": "TỆP CÁ NHÂN — 1 người, \"name\" là 1 tên Việt 2 CHỮ (vd \"Phương Linh\")",
+    "couple": "TỆP COUPLE — 2 người, \"name\" là 2 tên 2 CHỮ cách bởi \"&\" (vd \"Minh Anh & Phương Linh\")",
+    "family": "TỆP GIA ĐÌNH — bố/mẹ/bé, \"name\" là 3 tên 2 CHỮ cách bởi \"/\" (vd \"Quốc Nam / Thu Hà / Bảo Bi\")",
+    "group": "TỆP ĐỘI NHÓM — \"name\" là 1 tên nhóm",
 }
 
 
