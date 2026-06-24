@@ -1679,12 +1679,23 @@ VN_HOT_STYLES = [
 ]
 
 
-def design_concepts_auto(theme, text, n, year="", same_line=False):
-    """AI tự chọn phong cách hợp nhất cho chủ đề rồi tạo n design. Mỗi concept kèm 'style'."""
+# Phong cách HỢP CÁ NHÂN HOÁ TÊN — dùng cho AI tự chọn ở Trọn gói (tên là điểm nhấn)
+NAME_STYLES = [
+    "vintage_americana", "varsity", "big_type", "calligraphy", "couple_love",
+    "social_club", "statement_bold", "typography", "minimal_clean", "liquid_chrome",
+    "y2k_graffiti", "streetwear", "badge_patch", "sport_statement", "korean_minimal",
+    "retro_groovy", "vintage_washed", "cute_mascot", "luxury_minimal",
+]
+
+
+def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=None):
+    """AI tự chọn phong cách hợp nhất cho chủ đề rồi tạo n design. Mỗi concept kèm 'style'.
+    palette_keys: giới hạn nhóm style để AI chọn (vd NAME_STYLES cho cá nhân hoá tên)."""
     n = max(1, min(int(n or 3), 8))
     # Kèm LUÔN descriptor (đã tinh chỉnh cho thị trường VN) để AI tự pick bám đúng đặc điểm
+    keys = [k for k in (palette_keys or VN_HOT_STYLES) if k in DESIGN_STYLES] or VN_HOT_STYLES
     palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1])
-                        for k in VN_HOT_STYLES if k in DESIGN_STYLES)
+                        for k in keys if k in DESIGN_STYLES)
     parts = ["Tạo đúng %d design áo thun ĐẸP & DỄ BÁN nhất." % n]
     if (theme or "").strip():
         parts.append("Chủ đề/ngách: %s." % theme.strip())
@@ -2186,7 +2197,8 @@ def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
                     role = SEGMENTS[seg]["short"][idx] if idx < len(SEGMENTS[seg]["short"]) else ""
                     concepts.append((c, role))
         else:
-            for c in (design_concepts_auto(theme, "", n) or []):
+            # AI tự chọn style nhưng GIỚI HẠN trong nhóm hợp cá nhân hoá tên
+            for c in (design_concepts_auto(theme, "", n, palette_keys=NAME_STYLES) or []):
                 concepts.append((c, ""))
     except Exception:
         concepts = []
