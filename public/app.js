@@ -2991,15 +2991,23 @@ async function apDoRecolor() {
     btn.disabled = false; $("apP2").classList.add("hidden");
   }
 }
+let apShots = [];   // mỗi áo (design × màu) = 1 ô, như tab Lên áo
 function apToStep3() {
   if (!apRecolored.length) { alert("Chưa có mẫu đã đổi màu."); return; }
-  apShirtItems = apRecolored.map(it => Object.assign({}, it));
+  apShots = [];
+  apRecolored.forEach((it, di) => {
+    (it.variants || []).forEach(v => {
+      apShots.push({ di: di, name: it.name, date: it.date, role: it.role, tep: it.tep,
+        color: v.color, color_vi: v.color_vi, recolored: v.recolored,
+        state: { x: 50, y: 43, w: 40 }, shirt: null });
+    });
+  });
   apSel = new Set();
   apGoStep(3);
   apRenderShirts();
 }
 
-/* ---------- BƯỚC 3: lên áo (compose client-side) + đẩy Shopify ---------- */
+/* ---------- BƯỚC 3: lưới ô áo (như tab Lên áo) + đẩy Shopify ---------- */
 const AP_MOCKUP = { black: "ao_2_den.png", white: "ao_1_trang.png", brown: "ao_4_nau.png",
   sand: "ao_3_be.png", forest: "ao_7_xanhreu.png", red: "ao_5_do.png", maroon: "ao_6_dodo.png" };
 const apMockCache = {};
@@ -3019,68 +3027,62 @@ async function apComposeOne(color, designB64, st) {
   x.drawImage(des, sw * (st.x / 100) - dw / 2, sh * (st.y / 100) - dh / 2, dw, dh);
   return c.toDataURL("image/png");
 }
-async function apRecompose(it, card) {
-  for (const v of it.variants) {
-    v._url = await apComposeOne(v.color, v.recolored, it._state);
-    v.shirt = v._url.split(",")[1];
-  }
-  const thumbs = card.querySelectorAll(".ap-var");
-  it.variants.forEach((v, idx) => { if (thumbs[idx]) thumbs[idx].src = v._url; });
-  const main = card.querySelector(".ap-main");
-  if (main) main.src = it.variants[it._active]._url || main.src;
+function apShopN() {
+  const n = new Set([...apSel].map(i => apShots[i] && apShots[i].di)).size;
+  $("apToShopify").textContent = "🛍️ Đẩy mẫu đã chọn (" + n + ")";
 }
-function apShopN() { $("apToShopify").textContent = "🛍️ Đẩy mẫu đã chọn (" + apSel.size + ")"; }
 async function apRenderShirts() {
   const grid = $("apResults");
-  $("apEmpty3").classList.toggle("hidden", apShirtItems.length > 0);
+  $("apEmpty3").classList.toggle("hidden", apShots.length > 0);
   grid.innerHTML = ""; apSel = new Set(); apShopN();
-  for (let i = 0; i < apShirtItems.length; i++) {
-    const it = apShirtItems[i];
-    it._state = it._state || { x: 50, y: 43, w: 40 };
-    it._active = 0;
-    // compose lần đầu
-    for (const v of it.variants) { v._url = await apComposeOne(v.color, v.recolored, it._state); v.shirt = v._url.split(",")[1]; }
-    const card = document.createElement("div"); card.className = "gcard";
-    const tep = AP_TEP[it.tep] || it.tep || "";
-    const dateTag = it.date ? " · " + it.date : "";
+  for (let i = 0; i < apShots.length; i++) {
+    const s = apShots[i];
+    const url = await apComposeOne(s.color, s.recolored, s.state);
+    s.shirt = url.split(",")[1];
+    const card = document.createElement("div"); card.className = "gcard ap-shirt";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"></label>' +
-      '<img class="ap-main" src="' + it.variants[0]._url + '" alt="">' +
-      '<div class="ap-vars">' + it.variants.map((v, vi) => '<img class="ap-var" data-vi="' + vi + '" src="' + v._url + '" title="áo ' + (v.color_vi || "") + '">').join("") + '</div>' +
+      '<div class="gmeta" style="margin:0 0 4px"><b>Áo ' + (s.color_vi || "") + '</b> · ' + (s.name || s.role || "") + (s.date ? " · " + s.date : "") + '</div>' +
+      '<img class="ap-main" src="' + url + '" alt="">' +
       '<div class="ap-edit">' +
-        '<label>↔ <input type="range" class="ap-x" min="20" max="80" value="' + it._state.x + '"></label>' +
-        '<label>↕ <input type="range" class="ap-y" min="20" max="75" value="' + it._state.y + '"></label>' +
-        '<label>⤢ <input type="range" class="ap-w" min="15" max="70" value="' + it._state.w + '"></label>' +
+        '<label>↔ <input type="range" class="ap-x" min="20" max="80" value="' + s.state.x + '"></label>' +
+        '<label>↕ <input type="range" class="ap-y" min="20" max="75" value="' + s.state.y + '"></label>' +
+        '<label>⤢ <input type="range" class="ap-w" min="15" max="70" value="' + s.state.w + '"></label>' +
       '</div>' +
-      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b>' + dateTag + ' · ' + tep + ' · ' + it.variants.length + ' màu áo</div>' +
-      '<div class="gacts"><button class="b-dl">⬇ Tải ảnh áo</button></div>';
+      '<div class="gacts"><button class="b-dl">⬇ Tải</button></div>';
     const idx = i;
     card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apSel.add(idx); else apSel.delete(idx); apShopN(); };
     const mainImg = card.querySelector(".ap-main");
     mainImg.onclick = () => openZoom(mainImg.src);
-    card.querySelectorAll(".ap-var").forEach(im => { im.onclick = () => { it._active = +im.dataset.vi; mainImg.src = im.src; }; });
     let t = null;
-    const onSlide = () => {
-      it._state.x = +card.querySelector(".ap-x").value;
-      it._state.y = +card.querySelector(".ap-y").value;
-      it._state.w = +card.querySelector(".ap-w").value;
-      clearTimeout(t); t = setTimeout(() => apRecompose(it, card), 120);
+    const onSlide = async () => {
+      s.state.x = +card.querySelector(".ap-x").value;
+      s.state.y = +card.querySelector(".ap-y").value;
+      s.state.w = +card.querySelector(".ap-w").value;
+      clearTimeout(t); t = setTimeout(async () => {
+        const u = await apComposeOne(s.color, s.recolored, s.state);
+        s.shirt = u.split(",")[1]; mainImg.src = u;
+      }, 120);
     };
-    card.querySelectorAll(".ap-edit input").forEach(s => s.oninput = onSlide);
-    card.querySelector(".b-dl").onclick = () => autoDownload(mainImg.src.split(",")[1], (it.name || "design") + "-ao");
+    card.querySelectorAll(".ap-edit input").forEach(e => e.oninput = onSlide);
+    card.querySelector(".b-dl").onclick = () => autoDownload(s.shirt, (s.name || "design") + "-ao-" + (s.color_vi || ""));
     grid.appendChild(card);
   }
 }
 function apToShopify() {
-  const picks = [...apSel].map(i => apShirtItems[i]).filter(Boolean);
-  if (!picks.length) { alert("Tick ít nhất 1 mẫu để đẩy."); return; }
-  picks.forEach(it => {
+  const ticked = [...apSel].map(i => apShots[i]).filter(Boolean);
+  if (!ticked.length) { alert("Tick ít nhất 1 áo để đẩy."); return; }
+  // gom theo design (di) -> mỗi design = 1 sản phẩm nhiều màu variant
+  const byDi = {};
+  ticked.forEach(s => { (byDi[s.di] = byDi[s.di] || []).push(s); });
+  const products = Object.values(byDi);
+  products.forEach(list => {
     shopItems.push({
       title: "", description: "", price: "", status: "DRAFT", result: null,
-      variants: it.variants.map(v => ({ image: v.shirt, color: v.color_vi || "" })),
+      variants: list.map(s => ({ image: s.shirt, color: s.color_vi || "" })),
     });
   });
   showApp("shopify"); shopRender();
   const note = $("shopNote"); note.className = "gen-note ok";
-  note.textContent = "✓ Đã đưa " + picks.length + " mẫu sang Shopify — nhập giá rồi bấm Đẩy.";
+  note.textContent = "✓ Đã đưa " + products.length + " sản phẩm sang Shopify — nhập giá rồi bấm Đẩy.";
 }
