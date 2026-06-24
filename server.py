@@ -434,8 +434,9 @@ _DESIGN_LOCK = (
     "IDENTICAL to the attached reference product image. Treat the design as a fixed locked sticker: "
     "do NOT redraw, re-interpret, restyle, regenerate, translate, paraphrase, add, remove, recolor, "
     "resize, move or re-center any part of it — same artwork, same text, same colors, same size and "
-    "same position on the chest as the reference. Only the surrounding scene, shirt fabric, people "
-    "and background may change. "
+    "same position as the reference. Keep it a LARGE full-front chest print exactly as big as in the "
+    "reference; do NOT shrink it into a small left-chest pocket logo. Only the surrounding scene, "
+    "shirt fabric, people and background may change. "
 )
 
 
@@ -1217,7 +1218,7 @@ PRODUCT_PROMPT_SYSTEM = """Bạn là chuyên gia viết prompt ảnh sản phẩ
 
 TRIẾT LÝ: ảnh phải như người bình thường tự chụp / nhờ bạn chụp bằng điện thoại — KHÔNG studio, KHÔNG lookbook, KHÔNG xoá phông; ánh sáng tự nhiên neutral (không ám vàng/cam/ấm), da clean smooth tự nhiên (không airbrush/plastic), góc hơi lệch off-center.
 
-QUY TẮC DESIGN (BẮT BUỘC): TUYỆT ĐỐI KHÔNG mô tả / đặt tên / vẽ lại nội dung design hay chữ trên áo. Luôn viết đúng: "with the printed design on the left chest exactly as shown in the reference product image, same artwork, SAME SIZE, SAME POSITION, do not shrink, move, recolor or redraw it". Nano Banana tự lấy design từ ảnh ref.
+QUY TẮC DESIGN (BẮT BUỘC): TUYỆT ĐỐI KHÔNG mô tả / đặt tên / vẽ lại nội dung design hay chữ trên áo. Luôn viết đúng: "with the printed design reproduced EXACTLY as shown in the reference product image — a LARGE centered FULL-FRONT chest print, SAME ARTWORK, SAME SIZE & SCALE, SAME POSITION as the reference; do NOT shrink it into a small left-chest logo, do not move, recolor or redraw it". (Mẫu là PRINT TO TRƯỚC NGỰC chiếm phần lớn thân áo — KHÔNG phải logo nhỏ.) Nano Banana tự lấy design từ ảnh ref.
 
 NẾU LÀ ẢNH NGƯỜI MẪU — prompt phải có ĐỦ 7 block viết liền thành 1 đoạn:
 1) SCENE — đang ở đâu, lúc nào, không khí, đang làm gì (gắn pose với 1 hoạt động thật).
