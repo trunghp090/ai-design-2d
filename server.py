@@ -930,6 +930,28 @@ _MODEL_M = ("a young Vietnamese man in his early 20s, tall lean, fair light skin
             "and white sneakers" % _SKIN)
 _EXPR = ("bright cheerful gentle smile, lips parted slightly showing just the edge of teeth, eyes "
          "sparkling and alive, expression genuinely spontaneous not rehearsed")
+_MODEL_KID = ("a cheerful Vietnamese child about 6 years old, %s, round happy face with bright eyes, "
+              "short neat black hair, wearing simple shorts and small white sneakers" % _SKIN)
+# Đội mẫu theo TỆP khách — ai mặc áo trong ảnh người mẫu
+_SEG_CAST = {
+    "couple": ("a young Vietnamese couple — the woman is %s; the man is %s — both wearing the SAME "
+               "matching t-shirt" % (_MODEL_F, _MODEL_M)),
+    "family": ("a young Vietnamese family — the mother is %s; the father is %s; together with %s — "
+               "all wearing the SAME matching family t-shirt" % (_MODEL_F, _MODEL_M, _MODEL_KID)),
+    "group": ("a group of four young Vietnamese friends in their early 20s, a natural mix of women and "
+              "men, all with %s, casual GenZ outfits, all wearing the SAME matching team t-shirt"
+              % _SKIN),
+}
+# Câu mô tả tệp cho AI (Claude) viết prompt
+SEG_PEOPLE_HINT = {
+    "single": "ONE young Vietnamese model (a woman or a man) wearing the shirt.",
+    "couple": "a young Vietnamese COUPLE (a man and a woman), BOTH wearing the SAME design from the "
+              "reference (matching couple shirts).",
+    "family": "a young Vietnamese FAMILY — a father, a mother and a small child — ALL wearing the "
+              "SAME design from the reference (matching family shirts).",
+    "group": "a GROUP of 3–5 young Vietnamese friends, ALL wearing the SAME design from the reference "
+             "(matching team / uniform shirts).",
+}
 
 PRODUCT_BG = {
     "cafe": ("in a small indie café, white brick walls, large glass windows letting in bright "
@@ -983,6 +1005,42 @@ PRODUCT_CATS = {
         ("close_box", "Cận trong hộp"), ("close_one", "Cận 1 design")]},
 }
 
+# TỆP khách: đổi BIẾN THỂ ảnh người mẫu (ai mặc áo). Flatlay/nền trắng/kraft không đổi.
+PRODUCT_SEGMENTS = {
+    "single": {"label": "👤 1 áo (1 người mẫu)", "model": [
+        ("solo_f", "Solo nữ"), ("solo_m", "Solo nam"), ("solo_f2", "Nữ · góc 2"),
+        ("solo_m2", "Nam · góc 2"), ("solo_f3", "Nữ · candid"), ("chest", "Cận design")]},
+    "couple": {"label": "💑 Couple (2 người)", "model": [
+        ("couple_34", "Couple 3/4"), ("couple_wu", "Couple nửa người"),
+        ("couple_lean", "Couple tựa vai"), ("solo_f", "Solo nữ"),
+        ("solo_m", "Solo nam"), ("chest", "Cận design")]},
+    "family": {"label": "👨‍👩‍👧 Gia đình (bố/mẹ/bé)", "model": [
+        ("family_34", "Gia đình 3/4"), ("family_wu", "Gia đình nửa người"),
+        ("family_play", "Gia đình vui"), ("family_parents", "Bố & mẹ"),
+        ("family_kid", "Bé"), ("chest", "Cận design")]},
+    "group": {"label": "👥 Đội nhóm (3–5 người)", "model": [
+        ("group_34", "Nhóm 3/4"), ("group_wu", "Nhóm nửa người"),
+        ("group_fun", "Nhóm vui"), ("group_line", "Nhóm xếp hàng"),
+        ("group_candid", "Nhóm candid"), ("chest", "Cận design")]},
+}
+
+# Khung ngắm cho từng biến thể người mẫu (template khi KHÔNG bật AI prompt)
+_MODEL_FRAMES = {
+    "couple_34": "Three-quarter shot from mid-thigh up, standing side by side, shoulders lightly touching, looking at the camera with bright cheerful smiles.",
+    "couple_wu": "Waist-up shot, standing very close, shoulders touching, facing the camera with cheerful natural smiles.",
+    "couple_lean": "Waist-up shot, she leans her head gently on his shoulder, both relaxed with gentle cheerful smiles.",
+    "family_34": "Three-quarter shot from mid-thigh up, the family standing close together with the child in front between the parents, all looking at the camera with bright happy smiles.",
+    "family_wu": "Waist-up group shot, the parents leaning in beside the child, all facing the camera with cheerful natural smiles.",
+    "family_play": "Candid three-quarter group shot, the parents smiling as the child looks up, a joyful natural family moment, not posed.",
+    "family_parents": "Waist-up shot of just the two parents standing close together, facing the camera with cheerful smiles.",
+    "family_kid": "Three-quarter shot of just the child standing happily and looking at the camera with a bright playful smile.",
+    "group_34": "Three-quarter group shot from mid-thigh up, the friends standing together in a relaxed cluster, all looking at the camera with bright cheerful smiles.",
+    "group_wu": "Waist-up group shot, the friends close together facing the camera with cheerful energetic smiles.",
+    "group_fun": "Candid group shot, the friends mid-laugh as if someone just said something funny, genuine joyful energy.",
+    "group_line": "Three-quarter shot, the friends standing in a row shoulder to shoulder, all facing the camera with bright smiles, clearly showing the matching shirts.",
+    "group_candid": "Candid waist-up group shot, the friends interacting naturally, some looking at the camera, relaxed and happy.",
+}
+
 # Giữ design + chân thực (vân vải, bóng đổ mềm) — tránh trông như sticker phẳng/3D giả
 _DESIGN_KEEP = ("the printed design reproduced EXACTLY as in the reference — same artwork, SAME SIZE "
                 "& SCALE, SAME POSITION on the shirt, do NOT shrink/move/re-center/redraw it; ")
@@ -1008,19 +1066,9 @@ _KNEG = (" Negative extra: stickers, ribbons, greeting card, dried flowers, prin
          "separate lid box, detached lid, shoe box style lid.")
 
 
-def product_prompt(cat, vk, bg_key):
+def product_prompt(cat, vk, bg_key, seg="single"):
     bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["cafe"])
     if cat == "model":
-        if vk.startswith("couple"):
-            pose = {"couple_34": "Three-quarter shot from mid-thigh up. They stand side by side, "
-                    "shoulders lightly touching, both looking at the camera with bright cheerful smiles.",
-                    "couple_wu": "Waist-up shot. They stand very close, shoulders touching, both "
-                    "facing the camera with bright sparkling eyes and cheerful natural smiles.",
-                    "couple_lean": "Waist-up shot. She leans her head gently on his shoulder, he "
-                    "tilts his head slightly toward hers, both relaxed with gentle cheerful smiles."}[vk]
-            return ("A candid casual smartphone photo of a young Vietnamese couple %s. The woman is "
-                    "%s. The man is %s. Both wearing %s. %s The fabric colors stay true to life, "
-                    "well exposed. %s %s" % (bg, _MODEL_F, _MODEL_M, _SHIRT, pose, _CAM, PRODUCT_NEG))
         if vk == "chest":
             return ("A candid casual smartphone photo, chest-level crop of a young Vietnamese person "
                     "wearing %s — framed from just below the collar to above the waist, NO face "
@@ -1028,8 +1076,20 @@ def product_prompt(cat, vk, bg_key):
                     "Directional natural daylight from one side creating slight shadow depth on the "
                     "fabric, dimensional not flat, real cotton fabric texture visible, the design "
                     "large and clearly readable. %s %s" % (_SHIRT, bg, _CAM, PRODUCT_NEG))
-        who = _MODEL_F if vk == "solo_f" else _MODEL_M
-        pose = ("one hand holding her bag strap" if vk == "solo_f" else "one hand relaxed in his pocket")
+        # nhóm nhiều người theo tệp (couple / family / group)
+        cast_key = ("couple" if vk.startswith("couple") else
+                    "family" if vk.startswith("family") else
+                    "group" if vk.startswith("group") else "")
+        if cast_key:
+            cast = _SEG_CAST[cast_key]
+            frame = _MODEL_FRAMES.get(vk, "Three-quarter group shot, all looking at the camera with bright cheerful smiles.")
+            return ("A candid casual smartphone photo of %s %s. They all wear %s. %s The fabric "
+                    "colors stay true to life, well exposed. %s %s"
+                    % (cast, bg, _SHIRT, frame, _CAM, PRODUCT_NEG))
+        # solo 1 người (single)
+        female = vk in ("solo_f", "solo_f2", "solo_f3")
+        who = _MODEL_F if female else _MODEL_M
+        pose = ("one hand holding her bag strap" if female else "one hand relaxed in his pocket")
         return ("A candid casual smartphone photo of %s, wearing %s. Standing %s, %s. Waist-up shot "
                 "from the waist to the top of the head, looking at the camera, %s. The fabric color "
                 "stays true to life, well exposed. %s %s"
@@ -1090,7 +1150,7 @@ NẾU LÀ ẢNH NGƯỜI MẪU — prompt phải có ĐỦ 7 block viết liền
 2) LIGHTING & COLOR — nguồn sáng tự nhiên hợp bối cảnh, strictly neutral, bright & airy, fabric color true to life. Cấm studio strobe / ring light / artificial / dramatic / side lighting / warm-golden-orange cast.
 3) BACKGROUND — chi tiết, có chiều sâu, bokeh nhẹ, "có đời sống".
 4) PRODUCT ON BODY — chỉ MÀU vải + fit oversized + nếp nhăn tự nhiên ở nách/eo + "clean ribbed crewneck collar with no visible tags or labels"; design theo câu cố định ở trên.
-5) MODEL — người Việt trẻ đầu 20s, viết CỰC kỳ cụ thể: tuổi, vóc dáng, da ("clean smooth natural Vietnamese skin, naturally clear, no moles, no blemishes, not airbrushed, not plastic"), mặt (natural Vietnamese features, KHÔNG ulzzang/Korean), mắt, tóc, quần/váy + giày + phụ kiện tối thiểu (nam ưu tiên wide-leg / baggy; nữ váy hoặc quần khác kiểu). Couple thì nam và nữ mặc quần/váy KHÁC nhau.
+5) MODEL — người Việt trẻ đầu 20s, viết CỰC kỳ cụ thể: tuổi, vóc dáng, da ("clean smooth natural Vietnamese skin, naturally clear, no moles, no blemishes, not airbrushed, not plastic"), mặt (natural Vietnamese features, KHÔNG ulzzang/Korean), mắt, tóc, quần/váy + giày + phụ kiện tối thiểu (nam ưu tiên wide-leg / baggy; nữ váy hoặc quần khác kiểu). Couple thì nam và nữ mặc quần/váy KHÁC nhau. NẾU TỆP là GIA ĐÌNH (bố/mẹ/bé) hoặc ĐỘI NHÓM (3–5 bạn): tả từng người trong nhóm, TẤT CẢ mặc CÙNG 1 design áo y hệt nhau (matching), mỗi người quần/váy khác nhau cho phong phú; bé thì da/face trẻ thơ tự nhiên, vui tươi; bố cục nhóm tự nhiên không xếp hàng cứng (trừ khi yêu cầu).
 6) POSE & EXPRESSION — pose ngắn gọn tự nhiên; biểu cảm tươi nhưng KHÔNG há miệng to / cười lố: ưu tiên "bright cheerful gentle smile, lips parted slightly showing just the edge of teeth, eyes sparkling and alive, expression genuinely spontaneous not rehearsed". Waist-up: mặt chiếm tối thiểu 1/3 frame. KHÔNG chụp full body.
 7) CAMERA — "Casual smartphone photo. Sharp, clean, naturally exposed — no beauty filter, no portrait blur, no skin smoothing, no grain, no filter. Feels like a friend took it." Aspect ratio 4:5.
 
@@ -1104,15 +1164,18 @@ Negative: visible pores, skin texture, hyper-detailed skin, airbrushed skin, pla
 Chỉ trả về CÂU PROMPT thuần (1 đoạn văn), KHÔNG giải thích, KHÔNG markdown, KHÔNG tiêu đề."""
 
 
-def product_prompt_ai(img_bytes, cat, vk, bg_key):
+def product_prompt_ai(img_bytes, cat, vk, bg_key, seg="single"):
     """AI nhìn ảnh áo -> tự viết prompt chân thực cho shot này. Lỗi -> prompt mẫu.
 
     Ưu tiên Claude API (Anthropic, có ANTHROPIC_API_KEY) — đúng kiểu skill nano-banana;
     nếu không có thì dùng OpenAI vision (gpt-4o-mini). Cả hai lỗi -> prompt mẫu cứng.
     """
-    base = product_prompt(cat, vk, bg_key)   # gợi ý loại ảnh + bối cảnh + pose
+    base = product_prompt(cat, vk, bg_key, seg)   # gợi ý loại ảnh + bối cảnh + pose
+    seg_note = ""
+    if cat == "model" and vk != "chest":
+        seg_note = " TỆP khách của ảnh này: " + SEG_PEOPLE_HINT.get(seg, SEG_PEOPLE_HINT["single"])
     instr = ("Loại ảnh & bối cảnh cần đạt (tham khảo, hãy viết lại tự nhiên & chi tiết hơn): "
-             + base + " — Viết 1 prompt tiếng Anh siêu thực cho ảnh áo dưới đây, "
+             + base + seg_note + " — Viết 1 prompt tiếng Anh siêu thực cho ảnh áo dưới đây, "
              "GIỮ NGUYÊN design. Chỉ trả prompt.")
     # 1) Claude (nếu có key)
     if ANTHROPIC_API_KEY:
@@ -1141,8 +1204,9 @@ def product_prompt_ai(img_bytes, cat, vk, bg_key):
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
     def work(shot):
         try:
-            prompt = (product_prompt_ai(img, shot["cat"], shot["vk"], bg_key) if ai_prompt
-                      else product_prompt(shot["cat"], shot["vk"], bg_key))
+            seg = shot.get("seg", "single")
+            prompt = (product_prompt_ai(img, shot["cat"], shot["vk"], bg_key, seg) if ai_prompt
+                      else product_prompt(shot["cat"], shot["vk"], bg_key, seg))
             b64 = gen_shot([(img, "image/png")], prompt,
                            shot["size"], engine, shot.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
@@ -1175,7 +1239,7 @@ def run_prompt_job(job_id, img, shots, bg_key):
     """
     def work(shot):
         try:
-            prompt = product_prompt_ai(img, shot["cat"], shot["vk"], bg_key)
+            prompt = product_prompt_ai(img, shot["cat"], shot["vk"], bg_key, shot.get("seg", "single"))
             return {"title": shot["label"], "prompt": prompt,
                     "size": shot["size"], "aspect": shot.get("aspect", "")}
         except urllib.error.HTTPError as e:
@@ -2364,7 +2428,9 @@ class Handler(BaseHTTPRequestHandler):
                                    "claude": bool(ANTHROPIC_API_KEY), "openai_vision": bool(API_KEY),
                                    "claude_model": ANTHROPIC_MODEL,
                                    "engines": engines_status(),
-                                   "default_engine": resolve_engine_id({})})
+                                   "default_engine": resolve_engine_id({}),
+                                   "segments": [{"id": k, "label": v["label"]}
+                                                for k, v in PRODUCT_SEGMENTS.items()]})
         if path == "/api/shopify-products":
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})
@@ -3129,13 +3195,17 @@ class Handler(BaseHTTPRequestHandler):
         if not cats:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
         aspect = (body.get("aspect") or "auto").strip()
+        seg = body.get("segment", "single")
+        if seg not in PRODUCT_SEGMENTS:
+            seg = "single"
         shots = []
         for c in cats:
             meta = PRODUCT_CATS[c]
-            for vk, vlabel in meta["variants"]:
+            variants = PRODUCT_SEGMENTS[seg]["model"] if c == "model" else meta["variants"]
+            for vk, vlabel in variants:
                 sz = ASPECT_TO_SIZE.get(aspect, meta["size"]) if aspect != "auto" else meta["size"]
                 asp = aspect if aspect != "auto" else ""
-                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp,
+                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp, "seg": seg,
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
         engine = resolve_engine_id(body)
@@ -3166,13 +3236,17 @@ class Handler(BaseHTTPRequestHandler):
         if not cats:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
         aspect = (body.get("aspect") or "auto").strip()
+        seg = body.get("segment", "single")
+        if seg not in PRODUCT_SEGMENTS:
+            seg = "single"
         shots = []
         for c in cats:
             meta = PRODUCT_CATS[c]
-            for vk, vlabel in meta["variants"]:
+            variants = PRODUCT_SEGMENTS[seg]["model"] if c == "model" else meta["variants"]
+            for vk, vlabel in variants:
                 sz = ASPECT_TO_SIZE.get(aspect, meta["size"]) if aspect != "auto" else meta["size"]
                 asp = aspect if aspect != "auto" else ""
-                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp,
+                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp, "seg": seg,
                               "label": "%s · %s" % (meta["label"], vlabel)})
         bg_key = body.get("bg", "cafe")
         with _batch_lock:

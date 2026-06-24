@@ -1500,9 +1500,22 @@ function prodInit() {
   };
   prodLoadHistory();
 }
+let prodSeg = "single";
+function prodRenderSegs(segments) {
+  const box = $("prodSegs"); if (!box) return;
+  box.innerHTML = "";
+  (segments || []).forEach(s => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (prodSeg === s.id ? " on" : "");
+    el.innerHTML = s.label + ' <span class="tick">✓</span>';
+    el.onclick = () => { prodSeg = s.id; prodRenderSegs(segments); };
+    box.appendChild(el);
+  });
+}
 async function prodCheckEngine() {
   try {
     const d = await (await fetch("/api/engines")).json();
+    if (d.segments) prodRenderSegs(d.segments);
     // Dropdown chọn model gen ảnh
     const sel = $("prodEngine"), hint = $("prodNanoHint");
     if (sel) {
@@ -1664,7 +1677,7 @@ $("prodRunBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-photos", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, segment: prodSeg, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
@@ -1747,7 +1760,7 @@ $("prodGenPromptBtn").onclick = async () => {
   try {
     const r = await fetch("/api/product-prompts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, segment: prodSeg, aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
