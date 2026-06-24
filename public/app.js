@@ -2850,11 +2850,12 @@ function apRenderDesigns() {
   });
   apPickN();
 }
-// xem nhanh design lên áo (compose client-side trên 1 màu mockup, mặc định trắng)
-async function apPreviewShirt(i) {
+// Xem lên áo = nạp design vào trình mockup Clone Design (kéo-thả/resize/chọn áo y hệt)
+function apPreviewShirt(i) {
   const it = apDesigns[i]; if (!it) return;
-  const url = await apComposeOne("white", it.image || it.design, { x: 50, y: 43, w: 40 });
-  openZoom(url);
+  showApp("clone");
+  showDesign(it.image || it.design);
+  $("sendToMockup").click();   // chuyển sang tab Mockup + bật layer design lên áo
 }
 // sửa design theo yêu cầu (img2img) -> thay design tại chỗ
 async function apEditDesign(i, card) {
