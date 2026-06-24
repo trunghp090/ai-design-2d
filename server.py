@@ -1923,26 +1923,24 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
 # --------------------------------------------------------------------------- #
 #  PIPELINE TRỌN GÓI: AI tự nghĩ tên + tệp + style + màu -> design -> đổi màu áo
 # --------------------------------------------------------------------------- #
-AUTO_PIPE_SYSTEM = """Bạn là chuyên gia thiết kế áo thun PRINT-ON-DEMAND cá nhân hoá cho thị trường Việt Nam (brand rieng.vn, khách GenZ). Bạn TỰ NGHĨ MỌI THỨ: tên người, tệp khách, chủ đề, phong cách, màu áo — rồi mô tả 1 design in áo CÁ NHÂN HOÁ (có TÊN làm điểm nhấn).
+AUTO_PIPE_SYSTEM = """Bạn là giám đốc sáng tạo shop áo thun PRINT-ON-DEMAND cá nhân hoá Việt Nam (brand rieng.vn, khách GenZ). Bạn LÊN KẾ HOẠCH cho từng mẫu — KHÔNG viết prompt vẽ (phần vẽ & chọn phong cách do hệ thống tự lo). Bạn TỰ NGHĨ: tệp khách, tên người để in, chủ đề, màu áo.
 
-Trả về JSON đúng dạng: {"items":[{...}, ...]} với mỗi item gồm:
-- "tep": 1 trong "single" | "couple" | "family" | "group" (tự chọn cho đa dạng; ưu tiên single & couple).
-- "name": TÊN người để in (vd "Linh", "Minh & An", "Nhà Bi"). Tên Việt tự nhiên, giữ dấu. Couple/family có thể 2–3 tên ghép.
-- "theme": chủ đề/ngách ngắn (vd "mèo cưng", "cà phê", "tuổi Dần", "hội bạn thân").
-- "style": phong cách thiết kế (vd "vintage americana", "korean minimal", "y2k", "typography", "kawaii"...).
-- "color": MÀU ÁO hợp nhất, CHỈ chọn 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
-- "image_prompt": prompt TIẾNG ANH để model tạo ẢNH DESIGN IN ÁO (KHÔNG phải ảnh người mặc): flat vector t-shirt PRINT design, the NAME integrated as the hero text (spell it exactly, keep Vietnamese diacritics), phong cách theo "style", chủ đề theo "theme", bố cục cân đối in giữa áo, plain solid WHITE background for easy cutout, print-ready, NO mockup, NO t-shirt, NO person, NO photo.
+Trả về JSON: {"items":[{...}, ...]} với mỗi item:
+- "tep": 1 trong "single" | "couple" | "family" | "group" (đa dạng; ưu tiên single & couple).
+- "name": TÊN để in. single = 1 tên (vd "Linh"); couple = 2 tên cách bởi "&" (vd "Minh & An"); family = tên Bố/Mẹ/Bé cách bởi "/" (vd "Nam / Hoa / Bi"); group = 1 tên nhóm (vd "Hội Cú Đêm"). Tên Việt tự nhiên, giữ dấu.
+- "theme": chủ đề/ngách ngắn (vd "mèo cưng", "cà phê đôi", "tuổi Dần", "hội bạn thân").
+- "color": MÀU ÁO hợp nhất, CHỈ 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
 
-QUY TẮC: mỗi item KHÁC nhau hẳn (tên/tệp/chủ đề/style/màu đa dạng). Màu áo phải hợp design để chữ & hình nổi rõ. Đúng số lượng yêu cầu."""
+QUY TẮC: mỗi item khác nhau hẳn (tệp/tên/chủ đề/màu đa dạng). Màu áo hợp để chữ & hình nổi rõ. Đúng số lượng yêu cầu."""
 
 
 def auto_pipe_plan(n, niche=""):
-    """AI (Claude/OpenAI) tự nghĩ n brief cá nhân hoá: tệp/tên/chủ đề/style/màu/image_prompt."""
+    """AI (Claude ưu tiên) tự nghĩ n brief cá nhân hoá: tệp/tên/chủ đề/màu (style do hệ thống tự chọn)."""
     n = max(1, min(int(n or 3), 6))
     u = "Hãy nghĩ ĐÚNG %d mẫu áo cá nhân hoá đẹp & dễ bán nhất." % n
     if (niche or "").strip():
         u += " Xoay quanh ngách/gợi ý: %s." % niche.strip()
-    raw = ai_json(AUTO_PIPE_SYSTEM, u, max_tokens=3000)
+    raw = ai_json(AUTO_PIPE_SYSTEM, u, max_tokens=2000)
     items = []
     try:
         data = json.loads(raw)
@@ -1951,50 +1949,124 @@ def auto_pipe_plan(n, niche=""):
         items = []
     out = []
     for it in (items or []):
-        if not isinstance(it, dict) or not (it.get("image_prompt") or "").strip():
+        if not isinstance(it, dict):
             continue
-        c = it.get("color")
-        it["color"] = c if c in RECOLOR else "white"
+        if not (it.get("name") or it.get("theme")):
+            continue
+        it["color"] = it.get("color") if it.get("color") in RECOLOR else "white"
         it["tep"] = it.get("tep") if it.get("tep") in PRODUCT_SEGMENTS else "single"
         out.append(it)
     return out[:n]
 
 
-def run_auto_pipeline(job_id, plans, size):
-    """Mỗi brief: gen design (có tên) -> đổi màu cho hợp áo -> ghép lên nền màu áo để xem."""
-    def work(it):
-        name = (it.get("name") or "Design").strip()
-        color = it.get("color") if it.get("color") in RECOLOR else "white"
-        vi, hexv, _ = RECOLOR[color]
-        label = "%s · áo %s" % (name, vi)
+def _split_names(name):
+    """'Minh & An' / 'Nam / Hoa / Bi' -> ['Minh','An'] ..."""
+    nm = name or ""
+    for s in ("&", "/", ",", "+"):
+        nm = nm.replace(s, "|")
+    return [p.strip() for p in nm.split("|") if p.strip()]
+
+
+def _gen_base_b64(prompt, size, transparent=True):
+    """Vẽ design từ prompt (như tab Tạo design) + tách nền."""
+    b64 = openai_generate(prompt, size)
+    if transparent and HAS_PIL:
         try:
-            raw = openai_generate(it["image_prompt"], size)
-            design = raw
-            if HAS_PIL:
+            b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
+        except Exception:
+            pass
+    return b64
+
+
+def personalize_core(design_b64, name, size, transparent=True):
+    """Cá nhân hoá tên (img2img) — DÙNG LẠI logic tab Cá nhân hoá: giữ style, thay chữ chính = tên."""
+    base = ("Design a t-shirt graphic featuring the NAME \"%s\" as the focal text. KEEP THE SAME "
+            "VISUAL STYLE as the reference image — same color palette, same font character, same "
+            "illustration motifs/elements, same texture and mood — you may rework the composition. "
+            "Use exactly this name text, keep all Vietnamese diacritics correct. If the name has 2 "
+            "words keep them on one line when it fits." % name)
+    b64, _ = gen_design([(base64.b64decode(design_b64), "image/png")], "variation", base,
+                        size, transparent)
+    return b64
+
+
+def recolor_core(design_b64, color, size):
+    """Đổi màu hợp áo (cloner) — DÙNG LẠI logic tab Đổi màu áo."""
+    b64, _ = gen_design([(base64.b64decode(design_b64), "image/png")], "cloner",
+                        recolor_instruction(color), size, True)
+    return b64
+
+
+def run_auto_pipeline(job_id, plans, size, transparent=True):
+    """Nối các tính năng đã build: AI chọn style (56 style/bộ đồng bộ) -> cá nhân hoá tên -> đổi màu áo.
+
+    Mỗi brief nở thành 1 BỘ design theo tệp (single=1, couple=2, family=3, group=1) qua
+    design_concepts_auto/segment; mỗi design: vẽ -> personalize (tên chuẩn img2img) -> recolor.
+    """
+    # 1) Nở brief -> các task design (dùng lại design_concepts_auto / design_concepts_segment)
+    tasks = []
+    for brief in plans:
+        tep = brief.get("tep", "single")
+        theme = brief.get("theme", "")
+        color = brief.get("color") if brief.get("color") in RECOLOR else "white"
+        names = _split_names(brief.get("name", ""))
+        try:
+            if tep in SEGMENTS:
+                concepts = design_concepts_segment(tep, [], theme, "", auto_style=True)
+            else:
+                concepts = design_concepts_auto(theme, "", 1)
+        except Exception:
+            concepts = []
+        for idx, c in enumerate(concepts or []):
+            nm = names[idx] if idx < len(names) else (names[-1] if names else "")
+            role = ""
+            if tep in SEGMENTS and idx < len(SEGMENTS[tep]["short"]):
+                role = SEGMENTS[tep]["short"][idx]
+            style = (c.get("style") or "").strip() or role
+            tasks.append({"prompt": c.get("prompt", ""), "name": nm, "color": color,
+                          "tep": tep, "theme": theme, "style": style, "role": role})
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(tasks) or 1
+        if not tasks:
+            job["errors"].append("AI chưa nghĩ được concept — thử lại hoặc gõ ngách rõ hơn.")
+            job["finished"] = True
+            return
+
+    # 2) Mỗi design: vẽ -> cá nhân hoá tên -> đổi màu áo -> ghép lên áo
+    def work(t):
+        color = t["color"]
+        vi, hexv, _ = RECOLOR[color]
+        nm = (t.get("name") or "").strip()
+        label = (nm or t.get("role") or "Design") + " · áo " + vi
+        try:
+            base = _gen_base_b64(t["prompt"], size, transparent)
+            named = base
+            if nm:
                 try:
-                    design = base64.b64encode(remove_flat_bg(base64.b64decode(raw))).decode()
+                    named = personalize_core(base, nm, size, transparent)
                 except Exception:
-                    design = raw
-            # đổi màu cho hợp áo (giữ nguyên design, chỉ phối lại màu)
-            rec = design
+                    named = base
             try:
-                rec, _ = gen_design([(base64.b64decode(design), "image/png")], "cloner",
-                                    recolor_instruction(color), size, True)
+                rec = recolor_core(named, color, size)
             except Exception:
-                rec = design
-            shirt = flatten_on_color(rec, hexv)       # xem như in trên áo màu đó
+                rec = named
+            shirt = flatten_on_color(rec, hexv)
             g = gallery_add(rec, {"mode": "design", "prompt": label})
-            return {"name": name, "tep": it.get("tep", "single"), "style": it.get("style", ""),
-                    "theme": it.get("theme", ""), "color": color, "color_vi": vi, "hex": hexv,
-                    "design": design, "recolored": rec, "shirt": shirt, "title": label,
-                    "gallery": g}
+            return {"name": nm, "tep": t["tep"], "style": t.get("style", ""),
+                    "theme": t.get("theme", ""), "role": t.get("role", ""),
+                    "color": color, "color_vi": vi, "hex": hexv,
+                    "design": base, "named": named, "recolored": rec, "shirt": shirt,
+                    "title": label, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": label}
         except Exception as e:
             return {"error": str(e), "title": label}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        for res in ex.map(work, plans):
+        for res in ex.map(work, tasks):
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
                 if not job:

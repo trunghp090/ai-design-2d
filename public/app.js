@@ -2783,10 +2783,11 @@ function apRender(items) {
     const card = document.createElement("div");
     card.className = "gcard";
     const tep = AP_TEP[it.tep] || it.tep || "";
+    const roleTag = it.role ? ' <span style="opacity:.7">(' + it.role + ')</span>' : "";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"></label>' +
       '<img src="data:image/png;base64,' + (it.shirt || it.recolored || it.design) + '" alt="">' +
-      '<div class="gmeta"><b>' + (it.name || "") + '</b> · ' + tep + '<br>' +
+      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b> · ' + tep + roleTag + '<br>' +
       '<span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + ' · áo ' + (it.color_vi || "") + '</span></div>' +
       '<div class="gacts">' +
         '<button class="b-zoom">🔍 Lên áo</button>' +
