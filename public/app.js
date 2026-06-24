@@ -2214,6 +2214,7 @@ function dsInit() {
     ab.classList.toggle("on", dsAuto);
     ab.textContent = dsAuto ? "🎯 AI tự chọn style: ĐANG BẬT (bấm để tắt)" : "🎯 Để AI tự chọn style đẹp nhất";
   };
+  dsLoadSaved();   // nạp lại design đã tạo (đã lưu) -> reload/reset vẫn còn
 }
 function dsSetRef(durl) {
   dsRefImg = durl;
@@ -2310,6 +2311,27 @@ function dsRenderNameCombos() {
 let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
 let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
 function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Math.random(); }
+// nguồn ảnh: ưu tiên b64 (it.image), nếu chỉ có url (nạp từ gallery) thì dùng url
+const dsSrc = (it) => it.image ? "data:image/png;base64," + it.image : it.url;
+// lấy b64 (fetch + cache từ url nếu cần) — cho các thao tác cần base64
+async function dsB64(it) {
+  if (it.image) return it.image;
+  const b = await (await fetch(it.url)).blob();
+  it.image = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
+  return it.image;
+}
+// nạp lại design đã tạo (đã lưu gallery) khi mở tab -> reset/reload vẫn còn
+async function dsLoadSaved() {
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    const items = (d.items || []).filter(it => it.mode === "design" || it.mode === "personalize").slice(0, 120);
+    let added = 0;
+    items.forEach(g => {
+      if (!dsItems[g.id]) { dsItems[g.id] = { url: g.url, title: g.prompt || "Design", gallery: { id: g.id, url: g.url } }; added++; }
+    });
+    if (added) dsRender();
+  } catch (e) { /* im lặng */ }
+}
 
 function dsRender() {
   const grid = $("dsResults");
@@ -2331,34 +2353,45 @@ function dsRender() {
         (it.reason ? '<span class="ds-reason">' + it.reason + "</span>" : "") + "</div>";
     }
     card.innerHTML =
-      '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
+      '<img src="' + dsSrc(it) + '" loading="lazy" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>' +
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>' +
       '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Nhập nội dung chỉnh sửa…"><button class="ds-fixbtn">Sửa</button></div>';
-    card._cur = it.image; card._name = it.title || "design";
-    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
-    card.querySelector(".b-name").onclick = () => openPersonalize(it.image);
-    card.querySelector(".b-recolor").onclick = () => {
-      recolorImg = "data:image/png;base64," + it.image;
+    card._cur = it.image; card._it = it; card._name = it.title || "design";
+    card.querySelector("img").onclick = () => openZoom(dsSrc(it));
+    card.querySelector(".b-name").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; openPersonalize(await dsB64(it)); b.disabled = false; };
+    card.querySelector(".b-recolor").onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      recolorImg = "data:image/png;base64," + await dsB64(it); b.disabled = false;
       showApp("recolor");
       if (typeof recolorRenderThumb === "function") recolorRenderThumb();
     };
-    card.querySelector(".b-var").onclick = (e) => dsMakeVariations(it.image, e.currentTarget);
-    card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
-    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
+    card.querySelector(".b-var").onclick = async (e) => dsMakeVariations(await dsB64(it), e.currentTarget);
+    card.querySelector(".b-use").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; const im = await dsB64(it); b.disabled = false; showApp("clone"); showDesign(im); document.querySelector('.rtab[data-rtab="design"]').click(); };
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(dsSrc(it), e.currentTarget);
     card.querySelector(".b-canva").onclick = async (e) => {
       if (!dsCanvaLink) { alert("Chưa có link Canva. Dán link Canva vào ô phía trên rồi bấm 💾 Lưu link."); $("dsCanvaLink") && $("dsCanvaLink").focus(); return; }
-      await copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);  // copy sẵn để dán vào Canva
+      await copyImageToClipboard(dsSrc(it), e.currentTarget);  // copy sẵn để dán vào Canva
       window.open(dsCanvaLink, "_blank");
     };
-    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
+    card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await dsB64(it), it.title || "design"); b.disabled = false; };
+    card.querySelector(".b-del").onclick = async (e) => {
+      if (!confirm("Xoá design này?")) return;
+      const b = e.currentTarget; b.disabled = true;
+      try {
+        const gid = it.gallery && it.gallery.id;
+        if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" });
+        delete dsItems[key]; dsRender();
+        if (typeof loadGallery === "function") loadGallery();
+      } catch (err) { alert("✗ " + err.message); b.disabled = false; }
+    };
     const dsFixin = card.querySelector(".ds-fixin"), dsFixbtn = card.querySelector(".ds-fixbtn");
     const dsDoFix = async () => {
       const instr = (dsFixin.value || "").trim(); if (!instr) { dsFixin.focus(); return; }
       dsFixbtn.disabled = true; const o = dsFixbtn.textContent; dsFixbtn.textContent = "⏳…";
       try {
         const r = await fetch("/api/pipe-edit", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: "data:image/png;base64," + it.image, prompt: instr }) });
+          body: JSON.stringify({ image: "data:image/png;base64," + await dsB64(it), prompt: instr }) });
         const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
         it.image = d.image; card._cur = d.image;
         card.querySelector("img").src = "data:image/png;base64," + d.image;
@@ -2505,7 +2538,11 @@ $("dsRunBtn").onclick = async () => {
 $("dsDownloadAll").onclick = async () => {
   const cards = [...$("dsResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
-  for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
+  for (const cd of cards) {
+    const b64 = cd._cur || (cd._it ? await dsB64(cd._it) : null);
+    if (b64) autoDownload(b64, cd._name);
+    await new Promise(r => setTimeout(r, 350));
+  }
 };
 
 /* =====================================================================
