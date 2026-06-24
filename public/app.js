@@ -2765,13 +2765,58 @@ let apTimer = null;
 let apInited = false;
 const AP_TEP = { single: "👤 1 áo", couple: "💑 Couple", family: "👨‍👩‍👧 Gia đình", group: "👥 Đội nhóm" };
 
+const apColors = new Set(["black", "white"]);   // màu áo sẽ đổi màu + lên áo
+function apRenderColors() {
+  const box = $("apColors"); if (!box) return;
+  box.innerHTML = "";
+  RECOLOR_LIST.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (apColors.has(c.key) ? " on" : "");
+    el.innerHTML = '<span class="sw" style="background:' + c.sw + '"></span> ' + c.vi + ' <span class="tick">✓</span>';
+    el.onclick = () => { if (apColors.has(c.key)) apColors.delete(c.key); else apColors.add(c.key); apRenderColors(); };
+    box.appendChild(el);
+  });
+}
 function apInit() {
   if (apInited) return; apInited = true;
+  apRenderColors();
   $("apRunBtn").onclick = apRun;
   $("apToShopify").onclick = apToShopify;
 }
 function apSelUpdate() {
   $("apToShopify").textContent = "🛍️ Đẩy mẫu đã chọn (" + apSel.size + ")";
+}
+// ---- compose design lên áo NGAY trong tab (client-side, chỉnh vị trí/cỡ tại chỗ) ----
+const AP_MOCKUP = { black: "ao_2_den.png", white: "ao_1_trang.png", brown: "ao_4_nau.png",
+  sand: "ao_3_be.png", forest: "ao_7_xanhreu.png", red: "ao_5_do.png", maroon: "ao_6_dodo.png" };
+const apMockCache = {};
+async function apMock(color) {
+  const fn = AP_MOCKUP[color]; if (!fn) return null;
+  if (!apMockCache[color]) apMockCache[color] = await loadImg("/mockups/" + fn).catch(() => null);
+  return apMockCache[color];
+}
+async function apComposeOne(color, designB64, st) {
+  const shirt = await apMock(color);
+  const des = await loadImg("data:image/png;base64," + designB64).catch(() => null);
+  if (!shirt || !des) return "data:image/png;base64," + designB64;
+  const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
+  const c = document.createElement("canvas"); c.width = sw; c.height = sh;
+  const x = c.getContext("2d");
+  x.drawImage(shirt, 0, 0, sw, sh);
+  const dw = sw * (st.w / 100), scale = dw / des.naturalWidth, dh = des.naturalHeight * scale;
+  x.drawImage(des, sw * (st.x / 100) - dw / 2, sh * (st.y / 100) - dh / 2, dw, dh);
+  return c.toDataURL("image/png");
+}
+async function apRecompose(it, card) {
+  const st = it._state, dz = it.named || it.design;
+  for (const v of it._variants) {
+    v._url = await apComposeOne(v.color, v.recolored || dz, st);
+    v.shirt = v._url.split(",")[1];
+  }
+  const thumbs = card.querySelectorAll(".ap-var");
+  it._variants.forEach((v, idx) => { if (thumbs[idx]) thumbs[idx].src = v._url; });
+  const main = card.querySelector(".ap-main");
+  if (main) main.src = it._variants[it._active]._url || main.src;
 }
 function apRender(items) {
   apItems = items || [];
@@ -2784,28 +2829,46 @@ function apRender(items) {
     card.className = "gcard";
     const tep = AP_TEP[it.tep] || it.tep || "";
     const roleTag = it.role ? ' <span style="opacity:.7">(' + it.role + ')</span>' : "";
-    const shirt = it.shirt || it.recolored || it.named || it.design;   // ảnh đã lên áo
-    const designB64 = it.named || it.design;                            // design tách nền (để chỉnh tay)
-    const durl = "data:image/png;base64," + shirt;
-    const dDesign = "data:image/png;base64," + designB64;
+    it._variants = (it.variants && it.variants.length) ? it.variants
+                   : [{ color: it.color || "white", color_vi: it.color_vi || "",
+                        shirt: it.shirt || it.named || it.design, recolored: it.recolored || it.named || it.design }];
+    if (!it._state) it._state = { x: 50, y: 43, w: 40 };
+    it._active = it._active || 0;
+    const st = it._state;
     const dateTag = it.date ? ' · ' + it.date : "";
+    const varStrip = it._variants.length > 1
+      ? '<div class="ap-vars">' + it._variants.map((v, vi) =>
+          '<img class="ap-var" data-vi="' + vi + '" src="data:image/png;base64,' + v.shirt + '" title="áo ' + (v.color_vi || "") + '">').join("") + '</div>'
+      : "";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"></label>' +
-      '<img src="' + durl + '" alt="">' +
+      '<img class="ap-main" src="data:image/png;base64,' + it._variants[0].shirt + '" alt="">' +
+      varStrip +
+      '<div class="ap-edit">' +
+        '<label>↔ <input type="range" class="ap-x" min="20" max="80" value="' + st.x + '"></label>' +
+        '<label>↕ <input type="range" class="ap-y" min="20" max="75" value="' + st.y + '"></label>' +
+        '<label>⤢ <input type="range" class="ap-w" min="15" max="70" value="' + st.w + '"></label>' +
+      '</div>' +
       '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b>' + dateTag + ' · ' + tep + roleTag + '<br>' +
-      '<span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + ' · áo ' + (it.color_vi || "") + '</span></div>' +
-      '<div class="gacts">' +
-        '<button class="b-recolor">🎨 Màu khác</button>' +
-        '<button class="b-up">👕 Chỉnh tay</button>' +
-        '<button class="b-dl">⬇ Tải</button>' +
-      '</div>';
+      '<span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + ' · ' + it._variants.length + ' màu áo</span></div>' +
+      '<div class="gacts"><button class="b-dl">⬇ Tải ảnh áo</button></div>';
     card.querySelector(".hsel input").onchange = (e) => {
       if (e.target.checked) apSel.add(i); else apSel.delete(i); apSelUpdate();
     };
-    card.querySelector("img").onclick = () => openZoom(durl);
-    card.querySelector(".b-recolor").onclick = () => apSendToRecolor(dDesign);
-    card.querySelector(".b-up").onclick = () => apSendToLenao(dDesign);
-    card.querySelector(".b-dl").onclick = () => autoDownload(shirt, (it.name || "design") + (it.date ? "-" + it.date : "") + "-ao");
+    const mainImg = card.querySelector(".ap-main");
+    mainImg.onclick = () => openZoom(mainImg.src);
+    card.querySelectorAll(".ap-var").forEach(im => {
+      im.onclick = () => { it._active = +im.dataset.vi; mainImg.src = im.src; };
+    });
+    let t = null;
+    const onSlide = () => {
+      st.x = +card.querySelector(".ap-x").value;
+      st.y = +card.querySelector(".ap-y").value;
+      st.w = +card.querySelector(".ap-w").value;
+      clearTimeout(t); t = setTimeout(() => apRecompose(it, card), 120);
+    };
+    card.querySelectorAll(".ap-edit input").forEach(s => s.oninput = onSlide);
+    card.querySelector(".b-dl").onclick = () => autoDownload(mainImg.src.split(",")[1], (it.name || "design") + "-ao");
     grid.appendChild(card);
   });
 }
@@ -2838,7 +2901,7 @@ async function apRun() {
   try {
     const r = await fetch("/api/auto-pipeline", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "" }),
+      body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "", colors: [...apColors] }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
@@ -2855,9 +2918,12 @@ function apToShopify() {
   const picks = [...apSel].map(i => apItems[i]).filter(Boolean);
   if (!picks.length) { alert("Tick ít nhất 1 mẫu để đẩy."); return; }
   picks.forEach(it => {
+    const vars = (it.variants && it.variants.length)
+      ? it.variants.map(v => ({ image: v.shirt, color: v.color_vi || "" }))
+      : [{ image: it.shirt || it.named || it.design, color: it.color_vi || "" }];
     shopItems.push({
       title: "", description: "", price: "", status: "DRAFT", result: null,
-      variants: [{ image: it.shirt || it.recolored || it.named || it.design, color: it.color_vi || "" }],
+      variants: vars,
     });
   });
   showApp("shopify");

@@ -873,7 +873,7 @@
     <div class="auto-wrap">
       <section class="panel">
         <h2 class="panel-title">🚀 Trọn gói cá nhân hoá (AI tự làm hết)</h2>
-        <p class="panel-desc">AI <b>tự nghĩ</b> tên · ngày tháng · tệp · chủ đề · phong cách → design cá nhân hoá → <b>tự phối màu hợp áo</b> → <b>ghép lên áo</b>. Bạn chỉ <b>pick</b> rồi đẩy thẳng Shopify (hoặc bấm chỉnh tay).</p>
+        <p class="panel-desc">AI <b>tự nghĩ</b> tên · ngày tháng · tệp · chủ đề · phong cách → design cá nhân hoá → <b>tự phối màu + lên áo từng màu</b>. Mọi thứ trong 1 màn hình: chỉnh vị trí/cỡ design trên áo bằng thanh trượt, tick rồi đẩy Shopify.</p>
 
         <label class="field-label">Gợi ý ngách (tuỳ chọn — để trống thì AI tự nghĩ)</label>
         <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, hội bạn thân, tuổi Dần…" />
@@ -885,6 +885,10 @@
           <option value="5">5 mẫu</option>
         </select>
 
+        <label class="field-label" style="margin-top:12px">Màu áo (tự đổi màu + lên áo từng màu)</label>
+        <div class="color-chips" id="apColors"></div>
+        <p class="hint" style="margin:4px 0 0">Mỗi màu = 1 lần đổi màu → 1 variant. Chọn nhiều màu thì lâu &amp; tốn hơn.</p>
+
         <button class="btn-primary" id="apRunBtn" style="margin-top:14px">🚀 AI làm trọn gói</button>
         <div class="batch-progress hidden" id="apProgress">
           <div class="bp-bar"><div class="bp-fill" id="apBar"></div></div>
@@ -892,7 +896,7 @@
         </div>
         <p class="gen-note" id="apNote"></p>
         <div id="apErrors" class="batch-errors"></div>
-        <p class="hint" style="margin-top:10px">Mỗi mẫu chạy 2 bước AI (tạo design → đổi màu áo) nên hơi lâu, chạy nhiều luồng.</p>
+        <p class="hint" style="margin-top:10px">Mỗi mẫu: vẽ design → đặt tên+ngày → đổi màu cho từng màu áo. Chọn nhiều màu/nhiều mẫu thì lâu hơn (chạy nhiều luồng).</p>
       </section>
 
       <section class="panel">

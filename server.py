@@ -2034,12 +2034,14 @@ def recolor_core(design_b64, color, size):
     return b64
 
 
-def run_auto_pipeline(job_id, plans, size, transparent=True):
-    """Nối các tính năng đã build: AI chọn style (56 style/bộ đồng bộ) -> cá nhân hoá tên -> đổi màu áo.
+def run_auto_pipeline(job_id, plans, size, colors=None, transparent=True):
+    """Quy trình THỐNG NHẤT: AI chọn style (56 style/bộ đồng bộ) -> cá nhân hoá tên+ngày ->
+    đổi màu + lên áo cho TỪNG màu áo đã chọn -> 1 SP nhiều variant (sẵn đẩy Shopify).
 
     Mỗi brief nở thành 1 BỘ design theo tệp (single=1, couple=2, family=3, group=1) qua
-    design_concepts_auto/segment; mỗi design: vẽ -> personalize (tên chuẩn img2img) -> recolor.
+    design_concepts_auto/segment; mỗi design: vẽ -> personalize -> (mỗi màu: recolor -> lên áo).
     """
+    colors = [c for c in (colors or ["black", "white"]) if c in RECOLOR] or ["black"]
     # 1) Nở brief -> các task design (dùng lại design_concepts_auto / design_concepts_segment)
     tasks = []
     for brief in plans:
@@ -2073,13 +2075,11 @@ def run_auto_pipeline(job_id, plans, size, transparent=True):
             job["finished"] = True
             return
 
-    # 2) Mỗi design: vẽ -> cá nhân hoá TÊN+NGÀY -> tự phối màu hợp áo -> GHÉP LÊN ÁO (sẵn đẩy Shopify).
+    # 2) Mỗi design: vẽ -> cá nhân hoá TÊN+NGÀY -> mỗi MÀU áo: đổi màu + lên áo -> 1 SP nhiều variant.
     def work(t):
-        color = t["color"]
-        vi, hexv, _ = RECOLOR[color]
         nm = (t.get("name") or "").strip()
         date = (t.get("date") or "").strip()
-        label = (nm or t.get("role") or "Design") + (" · " + date if date else "") + " · áo " + vi
+        label = (nm or t.get("role") or "Design") + (" · " + date if date else "")
         try:
             base = _gen_base_b64(t["prompt"], size, transparent)
             named = base
@@ -2088,18 +2088,24 @@ def run_auto_pipeline(job_id, plans, size, transparent=True):
                     named = personalize_core(base, nm, size, transparent, date)
                 except Exception:
                     named = base
-            # tự phối màu cho hợp màu nền áo
-            try:
-                rec = recolor_core(named, color, size)
-            except Exception:
-                rec = named
-            shirt = compose_on_mockup(rec, color)      # ghép lên áo mockup màu đó
-            g = gallery_add(rec, {"mode": "design", "prompt": label})
+            variants = []
+            for col in colors:
+                vi, hexv, _ = RECOLOR[col]
+                try:
+                    rec = recolor_core(named, col, size)
+                except Exception:
+                    rec = named
+                shirt = compose_on_mockup(rec, col)        # ghép lên áo mockup màu đó
+                variants.append({"color": col, "color_vi": vi, "hex": hexv,
+                                 "recolored": rec, "shirt": shirt})
+            g = gallery_add(named, {"mode": "design", "prompt": label})
+            first = variants[0] if variants else {}
             return {"name": nm, "date": date, "tep": t["tep"], "style": t.get("style", ""),
                     "theme": t.get("theme", ""), "role": t.get("role", ""),
-                    "color": color, "color_vi": vi, "hex": hexv,
-                    "design": base, "named": named, "recolored": rec, "shirt": shirt,
-                    "title": label, "gallery": g}
+                    "design": base, "named": named, "variants": variants,
+                    "color_vi": first.get("color_vi", ""), "shirt": first.get("shirt", named),
+                    "title": label + (" · áo " + first.get("color_vi", "") if first else ""),
+                    "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": label}
         except Exception as e:
@@ -3098,13 +3104,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "AI nghĩ mẫu lỗi: %s" % e})
         if not plans:
             return self.json(400, {"error": "AI chưa nghĩ được mẫu — thử lại hoặc gõ ngách rõ hơn."})
+        # màu áo user chọn -> mỗi màu = 1 lần đổi màu + lên áo (variant)
+        colors = [c for c in (body.get("colors") or []) if c in RECOLOR]
+        if not colors:
+            colors = ["black", "white"]
         size = SIZE_MAP.get("portrait", "1024x1536")
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "ap%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(plans), "done": 0, "items": [],
                                   "errors": [], "finished": False}
-        t = threading.Thread(target=run_auto_pipeline, args=(job_id, plans, size), daemon=True)
+        t = threading.Thread(target=run_auto_pipeline, args=(job_id, plans, size, colors),
+                             daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(plans)})
 
