@@ -2770,9 +2770,29 @@ let apRecolored = [];         // bước 2: design + variants màu
 let apShirtItems = [];        // bước 3: lên áo
 let apSel = new Set();        // index mẫu chọn để đẩy Shopify (bước 3)
 let apT1 = null, apT2 = null;
+let apTep = "";               // tệp khách: "" = AI tự chọn
+const AP_TEP_LIST = [
+  { key: "", label: "🤖 AI tự chọn" },
+  { key: "single", label: "👤 Cá nhân" },
+  { key: "couple", label: "💑 Couple" },
+  { key: "family", label: "👨‍👩‍👧 Gia đình" },
+  { key: "group", label: "👥 Đội nhóm" },
+];
+function apRenderTeps() {
+  const box = $("apTeps"); if (!box) return;
+  box.innerHTML = "";
+  AP_TEP_LIST.forEach(t => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (apTep === t.key ? " on" : "");
+    el.innerHTML = t.label + ' <span class="tick">✓</span>';
+    el.onclick = () => { apTep = t.key; apRenderTeps(); };
+    box.appendChild(el);
+  });
+}
 
 function apInit() {
   if (apInited) return; apInited = true;
+  apRenderTeps();
   apRenderColors();
   $("apRunDesigns").onclick = apRunDesigns;
   $("apToStep2").onclick = apToStep2;
@@ -2848,7 +2868,7 @@ async function apRunDesigns() {
   try {
     const r = await fetch("/api/pipe-designs", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "" }),
+      body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "", tep: apTep }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi");

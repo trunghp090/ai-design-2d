@@ -1968,12 +1968,24 @@ Trả về JSON: {"items":[{...}, ...]} với mỗi item:
 QUY TẮC: mỗi item khác nhau hẳn (tệp/tên/chủ đề/màu đa dạng). Đúng số lượng yêu cầu."""
 
 
-def auto_pipe_plan(n, niche=""):
-    """AI (Claude ưu tiên) tự nghĩ n brief cá nhân hoá: tệp/tên/chủ đề/màu (style do hệ thống tự chọn)."""
+_SEG_DESC = {
+    "single": "TỆP CÁ NHÂN — 1 người, \"name\" là 1 tên",
+    "couple": "TỆP COUPLE — 2 người, \"name\" là 2 tên cách bởi \"&\" (vd \"Minh & An\")",
+    "family": "TỆP GIA ĐÌNH — bố/mẹ/bé, \"name\" là tên cách bởi \"/\" (vd \"Nam / Hoa / Bi\")",
+    "group": "TỆP ĐỘI NHÓM — \"name\" là 1 tên nhóm (vd \"Hội Cú Đêm\")",
+}
+
+
+def auto_pipe_plan(n, niche="", seg=""):
+    """AI (Claude ưu tiên) tự nghĩ n brief cá nhân hoá. seg ép tệp (single/couple/family/group);
+    để trống thì AI tự chọn tệp."""
     n = max(1, min(int(n or 3), 6))
+    seg = seg if seg in PRODUCT_SEGMENTS else ""
     u = "Hãy nghĩ ĐÚNG %d mẫu áo cá nhân hoá đẹp & dễ bán nhất." % n
     if (niche or "").strip():
         u += " Xoay quanh ngách/gợi ý: %s." % niche.strip()
+    if seg:
+        u += " TẤT CẢ mẫu đều là %s." % _SEG_DESC[seg]
     raw = ai_json(AUTO_PIPE_SYSTEM, u, max_tokens=2000)
     items = []
     try:
@@ -1988,7 +2000,10 @@ def auto_pipe_plan(n, niche=""):
         if not (it.get("name") or it.get("theme")):
             continue
         it["color"] = it.get("color") if it.get("color") in RECOLOR else "white"
-        it["tep"] = it.get("tep") if it.get("tep") in PRODUCT_SEGMENTS else "single"
+        if seg:
+            it["tep"] = seg
+        else:
+            it["tep"] = it.get("tep") if it.get("tep") in PRODUCT_SEGMENTS else "single"
         out.append(it)
     return out[:n]
 
@@ -3250,8 +3265,9 @@ class Handler(BaseHTTPRequestHandler):
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         n = max(1, min(int(body.get("n", 3) or 3), 6))
+        seg = body.get("tep") or body.get("segment") or ""
         try:
-            plans = auto_pipe_plan(n, body.get("niche", ""))
+            plans = auto_pipe_plan(n, body.get("niche", ""), seg)
         except urllib.error.HTTPError as e:
             return self.json(502, {"error": openai_error_message(e)})
         except Exception as e:
