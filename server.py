@@ -2232,8 +2232,10 @@ def personalize_core(design_b64, name, size, transparent=True, date=""):
     base = ("Design a t-shirt graphic featuring the NAME \"%s\" as the focal text. KEEP THE SAME "
             "VISUAL STYLE as the reference image — same color palette, same font character, same "
             "illustration motifs/elements, same texture and mood — you may rework the composition. "
-            "Use exactly this name text, keep all Vietnamese diacritics correct. If the name has 2 "
-            "words keep them on one line when it fits." % name)
+            "Use exactly this name text, keep all Vietnamese diacritics correct." % name)
+    if len(name.split()) == 2:
+        base += (" The name has exactly TWO words — they MUST be written TOGETHER on ONE single "
+                 "horizontal line, side by side; NEVER stack them on separate lines or split them.")
     if (date or "").strip():
         base += (" Add a small secondary line with the date \"%s\" below the name, smaller, "
                  "in the same style." % date.strip())
@@ -3707,22 +3709,38 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         count = max(1, min(int(body.get("count", 4) or 4), 6))
+        one_line = len(name.split()) == 2      # tên 2 chữ -> xếp cùng 1 dòng
         base = ("Design a t-shirt graphic featuring the NAME \"%s\" as the focal text. KEEP THE SAME "
                 "VISUAL STYLE as the reference image — same color palette, same font character, same "
                 "illustration motifs/elements, same texture and mood — but you are FREE to REDESIGN "
                 "the COMPOSITION/LAYOUT. Use exactly this name text, keep all Vietnamese diacritics "
-                "correct. If the name has 2 words keep them on one line when it fits." % name)
+                "correct." % name)
+        if one_line:
+            base += (" The name has exactly TWO words — they MUST be written TOGETHER on ONE single "
+                     "horizontal line, side by side; NEVER stack the two words on separate lines, "
+                     "never split them, never place one above the other.")
         if date:
             base += " Include a small secondary line \"%s\"." % date
         # mỗi bản 1 KIỂU BỐ CỤC KHÁC HẲN (vẫn cùng phong cách) -> 4-6 lựa chọn đa dạng
-        variants = [
-            " COMPOSITION A — classic CENTERED & symmetrical: name stacked in the middle, secondary line below.",
-            " COMPOSITION B — OVERSIZED name filling the print edge-to-edge as the hero; everything else tiny.",
-            " COMPOSITION C — circular BADGE/EMBLEM: name wrapped around or inside a round crest/seal with the style's motifs.",
-            " COMPOSITION D — BANNER layout: name arched at the TOP with the main illustration/graphic large below it.",
-            " COMPOSITION E — VERTICAL stacked lockup: words stacked tall in a tall narrow composition with decorative side elements.",
-            " COMPOSITION F — name on a RIBBON/banner with decorative motifs flanking both sides, asymmetric and dynamic.",
-        ]
+        if one_line:
+            # tất cả bố cục đều giữ tên 2 chữ trên CÙNG 1 dòng
+            variants = [
+                " COMPOSITION A — the two-word name CENTERED big on ONE single line as the hero, secondary line below.",
+                " COMPOSITION B — OVERSIZED two-word name on ONE single line filling the print width edge-to-edge.",
+                " COMPOSITION C — the two-word name on ONE single line inside/across a round BADGE/EMBLEM with the style's motifs.",
+                " COMPOSITION D — BANNER: the two-word name on ONE single line on a ribbon/banner, main illustration large below.",
+                " COMPOSITION E — the two-word name on ONE single bold line, decorative elements flanking left & right.",
+                " COMPOSITION F — the two-word name on ONE single line, dynamic asymmetric layout with motifs around it.",
+            ]
+        else:
+            variants = [
+                " COMPOSITION A — classic CENTERED & symmetrical: name stacked in the middle, secondary line below.",
+                " COMPOSITION B — OVERSIZED name filling the print edge-to-edge as the hero; everything else tiny.",
+                " COMPOSITION C — circular BADGE/EMBLEM: name wrapped around or inside a round crest/seal with the style's motifs.",
+                " COMPOSITION D — BANNER layout: name arched at the TOP with the main illustration/graphic large below it.",
+                " COMPOSITION E — VERTICAL stacked lockup: words stacked tall in a tall narrow composition with decorative side elements.",
+                " COMPOSITION F — name on a RIBBON/banner with decorative motifs flanking both sides, asymmetric and dynamic.",
+            ]
         base += " IMPORTANT: commit FULLY to the requested composition so each version looks distinctly different."
         transparent = bool(body.get("transparent", True))
         label = "Cá nhân hoá: " + name + (" · " + date if date else "")
