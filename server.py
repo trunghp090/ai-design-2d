@@ -2127,6 +2127,128 @@ def run_auto_pipeline(job_id, plans, size, colors=None, transparent=True):
             BATCH_JOBS[job_id]["finished"] = True
 
 
+# ===== WIZARD 3 BƯỚC: ① ra design → ② chọn & đổi màu → ③ lên áo (client) → Shopify =====
+def _pipe_tasks(plans):
+    """Nở brief -> task design (dùng design_concepts_auto/segment, kế thừa 56 style + bộ đồng bộ)."""
+    tasks = []
+    for brief in plans:
+        tep = brief.get("tep", "single")
+        theme = brief.get("theme", "")
+        date = (brief.get("date") or "").strip()
+        names = _split_names(brief.get("name", ""))
+        try:
+            if tep in SEGMENTS:
+                concepts = design_concepts_segment(tep, [], theme, "", auto_style=True)
+            else:
+                concepts = design_concepts_auto(theme, "", 1)
+        except Exception:
+            concepts = []
+        for idx, c in enumerate(concepts or []):
+            nm = names[idx] if idx < len(names) else (names[-1] if names else "")
+            role = ""
+            if tep in SEGMENTS and idx < len(SEGMENTS[tep]["short"]):
+                role = SEGMENTS[tep]["short"][idx]
+            style = (c.get("style") or "").strip() or role
+            tasks.append({"prompt": c.get("prompt", ""), "name": nm, "date": date,
+                          "tep": tep, "theme": theme, "style": style, "role": role})
+    return tasks
+
+
+def run_pipe_designs(job_id, plans, size, transparent=True):
+    """BƯỚC 1: vẽ design + cá nhân hoá tên+ngày. CHƯA đổi màu, chưa lên áo."""
+    tasks = _pipe_tasks(plans)
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(tasks) or 1
+        if not tasks:
+            job["errors"].append("AI chưa nghĩ được concept — thử lại hoặc gõ ngách rõ hơn.")
+            job["finished"] = True
+            return
+
+    def work(t):
+        nm = (t.get("name") or "").strip()
+        date = (t.get("date") or "").strip()
+        label = (nm or t.get("role") or "Design") + (" · " + date if date else "")
+        try:
+            base = _gen_base_b64(t["prompt"], size, transparent)
+            named = base
+            if nm:
+                try:
+                    named = personalize_core(base, nm, size, transparent, date)
+                except Exception:
+                    named = base
+            g = gallery_add(named, {"mode": "design", "prompt": label})
+            return {"name": nm, "date": date, "tep": t["tep"], "style": t.get("style", ""),
+                    "theme": t.get("theme", ""), "role": t.get("role", ""),
+                    "image": named, "design": base, "title": label, "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": label}
+        except Exception as e:
+            return {"error": str(e), "title": label}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, tasks):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+def run_pipe_recolor(job_id, designs, colors, size):
+    """BƯỚC 2: với mỗi design ĐÃ CHỌN -> đổi màu cho từng màu áo. Trả variants[] (recolored)."""
+    colors = [c for c in (colors or ["black", "white"]) if c in RECOLOR] or ["black"]
+
+    def work(d):
+        img = d.get("image") or ""
+        if img.startswith("data:"):
+            img = img.split(",", 1)[-1]
+        meta = {k: d.get(k, "") for k in ("name", "date", "tep", "style", "theme", "role")}
+        label = (meta.get("name") or meta.get("role") or "Design") + (" · " + meta["date"] if meta.get("date") else "")
+        try:
+            variants = []
+            for col in colors:
+                vi, hexv, _ = RECOLOR[col]
+                try:
+                    rec = recolor_core(img, col, size)
+                except Exception:
+                    rec = img
+                variants.append({"color": col, "color_vi": vi, "hex": hexv, "recolored": rec})
+            return dict(meta, image=img, named=img, design=img, variants=variants, title=label)
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": label}
+        except Exception as e:
+            return {"error": str(e), "title": label}
+
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if job:
+            job["total"] = len(designs) or 1
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, designs):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 # --------------------------------------------------------------------------- #
 #  Upscale (Pillow)
 # --------------------------------------------------------------------------- #
@@ -2792,6 +2914,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_product_content(body)
         if path == "/api/auto-pipeline":
             return self.handle_auto_pipeline(body)
+        if path == "/api/pipe-designs":
+            return self.handle_pipe_designs(body)
+        if path == "/api/pipe-recolor":
+            return self.handle_pipe_recolor(body)
         if path == "/api/design-gen":
             return self.handle_design_gen(body)
         if path == "/api/rate-designs":
@@ -3118,6 +3244,48 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(plans)})
+
+    def handle_pipe_designs(self, body):
+        """BƯỚC 1: AI tự nghĩ + tạo design cá nhân hoá (tên + ngày). Chưa đổi màu/lên áo."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        n = max(1, min(int(body.get("n", 3) or 3), 6))
+        try:
+            plans = auto_pipe_plan(n, body.get("niche", ""))
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(502, {"error": "AI nghĩ mẫu lỗi: %s" % e})
+        if not plans:
+            return self.json(400, {"error": "AI chưa nghĩ được mẫu — thử lại hoặc gõ ngách rõ hơn."})
+        size = SIZE_MAP.get("portrait", "1024x1536")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pd%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(plans), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_pipe_designs, args=(job_id, plans, size), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(plans)})
+
+    def handle_pipe_recolor(self, body):
+        """BƯỚC 2: đổi màu các design ĐÃ CHỌN cho từng màu áo -> variants[]."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        designs = [d for d in (body.get("designs") or []) if isinstance(d, dict) and d.get("image")]
+        if not designs:
+            return self.json(400, {"error": "Chưa chọn design nào để đổi màu."})
+        colors = [c for c in (body.get("colors") or []) if c in RECOLOR] or ["black", "white"]
+        size = SIZE_MAP.get("portrait", "1024x1536")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pc%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(designs), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_pipe_recolor, args=(job_id, designs, colors, size),
+                             daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(designs)})
 
     def handle_rate_designs(self, body):
         """AI chấm điểm tiềm năng bán chạy cho list design (mỗi item {key, image})."""

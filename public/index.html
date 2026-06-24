@@ -868,45 +868,79 @@
     </div>
   </section>
 
-  <!-- ===== VIEW: TRỌN GÓI (AI tự nghĩ tên/tệp/style/màu -> design -> đổi màu áo) ===== -->
+  <!-- ===== VIEW: TRỌN GÓI — wizard 3 bước (ra design → đổi màu → lên áo → Shopify) ===== -->
   <section class="auto-view app-view hidden" id="view-autopipe">
-    <div class="auto-wrap">
+    <div class="ap-steps">
+      <span class="ap-step on" data-s="1">① Ra design</span>
+      <span class="ap-step" data-s="2">② Chọn &amp; đổi màu</span>
+      <span class="ap-step" data-s="3">③ Lên áo &amp; Shopify</span>
+    </div>
+
+    <!-- BƯỚC 1: AI ra design -->
+    <div class="auto-wrap ap-pane" id="apStep1">
       <section class="panel">
-        <h2 class="panel-title">🚀 Trọn gói cá nhân hoá (AI tự làm hết)</h2>
-        <p class="panel-desc">AI <b>tự nghĩ</b> tên · ngày tháng · tệp · chủ đề · phong cách → design cá nhân hoá → <b>tự phối màu + lên áo từng màu</b>. Mọi thứ trong 1 màn hình: chỉnh vị trí/cỡ design trên áo bằng thanh trượt, tick rồi đẩy Shopify.</p>
-
+        <h2 class="panel-title">① AI ra design cá nhân hoá</h2>
+        <p class="panel-desc">AI <b>tự nghĩ</b> tên · ngày tháng · tệp · chủ đề · phong cách → tạo design (tên + ngày). Bạn tick mẫu ưng để sang bước đổi màu.</p>
         <label class="field-label">Gợi ý ngách (tuỳ chọn — để trống thì AI tự nghĩ)</label>
-        <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, hội bạn thân, tuổi Dần…" />
-
+        <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, hội bạn thân…" />
         <label class="field-label" style="margin-top:12px">Số mẫu</label>
         <select id="apCount" class="input">
           <option value="3" selected>3 mẫu</option>
           <option value="1">1 mẫu (thử nhanh)</option>
           <option value="5">5 mẫu</option>
         </select>
-
-        <label class="field-label" style="margin-top:12px">Màu áo (tự đổi màu + lên áo từng màu)</label>
-        <div class="color-chips" id="apColors"></div>
-        <p class="hint" style="margin:4px 0 0">Mỗi màu = 1 lần đổi màu → 1 variant. Chọn nhiều màu thì lâu &amp; tốn hơn.</p>
-
-        <button class="btn-primary" id="apRunBtn" style="margin-top:14px">🚀 AI làm trọn gói</button>
-        <div class="batch-progress hidden" id="apProgress">
-          <div class="bp-bar"><div class="bp-fill" id="apBar"></div></div>
-          <span id="apProgText" class="hint"></span>
-        </div>
-        <p class="gen-note" id="apNote"></p>
-        <div id="apErrors" class="batch-errors"></div>
-        <p class="hint" style="margin-top:10px">Mỗi mẫu: vẽ design → đặt tên+ngày → đổi màu cho từng màu áo. Chọn nhiều màu/nhiều mẫu thì lâu hơn (chạy nhiều luồng).</p>
+        <button class="btn-primary" id="apRunDesigns" style="margin-top:14px">✨ Tạo design</button>
+        <div class="batch-progress hidden" id="apP1"><div class="bp-bar"><div class="bp-fill" id="apBar1"></div></div><span id="apT1" class="hint"></span></div>
+        <p class="gen-note" id="apNote1"></p>
+        <div id="apErr1" class="batch-errors"></div>
       </section>
-
       <section class="panel">
         <div class="gallery-head">
-          <h3>Kết quả — duyệt &amp; chọn</h3>
-          <button class="btn-ghost sm strong" id="apToShopify">🛍️ Đẩy mẫu đã chọn (0)</button>
+          <h3>Design AI tạo — tick mẫu ưng</h3>
+          <button class="btn-primary sm" id="apToStep2">Tiếp: Đổi màu (0) →</button>
         </div>
-        <p class="hint" style="margin:-6px 0 8px">Mỗi mẫu = design (tên + ngày) đã <b>lên áo</b> + phối màu sẵn. Tick mẫu ưng → <b>Đẩy Shopify</b>. Muốn sửa thì bấm 🎨 Màu khác / 👕 Chỉnh tay.</p>
+        <div class="auto-grid" id="apDesigns"></div>
+        <div class="gallery-empty" id="apEmpty1">Bấm “Tạo design” để bắt đầu.</div>
+      </section>
+    </div>
+
+    <!-- BƯỚC 2: chọn design -> đổi màu -->
+    <div class="auto-wrap ap-pane hidden" id="apStep2">
+      <section class="panel">
+        <button class="btn-ghost sm" id="apBack1">← Quay lại bước 1</button>
+        <h2 class="panel-title" style="margin-top:10px">② Đổi màu cho hợp áo</h2>
+        <p class="panel-desc"><span id="apPickedN">0</span> design đã chọn. Chọn màu áo → AI đổi màu design cho hợp từng nền áo.</p>
+        <div class="thumb-row" id="apPickedThumbs"></div>
+        <label class="field-label" style="margin-top:12px">Màu áo</label>
+        <div class="color-chips" id="apColors"></div>
+        <button class="btn-primary" id="apDoRecolor" style="margin-top:14px">🎨 Đổi màu các mẫu đã chọn</button>
+        <div class="batch-progress hidden" id="apP2"><div class="bp-bar"><div class="bp-fill" id="apBar2"></div></div><span id="apT2" class="hint"></span></div>
+        <p class="gen-note" id="apNote2"></p>
+        <div id="apErr2" class="batch-errors"></div>
+      </section>
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Đã đổi màu</h3>
+          <button class="btn-primary sm" id="apToStep3">Tiếp: Lên áo →</button>
+        </div>
+        <div class="auto-grid" id="apRecolorResults"></div>
+        <div class="gallery-empty" id="apEmpty2">Bấm “Đổi màu” để xem kết quả.</div>
+      </section>
+    </div>
+
+    <!-- BƯỚC 3: lên áo + Shopify -->
+    <div class="auto-wrap ap-pane hidden" id="apStep3">
+      <section class="panel">
+        <button class="btn-ghost sm" id="apBack2">← Quay lại bước 2</button>
+        <h2 class="panel-title" style="margin-top:10px">③ Lên áo &amp; đẩy Shopify</h2>
+        <p class="panel-desc">Mỗi mẫu đã ghép lên áo theo từng màu. Kéo thanh trượt chỉnh vị trí/cỡ design, tick mẫu rồi đẩy Shopify (1 sản phẩm / nhiều màu).</p>
+        <button class="btn-primary" id="apToShopify" style="margin-top:8px">🛍️ Đẩy mẫu đã chọn (0)</button>
+        <p class="gen-note" id="apNote3"></p>
+      </section>
+      <section class="panel">
+        <div class="gallery-head"><h3>Lên áo — duyệt &amp; chọn</h3></div>
         <div class="auto-grid" id="apResults"></div>
-        <div class="gallery-empty" id="apEmpty">Bấm “AI làm trọn gói” để bắt đầu.</div>
+        <div class="gallery-empty" id="apEmpty3">Chưa có mẫu nào.</div>
       </section>
     </div>
   </section>

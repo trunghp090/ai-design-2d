@@ -412,3 +412,8 @@ textarea.input{resize:vertical;line-height:1.5}
 .ap-edit{display:flex;gap:8px;align-items:center;margin:6px 0 2px;font-size:12px;color:var(--muted)}
 .ap-edit label{display:flex;align-items:center;gap:3px;flex:1}
 .ap-edit input[type=range]{flex:1;width:100%}
+
+/* Trọn gói — wizard 3 bước */
+.ap-steps{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.ap-step{padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);background:var(--card,#fff)}
+.ap-step.on{border-color:var(--violet);color:var(--violet);background:var(--violet-soft)}
