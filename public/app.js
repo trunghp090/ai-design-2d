@@ -1192,6 +1192,7 @@ async function lenaoInit() {
       state: { xPct: 50, yPct: 40, wPct: 42 },
     }));
   } catch (e) { lenaoSlots = []; }
+  lenaoBindPaste();
   lenaoRenderSlots();
 }
 
@@ -1200,6 +1201,48 @@ async function lenaoSetSlotDesign(slot, durl) {
   slot.design = durl;
   try { slot.designImg = await loadImg(durl); } catch (e) { slot.designImg = null; }
   lenaoRenderSlots();
+}
+
+// ===== Dán ảnh (copy/paste) vào từng áo =====
+let lenaoPasteTarget = null;      // slot đang chọn để dán
+let lenaoPasteBound = false;
+function lenaoSetPasteTarget(slot) {
+  lenaoPasteTarget = slot;
+  document.querySelectorAll("#lenaoSlots .lslot").forEach((el, i) => {
+    el.classList.toggle("paste-target", lenaoSlots[i] === slot);
+  });
+}
+// thử đọc ảnh trực tiếp từ clipboard (Clipboard API) -> true nếu dán được
+async function lenaoPasteFromClipboard(slot) {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      const type = (it.types || []).find(t => t.startsWith("image/"));
+      if (type) {
+        const blob = await it.getType(type);
+        await lenaoSetSlotDesign(slot, await fileToDataURL(blob));
+        return true;
+      }
+    }
+  } catch (e) { /* không có quyền / không phải ảnh -> fallback Ctrl+V */ }
+  return false;
+}
+// Ctrl+V: dán ảnh vào áo đang chọn (chỉ khi đang ở tab Lên áo)
+function lenaoBindPaste() {
+  if (lenaoPasteBound) return; lenaoPasteBound = true;
+  document.addEventListener("paste", async (e) => {
+    const view = document.getElementById("view-lenao");
+    if (!view || view.classList.contains("hidden") || !lenaoPasteTarget) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        const blob = it.getAsFile();
+        if (blob) await lenaoSetSlotDesign(lenaoPasteTarget, await fileToDataURL(blob));
+        return;
+      }
+    }
+  });
 }
 
 function lenaoApplyLayer(layer, st) {
@@ -1295,6 +1338,7 @@ function lenaoRenderSlots() {
         '<div class="le-empty"' + (has ? ' style="display:none"' : "") + '>📁 Tải design cho áo này</div>' +
       '</div>' +
       '<div class="lacts"><label>📁 ' + (has ? "Đổi" : "Design") + '<input type="file" accept="image/*" hidden></label>' +
+        '<button class="b-paste">📋 Dán ảnh</button>' +
         (has ? '<button class="b-del">🗑️ Xoá</button>' : "") +
         '<button class="b-dl">⬇ Tải</button></div>';
     const stage = card.querySelector(".le-stage");
@@ -1307,6 +1351,17 @@ function lenaoRenderSlots() {
     const fileInput = card.querySelector('.lacts input[type=file]');
     fileInput.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { await lenaoSetSlotDesign(slot, await fileToDataURL(f)); } e.target.value = ""; };
     card.querySelector(".le-empty").onclick = () => fileInput.click();
+    // chọn áo này làm đích dán (Ctrl+V) khi bấm vào ô
+    card.addEventListener("mousedown", () => lenaoSetPasteTarget(slot));
+    if (lenaoPasteTarget === slot) card.classList.add("paste-target");
+    card.querySelector(".b-paste").onclick = async () => {
+      lenaoSetPasteTarget(slot);
+      const ok = await lenaoPasteFromClipboard(slot);
+      if (!ok) {
+        const note = $("lenaoNote");
+        if (note) { note.className = "gen-note"; note.textContent = "📋 Đã chọn áo \"" + slot.name + "\" — bấm Ctrl+V (Cmd+V) để dán ảnh vào."; }
+      }
+    };
     card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
     const delBtn = card.querySelector(".b-del");
     if (delBtn) delBtn.onclick = () => {
