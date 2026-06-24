@@ -1500,6 +1500,9 @@ function prodInit() {
     if (!prodHistSel.size) { alert("Tích chọn ít nhất 1 ảnh trong lịch sử."); return; }
     openPickProd([...prodHistSel].map(u => ({ url: u })));
   };
+  if ($("prodAutoName")) $("prodAutoName").onchange = () => {
+    if ($("prodTheme")) $("prodTheme").style.display = $("prodAutoName").checked ? "" : "none";
+  };
   prodLoadHistory();
 }
 let prodSeg = "single";
@@ -1677,9 +1680,13 @@ $("prodRunBtn").onclick = async () => {
   $("prodProgress").classList.remove("hidden");
   $("prodBar").style.width = "0%"; $("prodProgText").textContent = "Đang gửi…";
   try {
-    const r = await fetch("/api/product-photos", {
+    const autoName = !!($("prodAutoName") && $("prodAutoName").checked);
+    const endpoint = autoName ? "/api/product-seg" : "/api/product-photos";
+    const payload = { image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, segment: prodSeg, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" };
+    if (autoName) payload.theme = ($("prodTheme") && $("prodTheme").value) || "";
+    const r = await fetch(endpoint, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, segment: prodSeg, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" }),
+      body: JSON.stringify(payload),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
@@ -2590,7 +2597,14 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+        '<div class="gacts"><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+      card.querySelector(".b-prod").onclick = () => {
+        if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo."); return; }
+        showApp("product");
+        prodSetImg(p.image);
+        const note = document.getElementById("prodNote");
+        if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã nạp ảnh từ \"" + (p.title || "SP") + "\". Chọn TỆP + bật 🤖 AI đổi tên rồi tạo ảnh."; }
+      };
       card.querySelector(".b-open").onclick = () => {
         if (p.status !== "active") {
           if (!confirm("Sản phẩm đang NHÁP nên trang bán chưa công khai (có thể 404). Vẫn mở?")) return;

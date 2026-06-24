@@ -440,10 +440,11 @@ _DESIGN_LOCK = (
 )
 
 
-def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model=""):
+def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", lock=True):
     """Sinh 1 ảnh sản phẩm theo MODEL được chọn (engine). Gemini nếu là kind gemini & có key.
-    Luôn chèn KHOÁ DESIGN để giữ đúng mẫu gốc."""
-    prompt = _DESIGN_LOCK + (prompt or "")
+    lock=True: chèn KHOÁ DESIGN 1-ảnh giữ đúng mẫu gốc (tắt khi prompt nhiều-design tự khoá)."""
+    if lock:
+        prompt = _DESIGN_LOCK + (prompt or "")
     info = engine_info(engine)
     if info["kind"] == "gemini" and GEMINI_API_KEY:
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
@@ -1286,6 +1287,133 @@ def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False
                            shot["size"], engine, shot.get("aspect", ""))
             g = gallery_add(b64, {"mode": "product", "prompt": shot["label"]})
             return {"image": b64, "title": shot["label"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": shot["label"]}
+        except Exception as e:
+            return {"error": str(e), "title": shot["label"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, shots):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+# ===== Ảnh sản phẩm theo TỆP + AI đổi tên (mỗi người 1 tên khác) =====
+def _multi_design_prompt(people, vk, bg, names):
+    """Prompt ảnh nhiều người, mỗi người mặc 1 design tên riêng (ref image #i)."""
+    frame = _MODEL_FRAMES.get(vk, "Three-quarter group shot, all looking at the camera with bright cheerful smiles.")
+    cast = "; ".join(desc for _who, desc in people)
+    assign = " ".join(
+        ("The %s wears an oversized t-shirt whose LARGE full-front chest print is EXACTLY the design "
+         "in reference image #%d (the personalised name \"%s\")." % (who, i + 1, names[i]))
+        for i, (who, desc) in enumerate(people))
+    return ("A candid casual smartphone photo of %s, %s. %s "
+            "Copy EACH printed design VERBATIM from its OWN reference image — same artwork, same NAME "
+            "text with correct Vietnamese diacritics, same colors, kept a LARGE centered full-front "
+            "print; do NOT swap, mix, shrink, move or redraw any design between the people. %s "
+            "The shirts are oversized with a clean ribbed crewneck collar and no visible tags; fabric "
+            "colors stay true to life, well exposed. %s %s"
+            % (cast, bg, assign, frame, _CAM, PRODUCT_NEG))
+
+
+def _kid_solo_prompt(bg):
+    return ("A candid casual smartphone photo of %s, wearing %s. Standing %s. Three-quarter shot, "
+            "looking at the camera with a bright playful happy smile. The fabric color stays true to "
+            "life, well exposed. %s %s" % (_MODEL_KID, _SHIRT, bg, _CAM, PRODUCT_NEG))
+
+
+def product_prompt_seg(shot, seg, bg_key, role_designs, names, ai_prompt):
+    """-> (list design_b64 dùng làm ref, prompt, lock). Nhiều người: ghép nhiều design tên riêng."""
+    cat, vk = shot["cat"], shot["vk"]
+    bg = PRODUCT_BG.get(bg_key, PRODUCT_BG["cafe"])
+    d0 = role_designs[0]
+
+    def single(design_b64, vkey, segkey="single"):
+        if ai_prompt:
+            try:
+                return product_prompt_ai(base64.b64decode(design_b64), "model", vkey, bg_key, segkey)
+            except Exception:
+                pass
+        return product_prompt("model", vkey, bg_key, segkey)
+
+    if cat != "model":            # flatlay / nền trắng / kraft -> 1 design đại diện
+        if ai_prompt:
+            try:
+                p = product_prompt_ai(base64.b64decode(d0), cat, vk, bg_key, "single")
+            except Exception:
+                p = product_prompt(cat, vk, bg_key, "single")
+        else:
+            p = product_prompt(cat, vk, bg_key, "single")
+        return [d0], p, True
+
+    if seg == "couple":
+        if vk.startswith("couple"):
+            people = [("man on the left", _MODEL_M), ("woman on the right", _MODEL_F)]
+            return [role_designs[0], role_designs[1]], _multi_design_prompt(people, vk, bg, names[:2]), False
+        if vk in ("solo_f", "solo_f2", "solo_f3"):
+            return [role_designs[1]], single(role_designs[1], "solo_f"), True
+        if vk in ("solo_m", "solo_m2"):
+            return [role_designs[0]], single(role_designs[0], "solo_m"), True
+        return [d0], single(d0, "chest"), True     # chest / khác
+
+    if seg == "family":
+        if vk == "family_kid":
+            return [role_designs[2]], (_kid_solo_prompt(bg) if not ai_prompt else _kid_solo_prompt(bg)), True
+        if vk == "family_parents":
+            people = [("father", _MODEL_M), ("mother", _MODEL_F)]
+            return [role_designs[0], role_designs[1]], _multi_design_prompt(people, vk, bg, names[:2]), False
+        if vk.startswith("family"):
+            people = [("father", _MODEL_M), ("mother", _MODEL_F), ("young child", _MODEL_KID)]
+            return [role_designs[0], role_designs[1], role_designs[2]], _multi_design_prompt(people, vk, bg, names[:3]), False
+        return [d0], single(d0, "chest"), True
+
+    # single / group -> 1 design (1 tên / tên nhóm), tái dùng template/AI sẵn
+    return [d0], single(d0, vk, seg), True
+
+
+def run_product_seg_job(job_id, base_b64, seg, theme, shots, bg_key,
+                        engine="openai", ai_prompt=False, psize="1024x1536"):
+    """AI đọc design -> tự nghĩ tên theo tệp (couple 2 / gia đình 3 / 1 mình & nhóm 1) ->
+    cá nhân hoá design theo từng tên -> gen ảnh sản phẩm (nhiều người = mỗi người 1 tên)."""
+    need = {"couple": 2, "family": 3}.get(seg, 1)
+    raw = ai_personal_names([{"tep": seg, "theme": theme or ""}]) or []
+    nm = (raw[0].get("name") if raw else "") or ""
+    date = (raw[0].get("date") if raw else "") or ""
+    role_names = _split_names(nm) or []
+    while len(role_names) < need:
+        role_names.append(role_names[-1] if role_names else "Yêu Thương")
+    role_names = role_names[:need]
+    # cá nhân hoá base -> design cho từng tên (1 lần/role)
+    role_designs = []
+    for rn in role_names:
+        try:
+            role_designs.append(personalize_core(base_b64, rn, psize, True, date))
+        except Exception:
+            role_designs.append(base_b64)
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if job:
+            job["names"] = role_names
+            job["date"] = date
+
+    def work(shot):
+        try:
+            imgs_b64, prompt, lock = product_prompt_seg(shot, seg, bg_key, role_designs, role_names, ai_prompt)
+            imgs = [(base64.b64decode(b), "image/png") for b in imgs_b64]
+            b64 = gen_shot(imgs, prompt, shot["size"], engine, shot.get("aspect", ""), lock=lock)
+            label = "%s · %s" % (shot["label"], " & ".join(role_names))
+            g = gallery_add(b64, {"mode": "product", "prompt": label})
+            return {"image": b64, "title": label, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": shot["label"]}
         except Exception as e:
@@ -3083,6 +3211,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_batch_excel(body)
         if path == "/api/product-photos":
             return self.handle_product_photos(body)
+        if path == "/api/product-seg":
+            return self.handle_product_seg(body)
         if path == "/api/product-prompts":
             return self.handle_product_prompts(body)
         if path == "/api/product-render":
@@ -3874,6 +4004,48 @@ class Handler(BaseHTTPRequestHandler):
                                   "errors": [], "finished": False}
         t = threading.Thread(target=run_product_job,
                              args=(job_id, d, shots, bg_key, engine, ai_prompt),
+                             daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(shots)})
+
+    def handle_product_seg(self, body):
+        """Ảnh sản phẩm theo TỆP: AI đọc design -> tự đổi tên (couple/gia đình/nhóm/1 mình) -> gen."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        if not src:
+            return self.json(400, {"error": "Chưa có ảnh sản phẩm."})
+        d, _ = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh sản phẩm."})
+        base_b64 = base64.b64encode(d).decode()
+        cats = [c for c in (body.get("cats") or []) if c in PRODUCT_CATS]
+        if not cats:
+            return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
+        seg = body.get("segment", "single")
+        if seg not in PRODUCT_SEGMENTS:
+            seg = "single"
+        theme = (body.get("theme") or "").strip()
+        aspect = (body.get("aspect") or "auto").strip()
+        shots = []
+        for c in cats:
+            meta = PRODUCT_CATS[c]
+            variants = PRODUCT_SEGMENTS[seg]["model"] if c == "model" else meta["variants"]
+            for vk, vlabel in variants:
+                sz = ASPECT_TO_SIZE.get(aspect, meta["size"]) if aspect != "auto" else meta["size"]
+                asp = aspect if aspect != "auto" else ""
+                shots.append({"cat": c, "vk": vk, "size": sz, "aspect": asp, "seg": seg,
+                              "label": "%s · %s" % (meta["label"], vlabel)})
+        bg_key = body.get("bg", "cafe")
+        engine = resolve_engine_id(body)
+        ai_prompt = bool(body.get("ai_prompt")) and bool(ANTHROPIC_API_KEY or API_KEY)
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ps%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(shots), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_product_seg_job,
+                             args=(job_id, base_b64, seg, theme, shots, bg_key, engine, ai_prompt),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})
