@@ -438,3 +438,39 @@ textarea.input{resize:vertical;line-height:1.5}
 /* Lên áo — ô áo đang chọn để dán (Ctrl+V) */
 .lslot.paste-target{outline:2px solid var(--accent);outline-offset:2px;border-radius:12px}
 .lacts .b-paste{cursor:pointer}
+
+/* ===== ĐĂNG BÀI: ảnh cuộn TikTok + post Facebook ===== */
+.post-layout{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.post-layout{grid-template-columns:1fr}}
+.post-card{cursor:pointer}
+.post-card .post-pick{position:absolute;top:6px;left:6px;z-index:2;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.post-card .post-pick.on{background:var(--violet)}
+.ppane.hidden{display:none}
+/* TikTok phone */
+.tt-phone{position:relative;width:240px;max-width:100%;aspect-ratio:9/16;margin:6px auto 0;border-radius:18px;overflow:hidden;background:#111;border:3px solid #222;display:flex;align-items:center;justify-content:center}
+.tt-phone img{width:100%;height:100%;object-fit:cover;display:block}
+.tt-empty{color:#888;font-size:13px;padding:0 16px;text-align:center}
+.tt-nav{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:20px;line-height:1;cursor:pointer;z-index:3}
+.tt-prev{left:6px}.tt-next{right:6px}
+.tt-counter{position:absolute;top:8px;right:10px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 8px;border-radius:999px;z-index:3}
+.tt-overlay{position:absolute;left:0;right:0;bottom:36px;padding:0 16px;text-align:center;color:#fff;font-size:15px;font-weight:600;line-height:1.35;text-shadow:0 1px 6px rgba(0,0,0,.7);z-index:3;pointer-events:none}
+.tt-dots{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+.tt-dot{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer}
+.tt-dot.on{background:var(--violet)}
+/* Facebook card */
+.fb-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;color:#111}
+.fb-head{display:flex;align-items:center;gap:9px;padding:10px 12px}
+.fb-ava{width:38px;height:38px;border-radius:50%;background:var(--violet);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:18px}
+.fb-head b{font-size:14px;color:#111}
+.fb-time{font-size:11px;color:#777}
+.fb-text{padding:0 12px 10px;font-size:13px;white-space:pre-wrap;color:#111;line-height:1.45}
+.fb-imgs{display:grid;gap:2px;background:#000}
+.fb-imgs.n0{display:none}
+.fb-imgs.n1{grid-template-columns:1fr}
+.fb-imgs.n2{grid-template-columns:1fr 1fr}
+.fb-imgs.n3{grid-template-columns:1fr 1fr}
+.fb-imgs.n3 .fb-img:first-child{grid-column:1/3}
+.fb-imgs.n4{grid-template-columns:1fr 1fr}
+.fb-img{position:relative;aspect-ratio:1;overflow:hidden}
+.fb-img img{width:100%;height:100%;object-fit:cover;display:block}
+.fb-more{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}

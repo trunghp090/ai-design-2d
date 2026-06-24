@@ -582,6 +582,7 @@ function showApp(app) {
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
+  document.getElementById("view-post").classList.toggle("hidden", app !== "post");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "lenao") lenaoInit();
@@ -590,6 +591,7 @@ function showApp(app) {
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
   if (app === "autopipe") apInit();
+  if (app === "post") postInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -3249,4 +3251,155 @@ async function apAddOld() {
         apRenderShirts(); $("apOldWrap").classList.add("hidden");
       }), 2500);
   } catch (err) { alert("✗ " + err.message); btn.disabled = false; $("apPO").classList.add("hidden"); }
+}
+
+/* =====================================================================
+   ĐĂNG BÀI: pick ảnh -> ảnh cuộn TikTok + post Facebook trực quan
+   ===================================================================== */
+let postInited = false;
+let postAll = [];            // gallery items
+let postFilter = "product";  // product | design | all
+let postPicked = [];         // mảng url theo THỨ TỰ chọn
+let postSlide = 0;
+const POST_FILTERS = [
+  { id: "product", label: "📸 Ảnh sản phẩm" },
+  { id: "design", label: "✨ Design" },
+  { id: "all", label: "Tất cả" },
+];
+function postInit() {
+  if (!postInited) {
+    postInited = true;
+    $("postRefresh").onclick = postLoad;
+    document.querySelectorAll('#view-post .rtab[data-ptab]').forEach(t => t.onclick = () => {
+      document.querySelectorAll('#view-post .rtab[data-ptab]').forEach(x => x.classList.toggle("active", x === t));
+      $("ppane-tiktok").classList.toggle("hidden", t.dataset.ptab !== "tiktok");
+      $("ppane-facebook").classList.toggle("hidden", t.dataset.ptab !== "facebook");
+    });
+    $("ttPrev").onclick = () => postGoSlide(postSlide - 1);
+    $("ttNext").onclick = () => postGoSlide(postSlide + 1);
+    $("postAiBtn").onclick = postAiCaption;
+    $("fbCaption").oninput = () => { $("fbText").textContent = $("fbCaption").value || "…"; };
+    $("ttScript").oninput = postRenderPreview;
+    $("ttCopy").onclick = () => postCopyText($("ttCaption").value, $("ttCopy"));
+    $("fbCopy").onclick = () => postCopyText($("fbCaption").value, $("fbCopy"));
+    postRenderFilters();
+  }
+  postLoad();
+}
+function postRenderFilters() {
+  const box = $("postFilters"); box.innerHTML = "";
+  POST_FILTERS.forEach(f => {
+    const el = document.createElement("div");
+    el.className = "cchip" + (postFilter === f.id ? " on" : "");
+    el.textContent = f.label;
+    el.onclick = () => { postFilter = f.id; postRenderFilters(); postRenderGrid(); };
+    box.appendChild(el);
+  });
+}
+async function postLoad() {
+  try { const d = await (await fetch("/api/gallery")).json(); postAll = d.items || []; }
+  catch (e) { postAll = []; }
+  postRenderGrid(); postRenderPreview();
+}
+function postFiltered() {
+  if (postFilter === "all") return postAll;
+  if (postFilter === "product") return postAll.filter(it => it.mode === "product");
+  return postAll.filter(it => ["design", "personalize", "recolor", "auto"].includes(it.mode));
+}
+function postRenderGrid() {
+  const grid = $("postGrid"), items = postFiltered();
+  $("postEmpty").classList.toggle("hidden", items.length > 0);
+  grid.innerHTML = "";
+  items.forEach(it => {
+    const card = document.createElement("div"); card.className = "gcard post-card";
+    const order = postPicked.indexOf(it.url);
+    card.innerHTML =
+      '<div class="post-pick' + (order >= 0 ? " on" : "") + '">' + (order >= 0 ? (order + 1) : "+") + '</div>' +
+      '<img src="' + it.url + '" loading="lazy" alt="">';
+    const tog = () => postToggle(it.url);
+    card.querySelector("img").onclick = tog;
+    card.querySelector(".post-pick").onclick = tog;
+    grid.appendChild(card);
+  });
+}
+function postToggle(url) {
+  const i = postPicked.indexOf(url);
+  if (i >= 0) postPicked.splice(i, 1); else postPicked.push(url);
+  if (postSlide >= postPicked.length) postSlide = Math.max(0, postPicked.length - 1);
+  postRenderGrid(); postRenderPreview();
+}
+function postGoSlide(i) {
+  if (!postPicked.length) return;
+  postSlide = (i + postPicked.length) % postPicked.length;
+  postRenderPreview();
+}
+function postSlideOverlay(i) {
+  const lines = ($("ttScript").value || "").split("\n");
+  const line = lines.find(l => new RegExp("SLIDE\\s*" + (i + 1) + "\\b", "i").test(l));
+  if (!line) return "";
+  const m = line.match(/[“”"]([^“”"]+)[“”"]/);
+  return m ? m[1] : "";
+}
+function postRenderPreview() {
+  $("postPickHint").textContent = "Đã chọn " + postPicked.length + " ảnh." + (postPicked.length ? " Bấm số/ảnh để bỏ chọn." : "");
+  const has = postPicked.length > 0;
+  $("ttEmpty").style.display = has ? "none" : "";
+  const img = $("ttSlideImg");
+  if (has) {
+    if (postSlide >= postPicked.length) postSlide = 0;
+    img.style.display = ""; img.src = postPicked[postSlide];
+    $("ttCounter").textContent = (postSlide + 1) + "/" + postPicked.length;
+  } else { img.style.display = "none"; $("ttCounter").textContent = ""; }
+  $("ttOverlay").textContent = has ? postSlideOverlay(postSlide) : "";
+  const dots = $("ttDots"); dots.innerHTML = "";
+  postPicked.forEach((u, i) => {
+    const d = document.createElement("span"); d.className = "tt-dot" + (i === postSlide ? " on" : "");
+    d.onclick = () => postGoSlide(i); dots.appendChild(d);
+  });
+  postRenderFbImgs();
+}
+function postRenderFbImgs() {
+  const box = $("fbImgs"); box.innerHTML = "";
+  const imgs = postPicked.slice(0, 4);
+  box.className = "fb-imgs n" + imgs.length;
+  imgs.forEach((u, i) => {
+    const d = document.createElement("div"); d.className = "fb-img";
+    d.innerHTML = '<img src="' + u + '" alt="">';
+    if (i === 3 && postPicked.length > 4) {
+      const more = document.createElement("div"); more.className = "fb-more"; more.textContent = "+" + (postPicked.length - 4);
+      d.appendChild(more);
+    }
+    box.appendChild(d);
+  });
+}
+async function postCopyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text || "");
+    const o = btn.textContent; btn.textContent = "✓ Đã copy"; setTimeout(() => btn.textContent = o, 1300);
+  } catch (e) {
+    const o = btn.textContent; btn.textContent = "✗ Bị chặn"; setTimeout(() => btn.textContent = o, 1500);
+  }
+}
+async function postAiCaption() {
+  const n = $("postNote");
+  if (!postPicked.length) { n.className = "gen-note err"; n.textContent = "⚠️ Chọn ít nhất 1 ảnh."; return; }
+  const btn = $("postAiBtn"), old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang viết…";
+  n.className = "gen-note"; n.textContent = "AI đang nhìn ảnh & viết content…";
+  try {
+    const b = await (await fetch(postPicked[0])).blob();
+    const durl = await fileToDataURL(b);
+    const r = await fetch("/api/product-content", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: durl, info: "" }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi viết content");
+    $("fbCaption").value = d.facebook || ""; $("fbText").textContent = d.facebook || "…";
+    $("ttScript").value = d.tiktok_script || "";
+    $("ttCaption").value = d.tiktok_caption || "";
+    postRenderPreview();
+    n.className = "gen-note ok"; n.textContent = "✓ Đã viết caption FB + kịch bản & caption TikTok (sửa tự do).";
+  } catch (err) {
+    n.className = "gen-note err"; n.textContent = "✗ " + err.message;
+  } finally { btn.disabled = false; btn.textContent = old; }
 }

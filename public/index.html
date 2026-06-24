@@ -47,6 +47,7 @@
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="design">✨ Tạo design</button>
     <button class="app-tab" data-app="autopipe">🚀 Trọn gói</button>
+    <button class="app-tab" data-app="post">📱 Đăng bài</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -1070,6 +1071,64 @@
       <div class="auto-grid" id="shoplistGrid"></div>
       <div class="gallery-empty hidden" id="shoplistEmpty">Chưa có sản phẩm nào.</div>
     </section>
+  </section>
+
+  <!-- ===== VIEW: ĐĂNG BÀI — pick ảnh -> ảnh cuộn TikTok + post Facebook ===== -->
+  <section class="auto-view app-view hidden" id="view-post">
+    <div class="post-layout">
+      <!-- Cột trái: chọn ảnh -->
+      <section class="panel">
+        <div class="gallery-head">
+          <h2 class="panel-title" style="margin:0">📱 Chọn ảnh</h2>
+          <button class="btn-ghost sm" id="postRefresh">🔄 Tải lại</button>
+        </div>
+        <p class="panel-desc">Tick ảnh theo THỨ TỰ (ưu tiên Ảnh sản phẩm) để dựng ảnh cuộn TikTok &amp; post Facebook trực quan.</p>
+        <div class="color-chips" id="postFilters"></div>
+        <p class="hint" id="postPickHint" style="margin:6px 0">Đã chọn 0 ảnh.</p>
+        <div class="auto-grid" id="postGrid"></div>
+        <div class="gallery-empty hidden" id="postEmpty">Chưa có ảnh. Tạo ở tab Ảnh sản phẩm / Tạo design trước.</div>
+      </section>
+
+      <!-- Cột phải: preview -->
+      <section class="panel">
+        <div class="result-tabs">
+          <button class="rtab active" data-ptab="tiktok">🎬 Ảnh cuộn TikTok</button>
+          <button class="rtab" data-ptab="facebook">📘 Post Facebook</button>
+        </div>
+        <button class="btn-primary" id="postAiBtn" style="margin:10px 0;width:100%">🤖 AI viết caption (FB + TikTok)</button>
+        <p class="gen-note" id="postNote"></p>
+
+        <!-- TikTok -->
+        <div class="ppane" id="ppane-tiktok">
+          <div class="tt-phone" id="ttPhone">
+            <div class="tt-empty" id="ttEmpty">Chọn ảnh để xem ảnh cuộn.</div>
+            <img id="ttSlideImg" alt="" style="display:none">
+            <div class="tt-overlay" id="ttOverlay"></div>
+            <button class="tt-nav tt-prev" id="ttPrev">‹</button>
+            <button class="tt-nav tt-next" id="ttNext">›</button>
+            <div class="tt-counter" id="ttCounter"></div>
+          </div>
+          <div class="tt-dots" id="ttDots"></div>
+          <label class="field-label" style="margin-top:10px">📝 Gợi ý text overlay từng slide</label>
+          <textarea id="ttScript" class="input" rows="6" placeholder="SLIDE 1 — ảnh sạch&#10;SLIDE 2 📝 &quot;...&quot;"></textarea>
+          <label class="field-label" style="margin-top:8px">Caption TikTok</label>
+          <textarea id="ttCaption" class="input" rows="4" placeholder="Caption + hashtag…"></textarea>
+          <button class="btn-ghost sm" id="ttCopy" style="margin-top:8px">📋 Copy caption TikTok</button>
+        </div>
+
+        <!-- Facebook -->
+        <div class="ppane hidden" id="ppane-facebook">
+          <div class="fb-card">
+            <div class="fb-head"><div class="fb-ava">r</div><div><b>rieng.vn</b><div class="fb-time">Vừa xong · 🌐</div></div></div>
+            <div class="fb-text" id="fbText">Bấm "AI viết caption" hoặc tự nhập nội dung bên dưới…</div>
+            <div class="fb-imgs" id="fbImgs"></div>
+          </div>
+          <label class="field-label" style="margin-top:10px">Nội dung post Facebook</label>
+          <textarea id="fbCaption" class="input" rows="7" placeholder="Hook → body → CTA → hashtag…"></textarea>
+          <button class="btn-ghost sm" id="fbCopy" style="margin-top:8px">📋 Copy bài Facebook</button>
+        </div>
+      </section>
+    </div>
   </section>
 
   <footer class="site-footer">
