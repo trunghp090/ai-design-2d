@@ -960,6 +960,16 @@
         <p class="panel-desc">Mỗi áo đã ghép design theo màu. Kéo thanh trượt chỉnh vị trí/cỡ, tick áo rồi đẩy Shopify (gom theo design = 1 sản phẩm nhiều màu).</p>
         <button class="btn-primary" id="apToShopify" style="margin-top:8px">🛍️ Đẩy mẫu đã chọn (0)</button>
         <p class="gen-note" id="apNote3"></p>
+
+        <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+          <button class="btn-ghost sm" id="apLoadOld">➕ Thêm design cũ từ Lịch sử</button>
+          <div id="apOldWrap" class="hidden" style="margin-top:8px">
+            <p class="hint" style="margin:0 0 6px">Tick design cũ → AI đổi màu đủ 7 áo → thêm vào lên áo.</p>
+            <div class="auto-grid" id="apOldGrid" style="max-height:340px;overflow:auto"></div>
+            <button class="btn-primary sm" id="apAddOld" style="margin-top:8px">Thêm đã chọn (đổi màu + lên áo)</button>
+            <div class="batch-progress hidden" id="apPO"><div class="bp-bar"><div class="bp-fill" id="apBarO"></div></div><span id="apTO" class="hint"></span></div>
+          </div>
+        </div>
       </section>
       <section class="panel">
         <div class="gallery-head"><h3>Lên áo — duyệt &amp; chọn</h3></div>

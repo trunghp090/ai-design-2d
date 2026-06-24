@@ -2761,7 +2761,7 @@ $("pickProdSearch").oninput = (e) => pickProdRenderList(e.target.value);
    ① Tạo design (AI auto-style) → ② Cá nhân hoá (AI đặt tên) → ③ Đổi màu → ④ Lên áo & Shopify
    ===================================================================== */
 const AP_TEP = { single: "👤 1 áo", couple: "💑 Couple", family: "👨‍👩‍👧 Gia đình", group: "👥 Đội nhóm" };
-const apColors = new Set(["black", "white"]);
+const apColors = new Set(["black", "white", "brown", "sand", "forest", "red", "maroon"]);
 let apInited = false, apStep = 1;
 let apTep = "";
 let apDesigns = [], apPicked = new Set(), apPickedList = [];   // bước 1
@@ -2808,6 +2808,8 @@ function apInit() {
   $("apToStep4").onclick = apToStep4;
   $("apBack3").onclick = () => apGoStep(3);
   $("apToShopify").onclick = apToShopify;
+  $("apLoadOld").onclick = apLoadOld;
+  $("apAddOld").onclick = apAddOld;
 }
 function apGoStep(s) {
   apStep = s;
@@ -3055,4 +3057,57 @@ function apToShopify() {
   products.forEach(list => { shopItems.push({ title: "", description: "", price: "", status: "DRAFT", result: null, variants: list.map(s => ({ image: s.shirt, color: s.color_vi || "" })) }); });
   showApp("shopify"); shopRender();
   const note = $("shopNote"); note.className = "gen-note ok"; note.textContent = "✓ Đã đưa " + products.length + " sản phẩm sang Shopify — nhập giá rồi bấm Đẩy.";
+}
+
+/* ---------- BƯỚC 4: thêm design CŨ từ Lịch sử (đổi màu 7 áo + lên áo) ---------- */
+let apOldSel = new Set(), apTO2 = null;
+async function apLoadOld() {
+  const wrap = $("apOldWrap");
+  wrap.classList.toggle("hidden");
+  if (wrap.classList.contains("hidden")) return;
+  apOldSel = new Set();
+  const grid = $("apOldGrid"); grid.innerHTML = '<div class="gallery-empty">Đang tải Lịch sử…</div>';
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    const items = (d.items || []).filter(it => it.mode === "design" || it.mode === "personalize" || it.mode === "recolor");
+    grid.innerHTML = "";
+    if (!items.length) { grid.innerHTML = '<div class="gallery-empty">Chưa có design cũ.</div>'; return; }
+    items.forEach(it => {
+      const card = document.createElement("div"); card.className = "gcard";
+      card.innerHTML = '<label class="hsel"><input type="checkbox"></label><img src="' + it.url + '" loading="lazy"><div class="gmeta">' + (it.prompt || "Design") + '</div>';
+      card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apOldSel.add(it.url); else apOldSel.delete(it.url); };
+      card.querySelector("img").onclick = () => openZoom(it.url);
+      grid.appendChild(card);
+    });
+  } catch (e) { grid.innerHTML = '<div class="gallery-empty">Lỗi tải Lịch sử.</div>'; }
+}
+async function apAddOld() {
+  if (!apOldSel.size) { alert("Tick ít nhất 1 design cũ."); return; }
+  if (!apColors.size) { alert("Chưa có màu áo (quay lại bước 3)."); return; }
+  const btn = $("apAddOld"); btn.disabled = true;
+  $("apPO").classList.remove("hidden"); $("apBarO").style.width = "0%"; $("apTO").textContent = "Đang nạp ảnh…";
+  try {
+    // url -> base64 để server đọc chắc chắn
+    const designs = await Promise.all([...apOldSel].map(async (u) => {
+      const blob = await (await fetch(u)).blob();
+      const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      return { name: "Design cũ", image: b64, tep: "single" };
+    }));
+    const r = await fetch("/api/pipe-recolor", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colors: [...apColors], designs }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    if (apTO2) clearInterval(apTO2);
+    apTO2 = setInterval(() => apPoll(d.job_id, "apBarO", "apTO",
+      () => {},
+      (items) => {
+        clearInterval(apTO2); apTO2 = null; btn.disabled = false; $("apPO").classList.add("hidden");
+        const start = apRecolored.length;
+        apRecolored = apRecolored.concat(items);
+        items.forEach((it, k) => (it.variants || []).forEach(v => apShots.push({
+          di: start + k, name: it.name, date: it.date, role: it.role, tep: it.tep,
+          color: v.color, color_vi: v.color_vi, recolored: v.recolored, state: { x: 50, y: 43, w: 40 }, shirt: null })));
+        apRenderShirts();
+        $("apOldWrap").classList.add("hidden");
+      }), 2500);
+  } catch (err) { alert("✗ " + err.message); btn.disabled = false; $("apPO").classList.add("hidden"); }
 }
