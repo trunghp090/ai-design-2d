@@ -2243,10 +2243,9 @@ def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
                     role = SEGMENTS[seg]["short"][idx] if idx < len(SEGMENTS[seg]["short"]) else ""
                     concepts.append((c, role))
         else:
-            # CLAUDE phân tích TẤT CẢ 56 style -> chọn/mix concept hợp CÁ NHÂN HOÁ nhất
+            # ChatGPT phân tích TẤT CẢ 56 style -> chọn/mix concept hợp CÁ NHÂN HOÁ nhất
             cs = design_concepts_auto(theme, "", n, palette_keys=list(DESIGN_STYLES.keys()),
-                                      personalize_hint=True, use_claude=True) or []
-            cs = refine_concepts(cs, theme)   # ChatGPT đánh giá & đánh bóng cho đẹp nhất
+                                      personalize_hint=True) or []
             for c in cs:
                 concepts.append((c, ""))
     except Exception:
@@ -2314,10 +2313,12 @@ def ai_personal_names(designs):
     """AI nghĩ tên 2 chữ + ngày cho từng design (theo tệp/chủ đề). Trả list {name,date}."""
     desc = "; ".join("mẫu %d (tệp %s, chủ đề %s)" % (i + 1, d.get("tep", "single"), d.get("theme", "") or "tự do")
                      for i, d in enumerate(designs))
-    u = "Đặt tên + ngày cho %d mẫu áo cá nhân hoá: %s. Đúng %d mục, đúng thứ tự." % (len(designs), desc, len(designs))
+    u = "Đặt tên + ngày cho %d mẫu áo cá nhân hoá: %s. Đúng %d mục, đúng thứ tự. Chỉ trả JSON." % (len(designs), desc, len(designs))
     try:
-        raw = ai_json(AI_NAME_SYSTEM, u, max_tokens=1500)
-        items = json.loads(raw).get("items") if isinstance(json.loads(raw), dict) else json.loads(raw)
+        raw = openai_chat([{"role": "system", "content": AI_NAME_SYSTEM},
+                           {"role": "user", "content": u}], json_mode=True, max_tokens=1500)
+        data = json.loads(raw)
+        items = data.get("items") if isinstance(data, dict) else data
         return items or []
     except Exception:
         return []
