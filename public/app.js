@@ -1506,14 +1506,16 @@ function prodInit() {
   prodLoadHistory();
 }
 let prodSeg = "single";
+let prodSegments = [];
 function prodRenderSegs(segments) {
+  if (segments) prodSegments = segments;
   const box = $("prodSegs"); if (!box) return;
   box.innerHTML = "";
-  (segments || []).forEach(s => {
+  (prodSegments || []).forEach(s => {
     const el = document.createElement("div");
     el.className = "cchip" + (prodSeg === s.id ? " on" : "");
     el.innerHTML = s.label + ' <span class="tick">✓</span>';
-    el.onclick = () => { prodSeg = s.id; prodRenderSegs(segments); };
+    el.onclick = () => { prodSeg = s.id; prodRenderSegs(); };
     box.appendChild(el);
   });
 }
@@ -1671,19 +1673,23 @@ async function prodPoll(jobId) {
     }
   } catch (e) { /* tiếp tục */ }
 }
-$("prodRunBtn").onclick = async () => {
+async function prodStartGen(ov) {
+  ov = ov || {};
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   if (!prodImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh sản phẩm trước."; return; }
-  if (!prodPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 nhóm ảnh."; return; }
-  const btn = $("prodRunBtn"); btn.disabled = true;
+  const cats = ov.cats || [...prodPicked];
+  if (!cats.length) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 nhóm ảnh."; return; }
+  const btn = $("prodRunBtn"); if (btn) btn.disabled = true;
   $("prodErrors").innerHTML = "";
   $("prodProgress").classList.remove("hidden");
-  $("prodBar").style.width = "0%"; $("prodProgText").textContent = "Đang gửi…";
+  $("prodBar").style.width = "0%"; $("prodProgText").textContent = ov.note || "Đang gửi…";
+  if (ov.note) note.textContent = ov.note;
   try {
-    const autoName = !!($("prodAutoName") && $("prodAutoName").checked);
+    const autoName = ov.autoName != null ? ov.autoName : !!($("prodAutoName") && $("prodAutoName").checked);
+    const segment = ov.segment != null ? ov.segment : prodSeg;
     const endpoint = autoName ? "/api/product-seg" : "/api/product-photos";
-    const payload = { image: prodImg, cats: [...prodPicked], bg: $("prodBg").value, segment: prodSeg, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" };
-    if (autoName) payload.theme = ($("prodTheme") && $("prodTheme").value) || "";
+    const payload = { image: prodImg, cats: cats, bg: $("prodBg").value, segment: segment, engine: ($("prodEngine") && $("prodEngine").value) || "", ai_prompt: !!($("prodAi") && $("prodAi").checked), aspect: ($("prodAspect") && $("prodAspect").value) || "auto" };
+    if (autoName) payload.theme = ov.theme != null ? ov.theme : (($("prodTheme") && $("prodTheme").value) || "");
     const r = await fetch(endpoint, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1696,9 +1702,10 @@ $("prodRunBtn").onclick = async () => {
     prodPoll(d.job_id);
   } catch (err) {
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-    btn.disabled = false; $("prodProgress").classList.add("hidden");
+    if (btn) btn.disabled = false; $("prodProgress").classList.add("hidden");
   }
-};
+}
+$("prodRunBtn").onclick = () => prodStartGen();
 $("prodDownloadAll").onclick = async () => {
   const cards = [...$("prodResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
@@ -2600,10 +2607,25 @@ async function shoplistLoad() {
         '<div class="gacts"><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-prod").onclick = () => {
         if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo."); return; }
-        showApp("product");
-        prodSetImg(p.image);
-        const note = document.getElementById("prodNote");
-        if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã nạp ảnh từ \"" + (p.title || "SP") + "\". Chọn TỆP + bật 🤖 AI đổi tên rồi tạo ảnh."; }
+        const old = card.querySelector(".sl-segmenu");
+        if (old) { old.remove(); return; }
+        const menu = document.createElement("div");
+        menu.className = "sl-segmenu";
+        menu.innerHTML = '<span>Tạo ảnh theo tệp:</span>' + [
+          ["auto", "🤖 AI tự đoán"], ["single", "👤 1 mình"], ["couple", "💑 Couple"],
+          ["family", "👨‍👩‍👧 Gia đình"], ["group", "👥 Nhóm"],
+        ].map(o => '<button data-seg="' + o[0] + '">' + o[1] + '</button>').join("");
+        menu.querySelectorAll("button").forEach(b => b.onclick = () => {
+          const seg = b.dataset.seg;
+          menu.remove();
+          showApp("product");
+          prodSetImg(p.image);
+          if ($("prodAutoName")) { $("prodAutoName").checked = true; if ($("prodTheme")) $("prodTheme").style.display = ""; }
+          if (seg !== "auto") { prodSeg = seg; prodRenderSegs(); }
+          prodStartGen({ segment: seg, autoName: true, theme: p.title || "",
+            note: "⏳ Đang gen ảnh sản phẩm cho \"" + (p.title || "SP") + "\" (AI tự đổi tên)…" });
+        });
+        card.appendChild(menu);
       };
       card.querySelector(".b-open").onclick = () => {
         if (p.status !== "active") {

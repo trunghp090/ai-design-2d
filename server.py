@@ -2452,6 +2452,24 @@ AI_NAME_SYSTEM = ("Bạn đặt TÊN NGƯỜI THẬT Việt Nam cho áo cá nhâ
                   "{\"items\":[{\"name\":..,\"date\":..}]} ĐÚNG số lượng & đúng thứ tự yêu cầu.")
 
 
+def detect_product_seg(img_bytes):
+    """AI nhìn design -> đoán TỆP (single/couple/family/group). Không rõ -> single."""
+    sys = ("Phân loại 1 design áo thun thuộc TỆP nào để chụp ảnh sản phẩm: "
+           "single (1 tên / 1 người), couple (đôi / tình yêu / 2 tên), "
+           "family (gia đình / bố mẹ con), group (đội nhóm / tập thể / nhiều tên). "
+           "Không rõ -> single. Trả JSON {\"seg\":\"single|couple|family|group\"}.")
+    try:
+        b64 = base64.b64encode(img_bytes).decode()
+        content = [{"type": "text", "text": "Design này hợp tệp nào nhất? Chỉ trả JSON."},
+                   {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+        raw = openai_chat([{"role": "system", "content": sys},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=60)
+        seg = (json.loads(raw) or {}).get("seg", "single")
+        return seg if seg in PRODUCT_SEGMENTS else "single"
+    except Exception:
+        return "single"
+
+
 def ai_personal_names(designs):
     """AI nghĩ tên 2 chữ + ngày cho từng design (theo tệp/chủ đề). Trả list {name,date}."""
     desc = "; ".join("mẫu %d (tệp %s, chủ đề %s)" % (i + 1, d.get("tep", "single"), d.get("theme", "") or "tự do")
@@ -4023,6 +4041,8 @@ class Handler(BaseHTTPRequestHandler):
         if not cats:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 nhóm ảnh."})
         seg = body.get("segment", "single")
+        if seg == "auto":                       # AI nhìn design tự đoán tệp
+            seg = detect_product_seg(d)
         if seg not in PRODUCT_SEGMENTS:
             seg = "single"
         theme = (body.get("theme") or "").strip()
