@@ -1671,9 +1671,19 @@ async function prodLoadHistory() {
         '<label class="hsel"><input type="checkbox"></label>' +
         '<img src="' + it.url + '" loading="lazy" alt="">' +
         '<div class="gmeta">' + (it.prompt || "Ảnh SP") + '</div>' +
-        '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+        '<div class="gacts"><button class="b-zoom">🔍 Xem</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector("img").onclick = () => openZoom(it.url);
       card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(it.url, e.currentTarget);
+      card.querySelector(".b-del").onclick = async (e) => {
+        if (!confirm("Xoá ảnh sản phẩm này?")) return;
+        const btn = e.currentTarget; btn.disabled = true;
+        try {
+          if (it.id) await fetch("/api/gallery?id=" + encodeURIComponent(it.id), { method: "DELETE" });
+          card.remove();
+          prodHistSel.delete(it.url); prodHistSelUpdate();
+          if (typeof loadGallery === "function") loadGallery();
+        } catch (err) { alert("✗ " + err.message); btn.disabled = false; }
+      };
       card.querySelector(".hsel input").onchange = (e) => {
         if (e.target.checked) prodHistSel.add(it.url); else prodHistSel.delete(it.url);
         prodHistSelUpdate();
@@ -1734,12 +1744,24 @@ function prodRender(items) {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' +
       '<div class="gmeta">' + (it.title || "Ảnh") + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-zoom">🔍 Phóng to</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
     card._cur = it.image; card._name = it.title || "anh";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "anh-sp");
+    card.querySelector(".b-del").onclick = async (e) => {
+      if (!confirm("Xoá ảnh này?")) return;
+      const btn = e.currentTarget; btn.disabled = true;
+      try {
+        const gid = it.gallery && it.gallery.id;
+        if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" });
+        prodLastItems = prodLastItems.filter(x => x !== it);
+        prodRender(prodLastItems);
+        if (typeof loadGallery === "function") loadGallery();
+        prodLoadHistory();
+      } catch (err) { alert("✗ " + err.message); btn.disabled = false; }
+    };
     grid.appendChild(card);
   });
   $("prodDownloadAll").textContent = "⬇ Tải tất cả (" + items.length + ")";
