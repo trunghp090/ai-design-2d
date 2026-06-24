@@ -46,6 +46,7 @@
     <button class="app-tab" data-app="lenao">👕 Lên áo</button>
     <button class="app-tab" data-app="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="design">✨ Tạo design</button>
+    <button class="app-tab" data-app="autopipe">🚀 Trọn gói</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -863,6 +864,45 @@
         </div>
         <div class="auto-grid" id="dsResults"></div>
         <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: TRỌN GÓI (AI tự nghĩ tên/tệp/style/màu -> design -> đổi màu áo) ===== -->
+  <section class="auto-view app-view hidden" id="view-autopipe">
+    <div class="auto-wrap">
+      <section class="panel">
+        <h2 class="panel-title">🚀 Trọn gói cá nhân hoá (AI tự làm hết)</h2>
+        <p class="panel-desc">AI <b>tự nghĩ</b> tên · tệp khách · chủ đề · phong cách · màu áo → tạo design có tên → đổi màu cho hợp áo. Bạn chỉ <b>duyệt</b> ở cuối.</p>
+
+        <label class="field-label">Gợi ý ngách (tuỳ chọn — để trống thì AI tự nghĩ)</label>
+        <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, hội bạn thân, tuổi Dần…" />
+
+        <label class="field-label" style="margin-top:12px">Số mẫu</label>
+        <select id="apCount" class="input">
+          <option value="3" selected>3 mẫu</option>
+          <option value="1">1 mẫu (thử nhanh)</option>
+          <option value="5">5 mẫu</option>
+        </select>
+
+        <button class="btn-primary" id="apRunBtn" style="margin-top:14px">🚀 AI làm trọn gói</button>
+        <div class="batch-progress hidden" id="apProgress">
+          <div class="bp-bar"><div class="bp-fill" id="apBar"></div></div>
+          <span id="apProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="apNote"></p>
+        <div id="apErrors" class="batch-errors"></div>
+        <p class="hint" style="margin-top:10px">Mỗi mẫu chạy 2 bước AI (tạo design → đổi màu áo) nên hơi lâu, chạy nhiều luồng.</p>
+      </section>
+
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Kết quả — duyệt &amp; chọn</h3>
+          <button class="btn-ghost sm strong" id="apToShopify">🛍️ Đẩy mẫu đã chọn (0)</button>
+        </div>
+        <p class="hint" style="margin:-6px 0 8px">Mỗi mẫu hiện ảnh in trên áo (màu AI chọn) + design tách nền. Tick mẫu ưng để đẩy.</p>
+        <div class="auto-grid" id="apResults"></div>
+        <div class="gallery-empty" id="apEmpty">Bấm “AI làm trọn gói” để bắt đầu.</div>
       </section>
     </div>
   </section>

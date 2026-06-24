@@ -581,6 +581,7 @@ function showApp(app) {
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
+  document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "lenao") lenaoInit();
@@ -588,6 +589,7 @@ function showApp(app) {
   if (app === "design") dsInit();
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
+  if (app === "autopipe") apInit();
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
 
@@ -2753,3 +2755,107 @@ async function pickProdAdd(p) {
 $("pickProdClose").onclick = () => $("pickProdModal").classList.add("hidden");
 $("pickProdModal").onclick = (e) => { if (e.target.id === "pickProdModal") $("pickProdModal").classList.add("hidden"); };
 $("pickProdSearch").oninput = (e) => pickProdRenderList(e.target.value);
+
+/* =====================================================================
+   TÍNH NĂNG: TRỌN GÓI (AI tự nghĩ tên/tệp/style/màu -> design -> đổi màu áo)
+   ===================================================================== */
+let apItems = [];
+let apSel = new Set();
+let apTimer = null;
+let apInited = false;
+const AP_TEP = { single: "👤 1 áo", couple: "💑 Couple", family: "👨‍👩‍👧 Gia đình", group: "👥 Đội nhóm" };
+
+function apInit() {
+  if (apInited) return; apInited = true;
+  $("apRunBtn").onclick = apRun;
+  $("apToShopify").onclick = apToShopify;
+}
+function apSelUpdate() {
+  $("apToShopify").textContent = "🛍️ Đẩy mẫu đã chọn (" + apSel.size + ")";
+}
+function apRender(items) {
+  apItems = items || [];
+  const grid = $("apResults");
+  if (!apItems.length) { $("apEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("apEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  apItems.forEach((it, i) => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    const tep = AP_TEP[it.tep] || it.tep || "";
+    card.innerHTML =
+      '<label class="hsel"><input type="checkbox"></label>' +
+      '<img src="data:image/png;base64,' + (it.shirt || it.recolored || it.design) + '" alt="">' +
+      '<div class="gmeta"><b>' + (it.name || "") + '</b> · ' + tep + '<br>' +
+      '<span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + ' · áo ' + (it.color_vi || "") + '</span></div>' +
+      '<div class="gacts">' +
+        '<button class="b-zoom">🔍 Lên áo</button>' +
+        '<button class="b-design">🎨 Design</button>' +
+        '<button class="b-dl">⬇ Tải</button>' +
+      '</div>';
+    card.querySelector(".hsel input").onchange = (e) => {
+      if (e.target.checked) apSel.add(i); else apSel.delete(i); apSelUpdate();
+    };
+    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + (it.shirt || it.recolored));
+    card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + (it.shirt || it.recolored));
+    card.querySelector(".b-design").onclick = () => openZoom("data:image/png;base64," + (it.recolored || it.design));
+    card.querySelector(".b-dl").onclick = () => autoDownload(it.recolored || it.design, it.name || "design");
+    grid.appendChild(card);
+  });
+}
+async function apPoll(jobId) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+    $("apBar").style.width = pct + "%";
+    $("apProgText").textContent = "Đã xong " + d.done + "/" + d.total + " · ✓ " + (d.items || []).length
+      + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length + " lỗi" : "");
+    apRender(d.items || []);
+    $("apErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
+    if (d.finished) {
+      clearInterval(apTimer); apTimer = null;
+      $("apRunBtn").disabled = false;
+      $("apNote").className = "gen-note ok";
+      $("apNote").textContent = "✓ Xong! " + (d.items || []).length + "/" + d.total + " mẫu — tick mẫu ưng rồi đẩy Shopify.";
+      setTimeout(() => $("apProgress").classList.add("hidden"), 600);
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } catch (e) { /* tiếp tục */ }
+}
+async function apRun() {
+  const note = $("apNote"); note.className = "gen-note"; note.textContent = "";
+  apSel = new Set(); apSelUpdate();
+  const btn = $("apRunBtn"); btn.disabled = true;
+  $("apErrors").innerHTML = "";
+  $("apProgress").classList.remove("hidden");
+  $("apBar").style.width = "0%"; $("apProgText").textContent = "AI đang nghĩ tên / tệp / style / màu…";
+  try {
+    const r = await fetch("/api/auto-pipeline", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "" }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
+    $("apProgText").textContent = "Đang làm " + d.total + " mẫu (design → đổi màu áo)…";
+    if (apTimer) clearInterval(apTimer);
+    apTimer = setInterval(() => apPoll(d.job_id), 2500);
+    apPoll(d.job_id);
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+    btn.disabled = false; $("apProgress").classList.add("hidden");
+  }
+}
+function apToShopify() {
+  const picks = [...apSel].map(i => apItems[i]).filter(Boolean);
+  if (!picks.length) { alert("Tick ít nhất 1 mẫu để đẩy."); return; }
+  picks.forEach(it => {
+    shopItems.push({
+      title: "", description: "", price: "", status: "DRAFT", result: null,
+      variants: [{ image: it.shirt || it.recolored || it.design, color: it.color_vi || "" }],
+    });
+  });
+  showApp("shopify");
+  shopRender();
+  const note = $("shopNote"); note.className = "gen-note ok";
+  note.textContent = "✓ Đã đưa " + picks.length + " mẫu sang Shopify — nhập giá rồi bấm Đẩy.";
+}

@@ -481,6 +481,33 @@ def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700):
     return "\n".join(p for p in parts if p).strip()
 
 
+def claude_text(system, user, max_tokens=2500):
+    """Gọi Claude API text-only (không ảnh) -> trả text. Lỗi nếu chưa có key."""
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("Chưa cấu hình ANTHROPIC_API_KEY")
+    payload = {"model": ANTHROPIC_MODEL, "max_tokens": max_tokens, "system": system,
+               "messages": [{"role": "user", "content": user}]}
+    req = urllib.request.Request(ANTHROPIC_URL, data=json.dumps(payload).encode(),
+                                 method="POST")
+    req.add_header("x-api-key", ANTHROPIC_API_KEY)
+    req.add_header("anthropic-version", "2023-06-01")
+    req.add_header("Content-Type", "application/json")
+    res = json.loads(_openai_call(req, timeout=120))
+    parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
+    return "\n".join(p for p in parts if p).strip()
+
+
+def ai_json(system, user, max_tokens=2500):
+    """Gọi AI để lấy JSON: ưu tiên Claude (nếu có key) -> fallback OpenAI chat json_mode."""
+    if ANTHROPIC_API_KEY:
+        try:
+            return claude_text(system, user + " Chỉ trả JSON thuần.", max_tokens)
+        except Exception:
+            pass
+    return openai_chat([{"role": "system", "content": system},
+                        {"role": "user", "content": user}], json_mode=True, max_tokens=max_tokens)
+
+
 # --------------------------------------------------------------------------- #
 #  Shopify Admin API
 # --------------------------------------------------------------------------- #
@@ -1894,6 +1921,95 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
 
 
 # --------------------------------------------------------------------------- #
+#  PIPELINE TRỌN GÓI: AI tự nghĩ tên + tệp + style + màu -> design -> đổi màu áo
+# --------------------------------------------------------------------------- #
+AUTO_PIPE_SYSTEM = """Bạn là chuyên gia thiết kế áo thun PRINT-ON-DEMAND cá nhân hoá cho thị trường Việt Nam (brand rieng.vn, khách GenZ). Bạn TỰ NGHĨ MỌI THỨ: tên người, tệp khách, chủ đề, phong cách, màu áo — rồi mô tả 1 design in áo CÁ NHÂN HOÁ (có TÊN làm điểm nhấn).
+
+Trả về JSON đúng dạng: {"items":[{...}, ...]} với mỗi item gồm:
+- "tep": 1 trong "single" | "couple" | "family" | "group" (tự chọn cho đa dạng; ưu tiên single & couple).
+- "name": TÊN người để in (vd "Linh", "Minh & An", "Nhà Bi"). Tên Việt tự nhiên, giữ dấu. Couple/family có thể 2–3 tên ghép.
+- "theme": chủ đề/ngách ngắn (vd "mèo cưng", "cà phê", "tuổi Dần", "hội bạn thân").
+- "style": phong cách thiết kế (vd "vintage americana", "korean minimal", "y2k", "typography", "kawaii"...).
+- "color": MÀU ÁO hợp nhất, CHỈ chọn 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
+- "image_prompt": prompt TIẾNG ANH để model tạo ẢNH DESIGN IN ÁO (KHÔNG phải ảnh người mặc): flat vector t-shirt PRINT design, the NAME integrated as the hero text (spell it exactly, keep Vietnamese diacritics), phong cách theo "style", chủ đề theo "theme", bố cục cân đối in giữa áo, plain solid WHITE background for easy cutout, print-ready, NO mockup, NO t-shirt, NO person, NO photo.
+
+QUY TẮC: mỗi item KHÁC nhau hẳn (tên/tệp/chủ đề/style/màu đa dạng). Màu áo phải hợp design để chữ & hình nổi rõ. Đúng số lượng yêu cầu."""
+
+
+def auto_pipe_plan(n, niche=""):
+    """AI (Claude/OpenAI) tự nghĩ n brief cá nhân hoá: tệp/tên/chủ đề/style/màu/image_prompt."""
+    n = max(1, min(int(n or 3), 6))
+    u = "Hãy nghĩ ĐÚNG %d mẫu áo cá nhân hoá đẹp & dễ bán nhất." % n
+    if (niche or "").strip():
+        u += " Xoay quanh ngách/gợi ý: %s." % niche.strip()
+    raw = ai_json(AUTO_PIPE_SYSTEM, u, max_tokens=3000)
+    items = []
+    try:
+        data = json.loads(raw)
+        items = data.get("items") if isinstance(data, dict) else data
+    except Exception:
+        items = []
+    out = []
+    for it in (items or []):
+        if not isinstance(it, dict) or not (it.get("image_prompt") or "").strip():
+            continue
+        c = it.get("color")
+        it["color"] = c if c in RECOLOR else "white"
+        it["tep"] = it.get("tep") if it.get("tep") in PRODUCT_SEGMENTS else "single"
+        out.append(it)
+    return out[:n]
+
+
+def run_auto_pipeline(job_id, plans, size):
+    """Mỗi brief: gen design (có tên) -> đổi màu cho hợp áo -> ghép lên nền màu áo để xem."""
+    def work(it):
+        name = (it.get("name") or "Design").strip()
+        color = it.get("color") if it.get("color") in RECOLOR else "white"
+        vi, hexv, _ = RECOLOR[color]
+        label = "%s · áo %s" % (name, vi)
+        try:
+            raw = openai_generate(it["image_prompt"], size)
+            design = raw
+            if HAS_PIL:
+                try:
+                    design = base64.b64encode(remove_flat_bg(base64.b64decode(raw))).decode()
+                except Exception:
+                    design = raw
+            # đổi màu cho hợp áo (giữ nguyên design, chỉ phối lại màu)
+            rec = design
+            try:
+                rec, _ = gen_design([(base64.b64decode(design), "image/png")], "cloner",
+                                    recolor_instruction(color), size, True)
+            except Exception:
+                rec = design
+            shirt = flatten_on_color(rec, hexv)       # xem như in trên áo màu đó
+            g = gallery_add(rec, {"mode": "design", "prompt": label})
+            return {"name": name, "tep": it.get("tep", "single"), "style": it.get("style", ""),
+                    "theme": it.get("theme", ""), "color": color, "color_vi": vi, "hex": hexv,
+                    "design": design, "recolored": rec, "shirt": shirt, "title": label,
+                    "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": label}
+        except Exception as e:
+            return {"error": str(e), "title": label}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, plans):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+# --------------------------------------------------------------------------- #
 #  Upscale (Pillow)
 # --------------------------------------------------------------------------- #
 def remove_flat_bg(raw, thresh=45):
@@ -2556,6 +2672,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_product_render(body)
         if path == "/api/product-content":
             return self.handle_product_content(body)
+        if path == "/api/auto-pipeline":
+            return self.handle_auto_pipeline(body)
         if path == "/api/design-gen":
             return self.handle_design_gen(body)
         if path == "/api/rate-designs":
@@ -2853,6 +2971,30 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
+
+    def handle_auto_pipeline(self, body):
+        """Pipeline TRỌN GÓI: AI tự nghĩ tên/tệp/style/màu -> gen design -> đổi màu hợp áo."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        n = max(1, min(int(body.get("n", 3) or 3), 6))
+        niche = body.get("niche", "")
+        try:
+            plans = auto_pipe_plan(n, niche)
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(502, {"error": "AI nghĩ mẫu lỗi: %s" % e})
+        if not plans:
+            return self.json(400, {"error": "AI chưa nghĩ được mẫu — thử lại hoặc gõ ngách rõ hơn."})
+        size = SIZE_MAP.get("portrait", "1024x1536")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ap%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(plans), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_auto_pipeline, args=(job_id, plans, size), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(plans)})
 
     def handle_rate_designs(self, body):
         """AI chấm điểm tiềm năng bán chạy cho list design (mỗi item {key, image})."""
