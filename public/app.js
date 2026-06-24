@@ -2838,15 +2838,11 @@ function apRenderDesigns() {
       '<label class="hsel"><input type="checkbox"' + (apPicked.has(i) ? " checked" : "") + '></label>' +
       '<img src="data:image/png;base64,' + (it.image || it.design) + '" alt="">' +
       '<div class="gmeta">' + (it.style || "Design") + (it.role ? " · " + it.role : "") + '</div>' +
-      '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button></div>' +
-      '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Yêu cầu sửa (vd: chữ to hơn)…"><button class="ap-fixbtn">Sửa</button></div>';
+      AP_ACTIONS_HTML;
     card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apPicked.add(i); else apPicked.delete(i); apPick1N(); };
     const img = card.querySelector("img");
     img.onclick = () => openZoom(img.src);
-    card.querySelector(".b-shirt").onclick = () => apPreviewShirt(i);
-    const doFix = () => apEditDesign(i, card);
-    card.querySelector(".ap-fixbtn").onclick = doFix;
-    card.querySelector(".ap-fixin").onkeydown = (e) => { if (e.key === "Enter") doFix(); };
+    apAttachActions(card, it);
     grid.appendChild(card);
   });
   apPick1N();
@@ -2869,22 +2865,34 @@ async function apRunDesigns() {
       () => { clearInterval(apT1); apT1 = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ " + apDesigns.length + " design — tick mẫu đẹp rồi bấm “Tiếp: Cá nhân hoá”."; setTimeout(() => $("apP1").classList.add("hidden"), 600); if (typeof loadGallery === "function") loadGallery(); }), 2500);
   } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apP1").classList.add("hidden"); }
 }
-function apPreviewShirt(i) {
-  const it = apDesigns[i]; if (!it) return;
-  showApp("clone"); showDesign(it.image || it.design); $("sendToMockup").click();
+// dùng chung cho bước 1 (design) & bước 2 (cá nhân hoá)
+function apPreviewItem(it) {
+  if (!it) return;
+  showApp("clone"); showDesign(it.image || it.named || it.design); $("sendToMockup").click();
 }
-async function apEditDesign(i, card) {
-  const it = apDesigns[i]; if (!it) return;
+async function apEditItem(it, card) {
+  if (!it) return;
   const inp = card.querySelector(".ap-fixin"), btn = card.querySelector(".ap-fixbtn");
   const instr = (inp.value || "").trim(); if (!instr) { inp.focus(); return; }
   btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳…";
   try {
     const r = await fetch("/api/pipe-edit", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: "data:image/png;base64," + (it.image || it.design), prompt: instr }) });
+      body: JSON.stringify({ image: "data:image/png;base64," + (it.image || it.named || it.design), prompt: instr }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    it.image = d.image; it.design = d.image; card.querySelector("img").src = "data:image/png;base64," + d.image; inp.value = "";
+    it.image = d.image; if ("named" in it) it.named = d.image; if ("design" in it) it.design = d.image;
+    card.querySelector("img").src = "data:image/png;base64," + d.image; inp.value = "";
   } catch (err) { alert("✗ " + err.message); } finally { btn.disabled = false; btn.textContent = old; }
 }
+// hàng nút "Xem lên áo" + ô sửa, gắn vào 1 card cho 1 item bất kỳ
+function apAttachActions(card, it) {
+  card.querySelector(".b-shirt").onclick = () => apPreviewItem(it);
+  const doFix = () => apEditItem(it, card);
+  card.querySelector(".ap-fixbtn").onclick = doFix;
+  card.querySelector(".ap-fixin").onkeydown = (e) => { if (e.key === "Enter") doFix(); };
+}
+const AP_ACTIONS_HTML =
+  '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button></div>' +
+  '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Yêu cầu sửa (vd: chữ to hơn)…"><button class="ap-fixbtn">Sửa</button></div>';
 function apToStep2() {
   apPickedList = [...apPicked].map(i => apDesigns[i]).filter(Boolean);
   if (!apPickedList.length) { alert("Tick ít nhất 1 design để cá nhân hoá."); return; }
@@ -2904,8 +2912,10 @@ function apRenderPersonal() {
     const tep = AP_TEP[it.tep] || it.tep || "";
     card.innerHTML =
       '<img src="data:image/png;base64,' + (it.image || it.named) + '" alt="">' +
-      '<div class="gmeta"><b>' + (it.name || "") + '</b>' + (it.date ? " · " + it.date : "") + ' · ' + tep + '</div>';
+      '<div class="gmeta"><b>' + (it.name || "") + '</b>' + (it.date ? " · " + it.date : "") + ' · ' + tep + '</div>' +
+      AP_ACTIONS_HTML;
     const img = card.querySelector("img"); img.onclick = () => openZoom(img.src);
+    apAttachActions(card, it);
     grid.appendChild(card);
   });
 }
