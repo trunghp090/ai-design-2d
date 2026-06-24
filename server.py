@@ -1688,15 +1688,22 @@ NAME_STYLES = [
 ]
 
 
-def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=None):
+def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=None,
+                         personalize_hint=False, use_claude=False):
     """AI tự chọn phong cách hợp nhất cho chủ đề rồi tạo n design. Mỗi concept kèm 'style'.
-    palette_keys: giới hạn nhóm style để AI chọn (vd NAME_STYLES cho cá nhân hoá tên)."""
+    palette_keys: nhóm style để AI chọn (None = VN_HOT_STYLES). personalize_hint: ưu tiên style
+    hợp cá nhân hoá tên. use_claude: dùng Claude (ai_json) thay OpenAI để PHÂN TÍCH & chọn."""
     n = max(1, min(int(n or 3), 8))
     # Kèm LUÔN descriptor (đã tinh chỉnh cho thị trường VN) để AI tự pick bám đúng đặc điểm
     keys = [k for k in (palette_keys or VN_HOT_STYLES) if k in DESIGN_STYLES] or VN_HOT_STYLES
     palette = "\n".join("- %s: %s" % (DESIGN_STYLES[k][0], DESIGN_STYLES[k][1])
                         for k in keys if k in DESIGN_STYLES)
     parts = ["Tạo đúng %d design áo thun ĐẸP & DỄ BÁN nhất." % n]
+    if personalize_hint:
+        parts.append("Đây là design để CÁ NHÂN HOÁ — sẽ gắn TÊN người làm điểm nhấn. Hãy PHÂN TÍCH "
+                     "trong các phong cách trên và CHỌN/MIX phong cách hợp nhất để TÊN nổi bật, dễ "
+                     "đọc, đẹp & dễ bán; tránh phong cách quá rối khiến tên khó đọc. Chừa khoảng/bố "
+                     "cục để đặt tên (chữ to trung tâm).")
     if (theme or "").strip():
         parts.append("Chủ đề/ngách: %s." % theme.strip())
     if (text or "").strip():
@@ -1708,11 +1715,15 @@ def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=
     if same_line:
         parts.append("Nếu tên/chữ chính có 2 từ thì đặt CẢ 2 TỪ trên MỘT HÀNG NGANG DUY NHẤT, không xếp chồng; mỗi image prompt ghi rõ 'single-line lockup, not stacked'.")
     parts.append("Mỗi design CHỦ THỂ/phong cách KHÁC NHAU, đa dạng, tránh trùng lặp.")
-    messages = [{"role": "system", "content": DESIGN_AUTO_SYSTEM % palette},
-                {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
+    sys = DESIGN_AUTO_SYSTEM % palette
+    user = " ".join(parts) + " Chỉ trả JSON."
     out = []
     for _attempt in range(2):
-        raw = openai_chat(messages, json_mode=True, max_tokens=2800)
+        if use_claude:
+            raw = ai_json(sys, user, max_tokens=2800)       # Claude phân tích & chọn
+        else:
+            raw = openai_chat([{"role": "system", "content": sys},
+                               {"role": "user", "content": user}], json_mode=True, max_tokens=2800)
         out = _parse_designs(raw)
         if out:
             break
@@ -2197,8 +2208,9 @@ def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
                     role = SEGMENTS[seg]["short"][idx] if idx < len(SEGMENTS[seg]["short"]) else ""
                     concepts.append((c, role))
         else:
-            # AI tự chọn style nhưng GIỚI HẠN trong nhóm hợp cá nhân hoá tên
-            for c in (design_concepts_auto(theme, "", n, palette_keys=NAME_STYLES) or []):
+            # CLAUDE phân tích TẤT CẢ 56 style -> chọn/mix style hợp CÁ NHÂN HOÁ nhất
+            for c in (design_concepts_auto(theme, "", n, palette_keys=list(DESIGN_STYLES.keys()),
+                                           personalize_hint=True, use_claude=True) or []):
                 concepts.append((c, ""))
     except Exception:
         concepts = []
