@@ -184,6 +184,39 @@ def flatten_on_color(b64_png, hexv):
         return b64_png
 
 
+# Màu áo -> file mockup tương ứng (ghép design lên áo thật)
+MOCKUP_BY_COLOR = {
+    "white": "ao_1_trang.png", "black": "ao_2_den.png", "sand": "ao_3_be.png",
+    "brown": "ao_4_nau.png", "red": "ao_5_do.png", "maroon": "ao_6_dodo.png",
+    "forest": "ao_7_xanhreu.png",
+}
+
+
+def compose_on_mockup(design_b64, color, x_pct=50.0, y_pct=43.0, w_pct=40.0):
+    """Ghép design (đã tách nền) LÊN ÁO mockup theo màu — khớp cách tab Lên áo compose."""
+    if not HAS_PIL:
+        return design_b64
+    fn = MOCKUP_BY_COLOR.get(color)
+    path = os.path.join(MOCKUP_DIR, fn) if fn else ""
+    if not fn or not os.path.isfile(path):
+        return design_b64
+    try:
+        shirt = Image.open(path).convert("RGBA")
+        des = Image.open(io.BytesIO(base64.b64decode(design_b64))).convert("RGBA")
+        sw, sh = shirt.size
+        dw = max(1, int(sw * w_pct / 100.0))
+        dh = max(1, int(des.height * (dw / des.width)))
+        des = des.resize((dw, dh), Image.LANCZOS)
+        dx = int(sw * x_pct / 100.0 - dw / 2)
+        dy = int(sh * y_pct / 100.0 - dh / 2)
+        shirt.paste(des, (dx, dy), des)        # dùng alpha làm mask
+        out = io.BytesIO()
+        shirt.save(out, "PNG")
+        return base64.b64encode(out.getvalue()).decode()
+    except Exception:
+        return design_b64
+
+
 # --------------------------------------------------------------------------- #
 #  Prompt
 # --------------------------------------------------------------------------- #
@@ -1928,10 +1961,11 @@ AUTO_PIPE_SYSTEM = """Bạn là giám đốc sáng tạo shop áo thun PRINT-ON-
 Trả về JSON: {"items":[{...}, ...]} với mỗi item:
 - "tep": 1 trong "single" | "couple" | "family" | "group" (đa dạng; ưu tiên single & couple).
 - "name": TÊN để in. single = 1 tên (vd "Linh"); couple = 2 tên cách bởi "&" (vd "Minh & An"); family = tên Bố/Mẹ/Bé cách bởi "/" (vd "Nam / Hoa / Bi"); group = 1 tên nhóm (vd "Hội Cú Đêm"). Tên Việt tự nhiên, giữ dấu.
+- "date": NGÀY THÁNG NĂM in kèm tên (vd "20.10.2025", "Since 2020", "12/03/2024"). Hợp ngữ cảnh (couple = ngày kỷ niệm; single = ngày ý nghĩa).
 - "theme": chủ đề/ngách ngắn (vd "mèo cưng", "cà phê đôi", "tuổi Dần", "hội bạn thân").
-- "color": MÀU ÁO hợp nhất, CHỈ 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
+- "color": MÀU ÁO gợi ý hợp nhất, CHỈ 1 trong: "black" (đen), "white" (trắng), "brown" (nâu), "sand" (be), "forest" (xanh rêu), "red" (đỏ), "maroon" (đỏ đô).
 
-QUY TẮC: mỗi item khác nhau hẳn (tệp/tên/chủ đề/màu đa dạng). Màu áo hợp để chữ & hình nổi rõ. Đúng số lượng yêu cầu."""
+QUY TẮC: mỗi item khác nhau hẳn (tệp/tên/chủ đề/màu đa dạng). Đúng số lượng yêu cầu."""
 
 
 def auto_pipe_plan(n, niche=""):
@@ -1978,13 +2012,16 @@ def _gen_base_b64(prompt, size, transparent=True):
     return b64
 
 
-def personalize_core(design_b64, name, size, transparent=True):
-    """Cá nhân hoá tên (img2img) — DÙNG LẠI logic tab Cá nhân hoá: giữ style, thay chữ chính = tên."""
+def personalize_core(design_b64, name, size, transparent=True, date=""):
+    """Cá nhân hoá tên (+ ngày) img2img — DÙNG LẠI logic tab Cá nhân hoá: giữ style, thay chữ chính."""
     base = ("Design a t-shirt graphic featuring the NAME \"%s\" as the focal text. KEEP THE SAME "
             "VISUAL STYLE as the reference image — same color palette, same font character, same "
             "illustration motifs/elements, same texture and mood — you may rework the composition. "
             "Use exactly this name text, keep all Vietnamese diacritics correct. If the name has 2 "
             "words keep them on one line when it fits." % name)
+    if (date or "").strip():
+        base += (" Add a small secondary line with the date \"%s\" below the name, smaller, "
+                 "in the same style." % date.strip())
     b64, _ = gen_design([(base64.b64decode(design_b64), "image/png")], "variation", base,
                         size, transparent)
     return b64
@@ -2009,6 +2046,7 @@ def run_auto_pipeline(job_id, plans, size, transparent=True):
         tep = brief.get("tep", "single")
         theme = brief.get("theme", "")
         color = brief.get("color") if brief.get("color") in RECOLOR else "white"
+        date = (brief.get("date") or "").strip()
         names = _split_names(brief.get("name", ""))
         try:
             if tep in SEGMENTS:
@@ -2023,8 +2061,8 @@ def run_auto_pipeline(job_id, plans, size, transparent=True):
             if tep in SEGMENTS and idx < len(SEGMENTS[tep]["short"]):
                 role = SEGMENTS[tep]["short"][idx]
             style = (c.get("style") or "").strip() or role
-            tasks.append({"prompt": c.get("prompt", ""), "name": nm, "color": color,
-                          "tep": tep, "theme": theme, "style": style, "role": role})
+            tasks.append({"prompt": c.get("prompt", ""), "name": nm, "date": date,
+                          "color": color, "tep": tep, "theme": theme, "style": style, "role": role})
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
         if not job:
@@ -2035,27 +2073,29 @@ def run_auto_pipeline(job_id, plans, size, transparent=True):
             job["finished"] = True
             return
 
-    # 2) Mỗi design: vẽ -> cá nhân hoá tên -> đổi màu áo -> ghép lên áo
+    # 2) Mỗi design: vẽ -> cá nhân hoá TÊN+NGÀY -> tự phối màu hợp áo -> GHÉP LÊN ÁO (sẵn đẩy Shopify).
     def work(t):
         color = t["color"]
         vi, hexv, _ = RECOLOR[color]
         nm = (t.get("name") or "").strip()
-        label = (nm or t.get("role") or "Design") + " · áo " + vi
+        date = (t.get("date") or "").strip()
+        label = (nm or t.get("role") or "Design") + (" · " + date if date else "") + " · áo " + vi
         try:
             base = _gen_base_b64(t["prompt"], size, transparent)
             named = base
             if nm:
                 try:
-                    named = personalize_core(base, nm, size, transparent)
+                    named = personalize_core(base, nm, size, transparent, date)
                 except Exception:
                     named = base
+            # tự phối màu cho hợp màu nền áo
             try:
                 rec = recolor_core(named, color, size)
             except Exception:
                 rec = named
-            shirt = flatten_on_color(rec, hexv)
+            shirt = compose_on_mockup(rec, color)      # ghép lên áo mockup màu đó
             g = gallery_add(rec, {"mode": "design", "prompt": label})
-            return {"name": nm, "tep": t["tep"], "style": t.get("style", ""),
+            return {"name": nm, "date": date, "tep": t["tep"], "style": t.get("style", ""),
                     "theme": t.get("theme", ""), "role": t.get("role", ""),
                     "color": color, "color_vi": vi, "hex": hexv,
                     "design": base, "named": named, "recolored": rec, "shirt": shirt,

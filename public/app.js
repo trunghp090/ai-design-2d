@@ -2784,23 +2784,28 @@ function apRender(items) {
     card.className = "gcard";
     const tep = AP_TEP[it.tep] || it.tep || "";
     const roleTag = it.role ? ' <span style="opacity:.7">(' + it.role + ')</span>' : "";
+    const shirt = it.shirt || it.recolored || it.named || it.design;   // ảnh đã lên áo
+    const designB64 = it.named || it.design;                            // design tách nền (để chỉnh tay)
+    const durl = "data:image/png;base64," + shirt;
+    const dDesign = "data:image/png;base64," + designB64;
+    const dateTag = it.date ? ' · ' + it.date : "";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"></label>' +
-      '<img src="data:image/png;base64,' + (it.shirt || it.recolored || it.design) + '" alt="">' +
-      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b> · ' + tep + roleTag + '<br>' +
+      '<img src="' + durl + '" alt="">' +
+      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b>' + dateTag + ' · ' + tep + roleTag + '<br>' +
       '<span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + ' · áo ' + (it.color_vi || "") + '</span></div>' +
       '<div class="gacts">' +
-        '<button class="b-zoom">🔍 Lên áo</button>' +
-        '<button class="b-design">🎨 Design</button>' +
+        '<button class="b-recolor">🎨 Màu khác</button>' +
+        '<button class="b-up">👕 Chỉnh tay</button>' +
         '<button class="b-dl">⬇ Tải</button>' +
       '</div>';
     card.querySelector(".hsel input").onchange = (e) => {
       if (e.target.checked) apSel.add(i); else apSel.delete(i); apSelUpdate();
     };
-    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + (it.shirt || it.recolored));
-    card.querySelector(".b-zoom").onclick = () => openZoom("data:image/png;base64," + (it.shirt || it.recolored));
-    card.querySelector(".b-design").onclick = () => openZoom("data:image/png;base64," + (it.recolored || it.design));
-    card.querySelector(".b-dl").onclick = () => autoDownload(it.recolored || it.design, it.name || "design");
+    card.querySelector("img").onclick = () => openZoom(durl);
+    card.querySelector(".b-recolor").onclick = () => apSendToRecolor(dDesign);
+    card.querySelector(".b-up").onclick = () => apSendToLenao(dDesign);
+    card.querySelector(".b-dl").onclick = () => autoDownload(shirt, (it.name || "design") + (it.date ? "-" + it.date : "") + "-ao");
     grid.appendChild(card);
   });
 }
@@ -2852,11 +2857,27 @@ function apToShopify() {
   picks.forEach(it => {
     shopItems.push({
       title: "", description: "", price: "", status: "DRAFT", result: null,
-      variants: [{ image: it.shirt || it.recolored || it.design, color: it.color_vi || "" }],
+      variants: [{ image: it.shirt || it.recolored || it.named || it.design, color: it.color_vi || "" }],
     });
   });
   showApp("shopify");
   shopRender();
   const note = $("shopNote"); note.className = "gen-note ok";
   note.textContent = "✓ Đã đưa " + picks.length + " mẫu sang Shopify — nhập giá rồi bấm Đẩy.";
+}
+// Bàn giao design sang tab Đổi màu áo (user tự chọn màu nền áo & chỉnh)
+function apSendToRecolor(durl) {
+  recolorImg = durl;
+  showApp("recolor");
+  if (typeof recolorRenderThumb === "function") recolorRenderThumb();
+}
+// Bàn giao design sang tab Lên áo (user tự fit/kéo-thả trên từng mockup)
+function apSendToLenao(durl) {
+  showApp("lenao");
+  let tries = 0;
+  const apply = () => {
+    if (typeof lenaoSlots !== "undefined" && lenaoSlots.length) { lenaoApplyAll(durl); }
+    else if (tries++ < 20) { setTimeout(apply, 300); }
+  };
+  setTimeout(apply, 300);
 }
