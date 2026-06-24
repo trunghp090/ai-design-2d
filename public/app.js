@@ -2757,30 +2757,26 @@ $("pickProdModal").onclick = (e) => { if (e.target.id === "pickProdModal") $("pi
 $("pickProdSearch").oninput = (e) => pickProdRenderList(e.target.value);
 
 /* =====================================================================
-   TÍNH NĂNG: TRỌN GÓI — wizard 3 bước (ra design → đổi màu → lên áo → Shopify)
+   TÍNH NĂNG: TRỌN GÓI — wizard 4 bước
+   ① Tạo design (AI auto-style) → ② Cá nhân hoá (AI đặt tên) → ③ Đổi màu → ④ Lên áo & Shopify
    ===================================================================== */
 const AP_TEP = { single: "👤 1 áo", couple: "💑 Couple", family: "👨‍👩‍👧 Gia đình", group: "👥 Đội nhóm" };
 const apColors = new Set(["black", "white"]);
-let apInited = false;
-let apStep = 1;
-let apDesigns = [];           // bước 1: design AI tạo
-let apPicked = new Set();     // index design đã chọn (bước 1)
-let apPickedList = [];        // design đã chọn (truyền sang bước 2)
-let apRecolored = [];         // bước 2: design + variants màu
-let apShirtItems = [];        // bước 3: lên áo
-let apSel = new Set();        // index mẫu chọn để đẩy Shopify (bước 3)
-let apT1 = null, apT2 = null;
-let apTep = "";               // tệp khách: "" = AI tự chọn
+let apInited = false, apStep = 1;
+let apTep = "";
+let apDesigns = [], apPicked = new Set(), apPickedList = [];   // bước 1
+let apPersonal = [];                                           // bước 2 (đã đặt tên)
+let apRecolored = [];                                          // bước 3
+let apShots = [], apSel = new Set();                           // bước 4
+let apT1 = null, apTP = null, apT2 = null;
+
 const AP_TEP_LIST = [
-  { key: "", label: "🤖 AI tự chọn" },
-  { key: "single", label: "👤 Cá nhân" },
-  { key: "couple", label: "💑 Couple" },
-  { key: "family", label: "👨‍👩‍👧 Gia đình" },
+  { key: "", label: "🤖 AI tự chọn" }, { key: "single", label: "👤 Cá nhân" },
+  { key: "couple", label: "💑 Couple" }, { key: "family", label: "👨‍👩‍👧 Gia đình" },
   { key: "group", label: "👥 Đội nhóm" },
 ];
 function apRenderTeps() {
-  const box = $("apTeps"); if (!box) return;
-  box.innerHTML = "";
+  const box = $("apTeps"); if (!box) return; box.innerHTML = "";
   AP_TEP_LIST.forEach(t => {
     const el = document.createElement("div");
     el.className = "cchip" + (apTep === t.key ? " on" : "");
@@ -2789,27 +2785,8 @@ function apRenderTeps() {
     box.appendChild(el);
   });
 }
-
-function apInit() {
-  if (apInited) return; apInited = true;
-  apRenderTeps();
-  apRenderColors();
-  $("apRunDesigns").onclick = apRunDesigns;
-  $("apToStep2").onclick = apToStep2;
-  $("apBack1").onclick = () => apGoStep(1);
-  $("apDoRecolor").onclick = apDoRecolor;
-  $("apToStep3").onclick = apToStep3;
-  $("apBack2").onclick = () => apGoStep(2);
-  $("apToShopify").onclick = apToShopify;
-}
-function apGoStep(s) {
-  apStep = s;
-  [1, 2, 3].forEach(n => $("apStep" + n).classList.toggle("hidden", n !== s));
-  document.querySelectorAll(".ap-step").forEach(e => e.classList.toggle("on", +e.dataset.s === s));
-}
 function apRenderColors() {
-  const box = $("apColors"); if (!box) return;
-  box.innerHTML = "";
+  const box = $("apColors"); if (!box) return; box.innerHTML = "";
   RECOLOR_LIST.forEach(c => {
     const el = document.createElement("div");
     el.className = "cchip" + (apColors.has(c.key) ? " on" : "");
@@ -2818,196 +2795,189 @@ function apRenderColors() {
     box.appendChild(el);
   });
 }
+function apInit() {
+  if (apInited) return; apInited = true;
+  apRenderTeps(); apRenderColors();
+  $("apRunDesigns").onclick = apRunDesigns;
+  $("apToStep2").onclick = apToStep2;
+  $("apBack1").onclick = () => apGoStep(1);
+  $("apDoPersonalize").onclick = apDoPersonalize;
+  $("apToStep3").onclick = apToStep3;
+  $("apBack2").onclick = () => apGoStep(2);
+  $("apDoRecolor").onclick = apDoRecolor;
+  $("apToStep4").onclick = apToStep4;
+  $("apBack3").onclick = () => apGoStep(3);
+  $("apToShopify").onclick = apToShopify;
+}
+function apGoStep(s) {
+  apStep = s;
+  [1, 2, 3, 4].forEach(n => $("apStep" + n).classList.toggle("hidden", n !== s));
+  document.querySelectorAll(".ap-step").forEach(e => e.classList.toggle("on", +e.dataset.s === s));
+}
+// poll chung
+async function apPoll(jobId, bar, txt, onItems, onDone) {
+  try {
+    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+    $(bar).style.width = (d.total ? Math.round(d.done / d.total * 100) : 0) + "%";
+    $(txt).textContent = "Đã xong " + d.done + "/" + d.total + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length : "");
+    onItems(d.items || [], d.errors || []);
+    if (d.finished) onDone(d.items || []);
+    return d.finished;
+  } catch (e) { return false; }
+}
 
-/* ---------- BƯỚC 1: AI ra design ---------- */
-function apPickN() { $("apToStep2").textContent = "Tiếp: Đổi màu (" + apPicked.size + ") →"; }
+/* ---------- BƯỚC 1: tạo design ---------- */
+function apPick1N() { $("apToStep2").textContent = "Tiếp: Cá nhân hoá (" + apPicked.size + ") →"; }
 function apRenderDesigns() {
   const grid = $("apDesigns");
   $("apEmpty1").classList.toggle("hidden", apDesigns.length > 0);
   grid.innerHTML = "";
   apDesigns.forEach((it, i) => {
     const card = document.createElement("div"); card.className = "gcard";
-    const tep = AP_TEP[it.tep] || it.tep || "";
-    const dateTag = it.date ? " · " + it.date : "";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"' + (apPicked.has(i) ? " checked" : "") + '></label>' +
       '<img src="data:image/png;base64,' + (it.image || it.design) + '" alt="">' +
-      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b>' + dateTag + ' · ' + tep +
-      '<br><span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + '</span></div>' +
+      '<div class="gmeta">' + (it.style || "Design") + (it.role ? " · " + it.role : "") + '</div>' +
       '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button></div>' +
-      '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Nhập yêu cầu sửa (vd: chữ to hơn, thêm hoa)…"><button class="ap-fixbtn">Sửa</button></div>';
-    card.querySelector(".hsel input").onchange = (e) => {
-      if (e.target.checked) apPicked.add(i); else apPicked.delete(i); apPickN();
-    };
+      '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Yêu cầu sửa (vd: chữ to hơn)…"><button class="ap-fixbtn">Sửa</button></div>';
+    card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apPicked.add(i); else apPicked.delete(i); apPick1N(); };
     const img = card.querySelector("img");
     img.onclick = () => openZoom(img.src);
     card.querySelector(".b-shirt").onclick = () => apPreviewShirt(i);
-    const fixin = card.querySelector(".ap-fixin"), fixbtn = card.querySelector(".ap-fixbtn");
     const doFix = () => apEditDesign(i, card);
-    fixbtn.onclick = doFix;
-    fixin.onkeydown = (e) => { if (e.key === "Enter") doFix(); };
+    card.querySelector(".ap-fixbtn").onclick = doFix;
+    card.querySelector(".ap-fixin").onkeydown = (e) => { if (e.key === "Enter") doFix(); };
     grid.appendChild(card);
   });
-  apPickN();
-}
-// Xem lên áo = nạp design vào trình mockup Clone Design (kéo-thả/resize/chọn áo y hệt)
-function apPreviewShirt(i) {
-  const it = apDesigns[i]; if (!it) return;
-  showApp("clone");
-  showDesign(it.image || it.design);
-  $("sendToMockup").click();   // chuyển sang tab Mockup + bật layer design lên áo
-}
-// sửa design theo yêu cầu (img2img) -> thay design tại chỗ
-async function apEditDesign(i, card) {
-  const it = apDesigns[i]; if (!it) return;
-  const inp = card.querySelector(".ap-fixin"), btn = card.querySelector(".ap-fixbtn");
-  const instr = (inp.value || "").trim();
-  if (!instr) { inp.focus(); return; }
-  btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳…";
-  try {
-    const r = await fetch("/api/pipe-edit", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: "data:image/png;base64," + (it.image || it.design), prompt: instr }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Lỗi");
-    it.image = d.image; it.design = d.image;
-    card.querySelector("img").src = "data:image/png;base64," + d.image;
-    inp.value = "";
-  } catch (err) {
-    alert("✗ " + err.message);
-  } finally { btn.disabled = false; btn.textContent = old; }
-}
-async function apPollDesigns(jobId) {
-  try {
-    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
-    $("apBar1").style.width = (d.total ? Math.round(d.done / d.total * 100) : 0) + "%";
-    $("apT1").textContent = "Đã xong " + d.done + "/" + d.total + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length : "");
-    apDesigns = d.items || []; apRenderDesigns();
-    $("apErr1").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
-    if (d.finished) {
-      clearInterval(apT1); apT1 = null;
-      $("apRunDesigns").disabled = false;
-      $("apNote1").className = "gen-note ok";
-      $("apNote1").textContent = "✓ " + apDesigns.length + " design — tick mẫu ưng rồi bấm “Tiếp: Đổi màu”.";
-      setTimeout(() => $("apP1").classList.add("hidden"), 600);
-      if (typeof loadGallery === "function") loadGallery();
-    }
-  } catch (e) { /* tiếp tục */ }
+  apPick1N();
 }
 async function apRunDesigns() {
   const note = $("apNote1"); note.className = "gen-note"; note.textContent = "";
   apDesigns = []; apPicked = new Set(); apRenderDesigns();
   const btn = $("apRunDesigns"); btn.disabled = true;
   $("apErr1").innerHTML = ""; $("apP1").classList.remove("hidden");
-  $("apBar1").style.width = "0%"; $("apT1").textContent = "AI đang nghĩ + vẽ design…";
+  $("apBar1").style.width = "0%"; $("apT1").textContent = "AI đang chọn style + vẽ design…";
   try {
     const r = await fetch("/api/pipe-designs", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ n: parseInt($("apCount").value || "3", 10), niche: $("apNiche").value || "", tep: apTep }),
     });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Lỗi");
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (apT1) clearInterval(apT1);
-    apT1 = setInterval(() => apPollDesigns(d.job_id), 2500); apPollDesigns(d.job_id);
-  } catch (err) {
-    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-    btn.disabled = false; $("apP1").classList.add("hidden");
-  }
+    apT1 = setInterval(() => apPoll(d.job_id, "apBar1", "apT1",
+      (items, errs) => { apDesigns = items; apRenderDesigns(); $("apErr1").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join(""); },
+      () => { clearInterval(apT1); apT1 = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ " + apDesigns.length + " design — tick mẫu đẹp rồi bấm “Tiếp: Cá nhân hoá”."; setTimeout(() => $("apP1").classList.add("hidden"), 600); if (typeof loadGallery === "function") loadGallery(); }), 2500);
+  } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apP1").classList.add("hidden"); }
+}
+function apPreviewShirt(i) {
+  const it = apDesigns[i]; if (!it) return;
+  showApp("clone"); showDesign(it.image || it.design); $("sendToMockup").click();
+}
+async function apEditDesign(i, card) {
+  const it = apDesigns[i]; if (!it) return;
+  const inp = card.querySelector(".ap-fixin"), btn = card.querySelector(".ap-fixbtn");
+  const instr = (inp.value || "").trim(); if (!instr) { inp.focus(); return; }
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳…";
+  try {
+    const r = await fetch("/api/pipe-edit", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: "data:image/png;base64," + (it.image || it.design), prompt: instr }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    it.image = d.image; it.design = d.image; card.querySelector("img").src = "data:image/png;base64," + d.image; inp.value = "";
+  } catch (err) { alert("✗ " + err.message); } finally { btn.disabled = false; btn.textContent = old; }
 }
 function apToStep2() {
   apPickedList = [...apPicked].map(i => apDesigns[i]).filter(Boolean);
-  if (!apPickedList.length) { alert("Tick ít nhất 1 design để đổi màu."); return; }
+  if (!apPickedList.length) { alert("Tick ít nhất 1 design để cá nhân hoá."); return; }
   $("apPickedN").textContent = apPickedList.length;
   const row = $("apPickedThumbs"); row.innerHTML = "";
-  apPickedList.forEach(it => {
-    const d = document.createElement("div"); d.className = "thumb";
-    d.innerHTML = '<img src="data:image/png;base64,' + (it.image || it.design) + '" alt="">';
-    row.appendChild(d);
-  });
-  apRenderColors();
+  apPickedList.forEach(it => { const d = document.createElement("div"); d.className = "thumb"; d.innerHTML = '<img src="data:image/png;base64,' + (it.image || it.design) + '">'; row.appendChild(d); });
   apGoStep(2);
 }
 
-/* ---------- BƯỚC 2: đổi màu các design đã chọn ---------- */
+/* ---------- BƯỚC 2: cá nhân hoá (AI đặt tên) ---------- */
+function apRenderPersonal() {
+  const grid = $("apPersonalized");
+  $("apEmptyP").classList.toggle("hidden", apPersonal.length > 0);
+  grid.innerHTML = "";
+  apPersonal.forEach(it => {
+    const card = document.createElement("div"); card.className = "gcard";
+    const tep = AP_TEP[it.tep] || it.tep || "";
+    card.innerHTML =
+      '<img src="data:image/png;base64,' + (it.image || it.named) + '" alt="">' +
+      '<div class="gmeta"><b>' + (it.name || "") + '</b>' + (it.date ? " · " + it.date : "") + ' · ' + tep + '</div>';
+    const img = card.querySelector("img"); img.onclick = () => openZoom(img.src);
+    grid.appendChild(card);
+  });
+}
+async function apDoPersonalize() {
+  if (!apPickedList.length) { alert("Chưa có design nào."); return; }
+  const note = $("apNoteP"); note.className = "gen-note"; note.textContent = "";
+  apPersonal = []; apRenderPersonal();
+  const btn = $("apDoPersonalize"); btn.disabled = true;
+  $("apErrP").innerHTML = ""; $("apPP").classList.remove("hidden");
+  $("apBarP").style.width = "0%"; $("apTP").textContent = "AI đang đặt tên + cá nhân hoá…";
+  try {
+    const r = await fetch("/api/pipe-personalize", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ designs: apPickedList.map(it => ({ image: "data:image/png;base64," + (it.image || it.design), tep: it.tep, theme: it.theme, role: it.role, style: it.style })) }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    if (apTP) clearInterval(apTP);
+    apTP = setInterval(() => apPoll(d.job_id, "apBarP", "apTP",
+      (items, errs) => { apPersonal = items; apRenderPersonal(); $("apErrP").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join(""); },
+      () => { clearInterval(apTP); apTP = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ Đã cá nhân hoá — bấm “Tiếp: Đổi màu”."; setTimeout(() => $("apPP").classList.add("hidden"), 600); }), 2500);
+  } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apPP").classList.add("hidden"); }
+}
+function apToStep3() {
+  if (!apPersonal.length) { alert("Chưa có mẫu cá nhân hoá."); return; }
+  apRenderColors(); apGoStep(3);
+}
+
+/* ---------- BƯỚC 3: đổi màu ---------- */
 function apRenderRecolor() {
   const grid = $("apRecolorResults");
   $("apEmpty2").classList.toggle("hidden", apRecolored.length > 0);
   grid.innerHTML = "";
   apRecolored.forEach(it => {
-    const card = document.createElement("div"); card.className = "gcard";
     const vars = it.variants || [];
+    const card = document.createElement("div"); card.className = "gcard";
     card.innerHTML =
       '<img src="data:image/png;base64,' + (vars[0] ? vars[0].recolored : it.image) + '" alt="">' +
       '<div class="ap-vars">' + vars.map(v => '<img class="ap-var" src="data:image/png;base64,' + v.recolored + '" title="áo ' + (v.color_vi || "") + '">').join("") + '</div>' +
-      '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b> · ' + vars.length + ' màu</div>';
+      '<div class="gmeta"><b>' + (it.name || "") + '</b> · ' + vars.length + ' màu</div>';
     const main = card.querySelector("img");
     card.querySelectorAll(".ap-var").forEach(im => { im.onclick = () => main.src = im.src; });
     main.onclick = () => openZoom(main.src);
     grid.appendChild(card);
   });
 }
-async function apPollRecolor(jobId) {
-  try {
-    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
-    $("apBar2").style.width = (d.total ? Math.round(d.done / d.total * 100) : 0) + "%";
-    $("apT2").textContent = "Đã xong " + d.done + "/" + d.total + (d.errors && d.errors.length ? " · ⚠️ " + d.errors.length : "");
-    apRecolored = d.items || []; apRenderRecolor();
-    $("apErr2").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
-    if (d.finished) {
-      clearInterval(apT2); apT2 = null;
-      $("apDoRecolor").disabled = false;
-      $("apNote2").className = "gen-note ok";
-      $("apNote2").textContent = "✓ Đổi màu xong — bấm “Tiếp: Lên áo”.";
-      setTimeout(() => $("apP2").classList.add("hidden"), 600);
-    }
-  } catch (e) { /* tiếp tục */ }
-}
 async function apDoRecolor() {
   if (!apColors.size) { alert("Chọn ít nhất 1 màu áo."); return; }
-  if (!apPickedList.length) { alert("Chưa có design nào."); return; }
+  if (!apPersonal.length) { alert("Chưa có mẫu cá nhân hoá."); return; }
   const note = $("apNote2"); note.className = "gen-note"; note.textContent = "";
   apRecolored = []; apRenderRecolor();
   const btn = $("apDoRecolor"); btn.disabled = true;
   $("apErr2").innerHTML = ""; $("apP2").classList.remove("hidden");
   $("apBar2").style.width = "0%"; $("apT2").textContent = "AI đang đổi màu…";
   try {
-    const r = await fetch("/api/pipe-recolor", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        colors: [...apColors],
-        designs: apPickedList.map(it => ({
-          name: it.name, date: it.date, tep: it.tep, role: it.role, style: it.style, theme: it.theme,
-          image: it.image || it.design,
-        })),
-      }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Lỗi");
+    const r = await fetch("/api/pipe-recolor", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colors: [...apColors], designs: apPersonal.map(it => ({ name: it.name, date: it.date, tep: it.tep, role: it.role, style: it.style, theme: it.theme, image: it.image || it.named })) }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (apT2) clearInterval(apT2);
-    apT2 = setInterval(() => apPollRecolor(d.job_id), 2500); apPollRecolor(d.job_id);
-  } catch (err) {
-    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-    btn.disabled = false; $("apP2").classList.add("hidden");
-  }
+    apT2 = setInterval(() => apPoll(d.job_id, "apBar2", "apT2",
+      (items, errs) => { apRecolored = items; apRenderRecolor(); $("apErr2").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join(""); },
+      () => { clearInterval(apT2); apT2 = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ Đổi màu xong — bấm “Tiếp: Lên áo”."; setTimeout(() => $("apP2").classList.add("hidden"), 600); }), 2500);
+  } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apP2").classList.add("hidden"); }
 }
-let apShots = [];   // mỗi áo (design × màu) = 1 ô, như tab Lên áo
-function apToStep3() {
+function apToStep4() {
   if (!apRecolored.length) { alert("Chưa có mẫu đã đổi màu."); return; }
   apShots = [];
-  apRecolored.forEach((it, di) => {
-    (it.variants || []).forEach(v => {
-      apShots.push({ di: di, name: it.name, date: it.date, role: it.role, tep: it.tep,
-        color: v.color, color_vi: v.color_vi, recolored: v.recolored,
-        state: { x: 50, y: 43, w: 40 }, shirt: null });
-    });
-  });
-  apSel = new Set();
-  apGoStep(3);
-  apRenderShirts();
+  apRecolored.forEach((it, di) => (it.variants || []).forEach(v => {
+    apShots.push({ di: di, name: it.name, date: it.date, role: it.role, tep: it.tep,
+      color: v.color, color_vi: v.color_vi, recolored: v.recolored, state: { x: 50, y: 43, w: 40 }, shirt: null });
+  }));
+  apSel = new Set(); apGoStep(4); apRenderShirts();
 }
 
-/* ---------- BƯỚC 3: lưới ô áo (như tab Lên áo) + đẩy Shopify ---------- */
+/* ---------- BƯỚC 4: lưới ô áo (như tab Lên áo) + Shopify ---------- */
 const AP_MOCKUP = { black: "ao_2_den.png", white: "ao_1_trang.png", brown: "ao_4_nau.png",
   sand: "ao_3_be.png", forest: "ao_7_xanhreu.png", red: "ao_5_do.png", maroon: "ao_6_dodo.png" };
 const apMockCache = {};
@@ -3037,8 +3007,7 @@ async function apRenderShirts() {
   grid.innerHTML = ""; apSel = new Set(); apShopN();
   for (let i = 0; i < apShots.length; i++) {
     const s = apShots[i];
-    const url = await apComposeOne(s.color, s.recolored, s.state);
-    s.shirt = url.split(",")[1];
+    const url = await apComposeOne(s.color, s.recolored, s.state); s.shirt = url.split(",")[1];
     const card = document.createElement("div"); card.className = "gcard ap-shirt";
     card.innerHTML =
       '<label class="hsel"><input type="checkbox"></label>' +
@@ -3052,17 +3021,11 @@ async function apRenderShirts() {
       '<div class="gacts"><button class="b-dl">⬇ Tải</button></div>';
     const idx = i;
     card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apSel.add(idx); else apSel.delete(idx); apShopN(); };
-    const mainImg = card.querySelector(".ap-main");
-    mainImg.onclick = () => openZoom(mainImg.src);
+    const mainImg = card.querySelector(".ap-main"); mainImg.onclick = () => openZoom(mainImg.src);
     let t = null;
-    const onSlide = async () => {
-      s.state.x = +card.querySelector(".ap-x").value;
-      s.state.y = +card.querySelector(".ap-y").value;
-      s.state.w = +card.querySelector(".ap-w").value;
-      clearTimeout(t); t = setTimeout(async () => {
-        const u = await apComposeOne(s.color, s.recolored, s.state);
-        s.shirt = u.split(",")[1]; mainImg.src = u;
-      }, 120);
+    const onSlide = () => {
+      s.state.x = +card.querySelector(".ap-x").value; s.state.y = +card.querySelector(".ap-y").value; s.state.w = +card.querySelector(".ap-w").value;
+      clearTimeout(t); t = setTimeout(async () => { const u = await apComposeOne(s.color, s.recolored, s.state); s.shirt = u.split(",")[1]; mainImg.src = u; }, 120);
     };
     card.querySelectorAll(".ap-edit input").forEach(e => e.oninput = onSlide);
     card.querySelector(".b-dl").onclick = () => autoDownload(s.shirt, (s.name || "design") + "-ao-" + (s.color_vi || ""));
@@ -3072,17 +3035,9 @@ async function apRenderShirts() {
 function apToShopify() {
   const ticked = [...apSel].map(i => apShots[i]).filter(Boolean);
   if (!ticked.length) { alert("Tick ít nhất 1 áo để đẩy."); return; }
-  // gom theo design (di) -> mỗi design = 1 sản phẩm nhiều màu variant
-  const byDi = {};
-  ticked.forEach(s => { (byDi[s.di] = byDi[s.di] || []).push(s); });
+  const byDi = {}; ticked.forEach(s => { (byDi[s.di] = byDi[s.di] || []).push(s); });
   const products = Object.values(byDi);
-  products.forEach(list => {
-    shopItems.push({
-      title: "", description: "", price: "", status: "DRAFT", result: null,
-      variants: list.map(s => ({ image: s.shirt, color: s.color_vi || "" })),
-    });
-  });
+  products.forEach(list => { shopItems.push({ title: "", description: "", price: "", status: "DRAFT", result: null, variants: list.map(s => ({ image: s.shirt, color: s.color_vi || "" })) }); });
   showApp("shopify"); shopRender();
-  const note = $("shopNote"); note.className = "gen-note ok";
-  note.textContent = "✓ Đã đưa " + products.length + " sản phẩm sang Shopify — nhập giá rồi bấm Đẩy.";
+  const note = $("shopNote"); note.className = "gen-note ok"; note.textContent = "✓ Đã đưa " + products.length + " sản phẩm sang Shopify — nhập giá rồi bấm Đẩy.";
 }

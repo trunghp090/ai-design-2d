@@ -2169,42 +2169,117 @@ def _pipe_tasks(plans):
     return tasks
 
 
-def run_pipe_designs(job_id, plans, size, transparent=True):
-    """BƯỚC 1: vẽ design + cá nhân hoá tên+ngày. CHƯA đổi màu, chưa lên áo."""
-    tasks = _pipe_tasks(plans)
+def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
+    """BƯỚC 1: tạo DESIGN ĐẸP (AI tự chọn style theo chủ đề) — CHƯA cá nhân hoá, CHƯA tên.
+
+    seg (single/couple/family/group): single -> n design auto-style; couple/family/group ->
+    n BỘ đồng bộ (design_concepts_segment). User pick mẫu đẹp rồi sang bước cá nhân hoá.
+    """
+    n = max(1, min(int(n or 3), 6))
+    seg = seg if seg in PRODUCT_SEGMENTS else "single"
+    concepts = []          # [(concept, role)]
+    try:
+        if seg in SEGMENTS:
+            for _ in range(n):
+                cs = design_concepts_segment(seg, [], theme, "", auto_style=True) or []
+                for idx, c in enumerate(cs):
+                    role = SEGMENTS[seg]["short"][idx] if idx < len(SEGMENTS[seg]["short"]) else ""
+                    concepts.append((c, role))
+        else:
+            for c in (design_concepts_auto(theme, "", n) or []):
+                concepts.append((c, ""))
+    except Exception:
+        concepts = []
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
         if not job:
             return
-        job["total"] = len(tasks) or 1
-        if not tasks:
-            job["errors"].append("AI chưa nghĩ được concept — thử lại hoặc gõ ngách rõ hơn.")
+        job["total"] = len(concepts) or 1
+        if not concepts:
+            job["errors"].append("AI chưa nghĩ được design — thử lại hoặc gõ chủ đề rõ hơn.")
             job["finished"] = True
             return
 
-    def work(t):
-        nm = (t.get("name") or "").strip()
-        date = (t.get("date") or "").strip()
-        label = (nm or t.get("role") or "Design") + (" · " + date if date else "")
+    def work(pair):
+        c, role = pair
+        style = (c.get("style") or "").strip() or role
+        label = "[" + (style or "AI") + "]"
         try:
-            base = _gen_base_b64(t["prompt"], size, transparent)
-            named = base
-            if nm:
-                try:
-                    named = personalize_core(base, nm, size, transparent, date)
-                except Exception:
-                    named = base
-            g = gallery_add(named, {"mode": "design", "prompt": label})
-            return {"name": nm, "date": date, "tep": t["tep"], "style": t.get("style", ""),
-                    "theme": t.get("theme", ""), "role": t.get("role", ""),
-                    "image": named, "design": base, "title": label, "gallery": g}
+            b64 = _gen_base_b64(c["prompt"], size, transparent)
+            g = gallery_add(b64, {"mode": "design", "prompt": label})
+            return {"style": style, "theme": theme, "tep": seg, "role": role,
+                    "image": b64, "design": b64, "title": label, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": label}
         except Exception as e:
             return {"error": str(e), "title": label}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        for res in ex.map(work, tasks):
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+AI_NAME_SYSTEM = ("Bạn đặt TÊN NGƯỜI THẬT Việt Nam cho áo cá nhân hoá. Mỗi \"name\" là tên người "
+                  "Việt 2 CHỮ (tên đệm + tên, vd \"Phương Linh\", \"Quốc Bảo\", \"Thuỳ Trang\"). "
+                  "TUYỆT ĐỐI KHÔNG đặt tên theo chủ đề hay biệt danh (không \"Tiểu Mèo\", không tên thú "
+                  "cưng) — chủ đề chỉ để tham khảo, tên phải là tên người bình thường. couple = 2 tên 2 "
+                  "chữ cách \"&\"; gia đình = 3 tên 2 chữ cách \"/\"; nhóm = 1 tên nhóm. \"date\" là 1 "
+                  "ngày ý nghĩa (vd \"20.10.2025\", \"Since 2021\"). Trả JSON "
+                  "{\"items\":[{\"name\":..,\"date\":..}]} ĐÚNG số lượng & đúng thứ tự yêu cầu.")
+
+
+def ai_personal_names(designs):
+    """AI nghĩ tên 2 chữ + ngày cho từng design (theo tệp/chủ đề). Trả list {name,date}."""
+    desc = "; ".join("mẫu %d (tệp %s, chủ đề %s)" % (i + 1, d.get("tep", "single"), d.get("theme", "") or "tự do")
+                     for i, d in enumerate(designs))
+    u = "Đặt tên + ngày cho %d mẫu áo cá nhân hoá: %s. Đúng %d mục, đúng thứ tự." % (len(designs), desc, len(designs))
+    try:
+        raw = ai_json(AI_NAME_SYSTEM, u, max_tokens=1500)
+        items = json.loads(raw).get("items") if isinstance(json.loads(raw), dict) else json.loads(raw)
+        return items or []
+    except Exception:
+        return []
+
+
+def run_pipe_personalize(job_id, designs, size):
+    """BƯỚC 2: AI tự nghĩ tên 2 chữ -> cá nhân hoá (img2img) các design đã chọn."""
+    names = ai_personal_names(designs)
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if job:
+            job["total"] = len(designs) or 1
+
+    def work(pair):
+        i, d = pair
+        img = d.get("image") or ""
+        if img.startswith("data:"):
+            img = img.split(",", 1)[-1]
+        info = names[i] if (i < len(names) and isinstance(names[i], dict)) else {}
+        nm = (info.get("name") or "").strip() or "Bạn Hiền"
+        date = (info.get("date") or "").strip()
+        label = nm + (" · " + date if date else "")
+        try:
+            named = personalize_core(img, nm, size, True, date)
+        except Exception:
+            named = img
+        g = gallery_add(named, {"mode": "design", "prompt": label})
+        return {"name": nm, "date": date, "tep": d.get("tep", "single"), "style": d.get("style", ""),
+                "theme": d.get("theme", ""), "role": d.get("role", ""),
+                "image": named, "named": named, "design": img, "title": label, "gallery": g}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, list(enumerate(designs))):
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
                 if not job:
@@ -2931,6 +3006,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_auto_pipeline(body)
         if path == "/api/pipe-designs":
             return self.handle_pipe_designs(body)
+        if path == "/api/pipe-personalize":
+            return self.handle_pipe_personalize(body)
         if path == "/api/pipe-recolor":
             return self.handle_pipe_recolor(body)
         if path == "/api/pipe-edit":
@@ -3263,28 +3340,39 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"job_id": job_id, "total": len(plans)})
 
     def handle_pipe_designs(self, body):
-        """BƯỚC 1: AI tự nghĩ + tạo design cá nhân hoá (tên + ngày). Chưa đổi màu/lên áo."""
+        """BƯỚC 1: tạo DESIGN ĐẸP (AI tự chọn style theo chủ đề). Chưa cá nhân hoá."""
         if not API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
         n = max(1, min(int(body.get("n", 3) or 3), 6))
-        seg = body.get("tep") or body.get("segment") or ""
-        try:
-            plans = auto_pipe_plan(n, body.get("niche", ""), seg)
-        except urllib.error.HTTPError as e:
-            return self.json(502, {"error": openai_error_message(e)})
-        except Exception as e:
-            return self.json(502, {"error": "AI nghĩ mẫu lỗi: %s" % e})
-        if not plans:
-            return self.json(400, {"error": "AI chưa nghĩ được mẫu — thử lại hoặc gõ ngách rõ hơn."})
+        seg = body.get("tep") or body.get("segment") or "single"
+        theme = body.get("niche", "") or body.get("theme", "")
         size = SIZE_MAP.get("portrait", "1024x1536")
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "pd%d_%d" % (int(time.time()), _batch_seq[0])
-            BATCH_JOBS[job_id] = {"total": len(plans), "done": 0, "items": [],
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [],
                                   "errors": [], "finished": False}
-        t = threading.Thread(target=run_pipe_designs, args=(job_id, plans, size), daemon=True)
+        t = threading.Thread(target=run_pipe_designs, args=(job_id, theme, n, seg, size),
+                             daemon=True)
         t.start()
-        return self.json(200, {"job_id": job_id, "total": len(plans)})
+        return self.json(200, {"job_id": job_id, "total": n})
+
+    def handle_pipe_personalize(self, body):
+        """BƯỚC 2: AI tự nghĩ tên 2 chữ -> cá nhân hoá các design đã chọn."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        designs = [d for d in (body.get("designs") or []) if isinstance(d, dict) and d.get("image")]
+        if not designs:
+            return self.json(400, {"error": "Chưa chọn design nào để cá nhân hoá."})
+        size = SIZE_MAP.get("portrait", "1024x1536")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pp%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(designs), "done": 0, "items": [],
+                                  "errors": [], "finished": False}
+        t = threading.Thread(target=run_pipe_personalize, args=(job_id, designs, size), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(designs)})
 
     def handle_pipe_edit(self, body):
         """Sửa 1 design theo YÊU CẦU của user (img2img, giữ phong cách)."""

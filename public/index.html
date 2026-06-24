@@ -868,24 +868,24 @@
     </div>
   </section>
 
-  <!-- ===== VIEW: TRỌN GÓI — wizard 3 bước (ra design → đổi màu → lên áo → Shopify) ===== -->
+  <!-- ===== VIEW: TRỌN GÓI — wizard 4 bước (tạo design → cá nhân hoá → đổi màu → lên áo) ===== -->
   <section class="auto-view app-view hidden" id="view-autopipe">
     <div class="ap-steps">
-      <span class="ap-step on" data-s="1">① Ra design</span>
-      <span class="ap-step" data-s="2">② Chọn &amp; đổi màu</span>
-      <span class="ap-step" data-s="3">③ Lên áo &amp; Shopify</span>
+      <span class="ap-step on" data-s="1">① Tạo design</span>
+      <span class="ap-step" data-s="2">② Cá nhân hoá</span>
+      <span class="ap-step" data-s="3">③ Đổi màu</span>
+      <span class="ap-step" data-s="4">④ Lên áo &amp; Shopify</span>
     </div>
 
-    <!-- BƯỚC 1: AI ra design -->
+    <!-- BƯỚC 1: tạo design đẹp (AI tự chọn style) -->
     <div class="auto-wrap ap-pane" id="apStep1">
       <section class="panel">
-        <h2 class="panel-title">① AI ra design cá nhân hoá</h2>
-        <p class="panel-desc">AI <b>tự nghĩ</b> tên · ngày tháng · tệp · chủ đề · phong cách → tạo design (tên + ngày). Bạn tick mẫu ưng để sang bước đổi màu.</p>
+        <h2 class="panel-title">① Tạo design đẹp</h2>
+        <p class="panel-desc">AI <b>tự chọn style đẹp</b> theo chủ đề &amp; tệp → ra design. Bạn chỉ <b>pick mẫu ổn</b> rồi sang bước cá nhân hoá. (Chưa có tên.)</p>
         <label class="field-label">Tệp khách</label>
         <div class="color-chips" id="apTeps"></div>
-
-        <label class="field-label" style="margin-top:12px">Gợi ý ngách (tuỳ chọn — để trống thì AI tự nghĩ)</label>
-        <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, hội bạn thân…" />
+        <label class="field-label" style="margin-top:12px">Chủ đề (tuỳ chọn — để trống thì AI tự nghĩ)</label>
+        <input type="text" id="apNiche" class="input" placeholder="vd: mèo cưng, cà phê, gym, tuổi Dần…" />
         <label class="field-label" style="margin-top:12px">Số mẫu</label>
         <select id="apCount" class="input">
           <option value="3" selected>3 mẫu</option>
@@ -899,24 +899,45 @@
       </section>
       <section class="panel">
         <div class="gallery-head">
-          <h3>Design AI tạo — tick mẫu ưng</h3>
-          <button class="btn-primary sm" id="apToStep2">Tiếp: Đổi màu (0) →</button>
+          <h3>Design AI tạo — tick mẫu đẹp</h3>
+          <button class="btn-primary sm" id="apToStep2">Tiếp: Cá nhân hoá (0) →</button>
         </div>
         <div class="auto-grid" id="apDesigns"></div>
         <div class="gallery-empty" id="apEmpty1">Bấm “Tạo design” để bắt đầu.</div>
       </section>
     </div>
 
-    <!-- BƯỚC 2: chọn design -> đổi màu -->
+    <!-- BƯỚC 2: cá nhân hoá (AI đặt tên) -->
     <div class="auto-wrap ap-pane hidden" id="apStep2">
       <section class="panel">
         <button class="btn-ghost sm" id="apBack1">← Quay lại bước 1</button>
-        <h2 class="panel-title" style="margin-top:10px">② Đổi màu cho hợp áo</h2>
-        <p class="panel-desc"><span id="apPickedN">0</span> design đã chọn. Chọn màu áo → AI đổi màu design cho hợp từng nền áo.</p>
+        <h2 class="panel-title" style="margin-top:10px">② Cá nhân hoá</h2>
+        <p class="panel-desc"><span id="apPickedN">0</span> design đã chọn. AI <b>tự đặt tên người Việt 2 chữ</b> + ngày → biến thành mẫu cá nhân hoá.</p>
         <div class="thumb-row" id="apPickedThumbs"></div>
-        <label class="field-label" style="margin-top:12px">Màu áo</label>
+        <button class="btn-primary" id="apDoPersonalize" style="margin-top:12px">🪪 AI đặt tên &amp; cá nhân hoá</button>
+        <div class="batch-progress hidden" id="apPP"><div class="bp-bar"><div class="bp-fill" id="apBarP"></div></div><span id="apTP" class="hint"></span></div>
+        <p class="gen-note" id="apNoteP"></p>
+        <div id="apErrP" class="batch-errors"></div>
+      </section>
+      <section class="panel">
+        <div class="gallery-head">
+          <h3>Mẫu cá nhân hoá</h3>
+          <button class="btn-primary sm" id="apToStep3">Tiếp: Đổi màu →</button>
+        </div>
+        <div class="auto-grid" id="apPersonalized"></div>
+        <div class="gallery-empty" id="apEmptyP">Bấm “AI đặt tên & cá nhân hoá”.</div>
+      </section>
+    </div>
+
+    <!-- BƯỚC 3: đổi màu -->
+    <div class="auto-wrap ap-pane hidden" id="apStep3">
+      <section class="panel">
+        <button class="btn-ghost sm" id="apBack2">← Quay lại bước 2</button>
+        <h2 class="panel-title" style="margin-top:10px">③ Đổi màu cho hợp áo</h2>
+        <p class="panel-desc">Chọn màu áo → AI đổi màu design cho hợp từng nền áo.</p>
+        <label class="field-label" style="margin-top:6px">Màu áo</label>
         <div class="color-chips" id="apColors"></div>
-        <button class="btn-primary" id="apDoRecolor" style="margin-top:14px">🎨 Đổi màu các mẫu đã chọn</button>
+        <button class="btn-primary" id="apDoRecolor" style="margin-top:14px">🎨 Đổi màu các mẫu</button>
         <div class="batch-progress hidden" id="apP2"><div class="bp-bar"><div class="bp-fill" id="apBar2"></div></div><span id="apT2" class="hint"></span></div>
         <p class="gen-note" id="apNote2"></p>
         <div id="apErr2" class="batch-errors"></div>
@@ -924,19 +945,19 @@
       <section class="panel">
         <div class="gallery-head">
           <h3>Đã đổi màu</h3>
-          <button class="btn-primary sm" id="apToStep3">Tiếp: Lên áo →</button>
+          <button class="btn-primary sm" id="apToStep4">Tiếp: Lên áo →</button>
         </div>
         <div class="auto-grid" id="apRecolorResults"></div>
         <div class="gallery-empty" id="apEmpty2">Bấm “Đổi màu” để xem kết quả.</div>
       </section>
     </div>
 
-    <!-- BƯỚC 3: lên áo + Shopify -->
-    <div class="auto-wrap ap-pane hidden" id="apStep3">
+    <!-- BƯỚC 4: lên áo + Shopify -->
+    <div class="auto-wrap ap-pane hidden" id="apStep4">
       <section class="panel">
-        <button class="btn-ghost sm" id="apBack2">← Quay lại bước 2</button>
-        <h2 class="panel-title" style="margin-top:10px">③ Lên áo &amp; đẩy Shopify</h2>
-        <p class="panel-desc">Mỗi mẫu đã ghép lên áo theo từng màu. Kéo thanh trượt chỉnh vị trí/cỡ design, tick mẫu rồi đẩy Shopify (1 sản phẩm / nhiều màu).</p>
+        <button class="btn-ghost sm" id="apBack3">← Quay lại bước 3</button>
+        <h2 class="panel-title" style="margin-top:10px">④ Lên áo &amp; đẩy Shopify</h2>
+        <p class="panel-desc">Mỗi áo đã ghép design theo màu. Kéo thanh trượt chỉnh vị trí/cỡ, tick áo rồi đẩy Shopify (gom theo design = 1 sản phẩm nhiều màu).</p>
         <button class="btn-primary" id="apToShopify" style="margin-top:8px">🛍️ Đẩy mẫu đã chọn (0)</button>
         <p class="gen-note" id="apNote3"></p>
       </section>
