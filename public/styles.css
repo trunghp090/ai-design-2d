@@ -423,3 +423,6 @@ textarea.input{resize:vertical;line-height:1.5}
 .ap-fix input{flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
 .ap-fix button{font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--violet);background:var(--violet-soft);color:var(--violet);cursor:pointer;white-space:nowrap}
 .ap-fix button:disabled{opacity:.6;cursor:default}
+
+/* Trọn gói — stepper bấm nhảy được */
+.ap-step{cursor:pointer}

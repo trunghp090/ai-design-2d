@@ -2803,13 +2803,34 @@ function apInit() {
   $("apToStep3").onclick = apToStep3;
   $("apBack2").onclick = () => apGoStep(2);
   $("apToShopify").onclick = apToShopify;
+  $("apToShirtNow").onclick = apToShirtNow;
   $("apLoadOld").onclick = apLoadOld;
   $("apAddOld").onclick = apAddOld;
+  // bấm nhảy bước tự do (không bắt buộc tuần tự)
+  document.querySelectorAll(".ap-step").forEach(e => e.onclick = () => {
+    const s = +e.dataset.s;
+    if (s === 2 && ![...apPicked].length && !apPersonalPicked.length) { alert("Tạo & tick design trước."); return; }
+    if (s === 3 && !apShots.length) { alert("Chưa có gì để lên áo — bấm “Lên áo luôn” hoặc “Đổi màu” trước."); return; }
+    if (s === 2 && !apPersonalPicked.length) apPersonalPicked = [...apPicked].map(i => apDesigns[i]).filter(Boolean);
+    if (s === 2) apRenderColors();
+    apGoStep(s);
+  });
 }
 function apGoStep(s) {
   apStep = s;
   [1, 2, 3].forEach(n => $("apStep" + n).classList.toggle("hidden", n !== s));
   document.querySelectorAll(".ap-step").forEach(e => e.classList.toggle("on", +e.dataset.s === s));
+}
+// đẩy design lên áo LUÔN (bỏ qua đổi màu) — design ghép thẳng lên 7 áo
+function apToShirtNow() {
+  apPersonalPicked = [...apPicked].map(i => apDesigns[i]).filter(Boolean);
+  if (!apPersonalPicked.length) { alert("Tick ít nhất 1 design."); return; }
+  apRecolored = apPersonalPicked.map(it => ({
+    name: it.name, date: it.date, tep: it.tep, role: it.role, style: it.style,
+    image: it.image || it.named, variants: [],   // không đổi màu -> dùng design gốc cho cả 7 áo
+  }));
+  apShots = apShotsFromItems(apRecolored, 0);
+  apSel = new Set(); apGoStep(3); apRenderShirts();
 }
 async function apPoll(jobId, bar, txt, onItems, onDone) {
   try {
