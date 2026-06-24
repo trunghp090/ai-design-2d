@@ -2197,7 +2197,8 @@ function dsRender() {
     card.innerHTML =
       '<img src="data:image/png;base64,' + it.image + '" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>' +
+      '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Nhập nội dung chỉnh sửa…"><button class="ds-fixbtn">Sửa</button></div>';
     card._cur = it.image; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + it.image);
     card.querySelector(".b-name").onclick = () => openPersonalize(it.image);
@@ -2205,6 +2206,21 @@ function dsRender() {
     card.querySelector(".b-use").onclick = () => { showApp("clone"); showDesign(it.image); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title || "design");
+    const dsFixin = card.querySelector(".ds-fixin"), dsFixbtn = card.querySelector(".ds-fixbtn");
+    const dsDoFix = async () => {
+      const instr = (dsFixin.value || "").trim(); if (!instr) { dsFixin.focus(); return; }
+      dsFixbtn.disabled = true; const o = dsFixbtn.textContent; dsFixbtn.textContent = "⏳…";
+      try {
+        const r = await fetch("/api/pipe-edit", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: "data:image/png;base64," + it.image, prompt: instr }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+        it.image = d.image; card._cur = d.image;
+        card.querySelector("img").src = "data:image/png;base64," + d.image;
+        dsFixin.value = ""; if (typeof loadGallery === "function") loadGallery();
+      } catch (err) { alert("✗ " + err.message); } finally { dsFixbtn.disabled = false; dsFixbtn.textContent = o; }
+    };
+    dsFixbtn.onclick = dsDoFix;
+    dsFixin.onkeydown = (e) => { if (e.key === "Enter") dsDoFix(); };
     grid.appendChild(card);
   });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
