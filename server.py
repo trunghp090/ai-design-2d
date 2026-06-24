@@ -2170,10 +2170,10 @@ def _pipe_tasks(plans):
 
 
 def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
-    """BƯỚC 1: tạo DESIGN ĐẸP (AI tự chọn style theo chủ đề) — CHƯA cá nhân hoá, CHƯA tên.
+    """BƯỚC 1 (GỘP): tạo DESIGN ĐẸP (AI auto-style) + CÁ NHÂN HOÁ (AI đặt tên 2 chữ) -> ra design CÓ TÊN.
 
-    seg (single/couple/family/group): single -> n design auto-style; couple/family/group ->
-    n BỘ đồng bộ (design_concepts_segment). User pick mẫu đẹp rồi sang bước cá nhân hoá.
+    seg single -> n design auto-style; couple/family/group -> n BỘ đồng bộ. Mỗi design được AI
+    đặt tên người Việt 2 chữ + ngày rồi personalize (img2img) luôn.
     """
     n = max(1, min(int(n or 3), 6))
     seg = seg if seg in PRODUCT_SEGMENTS else "single"
@@ -2200,22 +2200,32 @@ def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
             job["finished"] = True
             return
 
-    def work(pair):
-        c, role = pair
+    # AI đặt tên 2 chữ cho từng design (mỗi concept 1 tên người)
+    names = ai_personal_names([{"tep": "single", "theme": theme} for _ in concepts])
+
+    def work(p):
+        idx, (c, role) = p
         style = (c.get("style") or "").strip() or role
-        label = "[" + (style or "AI") + "]"
+        info = names[idx] if (idx < len(names) and isinstance(names[idx], dict)) else {}
+        nm = (info.get("name") or "").strip() or "Bạn Hiền"
+        date = (info.get("date") or "").strip()
+        label = nm + (" · " + date if date else "")
         try:
-            b64 = _gen_base_b64(c["prompt"], size, transparent)
-            g = gallery_add(b64, {"mode": "design", "prompt": label})
-            return {"style": style, "theme": theme, "tep": seg, "role": role,
-                    "image": b64, "design": b64, "title": label, "gallery": g}
+            base = _gen_base_b64(c["prompt"], size, transparent)
+            try:
+                named = personalize_core(base, nm, size, transparent, date)
+            except Exception:
+                named = base
+            g = gallery_add(named, {"mode": "design", "prompt": label})
+            return {"name": nm, "date": date, "style": style, "theme": theme, "tep": seg, "role": role,
+                    "image": named, "named": named, "design": base, "title": label, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": label}
         except Exception as e:
             return {"error": str(e), "title": label}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        for res in ex.map(work, concepts):
+        for res in ex.map(work, list(enumerate(concepts))):
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
                 if not job:
