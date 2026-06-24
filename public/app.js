@@ -2765,7 +2765,7 @@ const apColors = new Set(["black", "white"]);
 let apInited = false, apStep = 1;
 let apTep = "";
 let apDesigns = [], apPicked = new Set(), apPickedList = [];   // bước 1
-let apPersonal = [];                                           // bước 2 (đã đặt tên)
+let apPersonal = [], apPicked2 = new Set(), apPersonalPicked = []; // bước 2 (đã đặt tên + chọn)
 let apRecolored = [];                                          // bước 3
 let apShots = [], apSel = new Set();                           // bước 4
 let apT1 = null, apTP = null, apT2 = null;
@@ -2907,13 +2907,15 @@ function apRenderPersonal() {
   const grid = $("apPersonalized");
   $("apEmptyP").classList.toggle("hidden", apPersonal.length > 0);
   grid.innerHTML = "";
-  apPersonal.forEach(it => {
+  apPersonal.forEach((it, i) => {
     const card = document.createElement("div"); card.className = "gcard";
     const tep = AP_TEP[it.tep] || it.tep || "";
     card.innerHTML =
+      '<label class="hsel"><input type="checkbox"' + (apPicked2.has(i) ? " checked" : "") + '></label>' +
       '<img src="data:image/png;base64,' + (it.image || it.named) + '" alt="">' +
       '<div class="gmeta"><b>' + (it.name || "") + '</b>' + (it.date ? " · " + it.date : "") + ' · ' + tep + '</div>' +
       AP_ACTIONS_HTML;
+    card.querySelector(".hsel input").onchange = (e) => { if (e.target.checked) apPicked2.add(i); else apPicked2.delete(i); apPick2N(); };
     const img = card.querySelector("img"); img.onclick = () => openZoom(img.src);
     apAttachActions(card, it);
     grid.appendChild(card);
@@ -2932,12 +2934,14 @@ async function apDoPersonalize() {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (apTP) clearInterval(apTP);
     apTP = setInterval(() => apPoll(d.job_id, "apBarP", "apTP",
-      (items, errs) => { apPersonal = items; apRenderPersonal(); $("apErrP").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join(""); },
-      () => { clearInterval(apTP); apTP = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ Đã cá nhân hoá — bấm “Tiếp: Đổi màu”."; setTimeout(() => $("apPP").classList.add("hidden"), 600); }), 2500);
+      (items, errs) => { apPersonal = items; apPicked2 = new Set(apPersonal.map((_, i) => i)); apRenderPersonal(); apPick2N(); $("apErrP").innerHTML = errs.map(e => "<div>⚠️ " + e + "</div>").join(""); },
+      () => { clearInterval(apTP); apTP = null; btn.disabled = false; note.className = "gen-note ok"; note.textContent = "✓ Đã cá nhân hoá — tick mẫu rồi bấm “Tiếp: Đổi màu”."; setTimeout(() => $("apPP").classList.add("hidden"), 600); }), 2500);
   } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; btn.disabled = false; $("apPP").classList.add("hidden"); }
 }
+function apPick2N() { $("apToStep3").textContent = "Tiếp: Đổi màu (" + apPicked2.size + ") →"; }
 function apToStep3() {
-  if (!apPersonal.length) { alert("Chưa có mẫu cá nhân hoá."); return; }
+  apPersonalPicked = apPicked2.size ? [...apPicked2].map(i => apPersonal[i]).filter(Boolean) : apPersonal.slice();
+  if (!apPersonalPicked.length) { alert("Tick ít nhất 1 mẫu cá nhân hoá để đổi màu."); return; }
   apRenderColors(); apGoStep(3);
 }
 
@@ -2961,7 +2965,8 @@ function apRenderRecolor() {
 }
 async function apDoRecolor() {
   if (!apColors.size) { alert("Chọn ít nhất 1 màu áo."); return; }
-  if (!apPersonal.length) { alert("Chưa có mẫu cá nhân hoá."); return; }
+  const src = (apPersonalPicked && apPersonalPicked.length) ? apPersonalPicked : apPersonal;
+  if (!src.length) { alert("Chưa có mẫu cá nhân hoá."); return; }
   const note = $("apNote2"); note.className = "gen-note"; note.textContent = "";
   apRecolored = []; apRenderRecolor();
   const btn = $("apDoRecolor"); btn.disabled = true;
@@ -2969,7 +2974,7 @@ async function apDoRecolor() {
   $("apBar2").style.width = "0%"; $("apT2").textContent = "AI đang đổi màu…";
   try {
     const r = await fetch("/api/pipe-recolor", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ colors: [...apColors], designs: apPersonal.map(it => ({ name: it.name, date: it.date, tep: it.tep, role: it.role, style: it.style, theme: it.theme, image: it.image || it.named })) }) });
+      body: JSON.stringify({ colors: [...apColors], designs: src.map(it => ({ name: it.name, date: it.date, tep: it.tep, role: it.role, style: it.style, theme: it.theme, image: it.image || it.named })) }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (apT2) clearInterval(apT2);
     apT2 = setInterval(() => apPoll(d.job_id, "apBar2", "apT2",
