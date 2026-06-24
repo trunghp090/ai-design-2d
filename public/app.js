@@ -2833,14 +2833,49 @@ function apRenderDesigns() {
       '<label class="hsel"><input type="checkbox"' + (apPicked.has(i) ? " checked" : "") + '></label>' +
       '<img src="data:image/png;base64,' + (it.image || it.design) + '" alt="">' +
       '<div class="gmeta"><b>' + (it.name || it.role || "") + '</b>' + dateTag + ' · ' + tep +
-      '<br><span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + '</span></div>';
+      '<br><span style="opacity:.75">' + (it.style || "") + (it.theme ? " · " + it.theme : "") + '</span></div>' +
+      '<div class="gacts"><button class="b-shirt">👕 Xem lên áo</button></div>' +
+      '<div class="ap-fix"><input type="text" class="ap-fixin" placeholder="✏️ Nhập yêu cầu sửa (vd: chữ to hơn, thêm hoa)…"><button class="ap-fixbtn">Sửa</button></div>';
     card.querySelector(".hsel input").onchange = (e) => {
       if (e.target.checked) apPicked.add(i); else apPicked.delete(i); apPickN();
     };
-    card.querySelector("img").onclick = () => openZoom("data:image/png;base64," + (it.image || it.design));
+    const img = card.querySelector("img");
+    img.onclick = () => openZoom(img.src);
+    card.querySelector(".b-shirt").onclick = () => apPreviewShirt(i);
+    const fixin = card.querySelector(".ap-fixin"), fixbtn = card.querySelector(".ap-fixbtn");
+    const doFix = () => apEditDesign(i, card);
+    fixbtn.onclick = doFix;
+    fixin.onkeydown = (e) => { if (e.key === "Enter") doFix(); };
     grid.appendChild(card);
   });
   apPickN();
+}
+// xem nhanh design lên áo (compose client-side trên 1 màu mockup, mặc định trắng)
+async function apPreviewShirt(i) {
+  const it = apDesigns[i]; if (!it) return;
+  const url = await apComposeOne("white", it.image || it.design, { x: 50, y: 43, w: 40 });
+  openZoom(url);
+}
+// sửa design theo yêu cầu (img2img) -> thay design tại chỗ
+async function apEditDesign(i, card) {
+  const it = apDesigns[i]; if (!it) return;
+  const inp = card.querySelector(".ap-fixin"), btn = card.querySelector(".ap-fixbtn");
+  const instr = (inp.value || "").trim();
+  if (!instr) { inp.focus(); return; }
+  btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳…";
+  try {
+    const r = await fetch("/api/pipe-edit", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: "data:image/png;base64," + (it.image || it.design), prompt: instr }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi");
+    it.image = d.image; it.design = d.image;
+    card.querySelector("img").src = "data:image/png;base64," + d.image;
+    inp.value = "";
+  } catch (err) {
+    alert("✗ " + err.message);
+  } finally { btn.disabled = false; btn.textContent = old; }
 }
 async function apPollDesigns(jobId) {
   try {

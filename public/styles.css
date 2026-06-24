@@ -417,3 +417,9 @@ textarea.input{resize:vertical;line-height:1.5}
 .ap-steps{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
 .ap-step{padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted);background:var(--card,#fff)}
 .ap-step.on{border-color:var(--violet);color:var(--violet);background:var(--violet-soft)}
+
+/* Trọn gói — ô sửa design trên mỗi card */
+.ap-fix{display:flex;gap:6px;margin-top:6px}
+.ap-fix input{flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit}
+.ap-fix button{font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--violet);background:var(--violet-soft);color:var(--violet);cursor:pointer;white-space:nowrap}
+.ap-fix button:disabled{opacity:.6;cursor:default}

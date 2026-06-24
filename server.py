@@ -2933,6 +2933,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_pipe_designs(body)
         if path == "/api/pipe-recolor":
             return self.handle_pipe_recolor(body)
+        if path == "/api/pipe-edit":
+            return self.handle_pipe_edit(body)
         if path == "/api/design-gen":
             return self.handle_design_gen(body)
         if path == "/api/rate-designs":
@@ -3283,6 +3285,36 @@ class Handler(BaseHTTPRequestHandler):
         t = threading.Thread(target=run_pipe_designs, args=(job_id, plans, size), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(plans)})
+
+    def handle_pipe_edit(self, body):
+        """Sửa 1 design theo YÊU CẦU của user (img2img, giữ phong cách)."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        src = body.get("image", "")
+        instr = (body.get("prompt") or "").strip()
+        if not src or not instr:
+            return self.json(400, {"error": "Cần ảnh design và yêu cầu chỉnh sửa."})
+        d, m = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Không đọc được ảnh design."})
+        size = "auto"
+        if HAS_PIL:
+            try:
+                im = Image.open(io.BytesIO(d)); w, h = im.size
+                size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
+            except Exception:
+                pass
+        prompt = ("Edit this t-shirt PRINT design as requested while keeping the same overall art "
+                  "style, vibe and any name text correct: " + instr + ". Keep it a clean print-ready "
+                  "graphic on a plain solid background, no mockup, no t-shirt, no person.")
+        try:
+            b64, _ = gen_design([(d, m or "image/png")], "cloner", prompt, size, True)
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(502, {"error": "Sửa design lỗi: %s" % e})
+        gallery_add(b64, {"mode": "design", "prompt": "Sửa: " + instr[:40]})
+        return self.json(200, {"image": b64})
 
     def handle_pipe_recolor(self, body):
         """BƯỚC 2: đổi màu các design ĐÃ CHỌN cho từng màu áo -> variants[]."""
