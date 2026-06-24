@@ -1084,7 +1084,13 @@
         </div>
         <p class="panel-desc">Tick ảnh theo THỨ TỰ (ưu tiên Ảnh sản phẩm) để dựng ảnh cuộn TikTok &amp; post Facebook trực quan.</p>
         <div class="color-chips" id="postFilters"></div>
-        <p class="hint" id="postPickHint" style="margin:6px 0">Đã chọn 0 ảnh.</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;flex-wrap:wrap">
+          <p class="hint" id="postPickHint" style="margin:0">Đã chọn 0 ảnh.</p>
+          <div style="display:flex;gap:6px">
+            <button class="btn-ghost sm" id="postDownloadAll">⬇ Tải tất cả (0)</button>
+            <button class="btn-ghost sm" id="postClear">✖ Bỏ chọn hết</button>
+          </div>
+        </div>
         <div class="auto-grid" id="postGrid"></div>
         <div class="gallery-empty hidden" id="postEmpty">Chưa có ảnh. Tạo ở tab Ảnh sản phẩm / Tạo design trước.</div>
       </section>

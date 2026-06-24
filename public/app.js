@@ -3304,6 +3304,8 @@ function postInit() {
     $("ttScript").oninput = postRenderPreview;
     $("ttCopy").onclick = () => postCopyText($("ttCaption").value, $("ttCopy"));
     $("fbCopy").onclick = () => postCopyText($("fbCaption").value, $("fbCopy"));
+    $("postDownloadAll").onclick = postDownloadAll;
+    $("postClear").onclick = () => { postPicked = []; postSlide = 0; postRenderGrid(); postRenderPreview(); };
     postRenderFilters();
   }
   postLoad();
@@ -3362,8 +3364,25 @@ function postSlideOverlay(i) {
   const m = line.match(/[“”"]([^“”"]+)[“”"]/);
   return m ? m[1] : "";
 }
+async function postDownloadAll() {
+  if (!postPicked.length) { const n = $("postNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa chọn ảnh nào."; return; }
+  const btn = $("postDownloadAll"), old = btn.textContent; btn.disabled = true;
+  const n = $("postNote"); n.className = "gen-note"; n.textContent = "Đang tải " + postPicked.length + " ảnh (theo thứ tự slide)…";
+  try {
+    for (let i = 0; i < postPicked.length; i++) {
+      btn.textContent = "⏳ " + (i + 1) + "/" + postPicked.length;
+      const b = await (await fetch(postPicked[i])).blob();
+      const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
+      autoDownload(b64, "slide-" + String(i + 1).padStart(2, "0"));
+      await new Promise(r => setTimeout(r, 350));
+    }
+    n.className = "gen-note ok"; n.textContent = "✓ Đã tải " + postPicked.length + " ảnh (slide-01, slide-02…).";
+  } catch (err) { n.className = "gen-note err"; n.textContent = "✗ " + err.message; }
+  finally { btn.disabled = false; btn.textContent = old; }
+}
 function postRenderPreview() {
   $("postPickHint").textContent = "Đã chọn " + postPicked.length + " ảnh." + (postPicked.length ? " Bấm số/ảnh để bỏ chọn." : "");
+  if ($("postDownloadAll")) $("postDownloadAll").textContent = "⬇ Tải tất cả (" + postPicked.length + ")";
   const has = postPicked.length > 0;
   $("ttEmpty").style.display = has ? "none" : "";
   const img = $("ttSlideImg");
