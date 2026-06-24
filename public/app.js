@@ -744,6 +744,33 @@ $("recolorUseCurrent").onclick = () => {
   recolorRenderThumb();
   const n = $("recolorNote"); n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design đang mở.";
 };
+// Dán design (copy/paste) vào tab Đổi màu
+async function recolorSetFromBlob(blob) {
+  if (!blob || !blob.type.startsWith("image/")) return false;
+  recolorImg = await fileToDataURL(blob); recolorRenderThumb();
+  const n = $("recolorNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán design vào."; }
+  return true;
+}
+if ($("recolorPaste")) $("recolorPaste").onclick = async () => {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      const type = (it.types || []).find(t => t.startsWith("image/"));
+      if (type) { await recolorSetFromBlob(await it.getType(type)); return; }
+    }
+    throw new Error("no image");
+  } catch (e) {
+    const n = $("recolorNote"); if (n) { n.className = "gen-note"; n.textContent = "📋 Bấm vào tab này rồi nhấn Ctrl/Cmd+V để dán ảnh."; }
+  }
+};
+document.addEventListener("paste", async (e) => {
+  const view = document.getElementById("view-recolor");
+  if (!view || view.classList.contains("hidden")) return;
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith("image/")) { e.preventDefault(); await recolorSetFromBlob(it.getAsFile()); return; }
+  }
+});
 
 /* Nền xem trước làm sẵn (ghép client, không tốn credit) */
 const RECOLOR_BG = [
