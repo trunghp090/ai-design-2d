@@ -1730,6 +1730,41 @@ def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=
     return out[:n]
 
 
+# ChatGPT đóng vai art director: đánh giá & viết lại prompt do Claude đề xuất cho ĐẸP NHẤT
+REFINE_SYSTEM = (
+    "Bạn là ART DIRECTOR áo thun khó tính. Nhận các concept (style + image_prompt tiếng Anh) do "
+    "một AI khác đề xuất. NHIỆM VỤ: ĐÁNH GIÁ rồi VIẾT LẠI image_prompt cho ĐẸP NHẤT có thể — bố "
+    "cục cân đối, typography nổi bật & sắc nét, phối màu đẹp dễ bán, và QUAN TRỌNG: chừa bố cục/để "
+    "TÊN người làm điểm nhấn (chữ chính to ở trung tâm, dễ đọc). Giữ NGUYÊN 'style' & 'title'. Mỗi "
+    "prompt KẾT THÚC bằng 'isolated t-shirt print graphic on a plain solid white background, "
+    "print-ready, no t-shirt, no mockup, no person'. Trả JSON "
+    "{\"designs\":[{\"title\":..,\"style\":..,\"prompt\":..}]} đúng số lượng & đúng thứ tự."
+)
+
+
+def refine_concepts(concepts, theme=""):
+    """ChatGPT đánh giá & đánh bóng lại prompt do Claude đề xuất. Lỗi -> giữ nguyên concepts."""
+    if not concepts:
+        return concepts
+    payload = [{"title": c.get("title", ""), "style": c.get("style", ""), "prompt": c.get("prompt", "")}
+               for c in concepts]
+    u = ("Chủ đề: %s. Đánh giá & viết lại cho ĐẸP NHẤT (giữ style+title, chừa chỗ đặt tên người): %s "
+         "Chỉ trả JSON." % (theme or "tự do", json.dumps(payload, ensure_ascii=False)))
+    try:
+        raw = openai_chat([{"role": "system", "content": REFINE_SYSTEM},
+                           {"role": "user", "content": u}], json_mode=True, max_tokens=2800)
+        out = _parse_designs(raw)
+        if out and len(out) >= len(concepts):
+            for i, c in enumerate(concepts):
+                if i < len(out) and (out[i].get("prompt") or "").strip():
+                    c["prompt"] = out[i]["prompt"]
+                    if (out[i].get("style") or "").strip():
+                        c["style"] = out[i]["style"]
+    except Exception:
+        pass
+    return concepts
+
+
 # Tệp khách -> tạo nguyên 1 BỘ design ĐỒNG BỘ
 SEGMENTS = {
     "couple": {"name": "Couple", "n": 2,
@@ -2208,9 +2243,11 @@ def run_pipe_designs(job_id, theme, n, seg, size, transparent=True):
                     role = SEGMENTS[seg]["short"][idx] if idx < len(SEGMENTS[seg]["short"]) else ""
                     concepts.append((c, role))
         else:
-            # CLAUDE phân tích TẤT CẢ 56 style -> chọn/mix style hợp CÁ NHÂN HOÁ nhất
-            for c in (design_concepts_auto(theme, "", n, palette_keys=list(DESIGN_STYLES.keys()),
-                                           personalize_hint=True, use_claude=True) or []):
+            # CLAUDE phân tích TẤT CẢ 56 style -> chọn/mix concept hợp CÁ NHÂN HOÁ nhất
+            cs = design_concepts_auto(theme, "", n, palette_keys=list(DESIGN_STYLES.keys()),
+                                      personalize_hint=True, use_claude=True) or []
+            cs = refine_concepts(cs, theme)   # ChatGPT đánh giá & đánh bóng cho đẹp nhất
+            for c in cs:
                 concepts.append((c, ""))
     except Exception:
         concepts = []
