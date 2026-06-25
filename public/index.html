@@ -287,38 +287,18 @@
       <!-- Cột nhập -->
       <section class="panel">
         <h2 class="panel-title">🤖 Auto Research</h2>
-        <p class="panel-desc">Tải <b>ảnh design</b> của bạn → điền <b>Tên</b> + <b>Ngày</b> → AI giữ nguyên style, chỉ thay tên + ngày, ra <b>nhiều bản</b> bố cục khác nhau.</p>
+        <p class="panel-desc">Gửi <b>design của bạn</b> → bấm <b>Cá nhân hoá tên</b> → mở đúng popup cá nhân hoá (giống bấm 🪪 Tên ở Tạo design): nhập tên + ngày → ra các bản.</p>
 
-        <label class="field-label">Ảnh design (mẫu gốc) <span style="color:var(--violet)">(bắt buộc)</span></label>
+        <label class="field-label">Ảnh design của bạn <span style="color:var(--violet)">(bắt buộc)</span></label>
         <label class="dropzone" id="autoDrop">
           <input type="file" id="autoFileInput" accept="image/*" multiple hidden />
           <div class="dz-icon">⬆️</div>
-          <div>Tải ảnh design của bạn (1 ảnh)</div>
-          <div class="hint">AI giữ y nguyên style mẫu này, chỉ thay tên + ngày.</div>
+          <div>Tải / kéo-thả ảnh design của bạn</div>
+          <div class="hint">AI giữ y nguyên style mẫu này, chỉ thay tên.</div>
         </label>
         <div class="thumb-row" id="autoThumbs"></div>
 
-        <div class="auto-row">
-          <div>
-            <label class="field-label">🪪 Tên (bắt buộc)</label>
-            <input type="text" id="autoName" class="input" placeholder="VD: Phương Linh · Hải & Vân" />
-          </div>
-          <div>
-            <label class="field-label">📅 Dòng phụ / ngày (tuỳ chọn)</label>
-            <input type="text" id="autoDate" class="input" placeholder="VD: 20.10.2026 · EST. 2024" />
-          </div>
-        </div>
-        <p class="hint" style="margin:4px 0 0">Giữ nguyên phong cách mẫu, thay chữ chính bằng tên bạn nhập. Tên <b>2 chữ</b> xếp <b>cùng 1 dòng</b>.</p>
-
-        <label class="field-label" style="margin-top:10px">Số bản để chọn</label>
-        <select id="autoCount" class="input">
-          <option value="4" selected>4 bản</option>
-          <option value="5">5 bản</option>
-          <option value="3">3 bản</option>
-          <option value="6">6 bản</option>
-        </select>
-
-        <button class="btn-primary" id="autoRunBtn" style="margin-top:12px">✨ Tạo bản cá nhân hoá</button>
+        <button class="btn-primary" id="autoRunBtn" style="margin-top:12px">🪪 Cá nhân hoá tên</button>
         <p class="gen-note" id="autoNote"></p>
       </section>
 

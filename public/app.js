@@ -667,40 +667,13 @@ function autoRender(items) {
   items.forEach(it => { const key = dsItemKey(it); dsItems[key] = it; grid.appendChild(dsMakeCard(key, it)); });
 }
 
-$("autoRunBtn").onclick = async () => {
+// Auto Research = gửi design -> mở ĐÚNG popup cá nhân hoá tên (như bấm 🪪 Tên ở Tạo design)
+$("autoRunBtn").onclick = () => {
   const note = $("autoNote"); note.className = "gen-note"; note.textContent = "";
-  if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh design (mẫu gốc) để AI giữ style."; return; }
-  const name = ($("autoName").value || "").trim();
-  if (!name) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập TÊN cần điền."; return; }
-  const count = parseInt($("autoCount").value, 10) || 4;
-  const btn = $("autoRunBtn"); btn.disabled = true;
-  $("autoEmpty").classList.add("hidden");
-  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang giữ style, điền tên + ngày → vẽ ' + count + ' bản… (≈30–60 giây/bản)</div>';
-  try {
-    const r = await fetch("/api/personalize", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: autoUploaded[0],
-        name: name,
-        date: ($("autoDate").value || "").trim(),
-        count: count,
-        transparent: true,
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
-    autoRender(data.items || []);
-    note.className = "gen-note ok";
-    note.textContent = "✓ Đã vẽ " + (data.items || []).length + " bản cá nhân hoá (tên 2 chữ cùng dòng)! Đã lưu Lịch sử.";
-    if (typeof loadGallery === "function") loadGallery();
-  } catch (err) {
-    $("autoResults").innerHTML = "";
-    $("autoEmpty").classList.remove("hidden");
-    $("autoEmpty").textContent = "✗ " + err.message;
-    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-  } finally {
-    btn.disabled = false;
-  }
+  if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy gửi 1 ảnh design trước."; return; }
+  const src = autoUploaded[0];
+  const b64 = src.indexOf(",") >= 0 ? src.split(",")[1] : src;   // bỏ tiền tố data:
+  openPersonalize(b64);   // mở modal cá nhân hoá; kết quả -> autoResults + Lịch sử
 };
 
 /* =====================================================================
@@ -2234,6 +2207,9 @@ $("pnGo").onclick = async () => {
     if (!r.ok) throw new Error(d.error || "Lỗi cá nhân hoá");
     (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
     dsRender();
+    // nếu đang ở tab Auto Research -> hiện kết quả ngay tại đó
+    const av = document.getElementById("view-auto");
+    if (av && !av.classList.contains("hidden") && typeof autoRender === "function") autoRender(d.items || []);
     if (typeof loadGallery === "function") loadGallery();
     $("pnNote").className = "gen-note ok"; $("pnNote").textContent = "✓ Đã tạo " + (d.items || []).length + " bản cá nhân hoá — xem ở khung kết quả.";
     setTimeout(closePersonalize, 900);
