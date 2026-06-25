@@ -474,3 +474,8 @@ textarea.input{resize:vertical;line-height:1.5}
 .fb-img{position:relative;aspect-ratio:1;overflow:hidden}
 .fb-img img{width:100%;height:100%;object-fit:cover;display:block}
 .fb-more{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+/* Mô tả Shopify dạng rich (dán ảnh được) */
+.shop-rich{min-height:80px;max-height:320px;overflow:auto;cursor:text;line-height:1.5}
+.shop-rich:empty:before{content:attr(data-ph);color:var(--muted);pointer-events:none}
+.shop-rich img{max-width:100%;height:auto;border-radius:6px}

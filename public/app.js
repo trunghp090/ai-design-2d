@@ -2577,9 +2577,29 @@ $("dsDownloadAll").onclick = async () => {
 let shopInited = false;
 let shopItems = [];   // [{image(b64), fname, title, price, status, result}]
 
+// đọc mô tả: có ảnh -> trả HTML (giữ <img>), chỉ chữ -> trả text thường
+function shopDescValue() {
+  const el = $("shopDesc"); if (!el) return "";
+  if (el.querySelector && el.querySelector("img")) return (el.innerHTML || "").trim();
+  return (el.textContent || "").trim();
+}
 function shopInit() {
   if (shopInited) return; shopInited = true;
   shopCheckStatus();
+  // Dán ảnh (Ctrl/Cmd+V) thẳng vào ô mô tả -> chèn <img> base64 vào mô tả
+  const sd = $("shopDesc");
+  if (sd) sd.addEventListener("paste", async (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        const durl = await fileToDataURL(it.getAsFile());
+        document.execCommand("insertHTML", false,
+          '<img src="' + durl + '" style="max-width:100%;height:auto;display:block;margin:6px 0">');
+        return;
+      }
+    }
+  });
   $("shopFile").onchange = (e) => shopAddFiles(e.target.files);
   const dz = $("shopDrop");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
@@ -2750,7 +2770,7 @@ async function shopPush() {
         category: ($("shopCategory").value || "").trim(),
         templateSuffix: ($("shopTemplate").value || "").trim(),
         sizeChart: shopSizeChart || "",
-        description: ($("shopDesc").value || "").trim(),
+        description: shopDescValue(),
         sizes: $("shopUseSizes").checked
           ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)
           : [],
