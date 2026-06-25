@@ -725,21 +725,32 @@ def shop_text_to_html(t):
 
 SHOP_LISTING_SYSTEM = (
     "Bạn là chuyên gia bán áo thun online ở Việt Nam. Nhìn ảnh sản phẩm áo, viết nội dung đăng bán "
-    "HẤP DẪN & CHUẨN SEO cho shop Việt: tên sản phẩm ngắn gọn thu hút (tiếng Việt), mô tả HTML 2–4 câu "
-    "(chất liệu cotton, form rộng unisex, in sắc nét, dịp tặng/mặc), và 4–8 tag tiếng Việt. "
-    "Trả JSON {\"title\":\"...\",\"body_html\":\"<p>...</p>\",\"tags\":[\"...\"]}"
+    "HẤP DẪN & CHUẨN SEO cho shop Việt: mô tả HTML 2–4 câu (chất liệu cotton, form rộng unisex, in "
+    "sắc nét, dịp tặng/mặc), 4–8 tag tiếng Việt, và \"style\" = TÊN PHONG CÁCH áo NGẮN GỌN 1–3 từ "
+    "(vd: Vintage, Typography, Streetwear, Couple, Y2K, Thư Pháp, Cute, Local Brand...) — KHÔNG đặt "
+    "tên người, KHÔNG dùng tên riêng cá nhân. "
+    "Trả JSON {\"style\":\"...\",\"body_html\":\"<p>...</p>\",\"tags\":[\"...\"]}"
 )
+
+# Mã số SP (MS) tăng dần, seed theo thời gian -> duy nhất trong phiên
+_ms_seq = [int(time.time()) % 100000]
+
+
+def next_ms():
+    _ms_seq[0] = (_ms_seq[0] + 1) % 100000
+    return "MS%05d" % _ms_seq[0]
 
 
 def shopify_listing(image_b64):
-    """AI nhìn ảnh -> {title, body_html, tags}. Lỗi -> {}."""
+    """AI nhìn ảnh -> {style, body_html, tags}. Lỗi -> {}."""
     content = [{"type": "text", "text": "Viết nội dung đăng bán cho áo này. Chỉ trả JSON."},
                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + image_b64}}]
     try:
         raw = openai_chat([{"role": "system", "content": SHOP_LISTING_SYSTEM},
                            {"role": "user", "content": content}], json_mode=True, max_tokens=600)
         d = json.loads(raw)
-        return {"title": (d.get("title") or "").strip(),
+        return {"style": (d.get("style") or "").strip(),
+                "title": (d.get("title") or "").strip(),
                 "body_html": (d.get("body_html") or "").strip(),
                 "tags": d.get("tags") or []}
     except Exception:
@@ -3928,13 +3939,20 @@ class Handler(BaseHTTPRequestHandler):
         custom = (it.get("description") or "").strip() or def_desc
         tags = []
         ai_html = ""
-        if use_ai and (not title or not custom):
+        ai_style = (it.get("style") or "").strip()
+        if use_ai and (not title or not custom or not ai_style):
             ai = shopify_listing(variants_in[0]["image"])
-            title = title or ai.get("title", "")
             ai_html = ai.get("body_html", "")
             tags = ai.get("tags", [])
+            ai_style = ai_style or ai.get("style", "")
+        # TÊN theo CÔNG THỨC: "Áo Thun in Tên" + Style + MS + RIENGVN (bỏ tên người)
         if not title:
-            title = "Áo thun in"
+            parts = ["Áo Thun in Tên"]
+            if ai_style:
+                parts.append(ai_style)
+            parts.append(next_ms())
+            parts.append("RIENGVN")
+            title = " ".join(parts)
         intro = shop_text_to_html(custom) if custom else ai_html
         body_html = intro or ""
         if "BẢO QUẢN" not in body_html:   # tránh thêm trùng nếu user đã tự nhập
