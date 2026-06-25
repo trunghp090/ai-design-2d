@@ -682,18 +682,21 @@ function autoRender(items) {
 
 $("autoRunBtn").onclick = async () => {
   const note = $("autoNote"); note.className = "gen-note"; note.textContent = "";
-  if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ít nhất 1 ảnh mẫu để AI giữ nguyên style."; return; }
+  if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải ảnh design (mẫu gốc) để AI giữ style."; return; }
+  const name = ($("autoName").value || "").trim();
+  if (!name) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập TÊN cần điền."; return; }
+  const count = parseInt($("autoCount").value, 10) || 4;
   const btn = $("autoRunBtn"); btn.disabled = true;
   $("autoEmpty").classList.add("hidden");
-  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang đọc mẫu → giữ style, đổi text → vẽ… (≈30–60 giây/mẫu)</div>';
+  $("autoResults").innerHTML = '<div class="gallery-empty">🤖 AI đang giữ style, điền tên + ngày → vẽ ' + count + ' bản… (≈30–60 giây/bản)</div>';
   try {
-    const r = await fetch("/api/auto-gen", {
+    const r = await fetch("/api/personalize", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        images: [...autoUploaded],
-        niche: $("autoNiche").value,
-        n: parseInt($("autoCount").value, 10) || 3,
-        size: $("autoSize").value,
+        image: autoUploaded[0],
+        name: name,
+        date: ($("autoDate").value || "").trim(),
+        count: count,
         transparent: $("autoTransparent").checked,
       }),
     });
@@ -701,7 +704,7 @@ $("autoRunBtn").onclick = async () => {
     if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
     autoRender(data.items || []);
     note.className = "gen-note ok";
-    note.textContent = "✓ AI đã vẽ " + (data.items || []).length + " mẫu! Đã lưu vào Lịch sử (tab Clone Design).";
+    note.textContent = "✓ Đã vẽ " + (data.items || []).length + " bản cá nhân hoá (tên 2 chữ cùng dòng)! Đã lưu Lịch sử.";
     if (typeof loadGallery === "function") loadGallery();
   } catch (err) {
     $("autoResults").innerHTML = "";
