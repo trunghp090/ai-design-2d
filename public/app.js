@@ -662,22 +662,9 @@ function autoRender(items) {
   const grid = $("autoResults"); grid.innerHTML = "";
   if (!items.length) { $("autoEmpty").classList.remove("hidden"); return; }
   $("autoEmpty").classList.add("hidden");
-  items.forEach(it => {
-    const card = document.createElement("div");
-    card.className = "gcard";
-    card.innerHTML =
-      '<img src="data:image/png;base64,' + it.image + '" alt="">' +
-      '<div class="gmeta">' + (it.title || "Mẫu auto") + '</div>' +
-      '<div class="gacts"><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
-    card.querySelector(".b-use").onclick = () => {
-      showApp("clone");
-      showDesign(it.image);
-      document.querySelector('.rtab[data-rtab="design"]').click();
-    };
-    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard("data:image/png;base64," + it.image, e.currentTarget);
-    card.querySelector(".b-dl").onclick = () => autoDownload(it.image, it.title);
-    grid.appendChild(card);
-  });
+  // dùng ĐÚNG thẻ của Tạo design (đủ nút Tên/Đổi màu/Canva/Lên áo/Copy/Tải/Sửa/Xoá)
+  // + lưu vào dsItems để cũng xuất hiện ở tab Tạo design & Lịch sử
+  items.forEach(it => { const key = dsItemKey(it); dsItems[key] = it; grid.appendChild(dsMakeCard(key, it)); });
 }
 
 $("autoRunBtn").onclick = async () => {
@@ -2131,7 +2118,11 @@ function dsRender() {
   const anyRated = entries.some(([, it]) => typeof it.score === "number");
   if (anyRated) entries = entries.sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
   grid.innerHTML = "";
-  entries.forEach(([key, it]) => {
+  entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it)); });
+  $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
+}
+// Thẻ kết quả design (dùng CHUNG cho Tạo design + Auto Research) — đầy đủ nút cá nhân hoá
+function dsMakeCard(key, it) {
     const card = document.createElement("div");
     card.className = "gcard";
     let badge = "";
@@ -2170,7 +2161,7 @@ function dsRender() {
       try {
         const gid = it.gallery && it.gallery.id;
         if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" });
-        delete dsItems[key]; dsRender();
+        delete dsItems[key]; card.remove(); dsRender();
         if (typeof loadGallery === "function") loadGallery();
       } catch (err) { alert("✗ " + err.message); b.disabled = false; }
     };
@@ -2189,9 +2180,7 @@ function dsRender() {
     };
     dsFixbtn.onclick = dsDoFix;
     dsFixin.onkeydown = (e) => { if (e.key === "Enter") dsDoFix(); };
-    grid.appendChild(card);
-  });
-  $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
+    return card;
 }
 /* ===== Tạo thêm phiên bản khác của 1 design ===== */
 async function dsMakeVariations(image, btn) {
