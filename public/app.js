@@ -697,7 +697,7 @@ $("autoRunBtn").onclick = async () => {
         name: name,
         date: ($("autoDate").value || "").trim(),
         count: count,
-        transparent: $("autoTransparent").checked,
+        transparent: true,
       }),
     });
     const data = await r.json();

@@ -300,42 +300,25 @@
 
         <div class="auto-row">
           <div>
-            <label class="field-label">🪪 Tên cần điền</label>
-            <input type="text" id="autoName" class="input" placeholder="VD: Phương Linh" />
+            <label class="field-label">🪪 Tên (bắt buộc)</label>
+            <input type="text" id="autoName" class="input" placeholder="VD: Phương Linh · Hải & Vân" />
           </div>
           <div>
-            <label class="field-label">📅 Ngày / Tháng / Năm</label>
-            <input type="text" id="autoDate" class="input" placeholder="VD: 20.11.2024" />
+            <label class="field-label">📅 Dòng phụ / ngày (tuỳ chọn)</label>
+            <input type="text" id="autoDate" class="input" placeholder="VD: 20.10.2026 · EST. 2024" />
           </div>
         </div>
-        <p class="hint" style="margin:4px 0 0">Tên <b>2 chữ</b> sẽ được xếp <b>cùng 1 dòng</b>. AI giữ style ảnh mẫu, chỉ thay tên + ngày.</p>
+        <p class="hint" style="margin:4px 0 0">Giữ nguyên phong cách mẫu, thay chữ chính bằng tên bạn nhập. Tên <b>2 chữ</b> xếp <b>cùng 1 dòng</b>.</p>
 
-        <div class="auto-row" style="margin-top:10px">
-          <div>
-            <label class="field-label">Số mẫu</label>
-            <select id="autoCount" class="input">
-              <option value="4" selected>4 mẫu</option>
-              <option value="3">3 mẫu</option>
-              <option value="2">2 mẫu</option>
-              <option value="1">1 mẫu</option>
-              <option value="6">6 mẫu</option>
-            </select>
-          </div>
-          <div>
-            <label class="field-label">Tỉ lệ</label>
-            <select id="autoSize" class="input">
-              <option value="portrait">Dọc (in áo)</option>
-              <option value="square">Vuông</option>
-              <option value="landscape">Ngang</option>
-            </select>
-          </div>
-        </div>
+        <label class="field-label" style="margin-top:10px">Số bản để chọn</label>
+        <select id="autoCount" class="input">
+          <option value="4" selected>4 bản</option>
+          <option value="5">5 bản</option>
+          <option value="3">3 bản</option>
+          <option value="6">6 bản</option>
+        </select>
 
-        <label class="mini-switch" style="margin:10px 0">
-          <input type="checkbox" id="autoTransparent" checked /> Nền trong suốt (PNG tách nền)
-        </label>
-
-        <button class="btn-primary" id="autoRunBtn">🤖 Điền tên + ngày → vẽ các bản</button>
+        <button class="btn-primary" id="autoRunBtn" style="margin-top:12px">✨ Tạo bản cá nhân hoá</button>
         <p class="gen-note" id="autoNote"></p>
       </section>
 
