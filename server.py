@@ -2280,6 +2280,11 @@ def personalize_core(design_b64, name, size, transparent=True, date=""):
     if len(name.split()) == 2:
         base += (" The name has exactly TWO words — they MUST be written TOGETHER on ONE single "
                  "horizontal line, side by side; NEVER stack them on separate lines or split them.")
+    _allowed = 'the name "%s"' % name + ((' and the small date line "%s"' % date.strip()) if (date or "").strip() else "")
+    base += (" CRITICAL — the ONLY readable text on the design must be " + _allowed + ". COMPLETELY "
+             "REMOVE every other word, slogan, tagline, label, year, club/brand name and placeholder "
+             "(e.g. '@yourtext', 'your text', 'DEAR', 'EST', 'SINCE', 'CLUB') from the reference; keep "
+             "only non-text decorative graphic elements.")
     if (date or "").strip():
         base += (" Add a small secondary line with the date \"%s\" below the name, smaller, "
                  "in the same style." % date.strip())
@@ -3833,6 +3838,14 @@ class Handler(BaseHTTPRequestHandler):
                      "never split them, never place one above the other.")
         if date:
             base += " Include a small secondary line \"%s\"." % date
+        # CHỈ giữ TÊN (+ ngày) — xoá MỌI chữ thừa/placeholder của mẫu gốc
+        allowed = 'the name "%s"' % name + ((' and the small secondary line "%s"' % date) if date else "")
+        base += (" CRITICAL — TEXT CONTENT: the ONLY readable text anywhere on the whole design must be "
+                 + allowed + ". COMPLETELY REMOVE every other word, letter, slogan, tagline, label, year, "
+                 "club/brand name and placeholder text from the reference (e.g. '@yourtext', 'your text', "
+                 "'DEAR', 'EST', 'SINCE', 'CLUB', 'CHAMPION', lorem) — do NOT keep, repeat or invent any "
+                 "extra text. Keep only NON-TEXT decorative graphic elements (stars, lines, shapes, "
+                 "motifs) for the style.")
         # mỗi bản 1 KIỂU BỐ CỤC KHÁC HẲN (vẫn cùng phong cách) -> 4-6 lựa chọn đa dạng
         if one_line:
             # tất cả bố cục đều giữ tên 2 chữ trên CÙNG 1 dòng
