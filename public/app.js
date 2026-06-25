@@ -2475,6 +2475,41 @@ function shopMatrixHtml(it) {
   return '<details class="vm-box"><summary>🧩 Xem đủ ' + rows.length + ' variant (Color×Size)</summary>' +
     '<div class="vm-list">' + rows.join("") + "</div></details>";
 }
+// chọn ảnh bìa từ THƯ VIỆN (ảnh sản phẩm / design đã tạo)
+let coverPickFilter = "product";
+async function openCoverPick(it) {
+  let ov = document.getElementById("coverPickOv");
+  if (!ov) { ov = document.createElement("div"); ov.id = "coverPickOv"; ov.className = "cover-ov"; document.body.appendChild(ov); }
+  const FILT = [["product", "📸 Ảnh sản phẩm"], ["design", "✨ Design"], ["all", "Tất cả"]];
+  ov.innerHTML =
+    '<div class="cover-modal"><div class="cover-head"><b>Chọn ảnh bìa từ thư viện</b><button class="cover-close">✕</button></div>' +
+    '<div class="cover-filters">' + FILT.map(f => '<button data-f="' + f[0] + '" class="' + (coverPickFilter === f[0] ? "on" : "") + '">' + f[1] + '</button>').join("") + '</div>' +
+    '<div class="cover-grid" id="coverGrid"><p class="hint">Đang tải…</p></div></div>';
+  ov.style.display = "flex";
+  ov.querySelector(".cover-close").onclick = () => ov.style.display = "none";
+  ov.onclick = (e) => { if (e.target === ov) ov.style.display = "none"; };
+  let all = [];
+  const draw = () => {
+    const grid = ov.querySelector("#coverGrid");
+    const imgs = coverPickFilter === "all" ? all
+      : coverPickFilter === "product" ? all.filter(x => x.mode === "product")
+      : all.filter(x => ["design", "personalize", "recolor", "auto"].includes(x.mode));
+    if (!imgs.length) { grid.innerHTML = '<p class="hint">Chưa có ảnh. Tạo ở tab Ảnh sản phẩm / Tạo design trước.</p>'; return; }
+    grid.innerHTML = "";
+    imgs.slice(0, 150).forEach(g => {
+      const im = document.createElement("img"); im.src = g.url; im.loading = "lazy";
+      im.onclick = async () => {
+        const b = await (await fetch(g.url)).blob();
+        it.coverImage = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+        ov.style.display = "none"; shopRender();
+      };
+      grid.appendChild(im);
+    });
+  };
+  ov.querySelectorAll(".cover-filters button").forEach(b => b.onclick = () => { coverPickFilter = b.dataset.f; ov.querySelectorAll(".cover-filters button").forEach(x => x.classList.toggle("on", x === b)); draw(); });
+  try { const d = await (await fetch("/api/gallery")).json(); all = d.items || []; draw(); }
+  catch (e) { ov.querySelector("#coverGrid").innerHTML = '<p class="hint">Lỗi tải thư viện.</p>'; }
+}
 // ảnh bìa: ảnh riêng (it.coverImage) nếu có, không thì ảnh variant đã chọn (⭐)
 function shopCoverSrc(it) {
   if (it.coverImage) return it.coverImage;
@@ -2516,7 +2551,8 @@ function shopRender() {
           '<img class="shop-cover-img" src="' + coverSrc + '" alt="">' +
           '<div class="shop-cover-acts">' +
             '<div class="shop-cover-lbl">📌 <b>Ảnh bìa</b> ' + (it.coverImage ? '· ảnh riêng' : '· đang dùng ảnh áo (⭐)') + '</div>' +
-            '<label class="btn-ghost sm">📁 Đổi ảnh bìa<input type="file" class="shop-cover-file" accept="image/*" hidden></label>' +
+            '<button class="btn-ghost sm shop-cover-pick">🖼️ Chọn từ thư viện</button>' +
+            '<label class="btn-ghost sm">📁 Tải ảnh<input type="file" class="shop-cover-file" accept="image/*" hidden></label>' +
             '<button class="btn-ghost sm shop-cover-paste">📋 Dán</button>' +
             (it.coverImage ? '<button class="btn-ghost sm shop-cover-reset">↺ Dùng ảnh áo</button>' : '') +
           '</div>' +
@@ -2542,6 +2578,8 @@ function shopRender() {
     };
     const cr = row.querySelector(".shop-cover-reset");
     if (cr) cr.onclick = () => { it.coverImage = null; shopRender(); };
+    const cpk = row.querySelector(".shop-cover-pick");
+    if (cpk) cpk.onclick = () => openCoverPick(it);
     row.querySelectorAll(".shop-var-x").forEach(b => b.onclick = (e) => {
       vars.splice(+e.target.dataset.vi, 1);
       if (!vars.length) shopItems.splice(i, 1);
