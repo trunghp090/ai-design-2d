@@ -2609,12 +2609,14 @@ def remove_flat_bg(raw, thresh=45):
         tin, tout = 90, 185   # dải rộng hơn -> viền hồng nhạt cũng mờ dần
         alpha = dist.point(lambda v: 0 if v <= tin else (255 if v >= tout
                            else int((v - tin) * 255 / (tout - tin))))
-        # DESPILL an toàn (khử ám hồng do magenta): nâng kênh Green lên = max(G, min(R,B)).
-        # Magenta/hồng có G thấp hơn R&B -> được nâng về trung tính; KHÔNG đụng tới
-        # đỏ/xanh/vàng (vì các màu đó G không thấp hơn cả R lẫn B).
+        # DESPILL an toàn (khử ám hồng do magenta): nâng kênh Green = max(G, min(R,B)).
+        # CHỈ áp ở RÌA bán trong suốt (0 < alpha < 255) — KHÔNG đụng phần CHỮ/đồ hoạ
+        # đặc (alpha=255) để giữ NGUYÊN màu chữ (đỏ/hồng/tím cũng không bị xám hoá).
         min_rb = ImageChops.darker(rb, bb)
         gb2 = ImageChops.lighter(gb, min_rb)
-        out = Image.merge("RGBA", (rb, gb2, bb, alpha))
+        rim = alpha.point(lambda v: 255 if 0 < v < 255 else 0)   # chỉ viền anti-alias
+        gb_final = Image.composite(gb2, gb, rim)
+        out = Image.merge("RGBA", (rb, gb_final, bb, alpha))
     else:
         # NỀN TRẮNG/XÁM: cần 4 góc đồng nhất rồi floodfill từ viền (giữ vùng cùng màu
         # nằm bên trong design). Nếu nền không đồng nhất thì không xoá để tránh hỏng.
