@@ -658,13 +658,42 @@ function autoDownload(b64, title) {
   a.click();
 }
 
-function autoRender(items) {
-  const grid = $("autoResults"); grid.innerHTML = "";
-  if (!items.length) { $("autoEmpty").classList.remove("hidden"); return; }
-  $("autoEmpty").classList.add("hidden");
-  // dùng ĐÚNG thẻ của Tạo design (đủ nút Tên/Đổi màu/Canva/Lên áo/Copy/Tải/Sửa/Xoá)
-  // + lưu vào dsItems để cũng xuất hiện ở tab Tạo design & Lịch sử
-  items.forEach(it => { const key = dsItemKey(it); dsItems[key] = it; grid.appendChild(dsMakeCard(key, it)); });
+// NHIỀU LUỒNG: mỗi lần cá nhân hoá = 1 job nền, có placeholder; up design khác chạy tiếp song song
+let autoItems = [];   // [{loading,job,name} | item design]
+function autoRenderAll() {
+  const grid = $("autoResults");
+  $("autoEmpty").classList.toggle("hidden", autoItems.length > 0);
+  grid.innerHTML = "";
+  autoItems.forEach(c => {
+    if (c.loading) {
+      const ph = document.createElement("div"); ph.className = "gcard fp-card-loading";
+      ph.innerHTML = '<div class="fp-loading" style="min-height:240px"><span class="fp-spin"></span><span>Đang vẽ' + (c.name ? ' "' + c.name + '"' : '') + '… ~1 phút</span></div>';
+      grid.appendChild(ph); return;
+    }
+    const key = dsItemKey(c); dsItems[key] = c; grid.appendChild(dsMakeCard(key, c));
+  });
+}
+// giữ tương thích: hook cũ gọi autoRender(items) -> nạp vào autoItems
+function autoRender(items) { (items || []).forEach(it => autoItems.unshift(it)); autoRenderAll(); }
+// chạy 1 luồng cá nhân hoá (nền) — không chặn UI
+function autoLaunchPersonalize(image, name, date, count) {
+  const job = "a" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+  for (let i = 0; i < count; i++) autoItems.unshift({ loading: true, job: job, name: name });
+  autoRenderAll();
+  const note = $("autoNote"); note.className = "gen-note"; note.textContent = "⏳ Đang vẽ \"" + name + "\"… (up design khác để chạy tiếp luồng mới)";
+  fetch("/api/personalize", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: image, name: name, date: date, count: count, transparent: true }),
+  }).then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+    .then(({ ok, d }) => {
+      autoItems = autoItems.filter(c => !(c.loading && c.job === job));
+      if (!ok) { autoRenderAll(); note.className = "gen-note err"; note.textContent = "✗ " + (d.error || "Lỗi"); return; }
+      (d.items || []).forEach(it => autoItems.unshift(it));
+      autoRenderAll();
+      note.className = "gen-note ok"; note.textContent = "✓ Xong \"" + name + "\" (" + (d.items || []).length + " bản).";
+      if (typeof loadGallery === "function") loadGallery();
+    })
+    .catch(e => { autoItems = autoItems.filter(c => !(c.loading && c.job === job)); autoRenderAll(); note.className = "gen-note err"; note.textContent = "✗ " + e.message; });
 }
 
 // Auto Research = gửi design -> mở ĐÚNG popup cá nhân hoá tên (như bấm 🪪 Tên ở Tạo design)
@@ -673,7 +702,7 @@ $("autoRunBtn").onclick = () => {
   if (!autoUploaded.length) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy gửi 1 ảnh design trước."; return; }
   const src = autoUploaded[0];
   const b64 = src.indexOf(",") >= 0 ? src.split(",")[1] : src;   // bỏ tiền tố data:
-  openPersonalize(b64);   // mở modal cá nhân hoá; kết quả -> autoResults + Lịch sử
+  openPersonalize(b64, true);   // mở modal cá nhân hoá CHẾ ĐỘ AUTO (chạy nền nhiều luồng)
 };
 
 /* =====================================================================
@@ -2180,21 +2209,30 @@ async function dsMakeVariations(image, btn) {
 
 /* ===== Cá nhân hoá tên: biến mẫu đẹp -> bản có tên ===== */
 let pnImage = null;
-function openPersonalize(image) {
+let pnAutoMode = false;   // mở từ Auto Research -> chạy NỀN nhiều luồng
+function openPersonalize(image, auto) {
   pnImage = image;
+  pnAutoMode = !!auto;
   $("pnPreview").src = "data:image/png;base64," + image;
   $("pnName").value = ""; $("pnDate").value = "";
   $("pnNote").textContent = ""; $("pnNote").className = "gen-note";
   $("pnModal").classList.remove("hidden");
   setTimeout(() => $("pnName").focus(), 50);
 }
-function closePersonalize() { $("pnModal").classList.add("hidden"); pnImage = null; }
+function closePersonalize() { $("pnModal").classList.add("hidden"); pnImage = null; pnAutoMode = false; }
 $("pnClose").onclick = closePersonalize;
 $("pnModal").onclick = (e) => { if (e.target.id === "pnModal") closePersonalize(); };
 $("pnGo").onclick = async () => {
   const name = $("pnName").value.trim();
   if (!name) { $("pnNote").className = "gen-note err"; $("pnNote").textContent = "⚠️ Nhập tên đã."; return; }
   const count = parseInt($("pnCount").value, 10) || 4;
+  // CHẾ ĐỘ AUTO RESEARCH: chạy NỀN nhiều luồng -> đóng modal ngay, up design khác chạy tiếp
+  if (pnAutoMode) {
+    autoLaunchPersonalize(pnImage, name, $("pnDate").value.trim(), count);
+    if (typeof autoUploaded !== "undefined") { autoUploaded = []; autoRenderThumbs(); }  // dọn để up design mới
+    closePersonalize();
+    return;
+  }
   const btn = $("pnGo"), old = btn.textContent;
   btn.disabled = true; btn.textContent = "⏳ Đang tạo…";
   $("pnNote").className = "gen-note"; $("pnNote").textContent = "Đang tạo " + count + " bản (giữ phong cách, thay tên)…";
