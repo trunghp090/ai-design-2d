@@ -1671,34 +1671,49 @@ async function prodSuggest() {
   } catch (e) { alert("✗ " + e.message); } finally { btn.disabled = false; btn.textContent = o; }
 }
 
+// CHẠY NHIỀU LUỒNG: bấm Generate nhiều lần, mỗi job 1 poll riêng + placeholder loading
 async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
   if (!prodRefs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Thêm ít nhất 1 ảnh tham chiếu."; return; }
   if (!prompt) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt."; return; }
-  $("prodRunBtn").disabled = true; $("prodProgress").classList.remove("hidden"); $("prodBar").style.width = "0%"; $("prodProgText").textContent = "Đang gửi…"; $("prodErrors").innerHTML = "";
+  count = count || 1;
+  const aspect = $("prodAspect").value || "4:5";
+  const engine = ($("prodEngine") && $("prodEngine").value) || "";
   try {
-    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", prompt, engine: ($("prodEngine") && $("prodEngine").value) || "", aspect: $("prodAspect").value || "4:5", count }) });
+    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    if (prodPollTimer) clearInterval(prodPollTimer);
-    prodPollTimer = setInterval(() => prodPoll(d.job_id, prompt), 2500); prodPoll(d.job_id, prompt);
-  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; $("prodRunBtn").disabled = false; $("prodProgress").classList.add("hidden"); }
+    // thêm placeholder "đang tạo" cho job này (lên đầu)
+    for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
+    prodRenderCreations();
+    prodPollJob(d.job_id, prompt);
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + count + " ảnh — bấm Generate tiếp để chạy thêm luồng.";
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
 
-async function prodPoll(jobId, prompt) {
-  try {
-    const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
-    const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
-    $("prodBar").style.width = pct + "%"; $("prodProgText").textContent = "Đã xong " + d.done + "/" + d.total;
-    $("prodErrors").innerHTML = (d.errors || []).map(e => "<div>⚠️ " + e + "</div>").join("");
-    if (d.finished) {
-      clearInterval(prodPollTimer); prodPollTimer = null;
-      $("prodRunBtn").disabled = false; $("prodProgress").classList.add("hidden");
-      (d.items || []).forEach(it => prodCreations.unshift({ image: it.image, prompt: it.prompt || prompt, engine: it.engine, aspect: it.aspect, gallery: it.gallery, id: it.gallery && it.gallery.id, url: it.gallery && it.gallery.url }));
-      const note = $("prodNote"); note.className = "gen-note ok"; note.textContent = "✓ Xong " + (d.items || []).length + " ảnh.";
-      prodRenderCreations(); if (typeof loadGallery === "function") loadGallery();
-    }
-  } catch (e) { /* tiếp tục */ }
+function prodPollJob(jobId, prompt) {
+  let placed = 0;
+  const timer = setInterval(async () => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+      const items = d.items || [];
+      while (placed < items.length) {
+        const it = items[placed];
+        const real = { image: it.image, prompt: it.prompt || prompt, engine: it.engine, aspect: it.aspect, gallery: it.gallery, id: it.gallery && it.gallery.id, url: it.gallery && it.gallery.url };
+        const idx = prodCreations.findIndex(c => c.loading && c.job === jobId);
+        if (idx >= 0) prodCreations[idx] = real; else prodCreations.unshift(real);
+        placed++;
+      }
+      if (d.finished) {
+        clearInterval(timer);
+        // bỏ placeholder còn sót (ảnh lỗi)
+        prodCreations = prodCreations.filter(c => !(c.loading && c.job === jobId));
+        if ((d.errors || []).length) { const n = $("prodNote"); n.className = "gen-note err"; n.textContent = "⚠️ " + d.errors[0]; }
+        if (typeof loadGallery === "function") loadGallery();
+      }
+      prodRenderCreations();
+    } catch (e) { /* tiếp tục */ }
+  }, 2500);
 }
 
 async function prodLoadHistory() {
@@ -1725,6 +1740,13 @@ function prodRenderCreations() {
   $("prodEmpty").classList.add("hidden");
   box.innerHTML = "";
   prodCreations.forEach(c => {
+    if (c.loading) {
+      const ph = document.createElement("div"); ph.className = "fp-card fp-card-loading";
+      ph.innerHTML =
+        '<div class="fp-card-prompt">' + ((c.prompt || "").slice(0, 130)) + '</div>' +
+        '<div class="fp-loading"><span class="fp-spin"></span><span>Đang tạo… ~1 phút</span></div>';
+      box.appendChild(ph); return;
+    }
     const k = prodKey(c);
     const card = document.createElement("div"); card.className = "fp-card";
     card.innerHTML =

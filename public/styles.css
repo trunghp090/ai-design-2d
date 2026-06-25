@@ -515,3 +515,10 @@ textarea.input{resize:vertical;line-height:1.5}
 .fp-card-acts button{font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
 .fp-card-acts .b-regen{border-color:var(--violet);color:var(--violet);font-weight:600}
 .fp-card-acts button:hover{border-color:var(--violet)}
+
+/* Ảnh sản phẩm — placeholder loading khi đang gen (nhiều luồng) */
+.fp-card-loading{border-style:dashed}
+.fp-card-loading .fp-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:360px;background:#f1f1f4;color:var(--muted);font-size:13px;text-align:center;padding:16px}
+.fp-creations.grid .fp-card-loading .fp-loading{min-height:200px}
+.fp-spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--violet);border-radius:50%;animation:fpspin .8s linear infinite}
+@keyframes fpspin{to{transform:rotate(360deg)}}
