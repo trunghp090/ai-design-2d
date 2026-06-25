@@ -2557,7 +2557,7 @@ function shopRender() {
             (it.coverImage ? '<button class="btn-ghost sm shop-cover-reset">↺ Dùng ảnh áo</button>' : '') +
           '</div>' +
         '</div>' +
-        '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh)" : "🖼️ " + vars.length + " ảnh sản phẩm (media)") + ' — ⭐ bấm để chọn ảnh áo làm bìa mặc định:</div>' +
+        '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh)" : "🖼️ " + vars.length + " ảnh sản phẩm (media)") + ' — <b>bấm vào ảnh</b> (hoặc ⭐) để chọn ảnh đó làm bìa:</div>' +
         '<div class="shop-variants">' + vthumbs + "</div>" +
         shopMatrixHtml(it) +
         '<div class="shop-res">' + resv + "</div>" +
@@ -2568,7 +2568,9 @@ function shopRender() {
     row.querySelector(".shop-s").onchange = (e) => it.status = e.target.value;
     row.querySelector(".shop-x").onclick = () => { shopItems.splice(i, 1); shopRender(); };
     row.querySelectorAll(".shop-var-c").forEach(inp => inp.oninput = (e) => { vars[+e.target.dataset.vi].color = e.target.value; });
-    row.querySelectorAll(".shop-var-cover").forEach(b => b.onclick = (e) => { it.cover = +e.currentTarget.dataset.vi; shopRender(); });
+    row.querySelectorAll(".shop-var-cover").forEach(b => b.onclick = (e) => { it.cover = +e.currentTarget.dataset.vi; it.coverImage = null; shopRender(); });
+    // BẤM THẲNG vào ảnh variant -> chọn làm ảnh bìa
+    row.querySelectorAll(".shop-var img").forEach((im, vi) => { im.style.cursor = "pointer"; im.title = "Bấm để chọn làm ảnh bìa"; im.onclick = () => { it.cover = vi; it.coverImage = null; shopRender(); }; });
     const cf = row.querySelector(".shop-cover-file");
     if (cf) cf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { it.coverImage = await fileToDataURL(f); shopRender(); } e.target.value = ""; };
     const cp = row.querySelector(".shop-cover-paste");
