@@ -479,3 +479,39 @@ textarea.input{resize:vertical;line-height:1.5}
 .shop-rich{min-height:80px;max-height:320px;overflow:auto;cursor:text;line-height:1.5}
 .shop-rich:empty:before{content:attr(data-ph);color:var(--muted);pointer-events:none}
 .shop-rich img{max-width:100%;height:auto;border-radius:6px}
+
+/* ===== ẢNH SẢN PHẨM — bố cục kiểu Freepik ===== */
+.fp-layout{max-width:1280px;margin:0 auto;padding:8px 24px 40px;display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start}
+@media(max-width:900px){.fp-layout{grid-template-columns:1fr}}
+.fp-side{position:sticky;top:12px}
+.fp-label{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.fp-count{font-weight:600;color:var(--muted);font-size:11px}
+.fp-refs{display:flex;flex-wrap:wrap;gap:8px}
+.fp-ref{position:relative;width:62px;height:62px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fafafa;padding:0;flex:0 0 auto}
+.fp-ref img{width:100%;height:100%;object-fit:cover;display:block}
+.fp-ref-x{position:absolute;top:2px;right:2px;width:17px;height:17px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0}
+.fp-ref-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--violet);font-size:18px;cursor:pointer;border:1px dashed var(--line)}
+.fp-ref-add span{font-size:10px}
+.fp-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.fp-preset{font-size:12px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:inherit}
+.fp-preset:hover{border-color:var(--violet);color:var(--violet)}
+.fp-row{display:flex;gap:10px}
+.fp-viewtoggle{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.fp-viewtoggle button{border:0;background:#fff;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--muted)}
+.fp-viewtoggle button.active{background:var(--violet-soft);color:var(--violet)}
+.fp-creations.list{display:flex;flex-direction:column;gap:16px}
+.fp-creations.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.fp-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.fp-card-top{display:flex;align-items:center;justify-content:space-between;padding:7px 10px}
+.fp-pick{display:flex;align-items:center}
+.fp-pick input{width:16px;height:16px;accent-color:var(--violet);cursor:pointer}
+.fp-meta{font-size:11px;color:var(--muted)}
+.fp-card-prompt{padding:0 10px 7px;font-size:12px;color:var(--muted);line-height:1.4;max-height:54px;overflow:hidden}
+.fp-creations.grid .fp-card-prompt{display:none}
+.fp-card-img{background:#f6f6f8}
+.fp-card-img img{width:100%;display:block;cursor:zoom-in}
+.fp-creations.list .fp-card-img img{max-height:520px;object-fit:contain;margin:0 auto}
+.fp-card-acts{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-top:1px solid var(--line)}
+.fp-card-acts button{font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+.fp-card-acts .b-regen{border-color:var(--violet);color:var(--violet);font-weight:600}
+.fp-card-acts button:hover{border-color:var(--violet)}

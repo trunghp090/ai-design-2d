@@ -633,160 +633,74 @@
 
   <!-- ===== VIEW: ẢNH SẢN PHẨM (gpt-image-2 edits theo phong cách Nano Banana) ===== -->
   <section class="auto-view app-view hidden" id="view-product">
-    <div class="auto-wrap">
-      <!-- Cột nhập -->
-      <section class="panel">
-        <h2 class="panel-title">📸 Ảnh sản phẩm</h2>
-        <p class="panel-desc">Từ 1 ảnh áo (có design) → AI tạo ảnh <b>người mẫu mặc</b> &amp; <b>flatlay</b> như khách thật chụp, giữ đúng design. Dùng gpt-image-2, chạy nhiều luồng.</p>
+    <div class="fp-layout">
+      <!-- LEFT: bảng điều khiển kiểu Freepik -->
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📸 Ảnh sản phẩm</h2>
+        <p class="panel-desc" style="margin:0 0 14px">Nhập <b>prompt</b> + <b>ảnh tham chiếu</b> (áo/design) → AI gen ảnh sản phẩm, giữ đúng design.</p>
 
-        <label class="field-label">Ảnh sản phẩm (áo có design)</label>
-        <label class="dropzone" id="prodDrop">
-          <input type="file" id="prodFile" accept="image/*" hidden />
-          <div class="dz-icon">⬆️</div>
-          <div id="prodFileName">Tải ảnh áo (rõ design)</div>
-          <div class="hint">Hoặc dùng design đang mở ở Clone Design.</div>
-        </label>
-        <button class="btn-ghost sm" id="prodUseCurrent" style="margin-top:8px">⬅️ Dùng design đang mở</button>
-        <div class="thumb-row" id="prodThumbs"></div>
-
-        <label class="field-label">🧑‍🤝‍🧑 Tệp khách (ai mặc áo — đổi ảnh người mẫu)</label>
-        <div class="color-chips" id="prodSegs"></div>
-        <p class="hint" style="margin:4px 0 0">Flatlay/nền trắng/kraft không đổi theo tệp.</p>
-        <label class="ds-check" id="prodAutoNameWrap" style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:13px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="prodAutoName" /> 🤖 <b>AI tự đọc & đổi tên theo tệp</b> (couple = 2 tên · gia đình = 3 tên — mỗi người 1 tên riêng)
-        </label>
-        <input type="text" id="prodTheme" class="input" placeholder="Chủ đề/gợi ý cho tên (tuỳ chọn, vd: kỷ niệm couple)…" style="margin-top:6px;display:none" />
-
-        <label class="field-label" style="margin-top:12px">Nhóm ảnh (mỗi nhóm nhiều góc — bấm chọn)</label>
-        <div class="color-chips" id="prodShots"></div>
-        <p class="hint" id="prodCount" style="margin-top:6px"></p>
-
-        <label class="field-label" style="margin-top:12px">Bối cảnh người mẫu (đời thường VN)</label>
-        <select id="prodBg" class="input">
-          <option value="cafe">Quán cà phê indie</option>
-          <option value="trasua">Quán trà sữa</option>
-          <option value="street_food">Quán ăn vỉa hè</option>
-          <option value="rooftop">Rooftop café</option>
-          <option value="river">Bờ kè sông/hồ</option>
-          <option value="park">Công viên cây xanh</option>
-          <option value="oldquarter">Phố cổ / hẻm nhỏ</option>
-          <option value="walkingstreet">Phố đi bộ</option>
-          <option value="bedroom">Phòng ngủ sáng</option>
-          <option value="balcony">Ban công chung cư</option>
-        </select>
-
-        <label class="field-label" style="margin-top:12px">📐 Tỉ lệ ảnh</label>
-        <select id="prodAspect" class="input">
-          <option value="auto">Tự động theo loại ảnh</option>
-          <option value="1:1">Vuông 1:1</option>
-          <option value="4:5">Dọc 4:5 (hợp feed)</option>
-          <option value="2:3">Dọc 2:3</option>
-          <option value="3:4">Dọc 3:4</option>
-          <option value="9:16">Dọc 9:16 (story/reel)</option>
-          <option value="3:2">Ngang 3:2</option>
-          <option value="4:3">Ngang 4:3</option>
-          <option value="16:9">Ngang 16:9</option>
-        </select>
-
-        <label class="field-label" style="margin-top:12px">🎨 Model gen ảnh</label>
+        <label class="fp-label">MODEL</label>
         <select id="prodEngine" class="input"></select>
-        <p class="hint" id="prodNanoHint" style="margin-top:4px"></p>
+        <p class="hint" id="prodNanoHint" style="margin:4px 0 0"></p>
 
-        <label class="ds-check" id="prodAiWrap" style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:13px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="prodAi" /> 🤖 <b>AI tự viết prompt</b> (Claude nhìn ảnh áo → mô tả cảnh thật, đỡ giả)
-        </label>
-        <p class="hint" id="prodAiHint" style="margin-top:2px"></p>
+        <label class="fp-label" style="margin-top:14px">REFERENCES <span id="prodRefCount" class="fp-count">0/6</span></label>
+        <div class="fp-refs" id="prodRefs"></div>
+        <input type="file" id="prodFile" accept="image/*" multiple hidden />
+        <button class="btn-ghost sm" id="prodUseCurrent" style="margin-top:6px">⬅️ Dùng design đang mở</button>
 
-        <!-- Quy trình 2 bước: Claude sinh prompt → bạn duyệt/chọn → Nano Banana gen -->
-        <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px;background:rgba(127,127,127,.04)">
-          <div style="font-weight:600;font-size:13px;margin-bottom:6px">✍️ Quy trình duyệt prompt (khuyên dùng)</div>
-          <p class="hint" style="margin:0 0 10px">Claude nhìn ảnh áo → viết prompt cho từng góc → <b>bạn sửa/chọn</b> prompt → Nano Banana gen ảnh.</p>
-          <button class="btn-primary" id="prodGenPromptBtn">✍️ Bước 1 · Sinh prompt từ ảnh</button>
-          <div class="batch-progress hidden" id="prodPpProgress" style="margin-top:8px">
-            <div class="bp-bar"><div class="bp-fill" id="prodPpBar"></div></div>
-            <span id="prodPpText" class="hint"></span>
+        <label class="fp-label" style="margin-top:14px">PROMPT</label>
+        <div class="fp-presets" id="prodPresets"></div>
+        <textarea id="prodPrompt" class="input" rows="8" placeholder="Mô tả ảnh sản phẩm muốn tạo — tiếng Anh tốt nhất. VD: Flatlay on a light cream fabric sofa, soft natural daylight, the t-shirt design large exactly as in the reference…"></textarea>
+        <button class="btn-ghost sm" id="prodSuggestBtn" style="margin-top:6px">🤖 AI gợi ý prompt từ ảnh</button>
+
+        <div class="fp-row" style="margin-top:12px">
+          <div style="flex:1">
+            <label class="fp-label">📐 Tỉ lệ</label>
+            <select id="prodAspect" class="input">
+              <option value="4:5">Dọc 4:5</option>
+              <option value="1:1">Vuông 1:1</option>
+              <option value="2:3">Dọc 2:3</option>
+              <option value="3:4">Dọc 3:4</option>
+              <option value="9:16">Dọc 9:16</option>
+              <option value="3:2">Ngang 3:2</option>
+              <option value="16:9">Ngang 16:9</option>
+            </select>
           </div>
-          <p class="gen-note" id="prodPpNote"></p>
+          <div style="width:90px">
+            <label class="fp-label">Số ảnh</label>
+            <select id="prodCount" class="input">
+              <option value="1">1</option><option value="2">2</option><option value="4">4</option>
+            </select>
+          </div>
         </div>
 
-        <details style="margin-top:12px">
-          <summary class="hint" style="cursor:pointer">⚡ Hoặc gen nhanh 1 phát (AI tự chọn prompt, không duyệt)</summary>
-          <button class="btn-ghost" id="prodRunBtn" style="margin-top:8px;width:100%">📸 Tạo ảnh sản phẩm ngay</button>
-        </details>
-        <div class="batch-progress hidden" id="prodProgress">
+        <button class="btn-primary" id="prodRunBtn" style="margin-top:14px">✨ Generate</button>
+        <div class="batch-progress hidden" id="prodProgress" style="margin-top:8px">
           <div class="bp-bar"><div class="bp-fill" id="prodBar"></div></div>
           <span id="prodProgText" class="hint"></span>
         </div>
         <p class="gen-note" id="prodNote"></p>
         <div id="prodErrors" class="batch-errors"></div>
-      </section>
+      </aside>
 
-      <!-- Cột kết quả -->
-      <section class="panel">
-        <!-- Bước 2: prompt đề xuất — duyệt, sửa, chọn rồi gen -->
-        <div id="prodPromptWrap" class="hidden" style="margin-bottom:18px">
-          <div class="gallery-head">
-            <h3>✍️ Prompt đề xuất — sửa & chọn để gen</h3>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn-ghost sm" id="prodPromptAll">Chọn tất cả</button>
-              <button class="btn-primary sm" id="prodRenderBtn">🎨 Gen ảnh đã chọn (0)</button>
+      <!-- RIGHT: Creations -->
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">🖼️ Ảnh đã tạo <span id="prodCount2" class="fp-count"></span></h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-ghost sm strong" id="prodToShopify">🛍️ Đưa vào Shopify (0)</button>
+            <button class="btn-ghost sm" id="prodHistRefresh" title="Tải lại">🔄</button>
+            <div class="fp-viewtoggle">
+              <button id="prodViewList" class="active" title="Danh sách">☰</button>
+              <button id="prodViewGrid" title="Lưới">▦</button>
             </div>
           </div>
-          <p class="hint" style="margin:-6px 0 10px">Tick prompt muốn dùng · sửa trực tiếp nếu cần · bấm Gen (Nano Banana).</p>
-          <div id="prodPromptList" class="pp-list"></div>
-          <div class="batch-progress hidden" id="prodRenderProgress" style="margin-top:10px">
-            <div class="bp-bar"><div class="bp-fill" id="prodRenderBar"></div></div>
-            <span id="prodRenderText" class="hint"></span>
-          </div>
         </div>
-
-        <div class="gallery-head">
-          <h3>Ảnh đã tạo</h3>
-          <div style="display:flex;gap:8px">
-            <button class="btn-ghost sm strong" id="prodToShopify">🛍️ Đẩy Shopify (0)</button>
-            <button class="btn-ghost sm" id="prodDownloadAll">⬇ Tải tất cả (0)</button>
-          </div>
-        </div>
-        <div class="auto-grid" id="prodResults"></div>
-        <div class="gallery-empty" id="prodEmpty">Tải ảnh áo + chọn loại ảnh rồi bấm Tạo.</div>
-
-        <div class="gallery-head" style="margin-top:20px">
-          <h3>📁 Ảnh sản phẩm đã tạo (lịch sử)</h3>
-          <div style="display:flex;gap:8px">
-            <button class="btn-ghost sm strong" id="prodHistToShop">🛍️ Đưa vào SP Shopify (0)</button>
-            <button class="btn-ghost sm" id="prodHistRefresh">🔄 Tải lại</button>
-          </div>
-        </div>
-        <p class="hint" style="margin:-8px 0 8px">Tích chọn ảnh → bấm "Đưa vào SP Shopify" → chọn sản phẩm.</p>
-        <div class="auto-grid" id="prodHistory"></div>
-        <div class="gallery-empty" id="prodHistEmpty">Chưa có ảnh sản phẩm nào trong lịch sử.</div>
+        <p class="hint" style="margin:-6px 0 10px">Tick ảnh để đưa vào Shopify · <b>🔄 Tạo lại</b> nếu ảnh chưa đẹp (gen lại cùng prompt).</p>
+        <div id="prodCreations" class="fp-creations list"></div>
+        <div class="gallery-empty" id="prodEmpty">Chưa có ảnh. Nhập prompt + thêm ảnh tham chiếu rồi bấm Generate.</div>
       </section>
     </div>
-
-    <!-- Content bán hàng: Facebook + TikTok -->
-    <section class="panel" style="margin-top:20px">
-      <div class="gallery-head">
-        <h3>🛒 Content bán hàng (Facebook + TikTok)</h3>
-        <button class="btn-primary" id="contentRunBtn" style="width:auto;padding:8px 16px">✍️ Tạo content</button>
-      </div>
-      <input type="text" id="contentInfo" class="input"
-        placeholder="(Tuỳ chọn) Tên sản phẩm · giá · tên cặp · link… để AI viết sát hơn" />
-      <p class="gen-note" id="contentNote"></p>
-      <div class="content-grid" id="contentOut" hidden>
-        <div class="content-box">
-          <div class="cb-head">📢 Facebook Ads <button class="btn-ghost sm cb-copy" data-target="cbFacebook">📋 Copy</button></div>
-          <textarea id="cbFacebook" class="input" rows="8" readonly></textarea>
-        </div>
-        <div class="content-box">
-          <div class="cb-head">🎬 Kịch bản TikTok ảnh cuộn <button class="btn-ghost sm cb-copy" data-target="cbScript">📋 Copy</button></div>
-          <textarea id="cbScript" class="input" rows="8" readonly></textarea>
-        </div>
-        <div class="content-box">
-          <div class="cb-head">📱 Caption TikTok <button class="btn-ghost sm cb-copy" data-target="cbCaption">📋 Copy</button></div>
-          <textarea id="cbCaption" class="input" rows="5" readonly></textarea>
-        </div>
-      </div>
-    </section>
   </section>
 
   <!-- ===== VIEW: TẠO DESIGN (text-to-image theo phong cách) ===== -->

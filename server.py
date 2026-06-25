@@ -1288,6 +1288,39 @@ def product_prompt_ai(img_bytes, cat, vk, bg_key, seg="single"):
         return base
 
 
+# ===== Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu =====
+def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
+    """Gen `count` ảnh từ 1 prompt + ảnh tham chiếu (prompt-driven)."""
+    size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
+    asp = aspect if aspect and aspect != "auto" else ""
+
+    def work(i):
+        try:
+            b64 = gen_shot(imgs, prompt, size, engine, asp)
+            g = gallery_add(b64, {"mode": "product", "prompt": prompt[:140]})
+            return {"image": b64, "title": prompt[:80], "prompt": prompt,
+                    "engine": engine, "aspect": aspect or "auto", "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": "Lỗi"}
+        except Exception as e:
+            return {"error": str(e), "title": "Lỗi"}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, range(count)):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append(res["error"])
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
     def work(shot):
         try:
@@ -3279,6 +3312,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_save_design(body)
         if path == "/api/batch-excel":
             return self.handle_batch_excel(body)
+        if path == "/api/prod-generate":
+            return self.handle_prod_generate(body)
+        if path == "/api/prod-suggest":
+            return self.handle_prod_suggest(body)
         if path == "/api/product-photos":
             return self.handle_product_photos(body)
         if path == "/api/product-seg":
@@ -4125,6 +4162,56 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})
+
+    def handle_prod_generate(self, body):
+        """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""
+        if not API_KEY and not GEMINI_API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY / GEMINI_API_KEY."})
+        prompt = (body.get("prompt") or "").strip()
+        if not prompt:
+            return self.json(400, {"error": "Hãy nhập mô tả (prompt)."})
+        srcs = [s for s in (body.get("images") or []) if s][:6]
+        imgs = []
+        for s in srcs:
+            d, m = fetch_image_bytes(s)
+            if d:
+                imgs.append((d, m or "image/png"))
+        if not imgs:
+            return self.json(400, {"error": "Cần ít nhất 1 ảnh tham chiếu (ảnh áo/design)."})
+        engine = resolve_engine_id(body)
+        aspect = (body.get("aspect") or "4:5").strip()
+        try:
+            count = max(1, min(int(body.get("count", 1) or 1), 4))
+        except Exception:
+            count = 1
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pg%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": count, "done": 0, "items": [], "errors": [], "finished": False}
+        t = threading.Thread(target=run_prod_gen_job,
+                             args=(job_id, imgs, prompt, engine, aspect, count), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": count})
+
+    def handle_prod_suggest(self, body):
+        """AI nhìn ảnh tham chiếu -> gợi ý 1 prompt ảnh sản phẩm (cho user sửa)."""
+        if not (ANTHROPIC_API_KEY or API_KEY):
+            return self.json(400, {"error": "Chưa cấu hình ANTHROPIC_API_KEY / OPENAI_API_KEY."})
+        src = body.get("image", "")
+        d, _ = fetch_image_bytes(src)
+        if not d:
+            return self.json(400, {"error": "Cần ảnh tham chiếu."})
+        kind = body.get("kind", "model")
+        m = {"model": ("model", "solo_f"), "flatlay": ("flatlay", "spread"),
+             "white": ("white", "topdown"), "kraft": ("kraft", "topdown")}
+        cat, vk = m.get(kind, ("model", "solo_f"))
+        try:
+            p = product_prompt_ai(d, cat, vk, body.get("bg", "cafe"), "single")
+            return self.json(200, {"prompt": p})
+        except urllib.error.HTTPError as e:
+            return self.json(400, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": str(e)})
 
     def handle_product_seg(self, body):
         """Ảnh sản phẩm theo TỆP: AI đọc design -> tự đổi tên (couple/gia đình/nhóm/1 mình) -> gen."""
