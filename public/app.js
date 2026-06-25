@@ -1598,6 +1598,7 @@ let prodRefs = [];            // ảnh tham chiếu (data URL / url)
 let prodCreations = [];       // {image?, url?, id?, prompt, engine, aspect, gallery}
 let prodSel = new Set();      // key ảnh đã tick để đưa vào Shopify
 let prodView = "list";
+let prodStyle = null;         // ảnh style để copy phong cách (tuỳ chọn)
 let prodPollTimer = null;
 
 function prodInit() {
@@ -1606,6 +1607,7 @@ function prodInit() {
   prodCheckEngine();
   $("prodFile").onchange = async (e) => { for (const f of e.target.files) { if (f.type.startsWith("image/")) prodRefs.push(await fileToDataURL(f)); } e.target.value = ""; prodRenderRefs(); };
   $("prodUseCurrent").onclick = () => { if (!currentDesign) { alert("Chưa có design đang mở ở Clone Design."); return; } prodRefs.push("data:image/png;base64," + currentDesign); prodRenderRefs(); };
+  $("prodStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodStyle = await fileToDataURL(f); prodRenderStyle(); } e.target.value = ""; };
   $("prodSuggestBtn").onclick = prodSuggest;
   $("prodRunBtn").onclick = () => prodGenerate($("prodPrompt").value, parseInt($("prodCount").value, 10) || 1);
   $("prodViewList").onclick = () => prodSetView("list");
@@ -1613,6 +1615,7 @@ function prodInit() {
   $("prodHistRefresh").onclick = prodLoadHistory;
   $("prodToShopify").onclick = prodPushSel;
   prodRenderRefs();
+  prodRenderStyle();
   prodLoadHistory();
 }
 
@@ -1645,6 +1648,19 @@ function prodRenderRefs() {
   $("prodRefCount").textContent = prodRefs.length + "/6";
 }
 
+function prodRenderStyle() {
+  const box = $("prodStyleRef"); if (!box) return; box.innerHTML = "";
+  if (prodStyle) {
+    const d = document.createElement("div"); d.className = "fp-ref";
+    d.innerHTML = '<img src="' + prodStyle + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
+    d.querySelector(".fp-ref-x").onclick = () => { prodStyle = null; prodRenderStyle(); };
+    box.appendChild(d);
+  } else {
+    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
+    add.innerHTML = "🎨<span>Style</span>"; add.onclick = () => $("prodStyleFile").click(); box.appendChild(add);
+  }
+}
+
 async function prodSuggest() {
   if (!prodRefs.length) { alert("Thêm ảnh tham chiếu trước."); return; }
   const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang gợi ý…";
@@ -1662,7 +1678,7 @@ async function prodGenerate(prompt, count) {
   if (!prompt) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt."; return; }
   $("prodRunBtn").disabled = true; $("prodProgress").classList.remove("hidden"); $("prodBar").style.width = "0%"; $("prodProgText").textContent = "Đang gửi…"; $("prodErrors").innerHTML = "";
   try {
-    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, prompt, engine: ($("prodEngine") && $("prodEngine").value) || "", aspect: $("prodAspect").value || "4:5", count }) });
+    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", prompt, engine: ($("prodEngine") && $("prodEngine").value) || "", aspect: $("prodAspect").value || "4:5", count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (prodPollTimer) clearInterval(prodPollTimer);
     prodPollTimer = setInterval(() => prodPoll(d.job_id, prompt), 2500); prodPoll(d.job_id, prompt);

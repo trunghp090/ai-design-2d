@@ -4178,6 +4178,15 @@ class Handler(BaseHTTPRequestHandler):
                 imgs.append((d, m or "image/png"))
         if not imgs:
             return self.json(400, {"error": "Cần ít nhất 1 ảnh tham chiếu (ảnh áo/design)."})
+        # ảnh STYLE (tuỳ chọn) -> thêm làm ref CUỐI + chỉ thị copy phong cách
+        style_src = body.get("style", "")
+        if style_src:
+            sd, sm = fetch_image_bytes(style_src)
+            if sd:
+                imgs.append((sd, sm or "image/png"))
+                prompt += (" Use the FINAL reference image PURELY as a STYLE reference — match its "
+                           "colour palette, lighting, mood, texture and overall artistic/visual style; "
+                           "do NOT copy its content, subject, text or layout, only its look & feel.")
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
         try:
