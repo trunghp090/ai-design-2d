@@ -522,3 +522,9 @@ textarea.input{resize:vertical;line-height:1.5}
 .fp-creations.grid .fp-card-loading .fp-loading{min-height:200px}
 .fp-spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--violet);border-radius:50%;animation:fpspin .8s linear infinite}
 @keyframes fpspin{to{transform:rotate(360deg)}}
+
+/* Đẩy Shopify — block chọn ảnh bìa riêng */
+.shop-cover{display:flex;gap:10px;align-items:center;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:10px;background:rgba(124,58,237,.04)}
+.shop-cover-img{width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:0 0 auto}
+.shop-cover-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.shop-cover-lbl{font-size:12px;color:var(--muted);width:100%}

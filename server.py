@@ -4090,7 +4090,16 @@ class Handler(BaseHTTPRequestHandler):
             cover = 0
         order = [cover] + [i for i in range(len(variants_in)) if i != cover]
         pos = 1
-        # ảnh bìa = ảnh variant được chọn (vị trí 1 = featured)
+        # ẢNH BÌA RIÊNG (tuỳ chọn) -> vị trí 1 = featured (không gắn variant)
+        cover_src = (it.get("coverImage") or "").strip()
+        if cover_src:
+            cd, _ = fetch_image_bytes(cover_src)
+            if cd:
+                shopify_api("POST", "products/%d/images.json" % pid,
+                            {"image": {"attachment": base64.b64encode(cd).decode(),
+                                       "position": pos, "alt": "Ảnh bìa"}})
+                pos += 1
+        # ảnh variant được chọn (featured nếu không có ảnh bìa riêng)
         attach(variants_in[order[0]], pos); pos += 1
         # bảng size đặt ngay sau ảnh bìa
         chart = size_chart or shop_default_size_chart()

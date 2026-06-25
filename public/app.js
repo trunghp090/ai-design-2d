@@ -2475,6 +2475,13 @@ function shopMatrixHtml(it) {
   return '<details class="vm-box"><summary>🧩 Xem đủ ' + rows.length + ' variant (Color×Size)</summary>' +
     '<div class="vm-list">' + rows.join("") + "</div></details>";
 }
+// ảnh bìa: ảnh riêng (it.coverImage) nếu có, không thì ảnh variant đã chọn (⭐)
+function shopCoverSrc(it) {
+  if (it.coverImage) return it.coverImage;
+  const vars = it.variants || [];
+  const ci = (typeof it.cover === "number" && it.cover < vars.length) ? it.cover : 0;
+  return vars[ci] ? "data:image/png;base64," + vars[ci].image : "";
+}
 function shopRender() {
   const box = $("shopList");
   $("shopCount").textContent = shopItems.length;
@@ -2489,6 +2496,7 @@ function shopRender() {
       : "";
     const vars = it.variants || [];
     if (typeof it.cover !== "number" || it.cover >= vars.length) it.cover = 0;
+    const coverSrc = shopCoverSrc(it);
     const vthumbs = vars.map((v, vi) =>
       '<div class="shop-var' + (vi === it.cover ? " cover" : "") + '">' +
         '<img src="data:image/png;base64,' + v.image + '" alt="">' +
@@ -2497,14 +2505,23 @@ function shopRender() {
         '<button class="shop-var-x" data-vi="' + vi + '" title="bỏ variant">×</button>' +
       "</div>").join("");
     row.innerHTML =
-      '<img src="data:image/png;base64,' + (vars[0] ? vars[0].image : "") + '" alt="">' +
+      '<img src="' + coverSrc + '" alt="">' +
       '<div class="shop-fields">' +
         '<input class="input sm shop-t" placeholder="Tên sản phẩm (để trống = AI tự viết)" value="' + (it.title || "").replace(/"/g, "&quot;") + '">' +
         '<textarea class="input sm shop-d" rows="2" placeholder="Mô tả (để trống = AI tự viết / dùng mặc định)">' + (it.description || "") + '</textarea>' +
         '<div class="shop-mini"><input class="input sm shop-p" placeholder="Giá VND" value="' + (it.price || "") + '">' +
         '<select class="input sm shop-s"><option value="DRAFT"' + (it.status === "DRAFT" ? " selected" : "") + '>Nháp</option><option value="ACTIVE"' + (it.status === "ACTIVE" ? " selected" : "") + '>Đăng bán</option></select>' +
         '<button class="shop-x">✕</button></div>' +
-        '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh)" : "🖼️ " + vars.length + " ảnh sản phẩm (media)") + ' — ⭐ bấm để chọn <b>ảnh bìa</b>:</div>' +
+        '<div class="shop-cover">' +
+          '<img class="shop-cover-img" src="' + coverSrc + '" alt="">' +
+          '<div class="shop-cover-acts">' +
+            '<div class="shop-cover-lbl">📌 <b>Ảnh bìa</b> ' + (it.coverImage ? '· ảnh riêng' : '· đang dùng ảnh áo (⭐)') + '</div>' +
+            '<label class="btn-ghost sm">📁 Đổi ảnh bìa<input type="file" class="shop-cover-file" accept="image/*" hidden></label>' +
+            '<button class="btn-ghost sm shop-cover-paste">📋 Dán</button>' +
+            (it.coverImage ? '<button class="btn-ghost sm shop-cover-reset">↺ Dùng ảnh áo</button>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="shop-vlabel">' + (vars.some(v => (v.color || "").trim()) ? "🎨 " + vars.length + " variant màu (mỗi màu 1 ảnh)" : "🖼️ " + vars.length + " ảnh sản phẩm (media)") + ' — ⭐ bấm để chọn ảnh áo làm bìa mặc định:</div>' +
         '<div class="shop-variants">' + vthumbs + "</div>" +
         shopMatrixHtml(it) +
         '<div class="shop-res">' + resv + "</div>" +
@@ -2516,6 +2533,15 @@ function shopRender() {
     row.querySelector(".shop-x").onclick = () => { shopItems.splice(i, 1); shopRender(); };
     row.querySelectorAll(".shop-var-c").forEach(inp => inp.oninput = (e) => { vars[+e.target.dataset.vi].color = e.target.value; });
     row.querySelectorAll(".shop-var-cover").forEach(b => b.onclick = (e) => { it.cover = +e.currentTarget.dataset.vi; shopRender(); });
+    const cf = row.querySelector(".shop-cover-file");
+    if (cf) cf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { it.coverImage = await fileToDataURL(f); shopRender(); } e.target.value = ""; };
+    const cp = row.querySelector(".shop-cover-paste");
+    if (cp) cp.onclick = async () => {
+      try { const items = await navigator.clipboard.read(); for (const i of items) { const t = (i.types || []).find(x => x.startsWith("image/")); if (t) { it.coverImage = await fileToDataURL(await i.getType(t)); shopRender(); return; } } alert("Clipboard không có ảnh."); }
+      catch (er) { alert("Trình duyệt chặn đọc clipboard — dùng 📁 Đổi ảnh bìa."); }
+    };
+    const cr = row.querySelector(".shop-cover-reset");
+    if (cr) cr.onclick = () => { it.coverImage = null; shopRender(); };
     row.querySelectorAll(".shop-var-x").forEach(b => b.onclick = (e) => {
       vars.splice(+e.target.dataset.vi, 1);
       if (!vars.length) shopItems.splice(i, 1);
@@ -2549,7 +2575,7 @@ async function shopPush() {
         sizes: $("shopUseSizes").checked
           ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)
           : [],
-        items: shopItems.map(it => ({ title: it.title, description: it.description, price: it.price, status: it.status, cover: it.cover || 0, variants: (it.variants || []).map(v => ({ image: v.image, color: v.color })) })),
+        items: shopItems.map(it => ({ title: it.title, description: it.description, price: it.price, status: it.status, cover: it.cover || 0, coverImage: it.coverImage || "", variants: (it.variants || []).map(v => ({ image: v.image, color: v.color })) })),
       }),
     });
     const d = await r.json();
