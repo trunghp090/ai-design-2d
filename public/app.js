@@ -1599,12 +1599,6 @@ let prodCreations = [];       // {image?, url?, id?, prompt, engine, aspect, gal
 let prodSel = new Set();      // key ảnh đã tick để đưa vào Shopify
 let prodView = "list";
 let prodPollTimer = null;
-const PROD_PRESETS = [
-  { label: "👤 Người mẫu café", text: "A candid casual smartphone photo of a young Vietnamese person in a bright airy indie café, wearing an oversized t-shirt whose LARGE full-front chest print is exactly the design in the reference image. Waist-up, gentle natural smile, neutral bright daylight, true fabric colour. Casual smartphone photo, photorealistic, not CGI." },
-  { label: "🛋️ Flatlay sofa", text: "Flatlay photo of the t-shirt from the reference image on a light cream fabric sofa cushion, laid flat and open, the printed design large exactly as in the reference. Soft natural daylight, bright airy neutral, fabric colour true, no props. Photorealistic, real cotton texture, not 3D, not CGI." },
-  { label: "⬜ Nền trắng", text: "Product photo of the t-shirt from the reference image fully spread open flat on a pure white seamless background, sleeves extended, the design large exactly as in the reference, soft even neutral lighting with a soft contact shadow, real cotton texture. Photorealistic, not 3D, not CGI." },
-  { label: "📦 Hộp kraft", text: "Photo of the folded t-shirt from the reference image inside a plain kraft flip-open box lined with white tissue paper, the chest design visible exactly as in the reference. Soft natural daylight, bright neutral, no extra props. Photorealistic, real cotton texture, not 3D, not CGI." },
-];
 
 function prodInit() {
   if (prodInited) { prodLoadHistory(); return; }
@@ -1612,8 +1606,6 @@ function prodInit() {
   prodCheckEngine();
   $("prodFile").onchange = async (e) => { for (const f of e.target.files) { if (f.type.startsWith("image/")) prodRefs.push(await fileToDataURL(f)); } e.target.value = ""; prodRenderRefs(); };
   $("prodUseCurrent").onclick = () => { if (!currentDesign) { alert("Chưa có design đang mở ở Clone Design."); return; } prodRefs.push("data:image/png;base64," + currentDesign); prodRenderRefs(); };
-  const pp = $("prodPresets");
-  PROD_PRESETS.forEach(p => { const el = document.createElement("button"); el.className = "fp-preset"; el.type = "button"; el.textContent = p.label; el.onclick = () => { $("prodPrompt").value = p.text; }; pp.appendChild(el); });
   $("prodSuggestBtn").onclick = prodSuggest;
   $("prodRunBtn").onclick = () => prodGenerate($("prodPrompt").value, parseInt($("prodCount").value, 10) || 1);
   $("prodViewList").onclick = () => prodSetView("list");
