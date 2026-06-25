@@ -1,6 +1,7 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 let currentDesign = null; // base64 (không data: prefix) của design hiện tại
+let lastCloneSource = null; // ảnh GỐC (data URL/url) dùng để clone -> đối chiếu
 
 /* ---------- kiểm tra đăng nhập (chưa thì sang /auth.html) ---------- */
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
@@ -160,6 +161,7 @@ $("generateBtn").onclick = async () => {
   const cropOn = $("cropEnable").checked && uploaded.length && !$("cropArea").classList.contains("hidden");
   if (cropOn) { try { upl[cropIndex] = await croppedDataURL(); } catch (e) { /* dùng ảnh gốc */ } }
   const images = [...upl, ...urls];
+  lastCloneSource = images[0] || null;   // ảnh gốc để đối chiếu sau khi tách nền
 
   const btn = $("generateBtn"); btn.disabled = true;
   $("emptyState").classList.add("hidden");
@@ -200,8 +202,32 @@ function showDesign(b64) {
   $("resultActions").classList.remove("hidden");
   $("textTool").classList.remove("hidden");
   $("emptyState").classList.add("hidden");
+  if ($("cloneCheckBtn")) $("cloneCheckBtn").classList.toggle("hidden", !lastCloneSource);
   if (textState.text.trim()) { $("resultImg").onload = positionTextLayer; }
 }
+// AI đối chiếu mẫu gốc vs kết quả tách nền -> vẽ lại cho khớp
+if ($("cloneCheckBtn")) $("cloneCheckBtn").onclick = async () => {
+  const note = $("cloneCheckNote");
+  if (!lastCloneSource || !currentDesign) { note.className = "gen-note err"; note.textContent = "⚠️ Cần ảnh gốc đã tải lên + kết quả."; return; }
+  const btn = $("cloneCheckBtn"), old = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang đối chiếu…";
+  note.className = "gen-note"; note.textContent = "AI đang so sánh mẫu gốc với kết quả & vẽ lại cho khớp…";
+  try {
+    const r = await fetch("/api/clone-check", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ original: lastCloneSource, result: "data:image/png;base64," + currentDesign, size: $("size").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi đối chiếu");
+    showDesign(d.image);
+    loadGallery();
+    const diffs = (d.differences || []);
+    note.className = "gen-note ok";
+    note.innerHTML = "✓ Đã đối chiếu & sửa lại cho khớp mẫu gốc." +
+      (diffs.length ? "<br>Đã chỉnh: " + diffs.slice(0, 6).map(x => "• " + x).join("  ") : "");
+  } catch (err) {
+    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
+  } finally { btn.disabled = false; btn.textContent = old; }
+};
 
 /* ---------- chèn chữ sắc nét (canvas, không qua AI) ---------- */
 const textState = { fx: 0.5, fy: 0.72, sizePct: 7, font: "'Dancing Script', cursive", color: "#ffffff", italic: true, text: "" };

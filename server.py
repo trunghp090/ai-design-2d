@@ -2738,6 +2738,41 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None):
     return b64, p
 
 
+def clone_compare_fix(orig_bytes, result_bytes, size="auto", transparent=True):
+    """AI đối chiếu MẪU GỐC vs KẾT QUẢ (sau tách nền) -> liệt kê khác biệt -> vẽ lại từ gốc cho khớp.
+    Trả (b64_đã_sửa, info{match,differences,fix})."""
+    ob = base64.b64encode(orig_bytes).decode()
+    rb = base64.b64encode(result_bytes).decode()
+    sys = ("Bạn là QC thiết kế áo. ẢNH 1 = mẫu GỐC. ẢNH 2 = KẾT QUẢ sau khi clone/tách nền. "
+           "Chỉ so sánh PHẦN ĐỒ HOẠ/CHỮ (artwork), BỎ QUA màu nền — nền luôn để TRONG SUỐT. "
+           "So sánh KỸ: chi tiết/nét/CHỮ (đúng từng chữ & dấu tiếng Việt)/MÀU CHỮ/bố cục/độ dày nét "
+           "bị MẤT, SAI, LỆCH, RĂNG CƯA, THIẾU hoặc THỪA so với gốc. Trả JSON "
+           "{\"match\": true/false, \"differences\": [\"...\" tiếng Việt ngắn gọn về ĐỒ HOẠ], "
+           "\"fix\": \"câu lệnh TIẾNG ANH vẽ lại đồ hoạ/chữ cho GIỐNG HỆT mẫu gốc (giữ mọi chi "
+           "tiết/chữ/màu chữ/bố cục/độ dày nét). TUYỆT ĐỐI KHÔNG nhắc tới màu nền/background.\"}.")
+    content = [{"type": "text", "text": "ẢNH 1 = GỐC. ẢNH 2 = KẾT QUẢ. So sánh & trả JSON đúng schema."},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + ob}},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + rb}}]
+    info = {"match": True, "differences": [], "fix": ""}
+    try:
+        raw = openai_chat([{"role": "system", "content": sys},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=900)
+        d = json.loads(raw)
+        if isinstance(d, dict):
+            info = d
+    except Exception:
+        pass
+    fix = (info.get("fix") or "").strip()
+    instr = ("Recreate the reference design with 100% fidelity — IDENTICAL artwork, every letter and "
+             "word (correct Vietnamese diacritics), every color, detail, line and composition as the "
+             "reference image. Do NOT omit, simplify, recolor, move or redraw anything. "
+             + (("Specifically fix these issues: " + fix + " ") if fix else "")
+             + "Output crisp and complete on a clean, fully transparent background with smooth "
+               "anti-aliased edges.")
+    b64, _ = gen_design([(orig_bytes, "image/png")], "cloner", "", size, transparent, override=instr)
+    return b64, info
+
+
 def upscale_png(raw, target_long=4500):
     if not HAS_PIL:
         return raw  # không có Pillow -> trả nguyên bản
@@ -3221,6 +3256,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/generate":
             return self.handle_generate(body)
+        if path == "/api/clone-check":
+            return self.handle_clone_check(body)
         if path == "/api/auto-gen":
             return self.handle_auto_gen(body)
         if path == "/api/recolor":
@@ -3347,6 +3384,31 @@ class Handler(BaseHTTPRequestHandler):
                                "method": method if (method != "ai" or HAS_REMBG) else "white"})
 
     # ---------- handlers ----------
+    def handle_clone_check(self, body):
+        """AI đối chiếu mẫu GỐC vs KẾT QUẢ (sau tách nền) -> vẽ lại cho khớp."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        o = body.get("original", "")
+        r = body.get("result", "")
+        if not o or not r:
+            return self.json(400, {"error": "Cần ảnh GỐC (đã tải lên) và ảnh KẾT QUẢ."})
+        ob, _ = fetch_image_bytes(o)
+        rb, _ = fetch_image_bytes(r)
+        if not ob or not rb:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        size = body.get("size", "auto")
+        try:
+            b64, info = clone_compare_fix(ob, rb, size)
+            g = gallery_add(b64, {"mode": "design", "prompt": "Đối chiếu & sửa"})
+            return self.json(200, {"image": b64, "gallery": g,
+                                   "match": bool(info.get("match")),
+                                   "differences": info.get("differences", []),
+                                   "fix": info.get("fix", "")})
+        except urllib.error.HTTPError as e:
+            return self.json(400, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": str(e)})
+
     def handle_generate(self, body):
         sources = body.get("images") or []
         if isinstance(sources, str):
