@@ -2588,18 +2588,33 @@ function shopInit() {
   shopCheckStatus();
   // Dán ảnh (Ctrl/Cmd+V) thẳng vào ô mô tả -> chèn <img> base64 vào mô tả
   const sd = $("shopDesc");
-  if (sd) sd.addEventListener("paste", async (e) => {
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    for (const it of items) {
-      if (it.type && it.type.startsWith("image/")) {
-        e.preventDefault();
-        const durl = await fileToDataURL(it.getAsFile());
-        document.execCommand("insertHTML", false,
-          '<img src="' + durl + '" style="max-width:100%;height:auto;display:block;margin:6px 0">');
-        return;
+  if (sd) {
+    sd.addEventListener("paste", async (e) => {
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      for (const it of items) {
+        if (it.type && it.type.startsWith("image/")) {
+          e.preventDefault();
+          const durl = await fileToDataURL(it.getAsFile());
+          document.execCommand("insertHTML", false,
+            '<img src="' + durl + '" style="max-width:100%;height:auto;display:block;margin:6px 0">');
+          return;
+        }
       }
-    }
-  });
+    });
+    // tự điền mô tả MẶC ĐỊNH đã lưu (chữ + ảnh)
+    try {
+      const saved = localStorage.getItem("shopDescDefault");
+      if (saved && !sd.textContent.trim() && !sd.querySelector("img")) sd.innerHTML = saved;
+    } catch (e) {}
+  }
+  if ($("shopDescSaveDefault")) $("shopDescSaveDefault").onclick = (e) => {
+    try { localStorage.setItem("shopDescDefault", $("shopDesc").innerHTML || ""); } catch (er) {}
+    const b = e.currentTarget, o = b.textContent; b.textContent = "✓ Đã lưu mặc định"; setTimeout(() => b.textContent = o, 1400);
+  };
+  if ($("shopDescClearDefault")) $("shopDescClearDefault").onclick = (e) => {
+    try { localStorage.removeItem("shopDescDefault"); } catch (er) {}
+    const b = e.currentTarget, o = b.textContent; b.textContent = "✓ Đã xoá"; setTimeout(() => b.textContent = o, 1200);
+  };
   $("shopFile").onchange = (e) => shopAddFiles(e.target.files);
   const dz = $("shopDrop");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });

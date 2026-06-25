@@ -1030,7 +1030,11 @@
 
         <label class="field-label" style="margin-top:10px">📝 Mô tả thêm (tuỳ chọn) — gõ chữ &amp; <b>dán ảnh (Ctrl/Cmd+V)</b> vào được</label>
         <div id="shopDesc" class="input shop-rich" contenteditable="true" data-ph="Mô tả riêng cho dòng SP — gõ chữ và DÁN ẢNH thẳng vào. Phần SIZE + THÔNG TIN + BẢO QUẢN đã tự thêm sẵn."></div>
-        <p class="hint" id="shopDescHint" style="margin:4px 0 0">📋 Bạn có thể dán ảnh trực tiếp vào ô mô tả (ảnh sẽ nằm trong mô tả sản phẩm trên Shopify).</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn-ghost sm" id="shopDescSaveDefault">💾 Lưu làm mặc định</button>
+          <button class="btn-ghost sm" id="shopDescClearDefault">🗑️ Xoá mặc định</button>
+        </div>
+        <p class="hint" id="shopDescHint" style="margin:4px 0 0">📋 Dán ảnh trực tiếp vào ô mô tả được. Bấm <b>Lưu làm mặc định</b> để tự điền lại mỗi lần đẩy SP.</p>
 
         <label class="field-label" style="margin-top:10px">🧩 Biến thể (Variant)</label>
         <label class="ds-check" style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer">
