@@ -3430,7 +3430,10 @@ async function adsCheckEngine() {
     const sel = $("adsEngine"); const engines = d.engines || [];
     sel.innerHTML = "";
     engines.forEach(e => { const o = document.createElement("option"); o.value = e.id; o.textContent = e.label + (e.available ? "" : " — chưa có key"); o.disabled = !e.available; sel.appendChild(o); });
-    const def = d.default_engine || (engines.find(e => e.available) || {}).id; if (def) sel.value = def;
+    // FB Ads: ưu tiên ChatGPT (gpt-image) để vẽ chữ tốt hơn
+    const oa = engines.find(e => e.id === "openai" && e.available);
+    const def = oa ? "openai" : (d.default_engine || (engines.find(e => e.available) || {}).id);
+    if (def) sel.value = def;
   } catch (e) {}
 }
 
