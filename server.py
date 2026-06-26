@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-model-styleonly"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-quality-speed"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -455,16 +455,17 @@ _DESIGN_LOCK = (
 )
 
 
-def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", lock=True):
+def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", lock=True, quality=""):
     """Sinh 1 ảnh sản phẩm theo MODEL được chọn (engine). Gemini nếu là kind gemini & có key.
-    lock=True: chèn KHOÁ DESIGN 1-ảnh giữ đúng mẫu gốc (tắt khi prompt nhiều-design tự khoá)."""
+    lock=True: chèn KHOÁ DESIGN 1-ảnh giữ đúng mẫu gốc (tắt khi prompt nhiều-design tự khoá).
+    quality: low/medium/high cho gpt-image (nhanh<->đẹp); rỗng = mặc định model."""
     if lock:
         prompt = _DESIGN_LOCK + (prompt or "")
     info = engine_info(engine)
     if info["kind"] == "gemini" and GEMINI_API_KEY:
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
         return gemini_edit(images, prompt, aspect or _aspect_for(size), mdl)
-    return openai_edit(images, prompt, size, native_transparent=False)
+    return openai_edit(images, prompt, size, native_transparent=False, quality=quality)
 
 
 # tỉ lệ chọn -> (size gpt-image gần nhất, aspect Gemini)
@@ -474,9 +475,11 @@ ASPECT_TO_SIZE = {
 }
 
 
-def openai_edit(images, prompt, size, native_transparent):
+def openai_edit(images, prompt, size, native_transparent, quality=""):
     fields = [("model", MODEL), ("prompt", prompt), ("n", "1"),
               ("moderation", "low")]   # hạ độ gắt bộ lọc -> đỡ chặn nhầm
+    if quality and quality in ("low", "medium", "high"):
+        fields.append(("quality", quality))
     if size and size != "auto":
         fields.append(("size", size))
     if native_transparent:
@@ -1523,7 +1526,7 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None, quality="medium"):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
@@ -1554,7 +1557,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg)
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
-            b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
+            b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             model = engine_model_label(engine)
             adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
@@ -4504,6 +4507,9 @@ class Handler(BaseHTTPRequestHandler):
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
         text_style = (body.get("text_style") or "").strip()[:200]
+        quality = (body.get("quality") or "medium").strip()
+        if quality not in ("low", "medium", "high"):
+            quality = "medium"
         text_style_img = None
         if body.get("text_style_img"):
             tsb, _ = fetch_image_bytes(body["text_style_img"])
@@ -4513,7 +4519,7 @@ class Handler(BaseHTTPRequestHandler):
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 
