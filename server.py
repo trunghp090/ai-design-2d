@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-couple-cross-v2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-all-personalize"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1431,22 +1431,21 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     Design = MẪU template; model tự thay tên trên từng áo (như ChatGPT làm)."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
-    namelist = ", ".join('"' + n + '"' for n in names)
-    swap = ("Reference image #1 is the DESIGN TEMPLATE — a t-shirt print that features a NAME in a "
-            "specific lettering style. Create %d t-shirts that ALL use the EXACT SAME design template "
-            "(identical layout, fonts, colors, graphic elements and style) BUT each shirt shows a "
-            "DIFFERENT personalised name. The %d names, one per shirt in order, are: %s. On each shirt "
-            "REPLACE the main NAME text in the template with that shirt's own name (keep correct "
-            "Vietnamese diacritics); keep every other element identical. ALL names must be DIFFERENT — "
-            "do NOT repeat a name and do NOT keep the template's original name on any shirt. "
-            % (len(names), len(names), namelist))
+    assign = " ".join(
+        ("Reference image #%d is the t-shirt design printed with the name \"%s\"."
+         % (i + 1, names[i])) for i in range(len(names)))
     if concept_key == "group":
-        body = swap + ("Show a group of %d young Vietnamese friends standing together, EACH wearing a "
-                       "shirt with their own different name. " % len(names))
+        body = ("Show a group of %d young Vietnamese friends standing together. %s "
+                "EACH friend wears a DIFFERENT one of these shirts (friend #1 = reference image #1, "
+                "friend #2 = reference image #2, and so on) — reproduce each shirt's print EXACTLY as a "
+                "LARGE full-front chest print. " % (len(names), assign))
     else:  # flatlay2 / flatlay3
-        body = swap + ("Lay the %d shirts out FLAT in a clean tidy flatlay arrangement, NO people. "
-                       % len(names))
-    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body + style +
+        body = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement, NO people. %s "
+                "EACH of the %d shirts is a DIFFERENT one of these designs — reproduce each print "
+                "EXACTLY. " % (len(names), assign, len(names)))
+    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body +
+            "ALL the names are DIFFERENT — keep each name on its OWN shirt, do not repeat, swap or mix "
+            "them up. " + style +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
@@ -1480,17 +1479,20 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
     def work(c):
         try:
             key = c["key"]
-            if key == "couple":
-                # CROSS-NAME chắc chắn: personalize design -> 2 bản (tên NỮ, tên NAM) rồi gán chéo
-                # (model rất hay "chuẩn hoá" tên theo giới nếu chỉ bảo swap -> phải đưa 2 design rõ ràng)
-                nm = ads_couple_names()
+            nm = None
+            # CHẮC CHẮN mỗi áo 1 tên: personalize design thành N bản tên khác -> gán từng áo
+            # (model hay LẶP tên nếu chỉ bảo swap trên 1 template -> phải đưa N design rõ ràng)
+            if key in ADS_CONCEPT_N:
                 db64 = base64.b64encode(design_img[0]).decode()
-                d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")
-                d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")
-                imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
-                nxt = 3
+                if key == "couple":
+                    nm = ads_couple_names()
+                    names = [nm["female"], nm["male"]]   # ref#1 nữ -> NAM mặc; ref#2 nam -> NỮ mặc
+                else:
+                    names = ads_n_names(ADS_CONCEPT_N[key])
+                designs = [personalize_core(db64, names[i], "1024x1536", True, "") for i in range(len(names))]
+                imgs = [(base64.b64decode(d), "image/png") for d in designs]
+                nxt = len(names) + 1
             else:
-                # design = MẪU template (ref #1); model tự thay tên trên từng áo (như ChatGPT)
                 imgs = [design_img]
                 nxt = 2
             img_n = txt_n = None
@@ -1501,7 +1503,6 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             if key == "couple":
                 prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style)
             elif key in ADS_CONCEPT_N:
-                names = ads_n_names(ADS_CONCEPT_N[key])
                 prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style)
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
