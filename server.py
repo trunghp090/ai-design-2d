@@ -1352,10 +1352,12 @@ def ads_concept_text(img_bytes):
         return {"name": "", "hook": ""}
 
 
-def ads_ad_prompt(cast, name, hook, has_style):
-    txt = 'a big bold headline "%s"' % name
+def ads_ad_prompt(cast, name, hook, has_style, text_style=""):
+    txt = 'a big bold headline "' + name + '"'
     if hook:
-        txt += ' and a short punchy sub-line "%s"' % hook
+        txt += ' and a short punchy sub-line "' + hook + '"'
+    if text_style:
+        txt += ' — render the ad text typography in this style: ' + text_style
     style = ("The SECOND reference image is a STYLE reference: copy its overall layout, composition, "
              "color grading, lighting, aesthetic AND the WAY ITS TEXT IS PLACED & STYLED — the "
              "typography treatment, position, size hierarchy and how the headline / sub-text sit in "
@@ -1385,10 +1387,12 @@ def ads_couple_names():
         return {"male": "Anh Yêu", "female": "Em Yêu"}
 
 
-def ads_couple_prompt(nm, prod_name, hook, has_style):
-    txt = 'a big bold headline "%s"' % prod_name
+def ads_couple_prompt(nm, prod_name, hook, has_style, text_style=""):
+    txt = 'a big bold headline "' + prod_name + '"'
     if hook:
-        txt += ' and a short punchy sub-line "%s"' % hook
+        txt += ' and a short punchy sub-line "' + hook + '"'
+    if text_style:
+        txt += ' — render the ad text typography in this style: ' + text_style
     style = ("Reference image #3 is a STYLE reference: copy its layout, composition, color grading, "
              "lighting, aesthetic AND the way its text is placed & styled (typography, position, size "
              "hierarchy) — but use the Vietnamese ad text below; do NOT copy its people, faces or "
@@ -1408,7 +1412,7 @@ def ads_couple_prompt(nm, prod_name, hook, has_style):
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5"):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style=""):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
@@ -1423,11 +1427,11 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5"):
                 d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")      # design tên NAM
                 imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
                 imgs += ([(c["ref"], "image/png")] if c.get("ref") else [])
-                prompt = ads_couple_prompt(nm, name, hook, bool(c.get("ref")))
+                prompt = ads_couple_prompt(nm, name, hook, bool(c.get("ref")), text_style)
             else:
                 cast = ADS_CONCEPTS[c["key"]][1]
                 imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
-                prompt = ads_ad_prompt(cast, name, hook, bool(c.get("ref")))
+                prompt = ads_ad_prompt(cast, name, hook, bool(c.get("ref")), text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             g = gallery_add(b64, {"mode": "product", "prompt": label})
@@ -4370,12 +4374,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
+        text_style = (body.get("text_style") or "").strip()[:200]
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 
