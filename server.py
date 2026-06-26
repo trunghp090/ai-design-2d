@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-keep-replace-name"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-history-bg"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1464,18 +1464,23 @@ _ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two 
             "design's original name anywhere. ")
 
 
-def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name=""):
+def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg=""):
     """Concept nhiều áo — GIỮ NGUYÊN design gốc, CHỈ đổi tên chính từng áo (1 lần gen)."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     n = len(names)
     perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
     namelist = ", ".join('"' + x + '"' for x in names)
+    bg = (bg or "").strip()
     if concept_key == "group":
         scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
                  "these shirts as a LARGE full-front chest print. " % n)
+        if bg:
+            scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3
-        scene = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement, NO people. " % n)
+        on_bg = (" on " + bg) if bg else ""
+        scene = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement%s, NO people. "
+                 % (n, on_bg))
     return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
             _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE +
             ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
@@ -1485,10 +1490,12 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style="", old_name=""):
+def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style="", old_name="", bg=""):
     """Couple — GIỮ NGUYÊN design gốc, chỉ đổi tên + cross (nam tên nữ, nữ tên nam), 1 lần gen."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
+    bg = (bg or "").strip()
+    bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ads_replace_clause(old_name) +
             _ADS_ONE +
@@ -1499,7 +1506,7 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "NOT correct or normalise it. "
             + style +
             "Show a happy young Vietnamese couple standing together, each wearing their shirt as a LARGE "
-            "full-front chest print. "
+            "full-front chest print. " + bg_clause +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
@@ -1516,6 +1523,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
         try:
             key = c["key"]
             nm = None
+            bg = (c.get("bg") or "").strip()
             # GIỮ NGUYÊN design gốc: đưa design 1 lần làm ref #1, model chỉ đổi TÊN trên từng áo
             # (KHÔNG personalize/vẽ lại -> giữ đúng mẫu + nhanh hơn nhiều, đúng kiểu ChatGPT)
             imgs = [design_img]
@@ -1528,16 +1536,18 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
             if key == "couple":
-                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name)
+                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg)
             elif key in ADS_CONCEPT_N:
                 names = ads_n_names(ADS_CONCEPT_N[key])
-                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name)
+                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg)
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
-            g = gallery_add(b64, {"mode": "product", "prompt": label})
-            return {"image": b64, "title": label, "concept": c["key"], "gallery": g}
+            adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg}
+            g = gallery_add(b64, {"mode": "ads", "prompt": label, "ads": adsmeta})
+            return {"image": b64, "title": label, "concept": key, "name": name, "hook": hook,
+                    "aspect": asp, "bg": bg, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
         except Exception as e:
@@ -3204,6 +3214,8 @@ def gallery_add(b64, meta):
     items = gallery_load()
     item = {"id": gid, "ts": int(time.time()), "url": "/gallery/%s.png" % gid,
             "mode": meta.get("mode"), "prompt": meta.get("prompt", "")[:160]}
+    if meta.get("ads"):
+        item["ads"] = meta["ads"]   # lưu concept/name/hook/aspect/bg để Tạo lại
     items.insert(0, item)
     gallery_save_index(items)
     return item
@@ -4473,7 +4485,7 @@ class Handler(BaseHTTPRequestHandler):
             if c.get("ref"):
                 rb, _ = fetch_image_bytes(c["ref"])
                 ref = rb
-            cons.append({"key": key, "ref": ref})
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200]})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
         engine = resolve_engine_id(body)

@@ -3400,6 +3400,7 @@ document.addEventListener("paste", async (e) => {
 let adsInited = false;
 let adsDesignImg = null;        // dataURL design
 let adsStyle = {};              // key -> dataURL ảnh style
+let adsBg = {};                 // key -> background tuỳ chọn (text)
 let adsSel = new Set();         // concept đã tick để gen
 let adsItems = [];              // {loading,job} | item
 let adsView = "list";
@@ -3427,6 +3428,22 @@ function adsInit() {
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && adsPickKey) { adsStyle[adsPickKey] = await fileToDataURL(f); adsSel.add(adsPickKey); adsRenderConcepts(); } e.target.value = ""; };
   if ($("adsTextStyleFile")) $("adsTextStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { adsTextStyleImg = await fileToDataURL(f); adsRenderTextStyle(); } e.target.value = ""; };
   adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
+  adsLoadHistory();
+}
+
+async function adsLoadHistory() {
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    const hist = (d.items || []).filter(it => it.mode === "ads").map(it => {
+      const a = it.ads || {};
+      return { url: it.url, id: it.id, title: it.prompt || "Ads", concept: a.concept || "",
+               name: a.name || "", hook: a.hook || "", aspect: a.aspect || "", bg: a.bg || "",
+               gallery: { id: it.id, url: it.url } };
+    });
+    const seen = new Set(adsItems.map(c => c.gallery && c.gallery.id).filter(Boolean));
+    hist.forEach(h => { if (!seen.has(h.id)) adsItems.push(h); });
+    adsRenderAll();
+  } catch (e) {}
 }
 
 async function adsCheckEngine() {
@@ -3487,12 +3504,15 @@ function adsRenderConcepts() {
   ADS_CONCEPTS.forEach(c => {
     const row = document.createElement("div"); row.className = "ads-con";
     const has = !!adsStyle[c.key];
+    const ph = (c.key.indexOf("flatlay") === 0) ? "Background (vd: sàn gỗ, nền trắng, bàn cafe…)" : "Background/bối cảnh (tuỳ chọn)";
     row.innerHTML =
       '<input type="checkbox" class="ads-con-tick"' + (adsSel.has(c.key) ? " checked" : "") + '>' +
       '<div class="ads-con-ref">' + (has ? '<img src="' + adsStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
-      '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'tick + tải ảnh style') + '</span></div>';
+      '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'tick + tải ảnh style') + '</span>' +
+        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (adsBg[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) adsSel.add(c.key); else adsSel.delete(c.key); adsUpdateRunBtn(); };
     row.querySelector(".ads-con-ref").onclick = (e) => { adsPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; $("adsStyleFile").click(); };
+    row.querySelector(".ads-con-bg").oninput = (e) => { adsBg[c.key] = e.target.value; };
     box.appendChild(row);
   });
   adsUpdateRunBtn();
@@ -3527,22 +3547,45 @@ function adsRenderAll() {
     }
     const card = document.createElement("div"); card.className = "fp-card";
     const src = c.image ? "data:image/png;base64," + c.image : c.url;
+    const meta = (c.bg ? "🖼️ " + c.bg : "") || "";
     card.innerHTML =
-      '<div class="fp-card-prompt">' + (c.title || "Ads") + '</div>' +
+      '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button></div>';
+      '<div class="fp-card-acts"><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = () => { if (c.image) autoDownload(c.image, c.title || "ads"); };
+    card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await adsItemB64(c), c.title || "ads"); b.disabled = false; };
+    card.querySelector(".b-regen").onclick = () => adsRegen(c);
+    card.querySelector(".b-del").onclick = async (e) => {
+      if (!confirm("Xoá ảnh ads này?")) return; const b = e.currentTarget; b.disabled = true;
+      try { const gid = c.gallery && c.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); adsItems = adsItems.filter(x => x !== c); adsRenderAll(); if (typeof loadGallery === "function") loadGallery(); }
+      catch (err) { alert("✗ " + err.message); b.disabled = false; }
+    };
     grid.appendChild(card);
   });
+}
+
+async function adsItemB64(c) {
+  if (c.image) return c.image;
+  const b = await (await fetch(c.url)).blob();
+  c.image = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
+  return c.image;
+}
+
+// Tạo lại 1 ad: cần design đang ở panel (giống "Tạo lại" của Ảnh sản phẩm cần ảnh ref)
+function adsRegen(c) {
+  if (!adsDesignImg) { alert("Cần ảnh DESIGN ở panel trái để tạo lại (kéo/dán lại design vào ô DESIGN)."); return; }
+  const key = c.concept; if (!key) { alert("Ad cũ này không có thông tin concept để tạo lại."); return; }
+  const engine = ($("adsEngine") && $("adsEngine").value) || "";
+  adsLaunchOne({ key: key, ref: adsStyle[key] || "", bg: c.bg || adsBg[key] || "" }, c.name || ($("adsName").value || "").trim(), c.hook || ($("adsHook").value || "").trim(), engine);
+  const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "⏳ Đang tạo lại 1 ảnh ads…"; }
 }
 
 async function adsGenerate() {
   const note = $("adsNote"); note.className = "gen-note"; note.textContent = "";
   if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design trước."; return; }
-  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "" }));
+  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }));
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept để tạo."; return; }
   const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
   const engine = ($("adsEngine") && $("adsEngine").value) || "";
@@ -3573,7 +3616,9 @@ function adsPoll(job) {
       while (placed < items.length) {
         const it = items[placed];
         const idx = adsItems.findIndex(c => c.loading && c.job === job);
-        const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url };
+        const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url,
+                       concept: it.concept || "", name: it.name || "", hook: it.hook || "",
+                       aspect: it.aspect || "", bg: it.bg || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
       }
