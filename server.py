@@ -1358,11 +1358,9 @@ def ads_ad_prompt(cast, name, hook, has_style, text_style=""):
         txt += ' and a short punchy sub-line "' + hook + '"'
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
-    style = ("The SECOND reference image is a STYLE reference: copy its overall layout, composition, "
-             "color grading, lighting, aesthetic AND the WAY ITS TEXT IS PLACED & STYLED — the "
-             "typography treatment, position, size hierarchy and how the headline / sub-text sit in "
-             "the layout. But REPLACE the actual words with the Vietnamese ad text specified below; "
-             "do NOT copy or reuse its people, faces or shirts. " if has_style else "")
+    style = ("The SECOND reference image is an IMAGE-STYLE reference: copy ONLY its overall layout, "
+             "composition, color grading, lighting and aesthetic — do NOT copy or reuse its people, "
+             "faces, shirts or TEXT (the ad text & its typography are controlled separately below). " if has_style else "")
     return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
             "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
             "artwork, text, colors — as a LARGE full-front chest print on the shirt; do not redraw, "
@@ -1393,10 +1391,9 @@ def ads_couple_prompt(nm, prod_name, hook, has_style, text_style=""):
         txt += ' and a short punchy sub-line "' + hook + '"'
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
-    style = ("Reference image #3 is a STYLE reference: copy its layout, composition, color grading, "
-             "lighting, aesthetic AND the way its text is placed & styled (typography, position, size "
-             "hierarchy) — but use the Vietnamese ad text below; do NOT copy its people, faces or "
-             "shirts. " if has_style else "")
+    style = ("Reference image #3 is an IMAGE-STYLE reference: copy ONLY its layout, composition, color "
+             "grading, lighting and aesthetic — do NOT copy its people, faces, shirts or TEXT (the ad "
+             "text & its typography are controlled separately below). " if has_style else "")
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). "
             "THE MAN wears the shirt printed with the FEMALE name \"" + nm["female"] + "\" (reference "
