@@ -435,6 +435,21 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Kho ảnh style FB Ads ===== -->
+  <div class="zoom-modal hidden" id="adsStyleModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="adsStyleClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">📁 Kho ảnh style — chọn tham chiếu</h3>
+      <p class="hint" id="adsStyleInfo" style="margin:0 0 10px">Bấm 1 style để dùng cho concept. AI chỉ copy phong cách, không lấy người/đồ vật trong ảnh.</p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn-ghost sm" id="adsStyleUpload">⬆️ Tải ảnh style mới</button>
+        <span class="hint" id="adsStylePasteHint">hoặc Ctrl/Cmd+V để dán ảnh vào đây</span>
+      </div>
+      <div class="ads-style-grid" id="adsStyleGrid"></div>
+      <p class="gen-note" id="adsStyleNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Cập nhật ảnh sản phẩm Shopify ===== -->
   <div class="zoom-modal hidden" id="imgModal">
     <div class="pn-box" onclick="event.stopPropagation()">

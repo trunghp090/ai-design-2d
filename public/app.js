@@ -3413,6 +3413,9 @@ const ADS_CONCEPTS = [
   { key: "flatlay3", label: "🛋️ Flatlay 3 áo" },
 ];
 let adsPickKey = null;          // concept đang chọn ảnh style
+let adsStyleBank = [];          // [{id,url}] kho style đã lưu
+let adsStylePickFor = null;     // concept đang mở modal kho style
+let adsDefaultStyleId = null;   // id style mặc định (localStorage)
 
 function adsInit() {
   if (adsInited) return; adsInited = true;
@@ -3422,13 +3425,84 @@ function adsInit() {
   $("adsRunBtn").onclick = adsGenerate;
   $("adsViewList").onclick = () => adsSetView("list");
   $("adsViewGrid").onclick = () => adsSetView("grid");
-  // input file dùng chung cho style ref (đổi target theo adsPickKey)
+  // input file dùng chung cho style ref (tải mới -> lưu vào KHO + áp cho concept đang chọn)
   const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "adsStyleFile";
   document.body.appendChild(sf);
-  sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && adsPickKey) { adsStyle[adsPickKey] = await fileToDataURL(f); adsSel.add(adsPickKey); adsRenderConcepts(); } e.target.value = ""; };
+  sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { const durl = await fileToDataURL(f); await adsAddStyleToBank(durl, adsStylePickFor || adsPickKey); } e.target.value = ""; };
   if ($("adsTextStyleFile")) $("adsTextStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { adsTextStyleImg = await fileToDataURL(f); adsRenderTextStyle(); } e.target.value = ""; };
+  // modal kho style
+  adsDefaultStyleId = localStorage.getItem("adsDefaultStyleId") || null;
+  if ($("adsStyleClose")) $("adsStyleClose").onclick = () => $("adsStyleModal").classList.add("hidden");
+  if ($("adsStyleModal")) $("adsStyleModal").onclick = (ev) => { if (ev.target.id === "adsStyleModal") $("adsStyleModal").classList.add("hidden"); };
+  if ($("adsStyleUpload")) $("adsStyleUpload").onclick = () => { adsPasteTo = "stylebank"; $("adsStyleFile").click(); };
   adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
-  adsLoadHistory();
+  adsLoadHistory(); adsLoadStyles();
+}
+
+// ---- Kho style (lưu mặc định + pick nhiều style làm tham chiếu) ----
+async function adsLoadStyles() {
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    adsStyleBank = (d.items || []).filter(it => it.mode === "adsstyle").map(it => ({ id: it.id, url: it.url }));
+    // áp style mặc định cho concept chưa có style (nếu mặc định còn tồn tại)
+    const def = adsStyleBank.find(s => s.id === adsDefaultStyleId);
+    if (def) ADS_CONCEPTS.forEach(c => { if (!adsStyle[c.key]) adsStyle[c.key] = def.url; });
+    adsRenderConcepts(); adsRenderStyleBank();
+  } catch (e) {}
+}
+
+// thêm 1 ảnh style vào kho (lưu server mode=adsstyle) rồi áp cho concept (nếu có)
+async function adsAddStyleToBank(durl, applyKey) {
+  try {
+    const r = await fetch("/api/save-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: durl, mode: "adsstyle", label: "FB Ads style" }) });
+    const d = await r.json(); const g = d.gallery;
+    if (g) adsStyleBank.unshift({ id: g.id, url: g.url });
+    if (applyKey) { adsStyle[applyKey] = durl; adsSel.add(applyKey); }
+    adsRenderConcepts(); adsRenderStyleBank();
+    const n = $("adsStyleNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lưu vào kho style."; }
+  } catch (e) { const n = $("adsStyleNote"); if (n) { n.className = "gen-note err"; n.textContent = "✗ " + e.message; } }
+}
+
+function adsOpenStylePicker(key) {
+  adsStylePickFor = key; adsPasteTo = "stylebank";
+  $("adsStyleInfo").textContent = "Chọn style cho: " + ((ADS_CONCEPTS.find(c => c.key === key) || {}).label || key) + ". AI chỉ copy phong cách, không lấy người/đồ vật.";
+  $("adsStyleNote").textContent = "";
+  adsRenderStyleBank();
+  $("adsStyleModal").classList.remove("hidden");
+}
+
+function adsRenderStyleBank() {
+  const grid = $("adsStyleGrid"); if (!grid) return;
+  if (!adsStyleBank.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Chưa có style nào — bấm "⬆️ Tải ảnh style mới" hoặc dán ảnh để thêm.</p>'; return; }
+  grid.innerHTML = "";
+  adsStyleBank.forEach(s => {
+    const isDef = s.id === adsDefaultStyleId;
+    const cell = document.createElement("div"); cell.className = "ads-style-cell" + (isDef ? " is-def" : "");
+    cell.innerHTML =
+      '<img src="' + s.url + '" loading="lazy" alt="">' +
+      '<button class="ads-style-star" title="Đặt mặc định">' + (isDef ? "⭐" : "☆") + '</button>' +
+      '<button class="ads-style-del" title="Xoá">×</button>';
+    cell.querySelector("img").onclick = () => adsPickStyle(s);
+    cell.querySelector(".ads-style-star").onclick = (e) => { e.stopPropagation(); adsSetDefaultStyle(s.id); };
+    cell.querySelector(".ads-style-del").onclick = async (e) => {
+      e.stopPropagation(); if (!confirm("Xoá style này khỏi kho?")) return;
+      try { await fetch("/api/gallery?id=" + encodeURIComponent(s.id), { method: "DELETE" }); adsStyleBank = adsStyleBank.filter(x => x.id !== s.id); if (adsDefaultStyleId === s.id) { adsDefaultStyleId = null; localStorage.removeItem("adsDefaultStyleId"); } adsRenderStyleBank(); }
+      catch (err) { alert("✗ " + err.message); }
+    };
+    grid.appendChild(cell);
+  });
+}
+
+async function adsPickStyle(s) {
+  if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); }
+  $("adsStyleModal").classList.add("hidden");
+}
+
+function adsSetDefaultStyle(id) {
+  adsDefaultStyleId = (adsDefaultStyleId === id) ? null : id;
+  if (adsDefaultStyleId) localStorage.setItem("adsDefaultStyleId", adsDefaultStyleId);
+  else localStorage.removeItem("adsDefaultStyleId");
+  adsRenderStyleBank();
 }
 
 async function adsLoadHistory() {
@@ -3485,9 +3559,11 @@ function adsRenderTextStyle() {
     add.innerHTML = "🔤<span>Chữ</span>"; add.onclick = () => { adsPasteTo = "textstyle"; $("adsTextStyleFile").click(); }; box.appendChild(add);
   }
 }
-// dán ảnh vào FB Ads theo đích (design / textstyle / concept style đang chọn)
+// dán ảnh vào FB Ads theo đích (design / textstyle / kho style / concept style đang chọn)
 function adsHandlePaste(durl) {
-  if (adsPasteTo === "textstyle") {
+  if (adsPasteTo === "stylebank" || (!$("adsStyleModal").classList.contains("hidden"))) {
+    adsAddStyleToBank(durl, adsStylePickFor);   // modal kho style đang mở -> lưu vào kho
+  } else if (adsPasteTo === "textstyle") {
     adsTextStyleImg = durl; adsRenderTextStyle();
     const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán ảnh mẫu kiểu chữ."; }
   } else if (adsPasteTo && adsPasteTo !== "design" && ADS_CONCEPTS.find(c => c.key === adsPasteTo)) {
@@ -3511,7 +3587,7 @@ function adsRenderConcepts() {
       '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'tick + tải ảnh style') + '</span>' +
         '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (adsBg[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) adsSel.add(c.key); else adsSel.delete(c.key); adsUpdateRunBtn(); };
-    row.querySelector(".ads-con-ref").onclick = (e) => { adsPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; $("adsStyleFile").click(); };
+    row.querySelector(".ads-con-ref").onclick = (e) => { adsPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; adsOpenStylePicker(c.key); };
     row.querySelector(".ads-con-bg").oninput = (e) => { adsBg[c.key] = e.target.value; };
     box.appendChild(row);
   });
