@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-original-prompts"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-keep-replace-name"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1353,6 +1353,30 @@ def ads_concept_text(img_bytes):
         return {"name": "", "hook": ""}
 
 
+def ads_read_name(img_bytes):
+    """Vision: đọc TÊN/CHỮ CHÍNH (lớn nhất) đang in trên design -> để ép thay thế đúng chỗ đó."""
+    b64 = base64.b64encode(img_bytes).decode()
+    sysmsg = ("Bạn xem 1 design áo thun in tên. Trả JSON {\"name\":\"...\"} = đúng CỤM CHỮ CHÍNH "
+              "lớn nhất (thường là tên người) đang in trên áo, giữ nguyên chữ & dấu. Nếu không có tên "
+              "rõ ràng trả \"name\":\"\".")
+    content = [{"type": "text", "text": "Đọc tên/chữ chính trên design. Chỉ trả JSON."},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+    try:
+        raw = openai_chat([{"role": "system", "content": sysmsg},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=60)
+        return (json.loads(raw).get("name") or "").strip()
+    except Exception:
+        return ""
+
+
+def _ads_replace_clause(old_name):
+    """Câu ép XOÁ tên gốc cụ thể (tránh hiện 2 tên)."""
+    if old_name:
+        return ("The design currently shows the name \"" + old_name + "\". On every shirt you MUST "
+                "completely REMOVE \"" + old_name + "\" and put the new name in its exact place. ")
+    return ""
+
+
 def _ads_style_clauses(img_style_n, txt_style_n):
     s = ""
     if img_style_n:
@@ -1426,41 +1450,56 @@ def ads_n_names(n):
 ADS_CONCEPT_N = {"couple": 2, "group": 3, "flatlay2": 2, "flatlay3": 3}
 
 
-def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style):
-    """Concept nhiều áo, MỖI áo 1 tên khác (group / flatlay 2-3 áo)."""
+_ADS_KEEP = (
+    "Reference image #1 is the EXACT t-shirt design. On EVERY shirt, reproduce this design "
+    "PIXEL-FAITHFULLY and IDENTICALLY: same layout, same fonts, same colors, same emblem/icons, "
+    "stars, lines, banners, and ALL the secondary text (taglines, club words like 'CITY CREW' / "
+    "'Athletic', any date or small words) — keep them all, do NOT remove, redraw, restyle, simplify, "
+    "re-center or recolor anything. The ONLY thing that changes between shirts is the single MAIN "
+    "large NAME text: replace it with a different name on each shirt, rendered in the SAME font, style, "
+    "color, weight and position as the original name (correct Vietnamese diacritics). ")
+
+
+_ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two names, never keep the "
+            "design's original name anywhere. ")
+
+
+def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name=""):
+    """Concept nhiều áo — GIỮ NGUYÊN design gốc, CHỈ đổi tên chính từng áo (1 lần gen)."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
-    assign = " ".join(
-        ("Reference image #%d is the t-shirt printed with the PERSONALISED name \"%s\"."
-         % (i + 1, names[i])) for i in range(len(names)))
+    n = len(names)
+    perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
+    namelist = ", ".join('"' + x + '"' for x in names)
     if concept_key == "group":
-        body = ("Show a group of %d young Vietnamese friends standing together; EACH friend wears a "
-                "DIFFERENT shirt: %s person #1 wears ref image #1, person #2 wears ref image #2, and so "
-                "on — keep each personalised name on its OWN shirt. " % (len(names), assign))
+        scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
+                 "these shirts as a LARGE full-front chest print. " % n)
     else:  # flatlay2 / flatlay3
-        body = ("Show %d t-shirts laid out flat in a clean tidy flatlay arrangement, NO people; EACH "
-                "shirt is DIFFERENT: %s " % (len(names), assign))
-    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body +
-            "Reproduce each shirt's printed design EXACTLY as a LARGE full-front chest print; ALL the "
-            "names are DIFFERENT, do not repeat, swap or mix them up. " + style +
+        scene = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement, NO people. " % n)
+    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
+            _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE +
+            ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
+             "the same name. " % (n, n, namelist, perslot)) +
+            style +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=""):
+def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style="", old_name=""):
+    """Couple — GIỮ NGUYÊN design gốc, chỉ đổi tên + cross (nam tên nữ, nữ tên nam), 1 lần gen."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
-            "CROSS-NAMING (a popular couple-tee idea). "
-            "THE MAN wears the shirt printed with the FEMALE name \"" + nm["female"] + "\" (reference "
-            "image #1) — reproduce that exact name on his chest as a LARGE full-front print. "
-            "THE WOMAN wears the shirt printed with the MALE name \"" + nm["male"] + "\" (reference "
-            "image #2) — reproduce that exact name on her chest as a LARGE full-front print. "
-            "This swap is ON PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the "
-            "woman's shirt MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the "
-            "female name on the woman; do NOT correct or normalise it. "
+            "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ads_replace_clause(old_name) +
+            _ADS_ONE +
+            "There are TWO shirts. The MAN's shirt shows the FEMALE name \"" + nm["female"] + "\"; the "
+            "WOMAN's shirt shows the MALE name \"" + nm["male"] + "\". This swap is ON PURPOSE: the "
+            "man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt MUST show \""
+            + nm["male"] + "\". Do NOT put the male name on the man or the female name on the woman; do "
+            "NOT correct or normalise it. "
             + style +
-            "Show a happy young Vietnamese couple standing together. "
+            "Show a happy young Vietnamese couple standing together, each wearing their shirt as a LARGE "
+            "full-front chest print. "
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
@@ -1470,34 +1509,29 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
 
+    # đọc TÊN GỐC trên design 1 lần (ép xoá đúng tên đó, tránh hiện 2 tên)
+    old_name = ads_read_name(design_img[0])
+
     def work(c):
         try:
             key = c["key"]
             nm = None
-            # CHẮC CHẮN mỗi áo 1 tên: personalize design thành N bản tên khác -> gán từng áo
-            # (model hay LẶP tên nếu chỉ bảo swap trên 1 template -> phải đưa N design rõ ràng)
-            if key in ADS_CONCEPT_N:
-                db64 = base64.b64encode(design_img[0]).decode()
-                if key == "couple":
-                    nm = ads_couple_names()
-                    names = [nm["female"], nm["male"]]   # ref#1 nữ -> NAM mặc; ref#2 nam -> NỮ mặc
-                else:
-                    names = ads_n_names(ADS_CONCEPT_N[key])
-                designs = [personalize_core(db64, names[i], "1024x1536", True, "") for i in range(len(names))]
-                imgs = [(base64.b64decode(d), "image/png") for d in designs]
-                nxt = len(names) + 1
-            else:
-                imgs = [design_img]
-                nxt = 2
+            # GIỮ NGUYÊN design gốc: đưa design 1 lần làm ref #1, model chỉ đổi TÊN trên từng áo
+            # (KHÔNG personalize/vẽ lại -> giữ đúng mẫu + nhanh hơn nhiều, đúng kiểu ChatGPT)
+            imgs = [design_img]
+            nxt = 2
+            if key == "couple":
+                nm = ads_couple_names()
             img_n = txt_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
             if key == "couple":
-                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style)
+                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name)
             elif key in ADS_CONCEPT_N:
-                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style)
+                names = ads_n_names(ADS_CONCEPT_N[key])
+                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name)
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
