@@ -1371,14 +1371,62 @@ def ads_ad_prompt(cast, name, hook, has_style):
             "clearly readable. Photorealistic, high-quality social-media ad. Aspect ratio 4:5." % (cast, txt))
 
 
+def ads_couple_names():
+    """2 tên người Việt 2 chữ: 1 nam, 1 nữ (cho áo đôi cross-name)."""
+    sys = ("Đặt 2 TÊN NGƯỜI Việt 2 chữ cho áo couple: 1 NAM, 1 NỮ (vd nam \"Minh Quân\", nữ "
+           "\"Thuỳ Linh\"). Trả JSON {\"male\":\"...\",\"female\":\"...\"}.")
+    try:
+        raw = openai_chat([{"role": "system", "content": sys},
+                           {"role": "user", "content": "Cho 2 tên couple. Chỉ trả JSON."}],
+                          json_mode=True, max_tokens=80)
+        d = json.loads(raw)
+        return {"male": (d.get("male") or "Anh Yêu").strip(), "female": (d.get("female") or "Em Yêu").strip()}
+    except Exception:
+        return {"male": "Anh Yêu", "female": "Em Yêu"}
+
+
+def ads_couple_prompt(nm, prod_name, hook, has_style):
+    txt = 'a big bold headline "%s"' % prod_name
+    if hook:
+        txt += ' and a short punchy sub-line "%s"' % hook
+    style = ("Reference image #3 is a STYLE reference: copy its layout, composition, color grading, "
+             "lighting, aesthetic AND the way its text is placed & styled (typography, position, size "
+             "hierarchy) — but use the Vietnamese ad text below; do NOT copy its people, faces or "
+             "shirts. " if has_style else "")
+    return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
+            "CROSS-NAMING (a popular couple-tee idea). "
+            "THE MAN wears the shirt printed with the FEMALE name \"" + nm["female"] + "\" (reference "
+            "image #1) — reproduce that exact name on his chest as a LARGE full-front print. "
+            "THE WOMAN wears the shirt printed with the MALE name \"" + nm["male"] + "\" (reference "
+            "image #2) — reproduce that exact name on her chest as a LARGE full-front print. "
+            "This swap is ON PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the "
+            "woman's shirt MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the "
+            "female name on the woman; do NOT correct or normalise it. "
+            + style +
+            "Show a happy young Vietnamese couple standing together. "
+            "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
+            "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad. "
+            "Aspect ratio 4:5.")
+
+
 def run_ads_job(job_id, design_img, concepts, name, hook, engine):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     def work(c):
         try:
-            cast = ADS_CONCEPTS[c["key"]][1]
-            imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
-            b64 = gen_shot(imgs, ads_ad_prompt(cast, name, hook, bool(c.get("ref"))),
-                           "1024x1536", engine, "4:5", lock=False)
+            if c["key"] == "couple":
+                # ÁO ĐÔI cross-name: nam mặc áo tên NỮ, nữ mặc áo tên NAM
+                nm = ads_couple_names()
+                db64 = base64.b64encode(design_img[0]).decode()
+                d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")  # design tên NỮ
+                d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")      # design tên NAM
+                imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
+                imgs += ([(c["ref"], "image/png")] if c.get("ref") else [])
+                prompt = ads_couple_prompt(nm, name, hook, bool(c.get("ref")))
+            else:
+                cast = ADS_CONCEPTS[c["key"]][1]
+                imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
+                prompt = ads_ad_prompt(cast, name, hook, bool(c.get("ref")))
+            b64 = gen_shot(imgs, prompt, "1024x1536", engine, "4:5", lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             g = gallery_add(b64, {"mode": "product", "prompt": label})
             return {"image": b64, "title": label, "concept": c["key"], "gallery": g}
