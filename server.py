@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-gpt-image-2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-original-prompts"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1427,34 +1427,22 @@ ADS_CONCEPT_N = {"couple": 2, "group": 3, "flatlay2": 2, "flatlay3": 3}
 
 
 def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style):
-    """Concept nhiều áo, MỖI áo 1 tên khác (group / flatlay 2-3 áo).
-    Design = MẪU template; model tự thay tên trên từng áo (như ChatGPT làm)."""
+    """Concept nhiều áo, MỖI áo 1 tên khác (group / flatlay 2-3 áo)."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
-    n = len(names)
     assign = " ".join(
-        ("Reference image #%d is the t-shirt design printed with the name \"%s\"."
-         % (i + 1, names[i])) for i in range(n))
-    # liệt kê thẳng từng áo phải in tên gì (chống gom thành '1 SP nhiều màu cùng tên')
-    perslot = " ".join(("Shirt #%d MUST print the name \"%s\"." % (i + 1, names[i])) for i in range(n))
-    namelist = ", ".join('"' + x + '"' for x in names)
-    anti = ("VERY IMPORTANT: this is NOT a single product shown in different colours. These are %d "
-            "DIFFERENT personalised shirts, each printed with a DIFFERENT person's NAME. The %d names "
-            "are: %s — they are ALL DIFFERENT and EACH appears on EXACTLY ONE shirt. %s Do NOT print the "
-            "SAME name on two shirts, do NOT use only one name, do NOT add a '3 colours of the same "
-            "name' style. Every shirt's name must be clearly readable and spelled exactly as given. "
-            % (n, n, namelist, perslot))
+        ("Reference image #%d is the t-shirt printed with the PERSONALISED name \"%s\"."
+         % (i + 1, names[i])) for i in range(len(names)))
     if concept_key == "group":
-        body = ("Show a group of %d young Vietnamese friends standing together. %s "
-                "EACH friend wears a DIFFERENT one of these shirts (friend #1 = reference image #1, "
-                "friend #2 = reference image #2, and so on) — reproduce each shirt's print EXACTLY as a "
-                "LARGE full-front chest print. " % (n, assign))
+        body = ("Show a group of %d young Vietnamese friends standing together; EACH friend wears a "
+                "DIFFERENT shirt: %s person #1 wears ref image #1, person #2 wears ref image #2, and so "
+                "on — keep each personalised name on its OWN shirt. " % (len(names), assign))
     else:  # flatlay2 / flatlay3
-        body = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement, NO people. %s "
-                "EACH of the %d shirts is a DIFFERENT one of these designs — reproduce each print "
-                "EXACTLY. " % (n, assign, n))
-    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body + anti +
-            style +
+        body = ("Show %d t-shirts laid out flat in a clean tidy flatlay arrangement, NO people; EACH "
+                "shirt is DIFFERENT: %s " % (len(names), assign))
+    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body +
+            "Reproduce each shirt's printed design EXACTLY as a LARGE full-front chest print; ALL the "
+            "names are DIFFERENT, do not repeat, swap or mix them up. " + style +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
@@ -1463,19 +1451,16 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
-            "CROSS-NAMING. Reference image #1 is a t-shirt design printed with the FEMALE name \""
-            + nm["female"] + "\" — the MAN wears THIS exact shirt (reproduce its print as a LARGE "
-            "full-front chest print). Reference image #2 is a t-shirt design printed with the MALE name "
-            "\"" + nm["male"] + "\" — the WOMAN wears THIS exact shirt (large full-front print). "
-            "This swap is ON PURPOSE (couples wear each other's names): the MAN's shirt MUST show \""
-            + nm["female"] + "\" and the WOMAN's shirt MUST show \"" + nm["male"] + "\". Do NOT put the "
-            "male name on the man or the female name on the woman; do NOT correct or normalise it. "
+            "CROSS-NAMING (a popular couple-tee idea). "
+            "THE MAN wears the shirt printed with the FEMALE name \"" + nm["female"] + "\" (reference "
+            "image #1) — reproduce that exact name on his chest as a LARGE full-front print. "
+            "THE WOMAN wears the shirt printed with the MALE name \"" + nm["male"] + "\" (reference "
+            "image #2) — reproduce that exact name on her chest as a LARGE full-front print. "
+            "This swap is ON PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the "
+            "woman's shirt MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the "
+            "female name on the woman; do NOT correct or normalise it. "
             + style +
-            "Show a DIFFERENT real young Vietnamese couple (a man and a woman) in a NATURAL, candid, "
-            "true-to-life lifestyle moment — NOT the people from any reference image, only borrow the "
-            "scene/style. Genuine and relaxed, each wearing their own shirt with the print clearly "
-            "visible. Real photo look: natural skin, natural light, realistic fabric — not 3D, not CGI, "
-            "not AI-looking. "
+            "Show a happy young Vietnamese couple standing together. "
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
