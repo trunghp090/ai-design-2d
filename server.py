@@ -164,8 +164,10 @@ def recolor_instruction(key):
     vi, hexv, guide = RECOLOR[key]
     return ("Keep the illustration, text, fonts and composition IDENTICAL — do not redraw "
             "anything. Re-map ONLY the colors so the design stays vivid and clearly visible "
-            "when printed on a %s (%s) t-shirt: %s. Output only the artwork, no shirt, no "
-            "background." % (vi, hexv, guide))
+            "when printed on a %s (%s) t-shirt: %s. "
+            "Keep the area around/behind the artwork EMPTY on a PLAIN PURE WHITE background — do "
+            "NOT tint or fill the background with any color (no magenta/pink/colored backdrop) — so "
+            "it can be cut out cleanly. Output only the artwork, no shirt." % (vi, hexv, guide))
 
 
 def flatten_on_color(b64_png, hexv):
