@@ -3607,6 +3607,7 @@ class Handler(BaseHTTPRequestHandler):
         if not colors:
             return self.json(400, {"error": "Hãy chọn ít nhất 1 màu áo."})
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        note = (body.get("note") or "").strip()[:400]   # yêu cầu thêm của user
 
         d, m = fetch_image_bytes(img_src)
         if not d:
@@ -3618,8 +3619,10 @@ class Handler(BaseHTTPRequestHandler):
             vi, hexv = RECOLOR[key][0], RECOLOR[key][1]
             try:
                 # vẽ bản TÁCH NỀN (để client ghép nền tuỳ ý), lưu bản này vào lịch sử
-                b64, _ = gen_design(img, "cloner", recolor_instruction(key),
-                                    size, True)
+                instr = recolor_instruction(key)
+                if note:
+                    instr += " ADDITIONAL USER REQUEST (follow it): " + note
+                b64, _ = gen_design(img, "cloner", instr, size, True)
                 g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
                 items.append({"image": b64, "title": "Áo %s" % vi,
                               "color": key, "hex": hexv, "gallery": g})

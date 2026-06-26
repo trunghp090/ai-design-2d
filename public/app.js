@@ -1000,6 +1000,7 @@ $("recolorRunBtn").onclick = async () => {
         image: recolorImg,
         colors: [...recolorPicked],
         size: $("recolorSize").value,
+        note: ($("recolorReq") && $("recolorReq").value || "").trim(),
       }),
     });
     const data = await r.json();
