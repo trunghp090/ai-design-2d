@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-couple-natural"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-couple-cross-v2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1455,17 +1455,17 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
-            "CROSS-NAMING. Reference image #1 is the DESIGN TEMPLATE (a t-shirt print with a name in a "
-            "specific lettering style). Create TWO shirts that use the EXACT SAME design template "
-            "(identical layout, fonts, colors, style) but with DIFFERENT names: the MAN's shirt prints "
-            "the FEMALE name \"" + nm["female"] + "\", and the WOMAN's shirt prints the MALE name \""
-            + nm["male"] + "\". On each shirt REPLACE the template's name with that name (keep correct "
-            "Vietnamese diacritics); keep every other element identical. The cross is ON PURPOSE — do "
-            "NOT swap them back, do NOT keep the template's original name. "
+            "CROSS-NAMING. Reference image #1 is a t-shirt design printed with the FEMALE name \""
+            + nm["female"] + "\" — the MAN wears THIS exact shirt (reproduce its print as a LARGE "
+            "full-front chest print). Reference image #2 is a t-shirt design printed with the MALE name "
+            "\"" + nm["male"] + "\" — the WOMAN wears THIS exact shirt (large full-front print). "
+            "This swap is ON PURPOSE (couples wear each other's names): the MAN's shirt MUST show \""
+            + nm["female"] + "\" and the WOMAN's shirt MUST show \"" + nm["male"] + "\". Do NOT put the "
+            "male name on the man or the female name on the woman; do NOT correct or normalise it. "
             + style +
             "Show a DIFFERENT real young Vietnamese couple (a man and a woman) in a NATURAL, candid, "
             "true-to-life lifestyle moment — NOT the people from any reference image, only borrow the "
-            "scene/style. They look genuine and relaxed, each wearing their own shirt, the prints clearly "
+            "scene/style. Genuine and relaxed, each wearing their own shirt with the print clearly "
             "visible. Real photo look: natural skin, natural light, realistic fabric — not 3D, not CGI, "
             "not AI-looking. "
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
@@ -1480,16 +1480,25 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
     def work(c):
         try:
             key = c["key"]
-            # design = MẪU template (ref #1); model tự thay tên trên từng áo (như ChatGPT)
-            imgs = [design_img]
-            nxt = 2
+            if key == "couple":
+                # CROSS-NAME chắc chắn: personalize design -> 2 bản (tên NỮ, tên NAM) rồi gán chéo
+                # (model rất hay "chuẩn hoá" tên theo giới nếu chỉ bảo swap -> phải đưa 2 design rõ ràng)
+                nm = ads_couple_names()
+                db64 = base64.b64encode(design_img[0]).decode()
+                d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")
+                d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")
+                imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
+                nxt = 3
+            else:
+                # design = MẪU template (ref #1); model tự thay tên trên từng áo (như ChatGPT)
+                imgs = [design_img]
+                nxt = 2
             img_n = txt_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
             if key == "couple":
-                nm = ads_couple_names()
                 prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style)
             elif key in ADS_CONCEPT_N:
                 names = ads_n_names(ADS_CONCEPT_N[key])
