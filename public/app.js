@@ -609,8 +609,10 @@ function showApp(app) {
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
+  document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
+  if (app === "ads") adsInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
@@ -3390,3 +3392,153 @@ document.addEventListener("paste", async (e) => {
     else if (view === "shopify") { await shopAddFiles([file]); }
   } catch (err) { /* im lặng */ }
 });
+
+/* =====================================================================
+   FACEBOOK ADS: AI đặt tên + gen ảnh ads theo concept (style ref) + chữ
+   ===================================================================== */
+let adsInited = false;
+let adsDesignImg = null;        // dataURL design
+let adsStyle = {};              // key -> dataURL ảnh style
+let adsItems = [];              // {loading,job} | item
+let adsView = "list";
+const ADS_CONCEPTS = [
+  { key: "solo", label: "👤 1 áo (1 người)" },
+  { key: "couple", label: "💑 2 áo (Couple)" },
+  { key: "group", label: "👥 3 áo (Đội nhóm)" },
+  { key: "flatlay", label: "🛋️ Flatlay" },
+];
+let adsPickKey = null;          // concept đang chọn ảnh style
+
+function adsInit() {
+  if (adsInited) return; adsInited = true;
+  adsCheckEngine();
+  $("adsDesignFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { adsDesignImg = await fileToDataURL(f); adsRenderDesign(); adsAutoName(); } e.target.value = ""; };
+  $("adsNameBtn").onclick = () => adsAutoName(true);
+  $("adsRunBtn").onclick = adsGenerate;
+  $("adsViewList").onclick = () => adsSetView("list");
+  $("adsViewGrid").onclick = () => adsSetView("grid");
+  // input file dùng chung cho style ref (đổi target theo adsPickKey)
+  const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "adsStyleFile";
+  document.body.appendChild(sf);
+  sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && adsPickKey) { adsStyle[adsPickKey] = await fileToDataURL(f); adsRenderConcepts(); } e.target.value = ""; };
+  adsRenderDesign(); adsRenderConcepts(); adsRenderAll();
+}
+
+async function adsCheckEngine() {
+  try {
+    const d = await (await fetch("/api/engines")).json();
+    const sel = $("adsEngine"); const engines = d.engines || [];
+    sel.innerHTML = "";
+    engines.forEach(e => { const o = document.createElement("option"); o.value = e.id; o.textContent = e.label + (e.available ? "" : " — chưa có key"); o.disabled = !e.available; sel.appendChild(o); });
+    const def = d.default_engine || (engines.find(e => e.available) || {}).id; if (def) sel.value = def;
+  } catch (e) {}
+}
+
+function adsRenderDesign() {
+  const box = $("adsDesign"); box.innerHTML = "";
+  if (adsDesignImg) {
+    const d = document.createElement("div"); d.className = "fp-ref";
+    d.innerHTML = '<img src="' + adsDesignImg + '" alt=""><button class="fp-ref-x">×</button>';
+    d.querySelector(".fp-ref-x").onclick = () => { adsDesignImg = null; adsRenderDesign(); };
+    box.appendChild(d);
+  } else {
+    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
+    add.innerHTML = "＋<span>Design</span>"; add.onclick = () => $("adsDesignFile").click(); box.appendChild(add);
+  }
+}
+
+function adsRenderConcepts() {
+  const box = $("adsConcepts"); box.innerHTML = "";
+  ADS_CONCEPTS.forEach(c => {
+    const row = document.createElement("div"); row.className = "ads-con";
+    const has = !!adsStyle[c.key];
+    row.innerHTML =
+      '<div class="ads-con-ref">' + (has ? '<img src="' + adsStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
+      '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'bấm để tải ảnh style') + '</span></div>';
+    row.querySelector(".ads-con-ref").onclick = (e) => { if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; $("adsStyleFile").click(); };
+    box.appendChild(row);
+  });
+}
+
+async function adsAutoName(force) {
+  if (!adsDesignImg) return;
+  if (!force && ($("adsName").value || "").trim()) return;
+  const btn = $("adsNameBtn"), o = btn ? btn.textContent : ""; if (btn) { btn.disabled = true; btn.textContent = "⏳…"; }
+  try {
+    const r = await fetch("/api/ads-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg }) });
+    const d = await r.json(); if (r.ok) { $("adsName").value = d.name || ""; $("adsHook").value = d.hook || ""; }
+  } catch (e) {} finally { if (btn) { btn.disabled = false; btn.textContent = o; } }
+}
+
+function adsSetView(v) { adsView = v; $("adsViewList").classList.toggle("active", v === "list"); $("adsViewGrid").classList.toggle("active", v === "grid"); $("adsResults").className = "fp-creations " + v; }
+
+function adsRenderAll() {
+  const grid = $("adsResults");
+  $("adsCount").textContent = adsItems.length ? "(" + adsItems.length + ")" : "";
+  $("adsEmpty").classList.toggle("hidden", adsItems.length > 0);
+  grid.innerHTML = "";
+  adsItems.forEach(c => {
+    if (c.loading) {
+      const ph = document.createElement("div"); ph.className = "fp-card fp-card-loading";
+      ph.innerHTML = '<div class="fp-card-prompt">' + (c.label || "") + '</div><div class="fp-loading" style="min-height:260px"><span class="fp-spin"></span><span>Đang tạo ad… ~1 phút</span></div>';
+      grid.appendChild(ph); return;
+    }
+    const card = document.createElement("div"); card.className = "fp-card";
+    const src = c.image ? "data:image/png;base64," + c.image : c.url;
+    card.innerHTML =
+      '<div class="fp-card-prompt">' + (c.title || "Ads") + '</div>' +
+      '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
+      '<div class="fp-card-acts"><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button></div>';
+    card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = () => { if (c.image) autoDownload(c.image, c.title || "ads"); };
+    grid.appendChild(card);
+  });
+}
+
+async function adsGenerate() {
+  const note = $("adsNote"); note.className = "gen-note"; note.textContent = "";
+  if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design trước."; return; }
+  const cons = ADS_CONCEPTS.filter(c => adsStyle[c.key]).map(c => ({ key: c.key, ref: adsStyle[c.key] }));
+  if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Upload ảnh style cho ít nhất 1 concept."; return; }
+  const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
+  $("adsProgress").classList.remove("hidden"); $("adsBar").style.width = "0%"; $("adsProgText").textContent = "Đang gửi…";
+  try {
+    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: ($("adsEngine") && $("adsEngine").value) || "", concepts: cons }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const job = d.job_id;
+    cons.forEach(c => { const lbl = (ADS_CONCEPTS.find(x => x.key === c.key) || {}).label || c.key; adsItems.unshift({ loading: true, job: job, label: lbl }); });
+    adsRenderAll();
+    adsPoll(job);
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads…";
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; $("adsProgress").classList.add("hidden"); }
+}
+
+function adsPoll(job) {
+  let placed = 0;
+  const timer = setInterval(async () => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job))).json();
+      const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+      $("adsBar").style.width = pct + "%"; $("adsProgText").textContent = "Đã xong " + d.done + "/" + d.total;
+      const items = d.items || [];
+      while (placed < items.length) {
+        const it = items[placed];
+        const idx = adsItems.findIndex(c => c.loading && c.job === job);
+        const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url };
+        if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
+        placed++;
+      }
+      if (d.finished) {
+        clearInterval(timer);
+        adsItems = adsItems.filter(c => !(c.loading && c.job === job));
+        $("adsProgress").classList.add("hidden");
+        const note = $("adsNote"); note.className = "gen-note ok"; note.textContent = "✓ Xong " + items.length + " ảnh ads.";
+        if ((d.errors || []).length) { note.className = "gen-note err"; note.textContent = "⚠️ " + d.errors[0]; }
+        if (typeof loadGallery === "function") loadGallery();
+      }
+      adsRenderAll();
+    } catch (e) {}
+  }, 2500);
+}

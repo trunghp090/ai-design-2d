@@ -540,3 +540,12 @@ textarea.input{resize:vertical;line-height:1.5}
 .cover-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:0 16px 16px;overflow:auto}
 .cover-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:pointer;transition:.12s}
 .cover-grid img:hover{border-color:var(--violet);transform:scale(1.03)}
+
+/* Facebook Ads — concept rows */
+.ads-con{display:flex;gap:10px;align-items:center;padding:7px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+.ads-con-ref{width:60px;height:60px;flex:0 0 auto;border-radius:8px;overflow:hidden;border:1px dashed var(--line);position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;background:#fafafa}
+.ads-con-ref img{width:100%;height:100%;object-fit:cover}
+.ads-ref-add{font-size:11px;color:var(--violet);text-align:center;line-height:1.2}
+.ads-ref-x{position:absolute;top:2px;right:2px;width:16px;height:16px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:10px;cursor:pointer;line-height:1}
+.ads-con-lbl{font-size:13px;font-weight:600}
+.ads-con-lbl .hint{font-weight:400}

@@ -1325,6 +1325,82 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
             BATCH_JOBS[job_id]["finished"] = True
 
 
+# ===== FACEBOOK ADS: AI đặt tên + gen concept ad theo ảnh style + chèn text =====
+ADS_CONCEPTS = {
+    "solo":    ("1 áo (1 người)", "ONE young Vietnamese model wearing the t-shirt"),
+    "couple":  ("2 áo (Couple)", "a young Vietnamese couple — a man and a woman — BOTH wearing the SAME matching t-shirt"),
+    "group":   ("3 áo (Đội nhóm)", "a group of THREE young Vietnamese friends, ALL wearing the SAME matching t-shirt"),
+    "flatlay": ("Flatlay", "the t-shirt(s) laid out flat in a clean tidy flatlay arrangement, no people"),
+}
+
+ADS_TEXT_SYSTEM = ("Bạn là copywriter quảng cáo áo thun ở Việt Nam. Nhìn DESIGN trên áo, đặt 1 TÊN SẢN "
+                   "PHẨM mới ngắn gọn & hấp dẫn bằng tiếng Việt (KHÁC với chữ đã in trên áo) + 1 HOOK "
+                   "quảng cáo cực ngắn (≤8 từ, gây chú ý). Trả JSON {\"name\":\"...\",\"hook\":\"...\"}.")
+
+
+def ads_concept_text(img_bytes):
+    """AI nhìn design -> {name, hook} cho ad."""
+    b64 = base64.b64encode(img_bytes).decode()
+    content = [{"type": "text", "text": "Đặt TÊN sản phẩm + HOOK ads cho áo này. Chỉ trả JSON."},
+               {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+    try:
+        raw = openai_chat([{"role": "system", "content": ADS_TEXT_SYSTEM},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=200)
+        d = json.loads(raw)
+        return {"name": (d.get("name") or "").strip(), "hook": (d.get("hook") or "").strip()}
+    except Exception:
+        return {"name": "", "hook": ""}
+
+
+def ads_ad_prompt(cast, name, hook, has_style):
+    txt = 'a big bold headline "%s"' % name
+    if hook:
+        txt += ' and a short punchy sub-line "%s"' % hook
+    style = ("The SECOND reference image is a STYLE reference: copy ONLY its layout, composition, "
+             "color grading, lighting and overall aesthetic — do NOT copy or reuse its people, faces, "
+             "shirts, logos or text. " if has_style else "")
+    return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
+            "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
+            "artwork, text, colors — as a LARGE full-front chest print on the shirt; do not redraw, "
+            "recolor or shrink it. " + style +
+            "Show %s wearing the design from the first reference image. "
+            "Integrate bold VIETNAMESE ad text naturally into the image like a real ad: %s — render "
+            "the text CRISP and CORRECTLY SPELLED with proper Vietnamese diacritics, well placed and "
+            "clearly readable. Photorealistic, high-quality social-media ad. Aspect ratio 4:5." % (cast, txt))
+
+
+def run_ads_job(job_id, design_img, concepts, name, hook, engine):
+    """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
+    def work(c):
+        try:
+            cast = ADS_CONCEPTS[c["key"]][1]
+            imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
+            b64 = gen_shot(imgs, ads_ad_prompt(cast, name, hook, bool(c.get("ref"))),
+                           "1024x1536", engine, "4:5", lock=False)
+            label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
+            g = gallery_add(b64, {"mode": "product", "prompt": label})
+            return {"image": b64, "title": label, "concept": c["key"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
+        except Exception as e:
+            return {"error": str(e), "title": ADS_CONCEPTS[c["key"]][0]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
     def work(shot):
         try:
@@ -3321,6 +3397,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_save_design(body)
         if path == "/api/batch-excel":
             return self.handle_batch_excel(body)
+        if path == "/api/ads-text":
+            return self.handle_ads_text(body)
+        if path == "/api/ads-generate":
+            return self.handle_ads_generate(body)
         if path == "/api/prod-generate":
             return self.handle_prod_generate(body)
         if path == "/api/prod-suggest":
@@ -4201,6 +4281,50 @@ class Handler(BaseHTTPRequestHandler):
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(shots)})
+
+    def handle_ads_text(self, body):
+        """AI nhìn design -> tên SP + hook ads."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        d, _ = fetch_image_bytes(body.get("image", ""))
+        if not d:
+            return self.json(400, {"error": "Cần ảnh design."})
+        try:
+            return self.json(200, ads_concept_text(d))
+        except Exception as e:
+            return self.json(500, {"error": str(e)})
+
+    def handle_ads_generate(self, body):
+        """Gen ảnh Facebook Ads theo các concept (mỗi concept 1 ảnh style ref)."""
+        if not API_KEY and not GEMINI_API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY / GEMINI_API_KEY."})
+        dsrc = body.get("image", "")
+        dd, dm = fetch_image_bytes(dsrc)
+        if not dd:
+            return self.json(400, {"error": "Cần ảnh DESIGN."})
+        name = (body.get("name") or "").strip() or "Áo thun"
+        hook = (body.get("hook") or "").strip()
+        cons = []
+        for c in (body.get("concepts") or []):
+            key = c.get("key")
+            if key not in ADS_CONCEPTS:
+                continue
+            ref = None
+            if c.get("ref"):
+                rb, _ = fetch_image_bytes(c["ref"])
+                ref = rb
+            cons.append({"key": key, "ref": ref})
+        if not cons:
+            return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
+        engine = resolve_engine_id(body)
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
+        t = threading.Thread(target=run_ads_job,
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine), daemon=True)
+        t.start()
+        return self.json(200, {"job_id": job_id, "total": len(cons)})
 
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""

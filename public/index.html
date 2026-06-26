@@ -48,6 +48,7 @@
     <button class="app-tab" data-app="design">✨ Tạo design</button>
     <button class="app-tab" data-app="autopipe">🚀 Trọn gói</button>
     <button class="app-tab" data-app="post">📱 Đăng bài</button>
+    <button class="app-tab" data-app="ads">📣 FB Ads</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -1035,6 +1036,44 @@
           <textarea id="fbCaption" class="input" rows="7" placeholder="Hook → body → CTA → hashtag…"></textarea>
           <button class="btn-ghost sm" id="fbCopy" style="margin-top:8px">📋 Copy bài Facebook</button>
         </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: FACEBOOK ADS ===== -->
+  <section class="auto-view app-view hidden" id="view-ads">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📣 Facebook Ads</h2>
+        <p class="panel-desc" style="margin:0 0 14px">Đưa <b>design</b> → AI tự đặt tên + tạo ảnh ads theo concept (mỗi concept upload 1 <b>ảnh style</b>). AI vẽ chữ vào ảnh. Chỉ copy STYLE, không dùng người trong ảnh mẫu.</p>
+
+        <label class="fp-label">DESIGN (ảnh áo / design)</label>
+        <div class="fp-refs" id="adsDesign"></div>
+        <input type="file" id="adsDesignFile" accept="image/*" hidden />
+
+        <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
+        <select id="adsEngine" class="input"></select>
+
+        <label class="fp-label" style="margin-top:14px">🏷️ Tên sản phẩm (AI tự đặt)</label>
+        <input type="text" id="adsName" class="input" placeholder="AI tự đặt khi có design…" />
+        <label class="fp-label" style="margin-top:10px">🎯 Hook quảng cáo</label>
+        <input type="text" id="adsHook" class="input" placeholder="Câu hook ngắn gây chú ý…" />
+        <button class="btn-ghost sm" id="adsNameBtn" style="margin-top:6px">🤖 AI đặt lại tên + hook</button>
+
+        <label class="fp-label" style="margin-top:14px">CONCEPT + ẢNH STYLE (upload từng cái)</label>
+        <div id="adsConcepts"></div>
+
+        <button class="btn-primary" id="adsRunBtn" style="margin-top:14px">✨ Tạo ảnh Ads</button>
+        <div class="batch-progress hidden" id="adsProgress" style="margin-top:8px"><div class="bp-bar"><div class="bp-fill" id="adsBar"></div></div><span id="adsProgText" class="hint"></span></div>
+        <p class="gen-note" id="adsNote"></p>
+      </aside>
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">🖼️ Ảnh Ads <span id="adsCount" class="fp-count"></span></h3>
+          <div class="fp-viewtoggle"><button id="adsViewList" class="active" title="Danh sách">☰</button><button id="adsViewGrid" title="Lưới">▦</button></div>
+        </div>
+        <div id="adsResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="adsEmpty">Chưa có ảnh. Đưa design + upload ảnh style cho concept rồi bấm Tạo.</div>
       </section>
     </div>
   </section>
