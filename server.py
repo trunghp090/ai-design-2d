@@ -1327,10 +1327,10 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
 
 # ===== FACEBOOK ADS: AI đặt tên + gen concept ad theo ảnh style + chèn text =====
 ADS_CONCEPTS = {
-    "solo":    ("1 áo (1 người)", "ONE young Vietnamese model wearing the t-shirt"),
-    "couple":  ("2 áo (Couple)", "a young Vietnamese couple — a man and a woman — BOTH wearing the SAME matching t-shirt"),
-    "group":   ("3 áo (Đội nhóm)", "a group of THREE young Vietnamese friends, ALL wearing the SAME matching t-shirt"),
-    "flatlay": ("Flatlay", "the t-shirt(s) laid out flat in a clean tidy flatlay arrangement, no people"),
+    "couple":   ("Couple (2 áo)", "a young Vietnamese couple — a man and a woman — BOTH wearing the SAME matching t-shirt"),
+    "group":    ("Đội nhóm (3 áo)", "a group of THREE young Vietnamese friends, ALL wearing the SAME matching t-shirt"),
+    "flatlay2": ("Flatlay 2 áo", "TWO t-shirts of the SAME design laid out flat side by side in a clean tidy flatlay arrangement, NO people"),
+    "flatlay3": ("Flatlay 3 áo", "THREE t-shirts of the SAME design laid out flat together in a clean tidy flatlay arrangement, NO people"),
 }
 
 ADS_TEXT_SYSTEM = ("Bạn là copywriter quảng cáo áo thun ở Việt Nam. Nhìn DESIGN trên áo, đặt 1 TÊN SẢN "

@@ -3402,10 +3402,10 @@ let adsStyle = {};              // key -> dataURL ảnh style
 let adsItems = [];              // {loading,job} | item
 let adsView = "list";
 const ADS_CONCEPTS = [
-  { key: "solo", label: "👤 1 áo (1 người)" },
-  { key: "couple", label: "💑 2 áo (Couple)" },
-  { key: "group", label: "👥 3 áo (Đội nhóm)" },
-  { key: "flatlay", label: "🛋️ Flatlay" },
+  { key: "couple", label: "💑 Couple (2 áo)" },
+  { key: "group", label: "👥 Đội nhóm (3 áo)" },
+  { key: "flatlay2", label: "🛋️ Flatlay 2 áo" },
+  { key: "flatlay3", label: "🛋️ Flatlay 3 áo" },
 ];
 let adsPickKey = null;          // concept đang chọn ảnh style
 
