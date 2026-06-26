@@ -676,14 +676,14 @@ function autoRenderAll() {
 // giữ tương thích: hook cũ gọi autoRender(items) -> nạp vào autoItems
 function autoRender(items) { (items || []).forEach(it => autoItems.unshift(it)); autoRenderAll(); }
 // chạy 1 luồng cá nhân hoá (nền) — không chặn UI
-function autoLaunchPersonalize(image, name, date, count) {
+function autoLaunchPersonalize(image, name, date, count, nick, req) {
   const job = "a" + Date.now() + "_" + Math.floor(Math.random() * 1000);
   for (let i = 0; i < count; i++) autoItems.unshift({ loading: true, job: job, name: name });
   autoRenderAll();
   const note = $("autoNote"); note.className = "gen-note"; note.textContent = "⏳ Đang vẽ \"" + name + "\"… (up design khác để chạy tiếp luồng mới)";
   fetch("/api/personalize", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: image, name: name, date: date, count: count, transparent: true }),
+    body: JSON.stringify({ image: image, name: name, date: date, nick: nick || "", note: req || "", count: count, transparent: true }),
   }).then(r => r.json().then(d => ({ ok: r.ok, d: d })))
     .then(({ ok, d }) => {
       autoItems = autoItems.filter(c => !(c.loading && c.job === job));
@@ -2216,6 +2216,7 @@ function openPersonalize(image, auto) {
   pnAutoMode = !!auto;
   $("pnPreview").src = "data:image/png;base64," + image;
   $("pnName").value = ""; $("pnDate").value = "";
+  if ($("pnNick")) $("pnNick").value = ""; if ($("pnReq")) $("pnReq").value = "";
   $("pnNote").textContent = ""; $("pnNote").className = "gen-note";
   $("pnModal").classList.remove("hidden");
   setTimeout(() => $("pnName").focus(), 50);
@@ -2227,9 +2228,12 @@ $("pnGo").onclick = async () => {
   const name = $("pnName").value.trim();
   if (!name) { $("pnNote").className = "gen-note err"; $("pnNote").textContent = "⚠️ Nhập tên đã."; return; }
   const count = parseInt($("pnCount").value, 10) || 4;
+  const nick = ($("pnNick") && $("pnNick").value || "").trim();
+  const note = ($("pnReq") && $("pnReq").value || "").trim();
+  const date = $("pnDate").value.trim();
   // CHẾ ĐỘ AUTO RESEARCH: chạy NỀN nhiều luồng -> đóng modal ngay, up design khác chạy tiếp
   if (pnAutoMode) {
-    autoLaunchPersonalize(pnImage, name, $("pnDate").value.trim(), count);
+    autoLaunchPersonalize(pnImage, name, date, count, nick, note);
     if (typeof autoUploaded !== "undefined") { autoUploaded = []; autoRenderThumbs(); }  // dọn để up design mới
     closePersonalize();
     return;
@@ -2240,7 +2244,7 @@ $("pnGo").onclick = async () => {
   try {
     const r = await fetch("/api/personalize", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: pnImage, name, date: $("pnDate").value.trim(), count, transparent: true }),
+      body: JSON.stringify({ image: pnImage, name, date, nick, note, count, transparent: true }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi cá nhân hoá");

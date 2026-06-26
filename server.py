@@ -3819,6 +3819,8 @@ class Handler(BaseHTTPRequestHandler):
         src = body.get("image", "")
         name = (body.get("name") or "").strip()
         date = (body.get("date") or "").strip()
+        nick = (body.get("nick") or "").strip()
+        req = (body.get("note") or "").strip()[:300]
         if not src or not name:
             return self.json(400, {"error": "Cần ảnh mẫu và TÊN cá nhân hoá."})
         img_bytes, mime = fetch_image_bytes(src)
@@ -3845,14 +3847,22 @@ class Handler(BaseHTTPRequestHandler):
                      "never split them, never place one above the other.")
         if date:
             base += " Include a small secondary line \"%s\"." % date
-        # CHỈ giữ TÊN (+ ngày) — xoá MỌI chữ thừa/placeholder của mẫu gốc
-        allowed = 'the name "%s"' % name + ((' and the small secondary line "%s"' % date) if date else "")
+        if nick:
+            base += (" Also add the affectionate nickname/pet-name \"%s\" as a small SECONDARY text "
+                     "element, in a warm, cute, friendly style (e.g. a little above or below the "
+                     "name) — keep the main NAME as the biggest focal text." % nick)
+        # CHỈ giữ TÊN (+ ngày + biệt danh) — xoá MỌI chữ thừa/placeholder của mẫu gốc
+        allowed = ('the name "%s"' % name
+                   + ((' and the small secondary line "%s"' % date) if date else "")
+                   + ((' and the affectionate nickname "%s"' % nick) if nick else ""))
         base += (" CRITICAL — TEXT CONTENT: the ONLY readable text anywhere on the whole design must be "
                  + allowed + ". COMPLETELY REMOVE every other word, letter, slogan, tagline, label, year, "
                  "club/brand name and placeholder text from the reference (e.g. '@yourtext', 'your text', "
                  "'DEAR', 'EST', 'SINCE', 'CLUB', 'CHAMPION', lorem) — do NOT keep, repeat or invent any "
                  "extra text. Keep only NON-TEXT decorative graphic elements (stars, lines, shapes, "
                  "motifs) for the style.")
+        if req:
+            base += " ADDITIONAL USER REQUEST (follow it carefully): " + req
         # mỗi bản 1 KIỂU BỐ CỤC KHÁC HẲN (vẫn cùng phong cách) -> 4-6 lựa chọn đa dạng
         if one_line:
             # tất cả bố cục đều giữ tên 2 chữ trên CÙNG 1 dòng
