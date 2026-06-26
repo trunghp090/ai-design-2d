@@ -1356,9 +1356,11 @@ def ads_ad_prompt(cast, name, hook, has_style):
     txt = 'a big bold headline "%s"' % name
     if hook:
         txt += ' and a short punchy sub-line "%s"' % hook
-    style = ("The SECOND reference image is a STYLE reference: copy ONLY its layout, composition, "
-             "color grading, lighting and overall aesthetic — do NOT copy or reuse its people, faces, "
-             "shirts, logos or text. " if has_style else "")
+    style = ("The SECOND reference image is a STYLE reference: copy its overall layout, composition, "
+             "color grading, lighting, aesthetic AND the WAY ITS TEXT IS PLACED & STYLED — the "
+             "typography treatment, position, size hierarchy and how the headline / sub-text sit in "
+             "the layout. But REPLACE the actual words with the Vietnamese ad text specified below; "
+             "do NOT copy or reuse its people, faces or shirts. " if has_style else "")
     return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
             "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
             "artwork, text, colors — as a LARGE full-front chest print on the shirt; do not redraw, "

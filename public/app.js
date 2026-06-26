@@ -3389,6 +3389,7 @@ document.addEventListener("paste", async (e) => {
     else if (view === "addbg") { bgImg = durl; bgRenderThumb(); bgRender(); }
     else if (view === "product") { prodAddRef(durl); }
     else if (view === "design") { dsSetRef(durl); }
+    else if (view === "ads") { adsHandlePaste(durl); }
     else if (view === "shopify") { await shopAddFiles([file]); }
   } catch (err) { /* im lặng */ }
 });
@@ -3402,6 +3403,7 @@ let adsStyle = {};              // key -> dataURL ảnh style
 let adsSel = new Set();         // concept đã tick để gen
 let adsItems = [];              // {loading,job} | item
 let adsView = "list";
+let adsPasteTo = "design";      // đích dán ảnh: "design" hoặc key concept
 const ADS_CONCEPTS = [
   { key: "couple", label: "💑 Couple (2 áo)" },
   { key: "group", label: "👥 Đội nhóm (3 áo)" },
@@ -3440,14 +3442,25 @@ async function adsCheckEngine() {
 
 function adsRenderDesign() {
   const box = $("adsDesign"); box.innerHTML = "";
+  box.onclick = () => { adsPasteTo = "design"; };   // bấm vùng design -> dán vào design
   if (adsDesignImg) {
     const d = document.createElement("div"); d.className = "fp-ref";
     d.innerHTML = '<img src="' + adsDesignImg + '" alt=""><button class="fp-ref-x">×</button>';
-    d.querySelector(".fp-ref-x").onclick = () => { adsDesignImg = null; adsRenderDesign(); };
+    d.querySelector(".fp-ref-x").onclick = (e) => { e.stopPropagation(); adsDesignImg = null; adsRenderDesign(); };
     box.appendChild(d);
   } else {
     const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
-    add.innerHTML = "＋<span>Design</span>"; add.onclick = () => $("adsDesignFile").click(); box.appendChild(add);
+    add.innerHTML = "＋<span>Design</span>"; add.onclick = () => { adsPasteTo = "design"; $("adsDesignFile").click(); }; box.appendChild(add);
+  }
+}
+// dán ảnh vào FB Ads theo đích (design / concept style đang chọn)
+function adsHandlePaste(durl) {
+  if (adsPasteTo && adsPasteTo !== "design" && ADS_CONCEPTS.find(c => c.key === adsPasteTo)) {
+    adsStyle[adsPasteTo] = durl; adsSel.add(adsPasteTo); adsRenderConcepts();
+    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán ảnh style cho concept."; }
+  } else {
+    adsDesignImg = durl; adsRenderDesign(); adsAutoName();
+    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán design — AI đang đặt tên…"; }
   }
 }
 
@@ -3461,7 +3474,7 @@ function adsRenderConcepts() {
       '<div class="ads-con-ref">' + (has ? '<img src="' + adsStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
       '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'tick + tải ảnh style') + '</span></div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) adsSel.add(c.key); else adsSel.delete(c.key); adsUpdateRunBtn(); };
-    row.querySelector(".ads-con-ref").onclick = (e) => { if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; $("adsStyleFile").click(); };
+    row.querySelector(".ads-con-ref").onclick = (e) => { adsPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; $("adsStyleFile").click(); };
     box.appendChild(row);
   });
   adsUpdateRunBtn();
