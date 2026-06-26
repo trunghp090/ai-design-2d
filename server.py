@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-all-personalize"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-no-color-collapse"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1431,21 +1431,30 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     Design = MẪU template; model tự thay tên trên từng áo (như ChatGPT làm)."""
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
+    n = len(names)
     assign = " ".join(
         ("Reference image #%d is the t-shirt design printed with the name \"%s\"."
-         % (i + 1, names[i])) for i in range(len(names)))
+         % (i + 1, names[i])) for i in range(n))
+    # liệt kê thẳng từng áo phải in tên gì (chống gom thành '1 SP nhiều màu cùng tên')
+    perslot = " ".join(("Shirt #%d MUST print the name \"%s\"." % (i + 1, names[i])) for i in range(n))
+    namelist = ", ".join('"' + x + '"' for x in names)
+    anti = ("VERY IMPORTANT: this is NOT a single product shown in different colours. These are %d "
+            "DIFFERENT personalised shirts, each printed with a DIFFERENT person's NAME. The %d names "
+            "are: %s — they are ALL DIFFERENT and EACH appears on EXACTLY ONE shirt. %s Do NOT print the "
+            "SAME name on two shirts, do NOT use only one name, do NOT add a '3 colours of the same "
+            "name' style. Every shirt's name must be clearly readable and spelled exactly as given. "
+            % (n, n, namelist, perslot))
     if concept_key == "group":
         body = ("Show a group of %d young Vietnamese friends standing together. %s "
                 "EACH friend wears a DIFFERENT one of these shirts (friend #1 = reference image #1, "
                 "friend #2 = reference image #2, and so on) — reproduce each shirt's print EXACTLY as a "
-                "LARGE full-front chest print. " % (len(names), assign))
+                "LARGE full-front chest print. " % (n, assign))
     else:  # flatlay2 / flatlay3
         body = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement, NO people. %s "
                 "EACH of the %d shirts is a DIFFERENT one of these designs — reproduce each print "
-                "EXACTLY. " % (len(names), assign, len(names)))
-    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body +
-            "ALL the names are DIFFERENT — keep each name on its OWN shirt, do not repeat, swap or mix "
-            "them up. " + style +
+                "EXACTLY. " % (n, assign, n))
+    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body + anti +
+            style +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
