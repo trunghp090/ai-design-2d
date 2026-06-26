@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-no-color-collapse"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-gpt-image-2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -91,7 +91,7 @@ def load_env():
 
 load_env()
 API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1").strip()
+MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 # Gemini "Nano Banana Pro" (ảnh chân thực hơn cho ảnh sản phẩm)
@@ -3387,7 +3387,7 @@ class Handler(BaseHTTPRequestHandler):
                                    "ai_upscale": HAS_ONNX,
                                    "auth_required": AUTH_REQUIRED})
         if path == "/api/version":
-            return self.json(200, {"version": APP_VERSION})
+            return self.json(200, {"version": APP_VERSION, "image_model": MODEL})
         if path == "/api/me":
             u = self.current_user()
             if not u:
