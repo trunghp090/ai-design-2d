@@ -3364,3 +3364,29 @@ async function postAiCaption() {
     n.className = "gen-note err"; n.textContent = "✗ " + err.message;
   } finally { btn.disabled = false; btn.textContent = old; }
 }
+
+/* =====================================================================
+   DÁN ẢNH (Ctrl/Cmd+V) cho MỌI khu upload — định tuyến theo tab đang mở
+   (Lên áo / Đổi màu / ô Mô tả đã có handler riêng -> bỏ qua ở đây)
+   ===================================================================== */
+document.addEventListener("paste", async (e) => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  let file = null;
+  for (const it of items) { if (it.type && it.type.startsWith("image/")) { file = it.getAsFile(); break; } }
+  if (!file) return;                                  // không phải ảnh -> để mặc định
+  const ae = document.activeElement;
+  if (ae && (ae.isContentEditable || ae.id === "shopDesc")) return;  // ô mô tả tự xử lý
+  const av = [...document.querySelectorAll(".app-view")].find(el => !el.classList.contains("hidden"));
+  const view = ((av && av.id) || "").replace("view-", "");
+  if (view === "lenao" || view === "recolor") return; // đã có handler riêng
+  e.preventDefault();
+  const durl = await fileToDataURL(file);
+  try {
+    if (view === "clone") { await addFiles([file]); }
+    else if (view === "auto") { autoUploaded.push(durl); autoRenderThumbs(); }
+    else if (view === "addbg") { bgImg = durl; bgRenderThumb(); bgRender(); }
+    else if (view === "product") { prodAddRef(durl); }
+    else if (view === "design") { dsSetRef(durl); }
+    else if (view === "shopify") { await shopAddFiles([file]); }
+  } catch (err) { /* im lặng */ }
+});
