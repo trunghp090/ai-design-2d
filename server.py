@@ -1368,7 +1368,7 @@ def ads_ad_prompt(cast, name, hook, has_style):
             "Show %s wearing the design from the first reference image. "
             "Integrate bold VIETNAMESE ad text naturally into the image like a real ad: %s — render "
             "the text CRISP and CORRECTLY SPELLED with proper Vietnamese diacritics, well placed and "
-            "clearly readable. Photorealistic, high-quality social-media ad. Aspect ratio 4:5." % (cast, txt))
+            "clearly readable. Photorealistic, high-quality social-media ad." % (cast, txt))
 
 
 def ads_couple_names():
@@ -1405,12 +1405,14 @@ def ads_couple_prompt(nm, prod_name, hook, has_style):
             + style +
             "Show a happy young Vietnamese couple standing together. "
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
-            "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad. "
-            "Aspect ratio 4:5.")
+            "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5"):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
+    size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
+    asp = aspect or "4:5"
+
     def work(c):
         try:
             if c["key"] == "couple":
@@ -1426,7 +1428,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine):
                 cast = ADS_CONCEPTS[c["key"]][1]
                 imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
                 prompt = ads_ad_prompt(cast, name, hook, bool(c.get("ref")))
-            b64 = gen_shot(imgs, prompt, "1024x1536", engine, "4:5", lock=False)
+            b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             g = gallery_add(b64, {"mode": "product", "prompt": label})
             return {"image": b64, "title": label, "concept": c["key"], "gallery": g}
@@ -4367,12 +4369,13 @@ class Handler(BaseHTTPRequestHandler):
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
         engine = resolve_engine_id(body)
+        aspect = (body.get("aspect") or "4:5").strip()
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 
