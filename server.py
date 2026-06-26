@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-multiname"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-ignore-styleref-names"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1356,9 +1356,12 @@ def ads_concept_text(img_bytes):
 def _ads_style_clauses(img_style_n, txt_style_n):
     s = ""
     if img_style_n:
-        s += ("Reference image #%d is an IMAGE-STYLE reference: copy ONLY its overall layout, "
-              "composition, color grading, lighting and aesthetic — do NOT copy its people, faces, "
-              "shirts or text. " % img_style_n)
+        s += ("Reference image #%d is ONLY a mood/style board — use it JUST for the background scene, "
+              "overall layout arrangement, color palette, lighting and aesthetic. It may itself contain "
+              "shirts, printed names and text: COMPLETELY IGNORE those — do NOT copy any shirt, any "
+              "name, any printed text, any person or face from it. Every shirt and every printed name "
+              "in the final ad MUST come ONLY from the design reference images listed above (each with "
+              "its own DIFFERENT name); never reuse a name from this style board. " % img_style_n)
     if txt_style_n:
         s += ("Reference image #%d shows the desired TEXT LETTERING STYLE: make the AD TEXT typography "
               "(font shape, weight, effects, treatment) MATCH the lettering style in that image — copy "
