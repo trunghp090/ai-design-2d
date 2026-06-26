@@ -136,36 +136,42 @@ COLOR_VI = {
 # Bảng màu áo cho tính năng "Đổi màu theo áo": key -> (nhãn VN, hex áo, gợi ý phối màu)
 RECOLOR = {
     "black":  ("đen", "#1c1c1e",
-               "the shirt is DARK, so use bright, light, pastel or white colors with "
-               "light/white outlines; avoid black or very dark elements that vanish on black"),
+               "the shirt is DARK, so re-tint the letters/elements to bright, light, pastel or "
+               "white FILL colors; avoid black or very dark fills that vanish on black"),
     "white":  ("trắng", "#f5f5f5",
-               "the shirt is LIGHT, so use deep, rich, saturated colors with dark/black "
-               "outlines; avoid white or very pale elements that vanish on white"),
+               "the shirt is LIGHT, so re-tint the letters/elements to deep, rich, saturated, "
+               "dark FILL colors; avoid white or very pale fills that vanish on white"),
     "brown":  ("nâu", "#6b4a2f",
-               "the shirt is a medium-dark warm BROWN, so use cream, beige, off-white and "
-               "warm pastel tones with light outlines; avoid dark brown that blends in"),
+               "the shirt is a medium-dark warm BROWN, so re-tint to cream, beige, off-white and "
+               "warm pastel FILL colors; avoid dark brown that blends in"),
     "sand":   ("be", "#d8c3a5",
-               "the shirt is a light warm BEIGE, so use deep warm tones (dark brown, maroon, "
-               "forest, navy) with dark outlines; avoid pale or white elements"),
+               "the shirt is a light warm BEIGE, so re-tint to deep warm FILL colors (dark brown, "
+               "maroon, forest, navy); avoid pale or white fills"),
     "forest": ("xanh rêu", "#2f5d3a",
-               "the shirt is a dark olive/forest GREEN, so use cream, off-white, mustard and "
-               "warm light tones with light outlines; avoid dark green or black"),
+               "the shirt is a dark olive/forest GREEN, so re-tint to cream, off-white, mustard and "
+               "warm light FILL colors; avoid dark green or black"),
     "red":    ("đỏ", "#b3261e",
-               "the shirt is bright RED, so use white, cream, black and dark contrasting "
-               "tones; avoid red, pink or orange that clash or blend with the red shirt"),
+               "the shirt is bright RED, so re-tint to white, cream, black and dark contrasting "
+               "FILL colors; avoid red, pink or orange that clash or blend with the red shirt"),
     "maroon": ("đỏ đô", "#5e1a1d",
-               "the shirt is a dark MAROON/burgundy, so use light gold, cream, white and warm "
-               "pastel tones with light outlines; avoid dark red or black"),
+               "the shirt is a dark MAROON/burgundy, so re-tint to light gold, cream, white and warm "
+               "pastel FILL colors; avoid dark red or black"),
 }
 
 
 def recolor_instruction(key):
     """Chỉ thị TIẾNG ANH: giữ nguyên design, CHỈ phối lại màu cho hợp màu áo."""
     vi, hexv, guide = RECOLOR[key]
-    return ("Keep the illustration, text, fonts and composition IDENTICAL — do not redraw "
-            "anything. Re-map ONLY the colors so the design stays vivid and clearly visible "
-            "when printed on a %s (%s) t-shirt: %s. Output only the artwork, no shirt, no "
-            "background." % (vi, hexv, guide))
+    return ("Keep the illustration, TEXT, fonts, shapes, line thickness and composition IDENTICAL "
+            "— do not redraw or restyle anything. Re-map ONLY the FILL colors (recolor the actual "
+            "letters and elements themselves) so the design stays vivid and clearly visible on a "
+            "%s (%s) t-shirt: %s. "
+            "CRITICAL: change the COLOR of the strokes/letters themselves — do NOT add, thicken or "
+            "introduce ANY outline, stroke, border, white edge, halo or glow around the text or "
+            "elements; if the original has no outline, the result must have no outline. "
+            "Recolor ONLY the design elements; keep the area around/behind them EMPTY on a PLAIN "
+            "PURE WHITE background (do NOT paint, tint or fill the background with any color) so it "
+            "can be cut out cleanly. Output only the artwork, no shirt." % (vi, hexv, guide))
 
 
 def flatten_on_color(b64_png, hexv):
