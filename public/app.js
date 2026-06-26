@@ -3438,7 +3438,7 @@ async function adsLoadHistory() {
       const a = it.ads || {};
       return { url: it.url, id: it.id, title: it.prompt || "Ads", concept: a.concept || "",
                name: a.name || "", hook: a.hook || "", aspect: a.aspect || "", bg: a.bg || "",
-               gallery: { id: it.id, url: it.url } };
+               model: a.model || "", gallery: { id: it.id, url: it.url } };
     });
     const seen = new Set(adsItems.map(c => c.gallery && c.gallery.id).filter(Boolean));
     hist.forEach(h => { if (!seen.has(h.id)) adsItems.push(h); });
@@ -3547,7 +3547,11 @@ function adsRenderAll() {
     }
     const card = document.createElement("div"); card.className = "fp-card";
     const src = c.image ? "data:image/png;base64," + c.image : c.url;
-    const meta = (c.bg ? "🖼️ " + c.bg : "") || "";
+    const mparts = [];
+    if (c.model) mparts.push("🤖 " + c.model);
+    if (c.aspect) mparts.push(c.aspect);
+    if (c.bg) mparts.push("🖼️ " + c.bg);
+    const meta = mparts.join(" · ");
     card.innerHTML =
       '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
@@ -3618,7 +3622,7 @@ function adsPoll(job) {
         const idx = adsItems.findIndex(c => c.loading && c.job === job);
         const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url,
                        concept: it.concept || "", name: it.name || "", hook: it.hook || "",
-                       aspect: it.aspect || "", bg: it.bg || "" };
+                       aspect: it.aspect || "", bg: it.bg || "", model: it.model || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
       }

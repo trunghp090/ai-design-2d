@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-history-bg"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-model-styleonly"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -401,6 +401,16 @@ def engine_info(engine_id):
         if e["id"] == engine_id:
             return e
     return IMAGE_ENGINES[0]
+
+
+def engine_model_label(engine_id):
+    """Tên model gen ảnh THỰC TẾ đã dùng (để ghi lên ad)."""
+    info = engine_info(engine_id)
+    if info["kind"] == "openai":
+        return MODEL                       # vd gpt-image-2
+    if engine_id == "gemini_pro":
+        return GEMINI_IMAGE_MODEL or info["model"]
+    return info["model"]
 
 
 def engines_status():
@@ -1380,12 +1390,14 @@ def _ads_replace_clause(old_name):
 def _ads_style_clauses(img_style_n, txt_style_n):
     s = ""
     if img_style_n:
-        s += ("Reference image #%d is ONLY a mood/style board — use it JUST for the background scene, "
-              "overall layout arrangement, color palette, lighting and aesthetic. It may itself contain "
-              "shirts, printed names and text: COMPLETELY IGNORE those — do NOT copy any shirt, any "
-              "name, any printed text, any person or face from it. Every shirt and every printed name "
-              "in the final ad MUST come ONLY from the design reference images listed above (each with "
-              "its own DIFFERENT name); never reuse a name from this style board. " % img_style_n)
+        s += ("Reference image #%d is ONLY a mood/style board — borrow JUST the abstract STYLE from it: "
+              "the overall layout arrangement, color palette, lighting, composition and aesthetic vibe. "
+              "Do NOT copy any concrete CONTENT out of it: NOT the specific people, faces or bodies, NOT "
+              "any shirt, NOT any printed name or text, and NOT the specific props/objects/items shown in "
+              "it (bags, cups, plants, furniture, accessories, etc.). Recreate a fresh original scene in "
+              "that style with NEW people and NEW props. Every shirt and every printed name in the final "
+              "ad MUST come ONLY from the design reference images listed above (each with its own "
+              "DIFFERENT name); never reuse a name from this style board. " % img_style_n)
     if txt_style_n:
         s += ("Reference image #%d shows the desired TEXT LETTERING STYLE: make the AD TEXT typography "
               "(font shape, weight, effects, treatment) MATCH the lettering style in that image — copy "
@@ -1544,10 +1556,11 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
-            adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg}
+            model = engine_model_label(engine)
+            adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
             g = gallery_add(b64, {"mode": "ads", "prompt": label, "ads": adsmeta})
             return {"image": b64, "title": label, "concept": key, "name": name, "hook": hook,
-                    "aspect": asp, "bg": bg, "gallery": g}
+                    "aspect": asp, "bg": bg, "model": model, "gallery": g}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
         except Exception as e:
