@@ -1401,6 +1401,48 @@ def ads_couple_names():
         return {"male": "Anh Yêu", "female": "Em Yêu"}
 
 
+def ads_n_names(n):
+    """n TÊN người Việt 2 chữ KHÁC NHAU (áo cá nhân hoá mỗi áo 1 tên)."""
+    sys = ("Đặt %d TÊN NGƯỜI Việt 2 chữ KHÁC NHAU (vd \"Minh Anh\", \"Quốc Bảo\", \"Thuỳ Trang\"). "
+           "Trả JSON {\"names\":[...]} đúng %d tên." % (n, n))
+    try:
+        raw = openai_chat([{"role": "system", "content": sys},
+                           {"role": "user", "content": "Cho %d tên. Chỉ trả JSON." % n}],
+                          json_mode=True, max_tokens=150)
+        d = json.loads(raw)
+        names = [str(s).strip() for s in (d.get("names") or []) if str(s).strip()][:n]
+    except Exception:
+        names = []
+    while len(names) < n:
+        names.append("Bạn %d" % (len(names) + 1))
+    return names
+
+
+# số áo (tên khác nhau) mỗi concept
+ADS_CONCEPT_N = {"couple": 2, "group": 3, "flatlay2": 2, "flatlay3": 3}
+
+
+def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style):
+    """Concept nhiều áo, MỖI áo 1 tên khác (group / flatlay 2-3 áo)."""
+    txt = _ads_text_part(prod_name, hook, text_style)
+    style = _ads_style_clauses(img_style_n, txt_style_n)
+    assign = " ".join(
+        ("Reference image #%d is the t-shirt printed with the PERSONALISED name \"%s\"."
+         % (i + 1, names[i])) for i in range(len(names)))
+    if concept_key == "group":
+        body = ("Show a group of %d young Vietnamese friends standing together; EACH friend wears a "
+                "DIFFERENT shirt: %s person #1 wears ref image #1, person #2 wears ref image #2, and so "
+                "on — keep each personalised name on its OWN shirt. " % (len(names), assign))
+    else:  # flatlay2 / flatlay3
+        body = ("Show %d t-shirts laid out flat in a clean tidy flatlay arrangement, NO people; EACH "
+                "shirt is DIFFERENT: %s " % (len(names), assign))
+    return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + body +
+            "Reproduce each shirt's printed design EXACTLY as a LARGE full-front chest print; ALL the "
+            "names are DIFFERENT, do not repeat, swap or mix them up. " + style +
+            "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
+            "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
+
+
 def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=""):
     txt = _ads_text_part(prod_name, hook, text_style)
     style = _ads_style_clauses(img_style_n, txt_style_n)
@@ -1426,14 +1468,23 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
 
     def work(c):
         try:
-            if c["key"] == "couple":
+            key = c["key"]
+            db64 = base64.b64encode(design_img[0]).decode()
+            multi_names = None   # danh sách tên cho concept nhiều áo (group/flatlay)
+            if key == "couple":
                 # ÁO ĐÔI cross-name: nam mặc áo tên NỮ, nữ mặc áo tên NAM
                 nm = ads_couple_names()
-                db64 = base64.b64encode(design_img[0]).decode()
-                d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")  # design tên NỮ
-                d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")      # design tên NAM
+                d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")
+                d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")
                 imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
                 nxt = 3
+            elif key in ADS_CONCEPT_N:
+                # MỖI ÁO 1 TÊN KHÁC: personalize design thành N bản tên khác nhau
+                N = ADS_CONCEPT_N[key]
+                multi_names = ads_n_names(N)
+                designs = [personalize_core(db64, multi_names[i], "1024x1536", True, "") for i in range(N)]
+                imgs = [(base64.b64decode(d), "image/png") for d in designs]
+                nxt = N + 1
             else:
                 imgs = [design_img]
                 nxt = 2
@@ -1442,10 +1493,12 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
-            if c["key"] == "couple":
+            if key == "couple":
                 prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style)
+            elif multi_names is not None:
+                prompt = ads_multi_prompt(key, multi_names, name, hook, img_n, txt_n, text_style)
             else:
-                prompt = ads_ad_prompt(ADS_CONCEPTS[c["key"]][1], name, hook, img_n, txt_n, text_style)
+                prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             g = gallery_add(b64, {"mode": "product", "prompt": label})
