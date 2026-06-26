@@ -549,3 +549,5 @@ textarea.input{resize:vertical;line-height:1.5}
 .ads-ref-x{position:absolute;top:2px;right:2px;width:16px;height:16px;border:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:10px;cursor:pointer;line-height:1}
 .ads-con-lbl{font-size:13px;font-weight:600}
 .ads-con-lbl .hint{font-weight:400}
+
+.ads-con-tick{width:18px;height:18px;accent-color:var(--violet);cursor:pointer;flex:0 0 auto}
