@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-template-swap"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-couple-natural"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1463,7 +1463,11 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "Vietnamese diacritics); keep every other element identical. The cross is ON PURPOSE — do "
             "NOT swap them back, do NOT keep the template's original name. "
             + style +
-            "Show a happy young Vietnamese couple standing together, each wearing their shirt. "
+            "Show a DIFFERENT real young Vietnamese couple (a man and a woman) in a NATURAL, candid, "
+            "true-to-life lifestyle moment — NOT the people from any reference image, only borrow the "
+            "scene/style. They look genuine and relaxed, each wearing their own shirt, the prints clearly "
+            "visible. Real photo look: natural skin, natural light, realistic fabric — not 3D, not CGI, "
+            "not AI-looking. "
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
