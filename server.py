@@ -32,6 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+APP_VERSION = "2026.06.26-ads-multiname"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3370,6 +3371,8 @@ class Handler(BaseHTTPRequestHandler):
                                    "cutoutpro": bool(CUTOUTPRO_KEY),
                                    "ai_upscale": HAS_ONNX,
                                    "auth_required": AUTH_REQUIRED})
+        if path == "/api/version":
+            return self.json(200, {"version": APP_VERSION})
         if path == "/api/me":
             u = self.current_user()
             if not u:
