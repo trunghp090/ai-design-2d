@@ -1352,23 +1352,39 @@ def ads_concept_text(img_bytes):
         return {"name": "", "hook": ""}
 
 
-def ads_ad_prompt(cast, name, hook, has_style, text_style=""):
+def _ads_style_clauses(img_style_n, txt_style_n):
+    s = ""
+    if img_style_n:
+        s += ("Reference image #%d is an IMAGE-STYLE reference: copy ONLY its overall layout, "
+              "composition, color grading, lighting and aesthetic — do NOT copy its people, faces, "
+              "shirts or text. " % img_style_n)
+    if txt_style_n:
+        s += ("Reference image #%d shows the desired TEXT LETTERING STYLE: make the AD TEXT typography "
+              "(font shape, weight, effects, treatment) MATCH the lettering style in that image — copy "
+              "the text STYLE only, NOT its words. " % txt_style_n)
+    return s
+
+
+def _ads_text_part(name, hook, text_style):
     txt = 'a big bold headline "' + name + '"'
     if hook:
         txt += ' and a short punchy sub-line "' + hook + '"'
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
-    style = ("The SECOND reference image is an IMAGE-STYLE reference: copy ONLY its overall layout, "
-             "composition, color grading, lighting and aesthetic — do NOT copy or reuse its people, "
-             "faces, shirts or TEXT (the ad text & its typography are controlled separately below). " if has_style else "")
+    return txt
+
+
+def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style=""):
+    txt = _ads_text_part(name, hook, text_style)
+    style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
             "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
             "artwork, text, colors — as a LARGE full-front chest print on the shirt; do not redraw, "
             "recolor or shrink it. " + style +
-            "Show %s wearing the design from the first reference image. "
-            "Integrate bold VIETNAMESE ad text naturally into the image like a real ad: %s — render "
-            "the text CRISP and CORRECTLY SPELLED with proper Vietnamese diacritics, well placed and "
-            "clearly readable. Photorealistic, high-quality social-media ad." % (cast, txt))
+            "Show " + cast + " wearing the design from the first reference image. "
+            "Integrate bold VIETNAMESE ad text naturally into the image like a real ad: " + txt +
+            " — render the text CRISP and CORRECTLY SPELLED with proper Vietnamese diacritics, well "
+            "placed and clearly readable. Photorealistic, high-quality social-media ad.")
 
 
 def ads_couple_names():
@@ -1385,15 +1401,9 @@ def ads_couple_names():
         return {"male": "Anh Yêu", "female": "Em Yêu"}
 
 
-def ads_couple_prompt(nm, prod_name, hook, has_style, text_style=""):
-    txt = 'a big bold headline "' + prod_name + '"'
-    if hook:
-        txt += ' and a short punchy sub-line "' + hook + '"'
-    if text_style:
-        txt += ' — render the ad text typography in this style: ' + text_style
-    style = ("Reference image #3 is an IMAGE-STYLE reference: copy ONLY its layout, composition, color "
-             "grading, lighting and aesthetic — do NOT copy its people, faces, shirts or TEXT (the ad "
-             "text & its typography are controlled separately below). " if has_style else "")
+def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=""):
+    txt = _ads_text_part(prod_name, hook, text_style)
+    style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). "
             "THE MAN wears the shirt printed with the FEMALE name \"" + nm["female"] + "\" (reference "
@@ -1409,7 +1419,7 @@ def ads_couple_prompt(nm, prod_name, hook, has_style, text_style=""):
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style=""):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
@@ -1423,12 +1433,19 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 d_female = personalize_core(db64, nm["female"], "1024x1536", True, "")  # design tên NỮ
                 d_male = personalize_core(db64, nm["male"], "1024x1536", True, "")      # design tên NAM
                 imgs = [(base64.b64decode(d_female), "image/png"), (base64.b64decode(d_male), "image/png")]
-                imgs += ([(c["ref"], "image/png")] if c.get("ref") else [])
-                prompt = ads_couple_prompt(nm, name, hook, bool(c.get("ref")), text_style)
+                nxt = 3
             else:
-                cast = ADS_CONCEPTS[c["key"]][1]
-                imgs = [design_img] + ([(c["ref"], "image/png")] if c.get("ref") else [])
-                prompt = ads_ad_prompt(cast, name, hook, bool(c.get("ref")), text_style)
+                imgs = [design_img]
+                nxt = 2
+            img_n = txt_n = None
+            if c.get("ref"):
+                imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
+            if text_style_img:
+                imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
+            if c["key"] == "couple":
+                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style)
+            else:
+                prompt = ads_ad_prompt(ADS_CONCEPTS[c["key"]][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False)
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             g = gallery_add(b64, {"mode": "product", "prompt": label})
@@ -4372,12 +4389,16 @@ class Handler(BaseHTTPRequestHandler):
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
         text_style = (body.get("text_style") or "").strip()[:200]
+        text_style_img = None
+        if body.get("text_style_img"):
+            tsb, _ = fetch_image_bytes(body["text_style_img"])
+            text_style_img = tsb
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 

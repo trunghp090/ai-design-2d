@@ -3403,7 +3403,8 @@ let adsStyle = {};              // key -> dataURL ảnh style
 let adsSel = new Set();         // concept đã tick để gen
 let adsItems = [];              // {loading,job} | item
 let adsView = "list";
-let adsPasteTo = "design";      // đích dán ảnh: "design" hoặc key concept
+let adsPasteTo = "design";      // đích dán ảnh: "design" / "textstyle" / key concept
+let adsTextStyleImg = null;     // ảnh mẫu kiểu chữ (áp dụng chung)
 const ADS_CONCEPTS = [
   { key: "couple", label: "💑 Couple (2 áo)" },
   { key: "group", label: "👥 Đội nhóm (3 áo)" },
@@ -3424,7 +3425,8 @@ function adsInit() {
   const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "adsStyleFile";
   document.body.appendChild(sf);
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && adsPickKey) { adsStyle[adsPickKey] = await fileToDataURL(f); adsSel.add(adsPickKey); adsRenderConcepts(); } e.target.value = ""; };
-  adsRenderDesign(); adsRenderConcepts(); adsRenderAll();
+  if ($("adsTextStyleFile")) $("adsTextStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { adsTextStyleImg = await fileToDataURL(f); adsRenderTextStyle(); } e.target.value = ""; };
+  adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
 }
 
 async function adsCheckEngine() {
@@ -3453,9 +3455,25 @@ function adsRenderDesign() {
     add.innerHTML = "＋<span>Design</span>"; add.onclick = () => { adsPasteTo = "design"; $("adsDesignFile").click(); }; box.appendChild(add);
   }
 }
-// dán ảnh vào FB Ads theo đích (design / concept style đang chọn)
+function adsRenderTextStyle() {
+  const box = $("adsTextStyleRef"); if (!box) return; box.innerHTML = "";
+  box.onclick = () => { adsPasteTo = "textstyle"; };
+  if (adsTextStyleImg) {
+    const d = document.createElement("div"); d.className = "fp-ref";
+    d.innerHTML = '<img src="' + adsTextStyleImg + '" alt=""><button class="fp-ref-x">×</button>';
+    d.querySelector(".fp-ref-x").onclick = (e) => { e.stopPropagation(); adsTextStyleImg = null; adsRenderTextStyle(); };
+    box.appendChild(d);
+  } else {
+    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
+    add.innerHTML = "🔤<span>Chữ</span>"; add.onclick = () => { adsPasteTo = "textstyle"; $("adsTextStyleFile").click(); }; box.appendChild(add);
+  }
+}
+// dán ảnh vào FB Ads theo đích (design / textstyle / concept style đang chọn)
 function adsHandlePaste(durl) {
-  if (adsPasteTo && adsPasteTo !== "design" && ADS_CONCEPTS.find(c => c.key === adsPasteTo)) {
+  if (adsPasteTo === "textstyle") {
+    adsTextStyleImg = durl; adsRenderTextStyle();
+    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán ảnh mẫu kiểu chữ."; }
+  } else if (adsPasteTo && adsPasteTo !== "design" && ADS_CONCEPTS.find(c => c.key === adsPasteTo)) {
     adsStyle[adsPasteTo] = durl; adsSel.add(adsPasteTo); adsRenderConcepts();
     const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã dán ảnh style cho concept."; }
   } else {
@@ -3536,7 +3554,7 @@ async function adsGenerate() {
 async function adsLaunchOne(con, name, hook, engine) {
   const lbl = (ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key;
   try {
-    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), concepts: [con] }) });
+    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     adsItems.unshift({ loading: true, job: d.job_id, label: lbl });
     adsRenderAll();

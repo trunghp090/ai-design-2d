@@ -1072,8 +1072,13 @@
         <button class="btn-ghost sm" id="adsNameBtn" style="margin-top:6px">🤖 AI đặt lại tên + hook</button>
 
         <label class="fp-label" style="margin-top:14px">🔤 Style chèn chữ (áp dụng CHUNG mọi concept)</label>
-        <input type="text" id="adsTextStyle" class="input" placeholder="VD: chữ bo tròn dễ thương · serif sang trọng · viết tay · graffiti · 3D nổi…" />
-        <p class="hint" style="margin:4px 0 0">Khác với <b>ảnh style</b> từng concept (lo bố cục/màu/visual) — ô này chỉ lo <b>kiểu chữ</b> chèn vào, dùng chung.</p>
+        <input type="text" id="adsTextStyle" class="input" placeholder="Mô tả kiểu chữ: bo tròn dễ thương · serif sang · viết tay · graffiti…" />
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <div class="fp-refs" id="adsTextStyleRef" style="margin:0"></div>
+          <span class="hint" style="margin:0">hoặc tải/dán <b>ảnh mẫu kiểu chữ</b> (AI bắt chước kiểu chữ trong ảnh)</span>
+        </div>
+        <input type="file" id="adsTextStyleFile" accept="image/*" hidden />
+        <p class="hint" style="margin:4px 0 0">Khác <b>ảnh style</b> từng concept (lo bố cục/màu) — phần này lo <b>kiểu chữ</b>, dùng chung.</p>
 
         <label class="fp-label" style="margin-top:14px">CONCEPT + ẢNH STYLE (upload từng cái)</label>
         <div id="adsConcepts"></div>
