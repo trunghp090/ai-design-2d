@@ -136,8 +136,10 @@ COLOR_VI = {
 # Bảng màu áo cho tính năng "Đổi màu theo áo": key -> (nhãn VN, hex áo, gợi ý phối màu)
 RECOLOR = {
     "black":  ("đen", "#1c1c1e",
-               "the shirt is DARK, so use bright, light, pastel or white colors with "
-               "light/white outlines; avoid black or very dark elements that vanish on black"),
+               "the shirt is BLACK. TOP PRIORITY: turn EVERY black / very-dark / near-black "
+               "text, letter, line, stroke and art element into WHITE so it shows clearly on "
+               "the black shirt. Other already-colored elements stay bright/light/vivid. NEVER "
+               "leave any black or dark element — it would vanish on black"),
     "white":  ("trắng", "#f5f5f5",
                "the shirt is LIGHT, so use deep, rich, saturated colors with dark/black "
                "outlines; avoid white or very pale elements that vanish on white"),
