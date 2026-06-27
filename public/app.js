@@ -2673,7 +2673,7 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-edit">✏️ Sửa</button><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+        '<div class="gacts"><button class="b-ads">📣 Tạo Ads</button><button class="b-edit">✏️ Sửa</button><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-prod").onclick = () => {
         if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo."); return; }
         showApp("product");
@@ -2691,6 +2691,7 @@ async function shoplistLoad() {
       card.querySelector(".b-admin").onclick = () => window.open(p.url, "_blank");
       card.querySelector(".b-img").onclick = () => openImgUpdate(p);
       card.querySelector(".b-edit").onclick = () => openShopEdit(p);
+      card.querySelector(".b-ads").onclick = () => adsFromProduct(p);
       card.querySelector(".b-del").onclick = async (e) => {
         if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
         const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
@@ -3627,6 +3628,18 @@ async function adsPickStyle(s) {
   if (adsStyleMode === "textstyle") { adsTextStyleImg = s.url; adsRenderTextStyle(); }
   else if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); }
   $("adsStyleModal").classList.add("hidden");
+}
+
+// ---- 1 NÚT: từ SP Shopify -> nạp design + gen ads luôn ----
+function adsFromProduct(p) {
+  if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo ads."); return; }
+  showApp("ads");                       // tự gọi adsInit
+  setTimeout(() => {
+    adsDesignImg = p.image; adsRenderDesign();
+    if (!adsSel.size) { adsSel.add("flatlay3"); adsRenderConcepts(); }   // mặc định 1 concept
+    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design từ \"" + (p.title || "SP") + "\" — đang tạo ads…"; }
+    adsGenerate();                       // gen luôn các concept đã tick
+  }, 150);
 }
 
 // ---- Pick DESIGN từ sản phẩm Shopify ----
