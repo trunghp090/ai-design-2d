@@ -435,6 +435,54 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Sửa sản phẩm Shopify ===== -->
+  <div class="zoom-modal hidden" id="shopEditModal">
+    <div class="pn-box" onclick="event.stopPropagation()" style="max-width:560px">
+      <button class="zoom-close" id="shopEditClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">✏️ Sửa sản phẩm</h3>
+      <p class="hint" id="shopEditName" style="margin:0 0 12px"></p>
+
+      <label class="field-label" style="margin-top:0">🏷️ Tên sản phẩm</label>
+      <input type="text" id="shopEditTitle" class="input" />
+      <label class="field-label">📝 Mô tả (dán ảnh được)</label>
+      <div id="shopEditDesc" class="shop-rich" contenteditable="true" data-ph="Mô tả sản phẩm…"></div>
+      <label class="field-label">📊 Trạng thái</label>
+      <select id="shopEditStatus" class="input">
+        <option value="draft">Nháp (chưa công khai)</option>
+        <option value="active">Đang bán (công khai)</option>
+      </select>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" id="shopEditSave">💾 Lưu thông tin</button>
+        <button class="btn-ghost sm" id="shopEditImages">🖼️ Sửa ảnh</button>
+      </div>
+
+      <hr style="margin:16px 0;border:0;border-top:1px solid var(--line)">
+      <h4 style="margin:0 0 6px">➕ Thêm variant (màu mới)</h4>
+      <div id="shopEditVariants" class="hint" style="margin-bottom:8px"></div>
+      <label class="field-label" style="margin-top:0">🎨 Màu (có swatch)</label>
+      <select id="shopVarColor" class="input">
+        <option value="Màu đen">Màu đen</option>
+        <option value="Màu trắng">Màu trắng</option>
+        <option value="Màu be">Màu be</option>
+        <option value="Màu nâu">Màu nâu</option>
+        <option value="Màu đỏ">Màu đỏ</option>
+        <option value="Đỏ đô">Đỏ đô</option>
+        <option value="Màu xanh rêu">Màu xanh rêu</option>
+      </select>
+      <label class="field-label">📏 Size</label>
+      <div id="shopVarSizes" class="sz-row"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <div style="flex:1"><label class="field-label" style="margin-top:0">💵 Giá (đ)</label>
+          <input type="text" id="shopVarPrice" class="input" value="269000" /></div>
+        <div><label class="field-label" style="margin-top:0">🖼️ Ảnh màu này</label>
+          <button class="btn-ghost sm" id="shopVarImgBtn" style="margin-top:0">⬆️ Ảnh</button></div>
+      </div>
+      <div id="shopVarImgPrev" style="margin-top:6px"></div>
+      <button class="btn" id="shopVarAdd" style="margin-top:10px">➕ Thêm variant</button>
+      <p class="gen-note" id="shopEditNote" style="margin-top:10px"></p>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Kho ảnh style FB Ads ===== -->
   <div class="zoom-modal hidden" id="adsStyleModal">
     <div class="pn-box" onclick="event.stopPropagation()">

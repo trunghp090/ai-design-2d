@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-family-concept"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-shopify-edit-product"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3496,6 +3496,29 @@ class Handler(BaseHTTPRequestHandler):
                     "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else "",
                 })
             return self.json(200, {"products": out})
+        if path == "/api/shopify-product":
+            if not shopify_configured():
+                return self.json(400, {"error": "Chưa cấu hình Shopify."})
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            pid = (qs.get("id") or [""])[0]
+            if not pid:
+                return self.json(400, {"error": "Thiếu id."})
+            try:
+                st, d = shopify_api("GET", "products/%s.json" % pid)
+                if st != 200:
+                    return self.json(400, {"error": "Lỗi tải SP: %s" % json.dumps(d)[:150]})
+            except Exception as e:
+                return self.json(400, {"error": "Lỗi tải SP: %s" % e})
+            p = d.get("product") or {}
+            return self.json(200, {
+                "id": p.get("id"), "title": p.get("title", ""), "body_html": p.get("body_html", ""),
+                "status": p.get("status", ""),
+                "options": [{"name": o.get("name"), "position": o.get("position"),
+                             "values": o.get("values") or []} for o in (p.get("options") or [])],
+                "variants": [{"id": v.get("id"), "title": v.get("title"), "option1": v.get("option1"),
+                              "option2": v.get("option2"), "price": v.get("price")}
+                             for v in (p.get("variants") or [])],
+            })
         if path == "/api/batch-status":
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             jid = (qs.get("id") or [""])[0]
@@ -3668,6 +3691,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self.json(400, {"error": "Xoá lỗi: %s" % e})
             return self.json(200, {"ok": True})
+        if path == "/api/shopify-update":
+            return self.handle_shopify_update(body)
+        if path == "/api/shopify-add-variant":
+            return self.handle_shopify_add_variant(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -4235,6 +4262,94 @@ class Handler(BaseHTTPRequestHandler):
         if not items:
             return self.json(400, {"error": "Không tạo được phiên bản nào — thử lại."})
         return self.json(200, {"items": items})
+
+    def handle_shopify_update(self, body):
+        """Sửa sản phẩm Shopify: tên / mô tả (body_html) / trạng thái."""
+        if not shopify_configured():
+            return self.json(400, {"error": "Chưa cấu hình Shopify."})
+        pid = body.get("id")
+        if not pid:
+            return self.json(400, {"error": "Thiếu id sản phẩm."})
+        upd = {"id": pid}
+        if (body.get("title") or "").strip():
+            upd["title"] = body["title"].strip()
+        if "body_html" in body:
+            upd["body_html"] = body.get("body_html") or ""
+        if body.get("status") in ("active", "draft"):
+            upd["status"] = body["status"]
+        try:
+            st, d = shopify_api("PUT", "products/%s.json" % pid, {"product": upd})
+            if st != 200:
+                return self.json(400, {"error": "Lưu lỗi: %s" % json.dumps(d)[:200]})
+        except Exception as e:
+            return self.json(400, {"error": "Lưu lỗi: %s" % e})
+        return self.json(200, {"ok": True})
+
+    def handle_shopify_add_variant(self, body):
+        """Thêm variant (màu có swatch + các size) cho SP có sẵn + gán ảnh cho màu mới.
+        Option 'Màu' là linkedMetafield -> phải dùng GraphQL với linkedMetafieldValue."""
+        if not shopify_configured():
+            return self.json(400, {"error": "Chưa cấu hình Shopify."})
+        pid = body.get("id")
+        color = shop_norm_color((body.get("color") or "").strip())
+        sizes = [str(s).strip() for s in (body.get("sizes") or []) if str(s).strip()] or ["S"]
+        price = str(body.get("price") or "").strip() or "269000"
+        image = body.get("image") or ""
+        if not pid or not color:
+            return self.json(400, {"error": "Thiếu sản phẩm hoặc tên màu."})
+        if color not in SHOP_COLOR_META:
+            return self.json(400, {"error": "Màu \"%s\" chưa có swatch. Chỉ hỗ trợ: %s"
+                                   % (color, ", ".join(SHOP_COLOR_META))})
+        gid = "gid://shopify/Product/%s" % pid
+        try:
+            # 1) lấy option 'Màu' (+ 'Size' nếu có)
+            qo = '{product(id:"%s"){options{id name optionValues{name}}}}' % gid
+            opts = ((shopify_graphql(qo).get("data") or {}).get("product") or {}).get("options") or []
+            mau = next((o for o in opts if o.get("name") == "Màu"), None)
+            has_size = any(o.get("name") == "Size" for o in opts)
+            if not mau:
+                return self.json(400, {"error": "Sản phẩm không có tuỳ chọn 'Màu' để thêm variant."})
+            # 2) thêm GIÁ TRỊ màu vào option nếu chưa có (linkedMetafield -> dùng GraphQL)
+            existing = [ov.get("name") for ov in (mau.get("optionValues") or [])]
+            if color not in existing:
+                qa = ("mutation($p:ID!,$o:OptionUpdateInput!,$add:[OptionValueCreateInput!]){"
+                      "productOptionUpdate(productId:$p,option:$o,optionValuesToAdd:$add){"
+                      "userErrors{message}}}")
+                ra = shopify_graphql(qa, {"p": gid, "o": {"id": mau["id"]},
+                                          "add": [{"linkedMetafieldValue": SHOP_COLOR_META[color]}]})
+                ea = [e.get("message") for e in ((ra.get("data") or {}).get("productOptionUpdate") or {}).get("userErrors", [])]
+                if ea:
+                    return self.json(400, {"error": "Thêm màu lỗi: %s" % ea[0]})
+            # 3) tạo variants theo TÊN value
+            variants = []
+            for sz in sizes:
+                ov = [{"optionName": "Màu", "name": color}]
+                if has_size and sz:
+                    ov.append({"optionName": "Size", "name": sz})
+                variants.append({"price": price, "optionValues": ov})
+            qv = ("mutation($pid:ID!,$v:[ProductVariantsBulkInput!]!){"
+                  "productVariantsBulkCreate(productId:$pid,variants:$v,strategy:DEFAULT){"
+                  "productVariants{id} userErrors{field message}}}")
+            res = shopify_graphql(qv, {"pid": gid, "v": variants})
+        except Exception as e:
+            return self.json(400, {"error": "Lỗi GraphQL: %s" % e})
+        data = (res.get("data") or {}).get("productVariantsBulkCreate") or {}
+        errs = [e.get("message") for e in (data.get("userErrors") or [])]
+        created = data.get("productVariants") or []
+        if not created:
+            top = (res.get("errors") or [{}])
+            msg = errs[0] if errs else (top[0].get("message") if top else "Không thêm được variant (có thể đã tồn tại).")
+            return self.json(400, {"error": msg})
+        # gán ảnh cho các variant màu mới
+        if image and created:
+            try:
+                b = image.split(",", 1)[1] if str(image).startswith("data:") else image
+                vids = [int(str(c["id"]).split("/")[-1]) for c in created if c.get("id")]
+                shopify_api("POST", "products/%s/images.json" % pid,
+                            {"image": {"attachment": b, "variant_ids": vids}})
+            except Exception:
+                pass
+        return self.json(200, {"ok": True, "count": len(created), "errors": errs})
 
     def handle_shopify_push(self, body):
         """Đẩy sản phẩm lên Shopify thật (REST Admin API). Mỗi item -> 1 product (Color×Size variant)."""

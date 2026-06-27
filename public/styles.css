@@ -476,7 +476,10 @@ textarea.input{resize:vertical;line-height:1.5}
 .fb-more{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}
 
 /* Mô tả Shopify dạng rich (dán ảnh được) */
-.shop-rich{min-height:80px;max-height:320px;overflow:auto;cursor:text;line-height:1.5}
+.shop-rich{min-height:80px;max-height:320px;overflow:auto;cursor:text;line-height:1.5;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.sz-row{display:flex;flex-wrap:wrap;gap:6px}
+.sz-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--line);border-radius:20px;font-size:13px;cursor:pointer;user-select:none}
+.sz-chip input{accent-color:var(--violet);cursor:pointer}
 .shop-rich:empty:before{content:attr(data-ph);color:var(--muted);pointer-events:none}
 .shop-rich img{max-width:100%;height:auto;border-radius:6px}
 

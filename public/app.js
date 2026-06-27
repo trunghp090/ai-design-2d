@@ -2673,7 +2673,7 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+        '<div class="gacts"><button class="b-edit">✏️ Sửa</button><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-prod").onclick = () => {
         if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo."); return; }
         showApp("product");
@@ -2690,6 +2690,7 @@ async function shoplistLoad() {
       card.querySelector("img")?.addEventListener("click", () => window.open(p.store_url || p.url, "_blank"));
       card.querySelector(".b-admin").onclick = () => window.open(p.url, "_blank");
       card.querySelector(".b-img").onclick = () => openImgUpdate(p);
+      card.querySelector(".b-edit").onclick = () => openShopEdit(p);
       card.querySelector(".b-del").onclick = async (e) => {
         if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
         const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
@@ -2706,6 +2707,67 @@ async function shoplistLoad() {
     banner.className = "shop-banner warn"; banner.textContent = "⚠️ " + err.message;
   }
 }
+
+/* ===== Sửa sản phẩm Shopify (mô tả / trạng thái / thêm variant) ===== */
+let shopEditState = { id: null, p: null, varImg: null };
+const SHOP_SIZES = ["S", "M", "L", "XL", "XXL"];
+async function openShopEdit(p) {
+  shopEditState = { id: p.id, p: p, varImg: null };
+  $("shopEditName").textContent = "ID: " + p.id;
+  $("shopEditNote").textContent = ""; $("shopEditNote").className = "gen-note";
+  $("shopEditTitle").value = p.title || "";
+  $("shopEditDesc").innerHTML = "<p class='hint'>Đang tải…</p>";
+  $("shopVarColor").value = ""; $("shopVarPrice").value = "269000";
+  $("shopVarImgPrev").innerHTML = ""; shopEditState.varImg = null;
+  // size checkboxes
+  $("shopVarSizes").innerHTML = SHOP_SIZES.map(s => '<label class="sz-chip"><input type="checkbox" value="' + s + '"' + (s === "M" ? " checked" : "") + '>' + s + '</label>').join("");
+  $("shopEditModal").classList.remove("hidden");
+  try {
+    const d = await (await fetch("/api/shopify-product?id=" + encodeURIComponent(p.id))).json();
+    if (d.error) throw new Error(d.error);
+    $("shopEditTitle").value = d.title || p.title || "";
+    $("shopEditDesc").innerHTML = d.body_html || "";
+    $("shopEditStatus").value = d.status === "active" ? "active" : "draft";
+    const colors = [...new Set((d.variants || []).map(v => v.option1).filter(Boolean))];
+    $("shopEditVariants").textContent = "Hiện có: " + (d.variants || []).length + " variant" + (colors.length ? " · màu: " + colors.join(", ") : "");
+  } catch (e) { $("shopEditDesc").innerHTML = ""; $("shopEditNote").className = "gen-note err"; $("shopEditNote").textContent = "⚠️ " + e.message; }
+}
+function closeShopEdit() { $("shopEditModal").classList.add("hidden"); }
+if ($("shopEditClose")) $("shopEditClose").onclick = closeShopEdit;
+if ($("shopEditModal")) $("shopEditModal").onclick = (e) => { if (e.target.id === "shopEditModal") closeShopEdit(); };
+if ($("shopEditImages")) $("shopEditImages").onclick = () => { if (shopEditState.p) { closeShopEdit(); openImgUpdate(shopEditState.p); } };
+if ($("shopEditSave")) $("shopEditSave").onclick = async (e) => {
+  const btn = e.currentTarget, note = $("shopEditNote"); btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳ Đang lưu…";
+  try {
+    const r = await fetch("/api/shopify-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shopEditState.id, title: $("shopEditTitle").value.trim(), body_html: $("shopEditDesc").innerHTML, status: $("shopEditStatus").value }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã lưu thông tin sản phẩm.";
+    if (typeof shoplistLoad === "function") shoplistLoad();
+  } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; }
+  finally { btn.disabled = false; btn.textContent = o; }
+};
+if ($("shopVarImgBtn")) $("shopVarImgBtn").onclick = () => {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+  inp.onchange = async (e) => { const f = e.target.files[0]; if (f) { shopEditState.varImg = await fileToDataURL(f); $("shopVarImgPrev").innerHTML = '<img src="' + shopEditState.varImg + '" style="height:54px;border-radius:6px">'; } };
+  inp.click();
+};
+if ($("shopVarAdd")) $("shopVarAdd").onclick = async (e) => {
+  const btn = e.currentTarget, note = $("shopEditNote");
+  const color = $("shopVarColor").value.trim();
+  const sizes = [...$("shopVarSizes").querySelectorAll("input:checked")].map(i => i.value);
+  if (!color) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập tên màu."; return; }
+  if (!sizes.length) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 size."; return; }
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳ Đang thêm…";
+  try {
+    const r = await fetch("/api/shopify-add-variant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shopEditState.id, color: color, sizes: sizes, price: $("shopVarPrice").value.trim(), image: shopEditState.varImg || "" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã thêm " + d.count + " variant màu \"" + color + "\".";
+    $("shopVarColor").value = ""; shopEditState.varImg = null; $("shopVarImgPrev").innerHTML = "";
+    openShopEdit(shopEditState.p);   // refresh danh sách variant
+    if (typeof shoplistLoad === "function") shoplistLoad();
+  } catch (err) { note.className = "gen-note err"; note.textContent = "✗ " + err.message; }
+  finally { btn.disabled = false; btn.textContent = o; }
+};
 
 /* ===== Cập nhật ảnh cho sản phẩm Shopify có sẵn ===== */
 let imgState = { id: null, name: "", uploads: [], prodSel: new Set(), prodPhotos: [] };
