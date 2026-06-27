@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-textcolor-pick"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-brand-rieng"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1464,6 +1464,17 @@ def _ads_text_part(name, hook, text_style, text_color=""):
     return txt
 
 
+def _ads_brand_clause(brand):
+    """Chèn brand/website nhỏ gọn ở góc ảnh (logo-style)."""
+    b = (brand or "").strip()
+    if not b:
+        return ""
+    return (" Also place the brand / website \"" + b + "\" as a SMALL, clean, tasteful brand mark in a "
+            "BOTTOM corner of the ad (small logo-style text), in a colour that fits the palette and is "
+            "clearly readable but subtle — do NOT let it dominate the ad. Spell it EXACTLY as \"" + b
+            + "\", lowercase, no extra words.")
+
+
 def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style="", text_color=""):
     txt = _ads_text_part(name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
@@ -1589,7 +1600,7 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None, quality="medium", text_color=""):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None, quality="medium", text_color="", brand="rieng.vn"):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
@@ -1620,6 +1631,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style, text_color)
+            prompt += _ads_brand_clause(brand)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
             # cắt về ĐÚNG tỉ lệ user chọn (model chỉ ra vài size cố định)
             if HAS_PIL:
@@ -4727,6 +4739,8 @@ class Handler(BaseHTTPRequestHandler):
         if quality not in ("low", "medium", "high"):
             quality = "medium"
         text_color = (body.get("text_color") or "").strip()[:60]
+        brand = (body.get("brand") if body.get("brand") is not None else "rieng.vn")
+        brand = str(brand).strip()[:40]
         text_style_img = None
         if body.get("text_style_img"):
             tsb, _ = fetch_image_bytes(body["text_style_img"])
@@ -4736,7 +4750,7 @@ class Handler(BaseHTTPRequestHandler):
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality, text_color), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality, text_color, brand), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 
