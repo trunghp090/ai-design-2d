@@ -3641,17 +3641,50 @@ async function adsOpenDesignPick() {
     adsRenderDesignPick("");
   } catch (e) { grid.innerHTML = ""; $("adsDesignPickNote").className = "gen-note err"; $("adsDesignPickNote").textContent = "⚠️ " + e.message; }
 }
+// BƯỚC 1: lưới sản phẩm (bấm 1 SP -> xem TẤT CẢ ảnh của SP đó)
 function adsRenderDesignPick(q) {
   const grid = $("adsDesignPickGrid"); if (!grid) return;
+  if ($("adsDesignPickSearch")) $("adsDesignPickSearch").style.display = "";
   const list = (adsShopProducts || []).filter(p => !q || (p.title || "").toLowerCase().includes(q.toLowerCase()));
   if (!list.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Không có sản phẩm.</p>'; return; }
   grid.innerHTML = "";
   list.forEach(p => {
     const cell = document.createElement("div"); cell.className = "ads-style-cell";
     cell.innerHTML = '<img src="' + p.image + '" loading="lazy" alt=""><span class="cover-tag" style="background:rgba(0,0,0,.6);max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.title || "").replace(/</g, "&lt;").slice(0, 22) + '</span>';
-    cell.querySelector("img").onclick = () => { adsDesignImg = p.image; adsRenderDesign(); adsAutoName(true); $("adsDesignPickModal").classList.add("hidden"); const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy design từ \"" + (p.title || "SP") + "\" — AI đang đặt tên…"; } };
+    cell.querySelector("img").onclick = () => adsShowProductImages(p);
     grid.appendChild(cell);
   });
+}
+
+// BƯỚC 2: lưới TẤT CẢ ảnh của 1 SP -> bấm 1 ảnh để làm design
+async function adsShowProductImages(p) {
+  const grid = $("adsDesignPickGrid");
+  if ($("adsDesignPickSearch")) $("adsDesignPickSearch").style.display = "none";
+  grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Đang tải ảnh của "' + (p.title || "SP") + '"…</p>';
+  let imgs = [];
+  try {
+    const d = await (await fetch("/api/shopify-product?id=" + encodeURIComponent(p.id))).json();
+    if (d.error) throw new Error(d.error);
+    imgs = d.images || [];
+  } catch (e) { grid.innerHTML = ""; $("adsDesignPickNote").className = "gen-note err"; $("adsDesignPickNote").textContent = "⚠️ " + e.message; return; }
+  grid.innerHTML = "";
+  // ô quay lại
+  const back = document.createElement("div"); back.className = "ads-style-cell"; back.style.cssText = "display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f3f0ff;border-style:dashed";
+  back.innerHTML = '<span style="font-size:13px;color:var(--violet);text-align:center;font-weight:600">←<br>Quay lại</span>';
+  back.onclick = () => adsRenderDesignPick($("adsDesignPickSearch") ? $("adsDesignPickSearch").value : "");
+  grid.appendChild(back);
+  if (!imgs.length) { const e = document.createElement("p"); e.className = "hint"; e.style.gridColumn = "1/-1"; e.textContent = "SP này chưa có ảnh."; grid.appendChild(e); return; }
+  imgs.forEach(im => {
+    const cell = document.createElement("div"); cell.className = "ads-style-cell";
+    cell.innerHTML = '<img src="' + im.src + '" loading="lazy" alt="">';
+    cell.querySelector("img").onclick = () => {
+      adsDesignImg = im.src; adsRenderDesign();
+      $("adsDesignPickModal").classList.add("hidden");
+      const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design."; }
+    };
+    grid.appendChild(cell);
+  });
+  $("adsDesignPickNote").className = "gen-note"; $("adsDesignPickNote").textContent = "Bấm 1 ảnh để dùng làm DESIGN. (" + imgs.length + " ảnh)";
 }
 
 function adsSetDefaultStyle(id) {
