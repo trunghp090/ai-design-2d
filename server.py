@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-perms-check"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-post-test"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -697,8 +697,8 @@ def fb_graph(method, path, params, token=None):
     p = dict(params or {})
     p["access_token"] = token or FB_ACCESS_TOKEN
     data = urllib.parse.urlencode(p).encode()
-    if method == "GET":
-        req = urllib.request.Request(url + "?" + data.decode(), method="GET")
+    if method in ("GET", "DELETE"):
+        req = urllib.request.Request(url + "?" + data.decode(), method=method)
     else:
         req = urllib.request.Request(url, data=data, method=method)
     try:
@@ -3693,6 +3693,20 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
+        if path == "/api/fb-post-test":
+            if not fb_configured():
+                return self.json(200, {"ok": False, "error": "chưa cấu hình"})
+            ptok = fb_page_token()
+            if not ptok:
+                return self.json(200, {"ok": False, "step": "page_token", "error": "không lấy được page token"})
+            st, d = fb_graph("POST", "%s/photos" % FB_PAGE_ID,
+                             {"url": "https://www.facebook.com/images/fb_icon_325x325.png",
+                              "published": "false"}, ptok)
+            if st != 200 or not d.get("id"):
+                return self.json(200, {"ok": False, "step": "upload", "error": fb_err(d)})
+            pid = d["id"]
+            fb_graph("DELETE", "%s" % pid, {}, ptok)   # dọn ảnh test
+            return self.json(200, {"ok": True, "msg": "Upload ảnh (ẩn) lên Trang + xoá OK → đăng Fanpage chạy được."})
         if path == "/api/fb-campaigns":
             if not fb_configured():
                 return self.json(200, {"campaigns": []})
