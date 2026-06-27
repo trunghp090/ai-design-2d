@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-shopify-edit-cover"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-style-family-aspect"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -473,6 +473,33 @@ ASPECT_TO_SIZE = {
     "1:1": "1024x1024", "4:5": "1024x1536", "2:3": "1024x1536", "3:4": "1024x1536",
     "9:16": "1024x1536", "3:2": "1536x1024", "4:3": "1536x1024", "16:9": "1536x1024",
 }
+# tỉ lệ rộng/cao mong muốn (gpt-image chỉ ra 3 size -> tự cắt giữa về đúng tỉ lệ)
+ASPECT_RATIO = {
+    "1:1": 1.0, "4:5": 0.8, "2:3": 2.0 / 3, "3:4": 0.75, "9:16": 9.0 / 16,
+    "16:9": 16.0 / 9, "3:2": 1.5, "4:3": 4.0 / 3,
+}
+
+
+def crop_to_aspect(raw, aspect):
+    """Cắt GIỮA ảnh về ĐÚNG tỉ lệ aspect đã chọn (vì model chỉ ra vài size cố định)."""
+    r = ASPECT_RATIO.get(aspect)
+    if not r or not HAS_PIL:
+        return raw
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = im.size
+        if abs((w / float(h)) - r) < 0.012:
+            return raw
+        if (w / float(h)) > r:            # quá rộng -> cắt bớt chiều ngang
+            nw = int(round(h * r)); x = (w - nw) // 2
+            im = im.crop((x, 0, x + nw, h))
+        else:                             # quá cao -> cắt bớt chiều dọc
+            nh = int(round(w / r)); y = (h - nh) // 2
+            im = im.crop((0, y, w, y + nh))
+        buf = io.BytesIO(); im.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        return raw
 
 
 def openai_edit(images, prompt, size, native_transparent, quality=""):
@@ -1394,14 +1421,18 @@ def _ads_replace_clause(old_name):
 def _ads_style_clauses(img_style_n, txt_style_n):
     s = ""
     if img_style_n:
-        s += ("Reference image #%d is ONLY a mood/style board — borrow JUST the abstract STYLE from it: "
-              "the overall layout arrangement, color palette, lighting, composition and aesthetic vibe. "
-              "Do NOT copy any concrete CONTENT out of it: NOT the specific people, faces or bodies, NOT "
-              "any shirt, NOT any printed name or text, and NOT the specific props/objects/items shown in "
-              "it (bags, cups, plants, furniture, accessories, etc.). Recreate a fresh original scene in "
-              "that style with NEW people and NEW props. Every shirt and every printed name in the final "
-              "ad MUST come ONLY from the design reference images listed above (each with its own "
-              "DIFFERENT name); never reuse a name from this style board. " % img_style_n)
+        s += ("Reference image #%d is the STYLE reference — MATCH ITS STYLE CLOSELY so the final ad "
+              "clearly looks like it belongs to the same set: the same color palette, lighting, "
+              "background look and surface, framing, props arrangement vibe, finishing/retouch and "
+              "overall aesthetic. Follow it tightly. BUT two things must NOT come from it: "
+              "(a) the SCENE TYPE / SUBJECT is fixed by the concept described ABOVE — if the concept "
+              "calls for PEOPLE wearing the shirts, the result MUST show those people even if the "
+              "reference is a flatlay; if the concept is a flatlay, keep it a flatlay even if the "
+              "reference shows people. Do NOT switch a people scene into a flat lay-down of shirts or "
+              "vice-versa. (b) do NOT copy the literal CONTENT of the reference: not its specific "
+              "people or faces, not its shirts, and not any printed name or text on it. Every shirt and "
+              "printed name in the final ad comes ONLY from the design reference(s) above (each with its "
+              "own DIFFERENT name); never reuse a name from this style board. " % img_style_n)
     if txt_style_n:
         s += ("Reference image #%d shows the desired TEXT LETTERING STYLE: make the AD TEXT typography "
               "(font shape, weight, effects, treatment) MATCH the lettering style in that image — copy "
@@ -1494,10 +1525,11 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     elif concept_key == "family":
-        scene = ("Show a happy Vietnamese FAMILY of %d — a father, a mother and their children — "
-                 "standing together, EACH family member wearing one of these matching shirts as a LARGE "
-                 "full-front chest print (the kids wear smaller kid-sized versions of the same design). "
-                 % n)
+        scene = ("Show a happy real Vietnamese FAMILY of %d REAL PEOPLE — a father, a mother and their "
+                 "children — standing together in a natural lifestyle photo, EACH person WEARING one of "
+                 "these matching shirts as a LARGE full-front chest print (kids wear smaller kid-sized "
+                 "versions of the same design). This MUST be a photo of %d people wearing the shirts — "
+                 "it is NOT a flatlay, NOT shirts laid flat, NOT a product-only shot. " % (n, n))
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3
@@ -1566,6 +1598,12 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             else:
                 prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
+            # cắt về ĐÚNG tỉ lệ user chọn (model chỉ ra vài size cố định)
+            if HAS_PIL:
+                try:
+                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
+                except Exception:
+                    pass
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             model = engine_model_label(engine)
             adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
