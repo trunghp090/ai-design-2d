@@ -49,6 +49,7 @@
     <button class="app-tab" data-app="autopipe">🚀 Trọn gói</button>
     <button class="app-tab" data-app="post">📱 Đăng bài</button>
     <button class="app-tab" data-app="ads">📣 FB Ads</button>
+    <button class="app-tab" data-app="fbpost">📘 FB Post</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -1239,6 +1240,60 @@
         </div>
         <div id="adsResults" class="fp-creations list"></div>
         <div class="gallery-empty" id="adsEmpty">Chưa có ảnh. Đưa design + upload ảnh style cho concept rồi bấm Tạo.</div>
+      </section>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-fbpost">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📘 Facebook Post</h2>
+        <p class="panel-desc" style="margin:0 0 14px">Đưa <b>design</b> → mỗi concept ra <b>1 bộ 4–5 ảnh SẠCH</b> (KHÔNG chèn chữ) → đăng thẳng lên <b>Fanpage rieng.vn</b>. Chỉ copy STYLE ảnh mẫu, không lấy người/đồ trong đó.</p>
+
+        <label class="fp-label">DESIGN (ảnh áo / design)</label>
+        <div class="fp-refs" id="fbpDesign"></div>
+        <input type="file" id="fbpDesignFile" accept="image/*" hidden />
+        <button class="btn-ghost sm" id="fbpDesignFromShop" style="margin-top:6px">🛍️ Chọn design từ SP Shopify</button>
+
+        <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
+        <select id="fbpEngine" class="input"></select>
+
+        <label class="fp-label" style="margin-top:14px">📐 Tỉ lệ ảnh</label>
+        <select id="fbpAspect" class="input">
+          <option value="4:5">Dọc 4:5 (feed)</option>
+          <option value="1:1" selected>Vuông 1:1</option>
+          <option value="9:16">Dọc 9:16</option>
+          <option value="2:3">Dọc 2:3</option>
+          <option value="3:4">Dọc 3:4</option>
+          <option value="16:9">Ngang 16:9</option>
+        </select>
+
+        <label class="fp-label" style="margin-top:14px">⚡ Tốc độ / Chất lượng</label>
+        <select id="fbpQuality" class="input">
+          <option value="low">⚡ Nhanh (~30s/ảnh)</option>
+          <option value="medium" selected>⚖️ Cân bằng (~60s/ảnh)</option>
+          <option value="high">💎 Đẹp nhất (chậm)</option>
+        </select>
+
+        <label class="fp-label" style="margin-top:14px">🖼️ Số ảnh mỗi bộ</label>
+        <select id="fbpPerSet" class="input">
+          <option value="4" selected>4 ảnh / concept</option>
+          <option value="5">5 ảnh / concept</option>
+          <option value="3">3 ảnh / concept</option>
+        </select>
+
+        <label class="fp-label" style="margin-top:14px">CONCEPT + ẢNH STYLE (upload từng cái)</label>
+        <div id="fbpConcepts"></div>
+
+        <button class="btn-primary" id="fbpRunBtn" style="margin-top:14px">✨ Tạo bộ ảnh Post</button>
+        <p class="gen-note" id="fbpNote"></p>
+      </aside>
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">📘 Bộ ảnh Post <span id="fbpCount" class="fp-count"></span></h3>
+        </div>
+        <div id="fbpResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="fbpEmpty">Chưa có bộ ảnh. Đưa design + tick concept rồi bấm Tạo.</div>
       </section>
     </div>
   </section>

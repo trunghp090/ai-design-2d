@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-ads-newfields"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-post-tab"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -691,11 +691,11 @@ def fb_configured():
     return bool(FB_ACCESS_TOKEN and FB_AD_ACCOUNT_ID and FB_PAGE_ID)
 
 
-def fb_graph(method, path, params):
+def fb_graph(method, path, params, token=None):
     """Gọi Graph/Marketing API (x-www-form-urlencoded). Trả (status, json)."""
     url = "https://graph.facebook.com/%s/%s" % (FB_API_VER, path)
     p = dict(params or {})
-    p["access_token"] = FB_ACCESS_TOKEN
+    p["access_token"] = token or FB_ACCESS_TOKEN
     data = urllib.parse.urlencode(p).encode()
     if method == "GET":
         req = urllib.request.Request(url + "?" + data.decode(), method="GET")
@@ -1715,6 +1715,122 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
     with _batch_lock:
         if BATCH_JOBS.get(job_id):
             BATCH_JOBS[job_id]["finished"] = True
+
+
+# --------------------------------------------------------------------------- #
+#  FACEBOOK POST — ảnh SẠCH (không chèn text), mỗi concept 1 BỘ 4-5 ảnh
+# --------------------------------------------------------------------------- #
+_FBPOST_CLEAN = (
+    "This is a CLEAN organic social-media photo for a Facebook page post — absolutely NO advertising "
+    "text, NO headline, NO marketing copy, NO price, NO call-to-action, NO logo, NO watermark and NO "
+    "brand name overlaid anywhere on the image. Just a beautiful, natural lifestyle/product photograph "
+    "of the shirt(s) themselves. ")
+_FBPOST_SHOTS = ["wide full shot", "closer waist-up shot", "a slightly different relaxed pose and angle",
+                 "a candid natural moment", "a different framing / lighting angle"]
+_FBPOST_FLAT_SHOTS = ["clean top-down flatlay", "angled flatlay arrangement",
+                      "close-up detail of the printed name", "shirts neatly folded flatlay",
+                      "shirts spread out flatlay"]
+
+
+def _fbpost_names_clause(names):
+    n = len(names)
+    perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
+    namelist = ", ".join('"' + x + '"' for x in names)
+    return ("There are %d shirts with %d DIFFERENT names: %s. %s All names are DIFFERENT — do not repeat. "
+            % (n, n, namelist, perslot))
+
+
+def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation=""):
+    """Ảnh SẠCH cho FB post (giữ design + tên, KHÔNG chèn text quảng cáo)."""
+    style = _ads_style_clauses(img_style_n, None)
+    n = len(names)
+    bg = (bg or "").strip()
+    is_flat = concept_key.startswith("flatlay")
+    if concept_key == "couple":
+        body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt as a "
+                "LARGE full-front chest print. " + _ADS_REAL)
+        names_clause = ("The MAN's shirt shows the name \"" + nm["female"] + "\"; the WOMAN's shirt shows "
+                        "the name \"" + nm["male"] + "\" (cross-named couple, on purpose). ")
+    elif concept_key == "group":
+        body = ("Show a group of %d young Vietnamese friends standing together, each wearing one of these "
+                "shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
+        names_clause = _fbpost_names_clause(names)
+    elif concept_key == "family":
+        body = ("Show a happy real Vietnamese FAMILY of %d real people — father, mother and children — "
+                "standing together, EACH wearing one of these matching shirts (kids in kid-sized "
+                "versions). A photo of %d real people, NOT a flatlay. " % (n, n)) + _ADS_REAL
+        names_clause = _fbpost_names_clause(names)
+    else:  # flatlay
+        on_bg = (" on " + bg) if bg else ""
+        body = ("Lay %d OVERSIZE relaxed t-shirts out FLAT in a clean tidy flatlay arrangement%s, NO "
+                "people. Natural realistic product photo. " % (n, on_bg))
+        names_clause = _fbpost_names_clause(names)
+    bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat) else ""
+    return (body + _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE + names_clause + _FBPOST_CLEAN +
+            style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
+
+
+def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="medium", per_set=4):
+    """Mỗi concept -> 1 BỘ per_set ảnh sạch (không text). concepts=[{key,ref,bg}]."""
+    size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
+    asp = aspect or "4:5"
+    per_set = max(1, min(6, int(per_set or 4)))
+    old_name = ads_read_name(design_img[0])
+
+    def work(c):
+        try:
+            key = c["key"]
+            bg = (c.get("bg") or "").strip()
+            nm = None
+            if key == "couple":
+                nm = ads_couple_names(); names = [nm["female"], nm["male"]]
+            elif key in ADS_CONCEPT_N:
+                names = ads_n_names(ADS_CONCEPT_N[key])
+            else:
+                names = ads_n_names(1)
+            imgs = [design_img]; img_n = None
+            if c.get("ref"):
+                imgs.append((c["ref"], "image/png")); img_n = 2
+            hints = _FBPOST_FLAT_SHOTS if key.startswith("flatlay") else _FBPOST_SHOTS
+            label = "FB Post · %s" % ADS_CONCEPTS[key][0]
+            pics = []
+            for i in range(per_set):
+                v = "Shot %d of a matching set — %s. " % (i + 1, hints[i % len(hints)])
+                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v)
+                b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
+                if HAS_PIL:
+                    try:
+                        b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
+                    except Exception:
+                        pass
+                g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
+                pics.append({"image": b64, "url": g.get("url"), "id": g.get("id")})
+            return {"concept": key, "title": label, "pics": pics}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
+        except Exception as e:
+            return {"error": str(e), "title": ADS_CONCEPTS[c["key"]][0]}
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
+def fb_page_token():
+    """Lấy Page Access Token từ user/system token (cần quyền pages_manage_posts để đăng)."""
+    st, d = fb_graph("GET", "%s" % FB_PAGE_ID, {"fields": "access_token"})
+    return (d or {}).get("access_token")
 
 
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
@@ -3770,6 +3886,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_ads_generate(body)
         if path == "/api/fb-ads-push":
             return self.handle_fb_ads_push(body)
+        if path == "/api/fbpost-generate":
+            return self.handle_fbpost_generate(body)
+        if path == "/api/fb-post":
+            return self.handle_fb_post(body)
         if path == "/api/prod-generate":
             return self.handle_prod_generate(body)
         if path == "/api/prod-suggest":
@@ -4906,6 +5026,83 @@ class Handler(BaseHTTPRequestHandler):
                % (FB_AD_ACCOUNT_ID, cid))
         return self.json(200, {"ok": True, "campaign_id": cid, "adset_id": aid,
                                "ad_id": ad["id"], "manager_url": mgr})
+
+    def handle_fbpost_generate(self, body):
+        """Gen các BỘ ảnh sạch (không text) cho FB Post — mỗi concept 1 bộ per_set ảnh."""
+        if not API_KEY and not GEMINI_API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY / GEMINI_API_KEY."})
+        dd, dm = fetch_image_bytes(body.get("image", ""))
+        if not dd:
+            return self.json(400, {"error": "Cần ảnh DESIGN."})
+        cons = []
+        for c in (body.get("concepts") or []):
+            key = c.get("key")
+            if key not in ADS_CONCEPTS:
+                continue
+            ref = None
+            if c.get("ref"):
+                rb, _ = fetch_image_bytes(c["ref"]); ref = rb
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200]})
+        if not cons:
+            return self.json(400, {"error": "Chọn ít nhất 1 concept."})
+        engine = resolve_engine_id(body)
+        aspect = (body.get("aspect") or "4:5").strip()
+        quality = (body.get("quality") or "medium").strip()
+        if quality not in ("low", "medium", "high"):
+            quality = "medium"
+        try:
+            per_set = max(1, min(6, int(body.get("per_set") or 4)))
+        except Exception:
+            per_set = 4
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "fbp%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_fbpost_job,
+                         args=(job_id, (dd, dm or "image/png"), cons, engine, aspect, quality, per_set),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": len(cons)})
+
+    def handle_fb_post(self, body):
+        """Đăng 1 BỘ ảnh lên Fanpage Facebook (rieng.vn) — multi-photo feed post."""
+        if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+            return self.json(400, {"error": "Chưa cấu hình Facebook (FB_PAGE_ID + FB_ACCESS_TOKEN)."})
+        urls = body.get("image_urls") or []
+        message = (body.get("message") or "").strip()
+        if not urls:
+            return self.json(400, {"error": "Thiếu ảnh để đăng."})
+        host = self.headers.get("Host") or ""
+
+        def absu(u):
+            if not u:
+                return ""
+            if str(u).startswith("http"):
+                return u
+            return "https://%s%s" % (host, u if u.startswith("/") else "/" + u)
+
+        if "localhost" in host or "127.0.0.1" in host:
+            return self.json(400, {"error": "Đăng FB chỉ chạy trên bản LIVE (Facebook cần URL ảnh công khai), không chạy localhost."})
+        ptok = fb_page_token()
+        if not ptok:
+            return self.json(400, {"error": "Không lấy được Page token. Token cần là admin Trang + quyền pages_show_list."})
+        media = []
+        for u in urls[:10]:
+            au = absu(u)
+            if not au:
+                continue
+            st, d = fb_graph("POST", "%s/photos" % FB_PAGE_ID, {"url": au, "published": "false"}, ptok)
+            if st == 200 and d.get("id"):
+                media.append({"media_fbid": d["id"]})
+            else:
+                return self.json(400, {"error": "Đăng ảnh lên Trang lỗi (token có thể thiếu quyền pages_manage_posts): " + fb_err(d)})
+        if not media:
+            return self.json(400, {"error": "Không upload được ảnh nào."})
+        st, d = fb_graph("POST", "%s/feed" % FB_PAGE_ID,
+                         {"message": message, "attached_media": json.dumps(media)}, ptok)
+        if not d.get("id"):
+            return self.json(400, {"error": "Đăng bài lỗi: " + fb_err(d)})
+        pid = d["id"]
+        return self.json(200, {"ok": True, "post_id": pid, "url": "https://www.facebook.com/%s" % pid})
 
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""
