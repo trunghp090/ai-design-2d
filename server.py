@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-style-family-aspect"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-textstyle-nowords"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1434,9 +1434,12 @@ def _ads_style_clauses(img_style_n, txt_style_n):
               "printed name in the final ad comes ONLY from the design reference(s) above (each with its "
               "own DIFFERENT name); never reuse a name from this style board. " % img_style_n)
     if txt_style_n:
-        s += ("Reference image #%d shows the desired TEXT LETTERING STYLE: make the AD TEXT typography "
-              "(font shape, weight, effects, treatment) MATCH the lettering style in that image — copy "
-              "the text STYLE only, NOT its words. " % txt_style_n)
+        s += ("Reference image #%d is a TYPOGRAPHY / LETTERING-STYLE sample ONLY. Use it solely to copy "
+              "the LETTERING STYLE of the ad text — the font shape, weight, effects and treatment. "
+              "COMPLETELY IGNORE the actual WORDS, letters, names and any text content written in it: do "
+              "NOT read, reuse, copy or display ANY of the words from that image. The only words allowed "
+              "in the final ad are the product name and hook specified above — never any word taken from "
+              "this lettering sample. " % txt_style_n)
     return s
 
 
