@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-brand-rieng"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-ads-push-paused"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -108,6 +108,11 @@ SHOPIFY_TOKEN = os.environ.get("SHOPIFY_TOKEN", "").strip()         # token cố
 SHOPIFY_CLIENT_ID = os.environ.get("SHOPIFY_CLIENT_ID", "").strip()       # dev-dashboard app -> client_credentials
 SHOPIFY_CLIENT_SECRET = os.environ.get("SHOPIFY_CLIENT_SECRET", "").strip()
 SHOPIFY_API_VER = os.environ.get("SHOPIFY_API_VER", "2024-10").strip()
+# Facebook Marketing API (đẩy ad lên tài khoản QC) — user tự cấp, để PAUSED
+FB_ACCESS_TOKEN = os.environ.get("FB_ACCESS_TOKEN", "").strip()
+FB_AD_ACCOUNT_ID = os.environ.get("FB_AD_ACCOUNT_ID", "").strip().replace("act_", "")
+FB_PAGE_ID = os.environ.get("FB_PAGE_ID", "").strip()
+FB_API_VER = os.environ.get("FB_API_VER", "v21.0").strip()
 PORT = int(os.environ.get("PORT", "8000"))
 # Bật đăng nhập? (đặt AUTH_REQUIRED=0 trong .env để tắt — mặc định BẬT)
 AUTH_REQUIRED = os.environ.get("AUTH_REQUIRED", "1").strip() not in ("0", "false", "no")
@@ -677,6 +682,52 @@ def shopify_graphql(query, variables=None):
     req.add_header("Content-Type", "application/json")
     r = urllib.request.urlopen(req, timeout=60)
     return json.loads(r.read().decode("utf-8", "ignore"))
+
+
+# --------------------------------------------------------------------------- #
+#  Facebook Marketing API — đẩy ad lên tài khoản QC (tạo chiến dịch PAUSED)
+# --------------------------------------------------------------------------- #
+def fb_configured():
+    return bool(FB_ACCESS_TOKEN and FB_AD_ACCOUNT_ID and FB_PAGE_ID)
+
+
+def fb_graph(method, path, params):
+    """Gọi Graph/Marketing API (x-www-form-urlencoded). Trả (status, json)."""
+    url = "https://graph.facebook.com/%s/%s" % (FB_API_VER, path)
+    p = dict(params or {})
+    p["access_token"] = FB_ACCESS_TOKEN
+    data = urllib.parse.urlencode(p).encode()
+    if method == "GET":
+        req = urllib.request.Request(url + "?" + data.decode(), method="GET")
+    else:
+        req = urllib.request.Request(url, data=data, method=method)
+    try:
+        r = urllib.request.urlopen(req, timeout=60)
+        return r.status, json.loads(r.read().decode("utf-8", "ignore") or "{}")
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", "ignore")
+        try:
+            return e.code, json.loads(raw)
+        except Exception:
+            return e.code, {"error": {"message": raw[:300]}}
+
+
+def fb_err(d):
+    return ((d or {}).get("error") or {}).get("message") or json.dumps(d)[:200]
+
+
+def fb_upload_adimage(img_bytes):
+    """Upload ảnh lên ad account -> trả image_hash."""
+    b64 = base64.b64encode(img_bytes).decode()
+    st, d = fb_graph("POST", "act_%s/adimages" % FB_AD_ACCOUNT_ID, {"bytes": b64})
+    if st != 200:
+        raise RuntimeError("upload ảnh lỗi: " + fb_err(d))
+    imgs = d.get("images") or {}
+    first = next(iter(imgs.values()), {})
+    h = first.get("hash")
+    if not h:
+        raise RuntimeError("không lấy được image_hash: " + json.dumps(d)[:160])
+    return h
 
 
 # ===== Khuôn sản phẩm áo thun (copy từ SP mẫu 'test 1' trên RIENG.VN) =====
@@ -3516,6 +3567,9 @@ class Handler(BaseHTTPRequestHandler):
                                    "auth_required": AUTH_REQUIRED})
         if path == "/api/version":
             return self.json(200, {"version": APP_VERSION, "image_model": MODEL})
+        if path == "/api/fb-status":
+            return self.json(200, {"configured": fb_configured(),
+                                   "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID})
         if path == "/api/me":
             u = self.current_user()
             if not u:
@@ -3696,6 +3750,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_ads_text(body)
         if path == "/api/ads-generate":
             return self.handle_ads_generate(body)
+        if path == "/api/fb-ads-push":
+            return self.handle_fb_ads_push(body)
         if path == "/api/prod-generate":
             return self.handle_prod_generate(body)
         if path == "/api/prod-suggest":
@@ -4753,6 +4809,71 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality, text_color, brand), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
+
+    def handle_fb_ads_push(self, body):
+        """Đẩy 1 ảnh ads lên tài khoản Facebook Ads -> tạo Campaign/AdSet/Creative/Ad (PAUSED)."""
+        if not fb_configured():
+            return self.json(400, {"error": "Chưa cấu hình Facebook Ads. Thêm FB_AD_ACCOUNT_ID, "
+                                   "FB_PAGE_ID, FB_ACCESS_TOKEN (quyền ads_management) vào .env + Dokploy."})
+        img, _ = fetch_image_bytes(body.get("image", ""))
+        if not img:
+            return self.json(400, {"error": "Cần ảnh ads để đẩy."})
+        link = (body.get("link") or "").strip()
+        if not link:
+            return self.json(400, {"error": "Cần Link đích (trang sản phẩm Shopify)."})
+        if not link.startswith("http"):
+            link = "https://" + link
+        message = (body.get("message") or "").strip() or "Áo thun in tên cá nhân hoá theo tên riêng."
+        headline = (body.get("headline") or "").strip() or "Áo Thun In Tên"
+        adname = "[AI] " + ((body.get("name") or "").strip() or headline)[:60]
+        try:
+            budget = max(1, int(float(body.get("daily_budget") or 50000)))   # VND/ngày
+        except Exception:
+            budget = 50000
+        try:
+            age_min = min(65, max(13, int(body.get("age_min") or 18)))
+            age_max = min(65, max(age_min, int(body.get("age_max") or 55)))
+        except Exception:
+            age_min, age_max = 18, 55
+        genders = body.get("genders") or []        # [] = tất cả, [1]=nam, [2]=nữ
+        countries = body.get("countries") or ["VN"]
+        cta = (body.get("cta") or "SHOP_NOW").strip()
+        try:
+            image_hash = fb_upload_adimage(img)
+            st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
+                             {"name": adname, "objective": "OUTCOME_TRAFFIC",
+                              "special_ad_categories": "[]", "status": "PAUSED"})
+            if st != 200:
+                raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
+            cid = c["id"]
+            targeting = {"geo_locations": {"countries": countries}, "age_min": age_min, "age_max": age_max}
+            if genders:
+                targeting["genders"] = genders
+            st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
+                             {"name": adname, "campaign_id": cid, "daily_budget": budget,
+                              "billing_event": "IMPRESSIONS", "optimization_goal": "LINK_CLICKS",
+                              "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+                              "targeting": json.dumps(targeting), "status": "PAUSED"})
+            if st != 200:
+                raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
+            aid = a["id"]
+            story = {"page_id": FB_PAGE_ID, "link_data": {
+                "image_hash": image_hash, "link": link, "message": message, "name": headline,
+                "call_to_action": {"type": cta, "value": {"link": link}}}}
+            st, cr = fb_graph("POST", "act_%s/adcreatives" % FB_AD_ACCOUNT_ID,
+                              {"name": adname, "object_story_spec": json.dumps(story)})
+            if st != 200:
+                raise RuntimeError("Tạo creative lỗi: " + fb_err(cr))
+            st, ad = fb_graph("POST", "act_%s/ads" % FB_AD_ACCOUNT_ID,
+                              {"name": adname, "adset_id": aid,
+                               "creative": json.dumps({"creative_id": cr["id"]}), "status": "PAUSED"})
+            if st != 200:
+                raise RuntimeError("Tạo ad lỗi: " + fb_err(ad))
+        except Exception as e:
+            return self.json(400, {"error": str(e)})
+        mgr = ("https://www.facebook.com/adsmanager/manage/campaigns?act=%s&selected_campaign_ids=%s"
+               % (FB_AD_ACCOUNT_ID, cid))
+        return self.json(200, {"ok": True, "campaign_id": cid, "ad_id": ad["id"], "manager_url": mgr})
 
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""

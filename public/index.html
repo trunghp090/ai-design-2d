@@ -488,6 +488,43 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Đẩy ad lên Facebook Ads ===== -->
+  <div class="zoom-modal hidden" id="fbPushModal">
+    <div class="pn-box" onclick="event.stopPropagation()" style="max-width:520px">
+      <button class="zoom-close" id="fbPushClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">📤 Đẩy lên Facebook Ads</h3>
+      <p class="hint" id="fbPushHint" style="margin:0 0 12px">Tạo chiến dịch ở trạng thái <b>TẠM DỪNG (PAUSED)</b> — bạn vào Ads Manager duyệt rồi tự bật chạy.</p>
+      <div id="fbPushPreview" style="margin-bottom:10px"></div>
+      <label class="field-label" style="margin-top:0">🔗 Link đích (trang sản phẩm)</label>
+      <input type="text" id="fbLink" class="input" placeholder="https://rieng.vn/products/..." />
+      <label class="field-label">📝 Nội dung bài (caption)</label>
+      <textarea id="fbMessage" class="input" rows="3" placeholder="Nội dung quảng cáo…"></textarea>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="field-label">💵 Ngân sách/ngày (VND)</label>
+          <input type="number" id="fbBudget" class="input" value="50000" min="1000" /></div>
+        <div style="flex:1"><label class="field-label">🎯 Nút CTA</label>
+          <select id="fbCta" class="input">
+            <option value="SHOP_NOW">Mua ngay</option>
+            <option value="ORDER_NOW">Đặt hàng</option>
+            <option value="LEARN_MORE">Tìm hiểu thêm</option>
+            <option value="GET_OFFER">Nhận ưu đãi</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="field-label">👥 Giới tính</label>
+          <select id="fbGender" class="input">
+            <option value="">Tất cả</option><option value="1">Nam</option><option value="2">Nữ</option>
+          </select></div>
+        <div style="flex:1"><label class="field-label">🎂 Tuổi từ</label>
+          <input type="number" id="fbAgeMin" class="input" value="18" min="13" max="65" /></div>
+        <div style="flex:1"><label class="field-label">đến</label>
+          <input type="number" id="fbAgeMax" class="input" value="55" min="13" max="65" /></div>
+      </div>
+      <button class="btn" id="fbPushBtn" style="margin-top:12px">📤 Đẩy lên FB Ads (PAUSED)</button>
+      <p class="gen-note" id="fbPushNote" style="margin-top:10px"></p>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Chọn design từ SP Shopify (cho FB Ads) ===== -->
   <div class="zoom-modal hidden" id="adsDesignPickModal">
     <div class="pn-box" onclick="event.stopPropagation()">
