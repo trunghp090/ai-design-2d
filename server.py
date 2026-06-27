@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-textstyle-nowords"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-real-oversize-color"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1501,13 +1501,22 @@ ADS_CONCEPT_N = {"couple": 2, "group": 3, "family": 4, "flatlay2": 2, "flatlay3"
 
 
 _ADS_KEEP = (
-    "Reference image #1 is the EXACT t-shirt design. On EVERY shirt, reproduce this design "
-    "PIXEL-FAITHFULLY and IDENTICALLY: same layout, same fonts, same colors, same emblem/icons, "
-    "stars, lines, banners, and ALL the secondary text (taglines, club words like 'CITY CREW' / "
-    "'Athletic', any date or small words) — keep them all, do NOT remove, redraw, restyle, simplify, "
-    "re-center or recolor anything. The ONLY thing that changes between shirts is the single MAIN "
-    "large NAME text: replace it with a different name on each shirt, rendered in the SAME font, style, "
-    "color, weight and position as the original name (correct Vietnamese diacritics). ")
+    "Reference image #1 is the t-shirt design. On EVERY shirt reproduce this design faithfully: same "
+    "layout, same fonts, same emblem/icons, stars, lines, banners and ALL the secondary text (taglines, "
+    "club words like 'CITY CREW' / 'Athletic', any date or small words) — keep them all, do NOT remove, "
+    "redraw, restyle, simplify or re-center anything. The ONLY thing that changes between shirts is the "
+    "single MAIN large NAME text: replace it with a different name on each shirt, in the same font, "
+    "style, weight and position (correct Vietnamese diacritics). "
+    "PRINT COLOUR: render the WHOLE print in ONE clean, consistent colour that harmonises with the "
+    "overall ad palette and reads clearly & sharply on the shirt — and keep this exact SAME print colour "
+    "IDENTICAL on every shirt. The design colour and text must NOT drift, shift, fade or look misaligned "
+    "or mismatched between the shirts; all prints look perfectly aligned and crisp. ")
+
+
+_ADS_REAL = (
+    "Make it a NATURAL, candid, TRUE-TO-LIFE lifestyle PHOTOGRAPH — real Vietnamese people with real "
+    "skin and hair, soft natural light, realistic fabric and folds; NOT 3D, NOT CGI, NOT a cartoon, NOT "
+    "an AI-looking render. The t-shirts are OVERSIZE — relaxed, boxy, slightly drop-shoulder fit. ")
 
 
 _ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two names, never keep the "
@@ -1524,7 +1533,7 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     bg = (bg or "").strip()
     if concept_key == "group":
         scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
-                 "these shirts as a LARGE full-front chest print. " % n)
+                 "these shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     elif concept_key == "family":
@@ -1532,13 +1541,13 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
                  "children — standing together in a natural lifestyle photo, EACH person WEARING one of "
                  "these matching shirts as a LARGE full-front chest print (kids wear smaller kid-sized "
                  "versions of the same design). This MUST be a photo of %d people wearing the shirts — "
-                 "it is NOT a flatlay, NOT shirts laid flat, NOT a product-only shot. " % (n, n))
+                 "it is NOT a flatlay, NOT shirts laid flat, NOT a product-only shot. " % (n, n)) + _ADS_REAL
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3
         on_bg = (" on " + bg) if bg else ""
-        scene = ("Lay %d t-shirts out FLAT in a clean tidy flatlay arrangement%s, NO people. "
-                 % (n, on_bg))
+        scene = ("Lay %d OVERSIZE (relaxed, boxy) t-shirts out FLAT in a clean tidy flatlay "
+                 "arrangement%s, NO people. Natural, realistic product photo. " % (n, on_bg))
     return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
             _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE +
             ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
@@ -1564,7 +1573,7 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "NOT correct or normalise it. "
             + style +
             "Show a happy young Vietnamese couple standing together, each wearing their shirt as a LARGE "
-            "full-front chest print. " + bg_clause +
+            "full-front chest print. " + _ADS_REAL + bg_clause +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
