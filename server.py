@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-post-tab"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-perms-check"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3686,6 +3686,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fb-status":
             return self.json(200, {"configured": fb_configured(),
                                    "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID})
+        if path == "/api/fb-perms":
+            if not fb_configured():
+                return self.json(200, {"configured": False})
+            st, d = fb_graph("GET", "me/permissions", {})
+            perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
+            return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
+                                   "can_post": "pages_manage_posts" in perms})
         if path == "/api/fb-campaigns":
             if not fb_configured():
                 return self.json(200, {"campaigns": []})
