@@ -3507,9 +3507,12 @@ const ADS_CONCEPTS = [
   { key: "flatlay3", label: "🛋️ Flatlay 3 áo" },
 ];
 let adsPickKey = null;          // concept đang chọn ảnh style
-let adsStyleBank = [];          // [{id,url}] kho style đã lưu
+let adsStyleBank = [];          // [{id,url}] kho style ảnh
+let adsTextStyleBank = [];      // [{id,url}] kho ảnh KIỂU CHỮ
+let adsStyleMode = "concept";   // "concept" (style ảnh concept) | "textstyle" (kho kiểu chữ)
 let adsStylePickFor = null;     // concept đang mở modal kho style
 let adsDefaultStyleId = null;   // id style mặc định (localStorage)
+let adsShopProducts = [];       // SP Shopify để pick design
 
 function adsInit() {
   if (adsInited) return; adsInited = true;
@@ -3529,15 +3532,21 @@ function adsInit() {
   if ($("adsStyleClose")) $("adsStyleClose").onclick = () => $("adsStyleModal").classList.add("hidden");
   if ($("adsStyleModal")) $("adsStyleModal").onclick = (ev) => { if (ev.target.id === "adsStyleModal") $("adsStyleModal").classList.add("hidden"); };
   if ($("adsStyleUpload")) $("adsStyleUpload").onclick = () => { adsPasteTo = "stylebank"; $("adsStyleFile").click(); };
+  // pick design từ SP Shopify
+  if ($("adsDesignFromShop")) $("adsDesignFromShop").onclick = adsOpenDesignPick;
+  if ($("adsDesignPickClose")) $("adsDesignPickClose").onclick = () => $("adsDesignPickModal").classList.add("hidden");
+  if ($("adsDesignPickModal")) $("adsDesignPickModal").onclick = (ev) => { if (ev.target.id === "adsDesignPickModal") $("adsDesignPickModal").classList.add("hidden"); };
+  if ($("adsDesignPickSearch")) $("adsDesignPickSearch").oninput = (e) => adsRenderDesignPick(e.target.value);
   adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
   adsLoadHistory(); adsLoadStyles();
 }
 
-// ---- Kho style (lưu mặc định + pick nhiều style làm tham chiếu) ----
+// ---- Kho style (style ảnh concept + kho kiểu chữ) ----
 async function adsLoadStyles() {
   try {
     const d = await (await fetch("/api/gallery")).json();
     adsStyleBank = (d.items || []).filter(it => it.mode === "adsstyle").map(it => ({ id: it.id, url: it.url }));
+    adsTextStyleBank = (d.items || []).filter(it => it.mode === "adstextstyle").map(it => ({ id: it.id, url: it.url }));
     // áp style mặc định cho concept chưa có style (nếu mặc định còn tồn tại)
     const def = adsStyleBank.find(s => s.id === adsDefaultStyleId);
     if (def) ADS_CONCEPTS.forEach(c => { if (!adsStyle[c.key]) adsStyle[c.key] = def.url; });
@@ -3545,21 +3554,41 @@ async function adsLoadStyles() {
   } catch (e) {}
 }
 
-// thêm 1 ảnh style vào kho (lưu server mode=adsstyle) rồi áp cho concept (nếu có)
+// thêm 1 ảnh vào kho theo mode hiện tại (concept style / kiểu chữ) rồi áp dụng
 async function adsAddStyleToBank(durl, applyKey) {
+  const isText = adsStyleMode === "textstyle";
+  const mode = isText ? "adstextstyle" : "adsstyle";
   try {
-    const r = await fetch("/api/save-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: durl, mode: "adsstyle", label: "FB Ads style" }) });
-    const d = await r.json(); const g = d.gallery;
-    if (g) adsStyleBank.unshift({ id: g.id, url: g.url });
-    if (applyKey) { adsStyle[applyKey] = durl; adsSel.add(applyKey); }
-    adsRenderConcepts(); adsRenderStyleBank();
-    const n = $("adsStyleNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lưu vào kho style."; }
+    const r = await fetch("/api/save-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: durl, mode: mode, label: isText ? "FB Ads text style" : "FB Ads style" }) });
+    const g = (await r.json()).gallery;
+    if (isText) {
+      if (g) adsTextStyleBank.unshift({ id: g.id, url: g.url });
+      adsTextStyleImg = durl; adsRenderTextStyle();
+    } else {
+      if (g) adsStyleBank.unshift({ id: g.id, url: g.url });
+      if (applyKey) { adsStyle[applyKey] = durl; adsSel.add(applyKey); }
+      adsRenderConcepts();
+    }
+    adsRenderStyleBank();
+    const n = $("adsStyleNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lưu vào kho."; }
   } catch (e) { const n = $("adsStyleNote"); if (n) { n.className = "gen-note err"; n.textContent = "✗ " + e.message; } }
 }
 
 function adsOpenStylePicker(key) {
-  adsStylePickFor = key; adsPasteTo = "stylebank";
+  adsStyleMode = "concept"; adsStylePickFor = key; adsPasteTo = "stylebank";
+  $("adsStyleModal").querySelector("h3").textContent = "📁 Kho ảnh style — chọn tham chiếu";
+  if ($("adsStyleUpload")) $("adsStyleUpload").textContent = "⬆️ Tải ảnh style mới";
   $("adsStyleInfo").textContent = "Chọn style cho: " + ((ADS_CONCEPTS.find(c => c.key === key) || {}).label || key) + ". AI chỉ copy phong cách, không lấy người/đồ vật.";
+  $("adsStyleNote").textContent = "";
+  adsRenderStyleBank();
+  $("adsStyleModal").classList.remove("hidden");
+}
+
+function adsOpenTextStylePicker() {
+  adsStyleMode = "textstyle"; adsStylePickFor = null; adsPasteTo = "stylebank";
+  $("adsStyleModal").querySelector("h3").textContent = "🔤 Kho ảnh kiểu chữ";
+  if ($("adsStyleUpload")) $("adsStyleUpload").textContent = "⬆️ Tải ảnh kiểu chữ mới";
+  $("adsStyleInfo").textContent = "Bấm 1 ảnh để dùng làm mẫu kiểu chữ. AI chỉ bắt chước kiểu chữ, KHÔNG copy từ ngữ trong ảnh.";
   $("adsStyleNote").textContent = "";
   adsRenderStyleBank();
   $("adsStyleModal").classList.remove("hidden");
@@ -3567,29 +3596,62 @@ function adsOpenStylePicker(key) {
 
 function adsRenderStyleBank() {
   const grid = $("adsStyleGrid"); if (!grid) return;
-  if (!adsStyleBank.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Chưa có style nào — bấm "⬆️ Tải ảnh style mới" hoặc dán ảnh để thêm.</p>'; return; }
+  const isText = adsStyleMode === "textstyle";
+  const bank = isText ? adsTextStyleBank : adsStyleBank;
+  if (!bank.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Chưa có ảnh nào — bấm "⬆️ Tải ảnh mới" hoặc dán ảnh để thêm.</p>'; return; }
   grid.innerHTML = "";
-  adsStyleBank.forEach(s => {
-    const isDef = s.id === adsDefaultStyleId;
+  bank.forEach(s => {
+    const isDef = !isText && s.id === adsDefaultStyleId;
     const cell = document.createElement("div"); cell.className = "ads-style-cell" + (isDef ? " is-def" : "");
     cell.innerHTML =
       '<img src="' + s.url + '" loading="lazy" alt="">' +
-      '<button class="ads-style-star" title="Đặt mặc định">' + (isDef ? "⭐" : "☆") + '</button>' +
+      (isText ? "" : '<button class="ads-style-star" title="Đặt mặc định">' + (isDef ? "⭐" : "☆") + '</button>') +
       '<button class="ads-style-del" title="Xoá">×</button>';
     cell.querySelector("img").onclick = () => adsPickStyle(s);
-    cell.querySelector(".ads-style-star").onclick = (e) => { e.stopPropagation(); adsSetDefaultStyle(s.id); };
+    const star = cell.querySelector(".ads-style-star");
+    if (star) star.onclick = (e) => { e.stopPropagation(); adsSetDefaultStyle(s.id); };
     cell.querySelector(".ads-style-del").onclick = async (e) => {
-      e.stopPropagation(); if (!confirm("Xoá style này khỏi kho?")) return;
-      try { await fetch("/api/gallery?id=" + encodeURIComponent(s.id), { method: "DELETE" }); adsStyleBank = adsStyleBank.filter(x => x.id !== s.id); if (adsDefaultStyleId === s.id) { adsDefaultStyleId = null; localStorage.removeItem("adsDefaultStyleId"); } adsRenderStyleBank(); }
-      catch (err) { alert("✗ " + err.message); }
+      e.stopPropagation(); if (!confirm("Xoá khỏi kho?")) return;
+      try {
+        await fetch("/api/gallery?id=" + encodeURIComponent(s.id), { method: "DELETE" });
+        if (isText) adsTextStyleBank = adsTextStyleBank.filter(x => x.id !== s.id);
+        else { adsStyleBank = adsStyleBank.filter(x => x.id !== s.id); if (adsDefaultStyleId === s.id) { adsDefaultStyleId = null; localStorage.removeItem("adsDefaultStyleId"); } }
+        adsRenderStyleBank();
+      } catch (err) { alert("✗ " + err.message); }
     };
     grid.appendChild(cell);
   });
 }
 
 async function adsPickStyle(s) {
-  if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); }
+  if (adsStyleMode === "textstyle") { adsTextStyleImg = s.url; adsRenderTextStyle(); }
+  else if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); }
   $("adsStyleModal").classList.add("hidden");
+}
+
+// ---- Pick DESIGN từ sản phẩm Shopify ----
+async function adsOpenDesignPick() {
+  $("adsDesignPickModal").classList.remove("hidden");
+  const grid = $("adsDesignPickGrid"); grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Đang tải sản phẩm…</p>';
+  $("adsDesignPickNote").textContent = "";
+  try {
+    const d = await (await fetch("/api/shopify-products")).json();
+    if (d.error) throw new Error(d.error);
+    adsShopProducts = (d.products || []).filter(p => p.image);
+    adsRenderDesignPick("");
+  } catch (e) { grid.innerHTML = ""; $("adsDesignPickNote").className = "gen-note err"; $("adsDesignPickNote").textContent = "⚠️ " + e.message; }
+}
+function adsRenderDesignPick(q) {
+  const grid = $("adsDesignPickGrid"); if (!grid) return;
+  const list = (adsShopProducts || []).filter(p => !q || (p.title || "").toLowerCase().includes(q.toLowerCase()));
+  if (!list.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Không có sản phẩm.</p>'; return; }
+  grid.innerHTML = "";
+  list.forEach(p => {
+    const cell = document.createElement("div"); cell.className = "ads-style-cell";
+    cell.innerHTML = '<img src="' + p.image + '" loading="lazy" alt=""><span class="cover-tag" style="background:rgba(0,0,0,.6);max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.title || "").replace(/</g, "&lt;").slice(0, 22) + '</span>';
+    cell.querySelector("img").onclick = () => { adsDesignImg = p.image; adsRenderDesign(); adsAutoName(true); $("adsDesignPickModal").classList.add("hidden"); const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy design từ \"" + (p.title || "SP") + "\" — AI đang đặt tên…"; } };
+    grid.appendChild(cell);
+  });
 }
 
 function adsSetDefaultStyle(id) {
@@ -3647,10 +3709,11 @@ function adsRenderTextStyle() {
     const d = document.createElement("div"); d.className = "fp-ref";
     d.innerHTML = '<img src="' + adsTextStyleImg + '" alt=""><button class="fp-ref-x">×</button>';
     d.querySelector(".fp-ref-x").onclick = (e) => { e.stopPropagation(); adsTextStyleImg = null; adsRenderTextStyle(); };
+    d.onclick = (e) => { if (!e.target.classList.contains("fp-ref-x")) adsOpenTextStylePicker(); };
     box.appendChild(d);
   } else {
     const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
-    add.innerHTML = "🔤<span>Chữ</span>"; add.onclick = () => { adsPasteTo = "textstyle"; $("adsTextStyleFile").click(); }; box.appendChild(add);
+    add.innerHTML = "🔤<span>Chữ</span>"; add.onclick = adsOpenTextStylePicker; box.appendChild(add);
   }
 }
 // dán ảnh vào FB Ads theo đích (design / textstyle / kho style / concept style đang chọn)

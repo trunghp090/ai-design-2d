@@ -488,6 +488,18 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Chọn design từ SP Shopify (cho FB Ads) ===== -->
+  <div class="zoom-modal hidden" id="adsDesignPickModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="adsDesignPickClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">🛍️ Chọn design từ sản phẩm Shopify</h3>
+      <p class="hint" style="margin:0 0 10px">Bấm 1 sản phẩm để lấy ảnh làm DESIGN cho FB Ads.</p>
+      <input type="text" id="adsDesignPickSearch" class="input" placeholder="🔎 Tìm theo tên sản phẩm…" />
+      <div class="ads-style-grid" id="adsDesignPickGrid" style="max-height:360px;margin-top:10px"></div>
+      <p class="gen-note" id="adsDesignPickNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Kho ảnh style FB Ads ===== -->
   <div class="zoom-modal hidden" id="adsStyleModal">
     <div class="pn-box" onclick="event.stopPropagation()">
@@ -1118,6 +1130,7 @@
         <label class="fp-label">DESIGN (ảnh áo / design)</label>
         <div class="fp-refs" id="adsDesign"></div>
         <input type="file" id="adsDesignFile" accept="image/*" hidden />
+        <button class="btn-ghost sm" id="adsDesignFromShop" style="margin-top:6px">🛍️ Chọn design từ SP Shopify</button>
 
         <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
         <select id="adsEngine" class="input"></select>
