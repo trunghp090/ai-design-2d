@@ -495,13 +495,19 @@
       <h3 style="margin:0 0 4px">📤 Đẩy lên Facebook Ads</h3>
       <p class="hint" id="fbPushHint" style="margin:0 0 12px">Tạo chiến dịch ở trạng thái <b>TẠM DỪNG (PAUSED)</b> — bạn vào Ads Manager duyệt rồi tự bật chạy.</p>
       <div id="fbPushPreview" style="margin-bottom:10px"></div>
-      <label class="field-label" style="margin-top:0">🔗 Link đích (trang sản phẩm)</label>
+
+      <label class="field-label" style="margin-top:0">📂 Chiến dịch <span class="hint" style="font-weight:400">(chọn sẵn hoặc tạo mới)</span></label>
+      <select id="fbCampaign" class="input"><option value="">➕ Tạo chiến dịch mới</option></select>
+      <input type="text" id="fbCampaignName" class="input" style="margin-top:6px" placeholder="Tên chiến dịch mới…" />
+      <label class="field-label">📁 Nhóm quảng cáo (Ad Set)</label>
+      <select id="fbAdset" class="input"><option value="">➕ Tạo nhóm mới</option></select>
+      <input type="text" id="fbAdsetName" class="input" style="margin-top:6px" placeholder="Tên nhóm mới…" />
+
+      <label class="field-label">🔗 Link đích (trang sản phẩm)</label>
       <input type="text" id="fbLink" class="input" placeholder="https://rieng.vn/products/..." />
       <label class="field-label">📝 Nội dung bài (caption)</label>
       <textarea id="fbMessage" class="input" rows="3" placeholder="Nội dung quảng cáo…"></textarea>
       <div style="display:flex;gap:8px">
-        <div style="flex:1"><label class="field-label">💵 Ngân sách/ngày (VND)</label>
-          <input type="number" id="fbBudget" class="input" value="50000" min="1000" /></div>
         <div style="flex:1"><label class="field-label">🎯 Nút CTA</label>
           <select id="fbCta" class="input">
             <option value="SHOP_NOW">Mua ngay</option>
@@ -510,15 +516,22 @@
             <option value="GET_OFFER">Nhận ưu đãi</option>
           </select></div>
       </div>
+      <div id="fbNewAdsetFields">
+      <p class="hint" style="margin:10px 0 2px"><b>Cấu hình nhóm mới</b> (ngân sách + đối tượng):</p>
       <div style="display:flex;gap:8px">
+        <div style="flex:1"><label class="field-label">💵 Ngân sách/ngày (VND)</label>
+          <input type="number" id="fbBudget" class="input" value="50000" min="1000" /></div>
         <div style="flex:1"><label class="field-label">👥 Giới tính</label>
           <select id="fbGender" class="input">
             <option value="">Tất cả</option><option value="1">Nam</option><option value="2">Nữ</option>
           </select></div>
+      </div>
+      <div style="display:flex;gap:8px">
         <div style="flex:1"><label class="field-label">🎂 Tuổi từ</label>
           <input type="number" id="fbAgeMin" class="input" value="18" min="13" max="65" /></div>
         <div style="flex:1"><label class="field-label">đến</label>
           <input type="number" id="fbAgeMax" class="input" value="55" min="13" max="65" /></div>
+      </div>
       </div>
       <button class="btn" id="fbPushBtn" style="margin-top:12px">📤 Đẩy lên FB Ads (PAUSED)</button>
       <p class="gen-note" id="fbPushNote" style="margin-top:10px"></p>

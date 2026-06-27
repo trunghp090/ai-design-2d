@@ -3544,6 +3544,8 @@ function adsInit() {
   if ($("fbPushClose")) $("fbPushClose").onclick = () => $("fbPushModal").classList.add("hidden");
   if ($("fbPushModal")) $("fbPushModal").onclick = (ev) => { if (ev.target.id === "fbPushModal") $("fbPushModal").classList.add("hidden"); };
   if ($("fbPushBtn")) $("fbPushBtn").onclick = fbDoPush;
+  if ($("fbCampaign")) $("fbCampaign").onchange = fbOnCampaignChange;
+  if ($("fbAdset")) $("fbAdset").onchange = fbOnAdsetChange;
   adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
   adsLoadHistory(); adsLoadStyles();
 }
@@ -3656,8 +3658,37 @@ function adsPushToFb(c) {
   $("fbPushPreview").innerHTML = '<img src="' + src + '" style="max-height:130px;border-radius:8px;display:block;margin:0 auto">';
   $("fbLink").value = adsProductLink || "";
   $("fbMessage").value = "🔥 " + (c.name || "Áo Thun In Tên") + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\nĐặt ngay tại rieng.vn!";
+  $("fbCampaignName").value = ""; $("fbAdsetName").value = "";
   $("fbPushNote").textContent = "";
   $("fbPushModal").classList.remove("hidden");
+  fbLoadCampaigns();
+}
+async function fbLoadCampaigns() {
+  const sel = $("fbCampaign");
+  try {
+    const d = await (await fetch("/api/fb-campaigns")).json();
+    sel.innerHTML = '<option value="">➕ Tạo chiến dịch mới</option>';
+    (d.campaigns || []).forEach(c => { const o = document.createElement("option"); o.value = c.id; o.textContent = (c.name || c.id) + (c.status === "PAUSED" ? " (dừng)" : ""); sel.appendChild(o); });
+  } catch (e) {}
+  fbOnCampaignChange();
+}
+async function fbOnCampaignChange() {
+  const cid = $("fbCampaign").value;
+  $("fbCampaignName").style.display = cid ? "none" : "";
+  const sel = $("fbAdset");
+  sel.innerHTML = '<option value="">➕ Tạo nhóm mới</option>';
+  if (cid) {
+    try {
+      const d = await (await fetch("/api/fb-adsets?campaign_id=" + encodeURIComponent(cid))).json();
+      (d.adsets || []).forEach(a => { const o = document.createElement("option"); o.value = a.id; o.textContent = a.name || a.id; sel.appendChild(o); });
+    } catch (e) {}
+  }
+  fbOnAdsetChange();
+}
+function fbOnAdsetChange() {
+  const aid = $("fbAdset").value;
+  $("fbAdsetName").style.display = aid ? "none" : "";
+  $("fbNewAdsetFields").style.display = aid ? "none" : "";   // nhóm sẵn -> ngân sách/đối tượng kế thừa
 }
 async function fbDoPush() {
   const note = $("fbPushNote"), btn = $("fbPushBtn"), c = fbPushItem;
@@ -3674,6 +3705,8 @@ async function fbDoPush() {
       body: JSON.stringify({
         image: src, link: link, message: $("fbMessage").value.trim(),
         name: c.name || "Áo Thun In Tên", headline: c.name || "Áo Thun In Tên",
+        campaign_id: $("fbCampaign").value, campaign_name: $("fbCampaignName").value.trim(),
+        adset_id: $("fbAdset").value, adset_name: $("fbAdsetName").value.trim(),
         daily_budget: $("fbBudget").value, cta: $("fbCta").value,
         genders: g ? [parseInt(g)] : [], age_min: $("fbAgeMin").value, age_max: $("fbAgeMax").value,
       }),

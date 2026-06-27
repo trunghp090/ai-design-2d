@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-ads-push-paused"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-ads-campaign-adset"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3570,6 +3570,24 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fb-status":
             return self.json(200, {"configured": fb_configured(),
                                    "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID})
+        if path == "/api/fb-campaigns":
+            if not fb_configured():
+                return self.json(200, {"campaigns": []})
+            st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
+                             {"fields": "id,name,status", "limit": "100"})
+            if st != 200:
+                return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"campaigns": d.get("data") or []})
+        if path == "/api/fb-adsets":
+            if not fb_configured():
+                return self.json(200, {"adsets": []})
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            cid = (qs.get("campaign_id") or [""])[0]
+            edge = ("%s/adsets" % cid) if cid else ("act_%s/adsets" % FB_AD_ACCOUNT_ID)
+            st, d = fb_graph("GET", edge, {"fields": "id,name,campaign_id", "limit": "100"})
+            if st != 200:
+                return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"adsets": d.get("data") or []})
         if path == "/api/me":
             u = self.current_user()
             if not u:
@@ -4838,25 +4856,36 @@ class Handler(BaseHTTPRequestHandler):
         genders = body.get("genders") or []        # [] = tất cả, [1]=nam, [2]=nữ
         countries = body.get("countries") or ["VN"]
         cta = (body.get("cta") or "SHOP_NOW").strip()
+        # chọn chiến dịch / nhóm có sẵn hoặc tạo mới
+        campaign_id = (body.get("campaign_id") or "").strip()
+        adset_id = (body.get("adset_id") or "").strip()
+        campaign_name = (body.get("campaign_name") or "").strip() or adname
+        adset_name = (body.get("adset_name") or "").strip() or adname
         try:
             image_hash = fb_upload_adimage(img)
-            st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
-                             {"name": adname, "objective": "OUTCOME_TRAFFIC",
-                              "special_ad_categories": "[]", "status": "PAUSED"})
-            if st != 200:
-                raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
-            cid = c["id"]
-            targeting = {"geo_locations": {"countries": countries}, "age_min": age_min, "age_max": age_max}
-            if genders:
-                targeting["genders"] = genders
-            st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
-                             {"name": adname, "campaign_id": cid, "daily_budget": budget,
-                              "billing_event": "IMPRESSIONS", "optimization_goal": "LINK_CLICKS",
-                              "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-                              "targeting": json.dumps(targeting), "status": "PAUSED"})
-            if st != 200:
-                raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
-            aid = a["id"]
+            # 1) Chiến dịch: dùng sẵn hoặc tạo mới
+            if not campaign_id:
+                st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
+                                 {"name": campaign_name, "objective": "OUTCOME_TRAFFIC",
+                                  "special_ad_categories": "[]", "status": "PAUSED"})
+                if st != 200:
+                    raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
+                campaign_id = c["id"]
+            cid = campaign_id
+            # 2) Nhóm QC (ad set): dùng sẵn hoặc tạo mới
+            if not adset_id:
+                targeting = {"geo_locations": {"countries": countries}, "age_min": age_min, "age_max": age_max}
+                if genders:
+                    targeting["genders"] = genders
+                st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
+                                 {"name": adset_name, "campaign_id": cid, "daily_budget": budget,
+                                  "billing_event": "IMPRESSIONS", "optimization_goal": "LINK_CLICKS",
+                                  "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+                                  "targeting": json.dumps(targeting), "status": "PAUSED"})
+                if st != 200:
+                    raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
+                adset_id = a["id"]
+            aid = adset_id
             story = {"page_id": FB_PAGE_ID, "link_data": {
                 "image_hash": image_hash, "link": link, "message": message, "name": headline,
                 "call_to_action": {"type": cta, "value": {"link": link}}}}
@@ -4873,7 +4902,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": str(e)})
         mgr = ("https://www.facebook.com/adsmanager/manage/campaigns?act=%s&selected_campaign_ids=%s"
                % (FB_AD_ACCOUNT_ID, cid))
-        return self.json(200, {"ok": True, "campaign_id": cid, "ad_id": ad["id"], "manager_url": mgr})
+        return self.json(200, {"ok": True, "campaign_id": cid, "adset_id": aid,
+                               "ad_id": ad["id"], "manager_url": mgr})
 
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""
