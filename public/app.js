@@ -3771,7 +3771,7 @@ async function adsGenerate() {
 async function adsLaunchOne(con, name, hook, engine) {
   const lbl = (ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key;
   try {
-    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
+    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     adsItems.unshift({ loading: true, job: d.job_id, label: lbl });
     adsRenderAll();

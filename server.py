@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-adtext-tone"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-textcolor-pick"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1443,22 +1443,29 @@ def _ads_style_clauses(img_style_n, txt_style_n):
     return s
 
 
-def _ads_text_part(name, hook, text_style):
+def _ads_text_part(name, hook, text_style, text_color=""):
     txt = 'a big bold headline "' + name + '"'
     if hook:
         txt += ' and a short punchy sub-line "' + hook + '"'
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
-    txt += (". IMPORTANT — choose the AD-TEXT COLOUR so it HARMONISES with the overall colour tone / "
-            "palette of the whole image (pick a colour drawn from or complementary to the scene's tones, "
-            "e.g. a deep accent that matches the mood), while staying highly READABLE with strong "
-            "contrast against whatever is directly behind the text. The headline and sub-line look "
-            "intentionally colour-matched to the photo, like a professionally designed ad")
+    tc = (text_color or "").strip()
+    if tc:
+        txt += (". Render BOTH the headline and the sub-line in this exact COLOUR: " + tc + " — use this "
+                "one colour consistently, clearly readable with strong contrast against its background")
+    else:
+        txt += (". IMPORTANT — pick ONE ad-text COLOUR that clearly BELONGS to the photo's palette and "
+                "does NOT clash with the t-shirt PRINTS: take the design's MAIN print colour (or a "
+                "deeper/darker shade of it), or a deep neutral tone already present in the scene; apply "
+                "that same colour to BOTH the headline and the sub-line. It must look intentionally "
+                "colour-coordinated with the shirts and the whole image, never a harsh or randomly "
+                "clashing colour, while staying highly READABLE with strong contrast against its "
+                "background")
     return txt
 
 
-def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style=""):
-    txt = _ads_text_part(name, hook, text_style)
+def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style="", text_color=""):
+    txt = _ads_text_part(name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
             "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
@@ -1527,9 +1534,9 @@ _ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two 
             "design's original name anywhere. ")
 
 
-def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg=""):
+def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg="", text_color=""):
     """Concept nhiều áo — GIỮ NGUYÊN design gốc, CHỈ đổi tên chính từng áo (1 lần gen)."""
-    txt = _ads_text_part(prod_name, hook, text_style)
+    txt = _ads_text_part(prod_name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     n = len(names)
     perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
@@ -1561,9 +1568,9 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style="", old_name="", bg=""):
+def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style="", old_name="", bg="", text_color=""):
     """Couple — GIỮ NGUYÊN design gốc, chỉ đổi tên + cross (nam tên nữ, nữ tên nam), 1 lần gen."""
-    txt = _ads_text_part(prod_name, hook, text_style)
+    txt = _ads_text_part(prod_name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     bg = (bg or "").strip()
     bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
@@ -1582,7 +1589,7 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
 
-def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None, quality="medium"):
+def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", text_style="", text_style_img=None, quality="medium", text_color=""):
     """concepts = [{'key':..., 'ref':bytes|None}]. Gen 1 ad/concept."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
@@ -1607,12 +1614,12 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
             if key == "couple":
-                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg)
+                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
             elif key in ADS_CONCEPT_N:
                 names = ads_n_names(ADS_CONCEPT_N[key])
-                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg)
+                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
             else:
-                prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style)
+                prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style, text_color)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
             # cắt về ĐÚNG tỉ lệ user chọn (model chỉ ra vài size cố định)
             if HAS_PIL:
@@ -4719,6 +4726,7 @@ class Handler(BaseHTTPRequestHandler):
         quality = (body.get("quality") or "medium").strip()
         if quality not in ("low", "medium", "high"):
             quality = "medium"
+        text_color = (body.get("text_color") or "").strip()[:60]
         text_style_img = None
         if body.get("text_style_img"):
             tsb, _ = fetch_image_bytes(body["text_style_img"])
@@ -4728,7 +4736,7 @@ class Handler(BaseHTTPRequestHandler):
             job_id = "ad%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": len(cons), "done": 0, "items": [], "errors": [], "finished": False}
         t = threading.Thread(target=run_ads_job,
-                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality), daemon=True)
+                             args=(job_id, (dd, dm or "image/png"), cons, name, hook, engine, aspect, text_style, text_style_img, quality, text_color), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": len(cons)})
 
