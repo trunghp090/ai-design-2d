@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-ads-campaign-adset"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-ads-newfields"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4867,14 +4867,16 @@ class Handler(BaseHTTPRequestHandler):
             if not campaign_id:
                 st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
                                  {"name": campaign_name, "objective": "OUTCOME_TRAFFIC",
-                                  "special_ad_categories": "[]", "status": "PAUSED"})
+                                  "special_ad_categories": "[]",
+                                  "is_adset_budget_sharing_enabled": "false", "status": "PAUSED"})
                 if st != 200:
                     raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
                 campaign_id = c["id"]
             cid = campaign_id
             # 2) Nhóm QC (ad set): dùng sẵn hoặc tạo mới
             if not adset_id:
-                targeting = {"geo_locations": {"countries": countries}, "age_min": age_min, "age_max": age_max}
+                targeting = {"geo_locations": {"countries": countries}, "age_min": age_min,
+                             "age_max": age_max, "targeting_automation": {"advantage_audience": 0}}
                 if genders:
                     targeting["genders"] = genders
                 st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
