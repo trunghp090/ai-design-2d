@@ -3544,6 +3544,7 @@ function adsInit() {
   if ($("fbPushClose")) $("fbPushClose").onclick = () => $("fbPushModal").classList.add("hidden");
   if ($("fbPushModal")) $("fbPushModal").onclick = (ev) => { if (ev.target.id === "fbPushModal") $("fbPushModal").classList.add("hidden"); };
   if ($("fbPushBtn")) $("fbPushBtn").onclick = fbDoPush;
+  if ($("fbWriteBtn")) $("fbWriteBtn").onclick = () => { if (fbPushItem) fbWriteCaption(fbPushItem); };
   if ($("fbCampaign")) $("fbCampaign").onchange = fbOnCampaignChange;
   if ($("fbAdset")) $("fbAdset").onchange = fbOnAdsetChange;
   adsRenderDesign(); adsRenderConcepts(); adsRenderTextStyle(); adsRenderAll();
@@ -3656,12 +3657,25 @@ function adsPushToFb(c) {
   fbPushItem = c;
   const src = c.image ? "data:image/png;base64," + c.image : c.url;
   $("fbPushPreview").innerHTML = '<img src="' + src + '" style="max-height:130px;border-radius:8px;display:block;margin:0 auto">';
-  $("fbLink").value = adsProductLink || "";
-  $("fbMessage").value = "🔥 " + (c.name || "Áo Thun In Tên") + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\nĐặt ngay tại rieng.vn!";
+  $("fbLink").value = c.link || adsProductLink || "";          // tự lấy link SP
   $("fbCampaignName").value = ""; $("fbAdsetName").value = "";
   $("fbPushNote").textContent = "";
   $("fbPushModal").classList.remove("hidden");
   fbLoadCampaigns();
+  fbWriteCaption(c);                                            // AI tự viết bài
+}
+async function fbWriteCaption(c) {
+  const ta = $("fbMessage"), btn = $("fbWriteBtn");
+  const fallback = "🔥 " + (c.name || "Áo Thun In Tên") + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
+  const src = c.image ? "data:image/png;base64," + c.image : c.url;
+  ta.value = "⏳ AI đang viết bài quảng cáo cho ảnh này…";
+  if (btn) { btn.disabled = true; }
+  try {
+    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
+    const d = await r.json();
+    ta.value = (r.ok && (d.facebook || "").trim()) ? d.facebook.trim() : fallback;
+  } catch (e) { ta.value = fallback; }
+  finally { if (btn) btn.disabled = false; }
 }
 async function fbLoadCampaigns() {
   const sel = $("fbCampaign");
@@ -3768,8 +3782,9 @@ async function adsShowProductImages(p) {
     cell.innerHTML = '<img src="' + im.src + '" loading="lazy" alt="">';
     cell.querySelector("img").onclick = () => {
       adsDesignImg = im.src; adsRenderDesign();
+      adsProductLink = p.store_url || p.url || "";   // nhớ link SP để đẩy FB + tự điền
       $("adsDesignPickModal").classList.add("hidden");
-      const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design."; }
+      const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design (đã nhớ link SP)."; }
     };
     grid.appendChild(cell);
   });
