@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-real-oversize-color"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-adtext-tone"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1449,6 +1449,11 @@ def _ads_text_part(name, hook, text_style):
         txt += ' and a short punchy sub-line "' + hook + '"'
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
+    txt += (". IMPORTANT — choose the AD-TEXT COLOUR so it HARMONISES with the overall colour tone / "
+            "palette of the whole image (pick a colour drawn from or complementary to the scene's tones, "
+            "e.g. a deep accent that matches the mood), while staying highly READABLE with strong "
+            "contrast against whatever is directly behind the text. The headline and sub-line look "
+            "intentionally colour-matched to the photo, like a professionally designed ad")
     return txt
 
 
@@ -1507,10 +1512,9 @@ _ADS_KEEP = (
     "redraw, restyle, simplify or re-center anything. The ONLY thing that changes between shirts is the "
     "single MAIN large NAME text: replace it with a different name on each shirt, in the same font, "
     "style, weight and position (correct Vietnamese diacritics). "
-    "PRINT COLOUR: render the WHOLE print in ONE clean, consistent colour that harmonises with the "
-    "overall ad palette and reads clearly & sharply on the shirt — and keep this exact SAME print colour "
-    "IDENTICAL on every shirt. The design colour and text must NOT drift, shift, fade or look misaligned "
-    "or mismatched between the shirts; all prints look perfectly aligned and crisp. ")
+    "PRINT COLOUR: keep the design's OWN original colours, but render them CLEAN, crisp and EXACTLY the "
+    "SAME on every shirt — the print colour and text must NOT drift, shift, fade, recolor or look "
+    "misaligned/mismatched between the shirts; all prints look perfectly aligned and sharp. ")
 
 
 _ADS_REAL = (
