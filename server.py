@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-ads-quality-speed"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-ads-family-concept"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1343,6 +1343,7 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
 ADS_CONCEPTS = {
     "couple":   ("Couple (2 áo)", "a young Vietnamese couple — a man and a woman — BOTH wearing the SAME matching t-shirt"),
     "group":    ("Đội nhóm (3 áo)", "a group of THREE young Vietnamese friends, ALL wearing the SAME matching t-shirt"),
+    "family":   ("Gia đình (4 áo)", "a happy Vietnamese family — father, mother and two children — ALL wearing the SAME matching t-shirt"),
     "flatlay2": ("Flatlay 2 áo", "TWO t-shirts of the SAME design laid out flat side by side in a clean tidy flatlay arrangement, NO people"),
     "flatlay3": ("Flatlay 3 áo", "THREE t-shirts of the SAME design laid out flat together in a clean tidy flatlay arrangement, NO people"),
 }
@@ -1462,7 +1463,7 @@ def ads_n_names(n):
 
 
 # số áo (tên khác nhau) mỗi concept
-ADS_CONCEPT_N = {"couple": 2, "group": 3, "flatlay2": 2, "flatlay3": 3}
+ADS_CONCEPT_N = {"couple": 2, "group": 3, "family": 4, "flatlay2": 2, "flatlay3": 3}
 
 
 _ADS_KEEP = (
@@ -1490,6 +1491,13 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     if concept_key == "group":
         scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
                  "these shirts as a LARGE full-front chest print. " % n)
+        if bg:
+            scene += ("Set the scene with this background: " + bg + ". ")
+    elif concept_key == "family":
+        scene = ("Show a happy Vietnamese FAMILY of %d — a father, a mother and their children — "
+                 "standing together, EACH family member wearing one of these matching shirts as a LARGE "
+                 "full-front chest print (the kids wear smaller kid-sized versions of the same design). "
+                 % n)
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3

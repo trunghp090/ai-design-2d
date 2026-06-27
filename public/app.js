@@ -3409,6 +3409,7 @@ let adsTextStyleImg = null;     // ảnh mẫu kiểu chữ (áp dụng chung)
 const ADS_CONCEPTS = [
   { key: "couple", label: "💑 Couple (2 áo)" },
   { key: "group", label: "👥 Đội nhóm (3 áo)" },
+  { key: "family", label: "👨‍👩‍👧‍👦 Gia đình (4 áo)" },
   { key: "flatlay2", label: "🛋️ Flatlay 2 áo" },
   { key: "flatlay3", label: "🛋️ Flatlay 3 áo" },
 ];
