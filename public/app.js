@@ -2709,15 +2709,16 @@ async function shoplistLoad() {
 }
 
 /* ===== Sửa sản phẩm Shopify (mô tả / trạng thái / thêm variant) ===== */
-let shopEditState = { id: null, p: null, varImg: null };
+let shopEditState = { id: null, p: null, varImg: null, images: [], coverId: null };
 const SHOP_SIZES = ["S", "M", "L", "XL", "XXL"];
 async function openShopEdit(p) {
-  shopEditState = { id: p.id, p: p, varImg: null };
+  shopEditState = { id: p.id, p: p, varImg: null, images: [], coverId: null };
   $("shopEditName").textContent = "ID: " + p.id;
   $("shopEditNote").textContent = ""; $("shopEditNote").className = "gen-note";
   $("shopEditTitle").value = p.title || "";
   $("shopEditDesc").innerHTML = "<p class='hint'>Đang tải…</p>";
-  $("shopVarColor").value = ""; $("shopVarPrice").value = "269000";
+  $("shopCoverGrid").innerHTML = "<p class='hint'>Đang tải ảnh…</p>";
+  $("shopVarPrice").value = "269000";
   $("shopVarImgPrev").innerHTML = ""; shopEditState.varImg = null;
   // size checkboxes
   $("shopVarSizes").innerHTML = SHOP_SIZES.map(s => '<label class="sz-chip"><input type="checkbox" value="' + s + '"' + (s === "M" ? " checked" : "") + '>' + s + '</label>').join("");
@@ -2730,12 +2731,42 @@ async function openShopEdit(p) {
     $("shopEditStatus").value = d.status === "active" ? "active" : "draft";
     const colors = [...new Set((d.variants || []).map(v => v.option1).filter(Boolean))];
     $("shopEditVariants").textContent = "Hiện có: " + (d.variants || []).length + " variant" + (colors.length ? " · màu: " + colors.join(", ") : "");
-  } catch (e) { $("shopEditDesc").innerHTML = ""; $("shopEditNote").className = "gen-note err"; $("shopEditNote").textContent = "⚠️ " + e.message; }
+    shopEditState.images = d.images || []; shopEditState.coverId = d.cover_id || (d.images && d.images[0] && d.images[0].id) || null;
+    renderShopCover();
+  } catch (e) { $("shopEditDesc").innerHTML = ""; $("shopCoverGrid").innerHTML = ""; $("shopEditNote").className = "gen-note err"; $("shopEditNote").textContent = "⚠️ " + e.message; }
+}
+function renderShopCover() {
+  const grid = $("shopCoverGrid"); if (!grid) return;
+  const imgs = shopEditState.images || [];
+  if (!imgs.length) { grid.innerHTML = '<p class="hint">Sản phẩm chưa có ảnh — bấm "Thêm ảnh bìa mới".</p>'; return; }
+  grid.innerHTML = "";
+  imgs.forEach(im => {
+    const isCover = im.id === shopEditState.coverId;
+    const cell = document.createElement("div"); cell.className = "ads-style-cell" + (isCover ? " is-def" : "");
+    cell.innerHTML = '<img src="' + im.src + '" loading="lazy" alt="">' + (isCover ? '<span class="cover-tag">BÌA</span>' : "");
+    cell.querySelector("img").onclick = () => setShopCover({ image_id: im.id });
+    grid.appendChild(cell);
+  });
+}
+async function setShopCover(payload) {
+  const note = $("shopEditNote"); note.className = "gen-note"; note.textContent = "⏳ Đang đặt ảnh bìa…";
+  try {
+    const r = await fetch("/api/shopify-set-cover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shopEditState.id, ...payload }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã đổi ảnh bìa.";
+    openShopEdit(shopEditState.p);   // refresh để thấy bìa mới
+    if (typeof shoplistLoad === "function") shoplistLoad();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
 function closeShopEdit() { $("shopEditModal").classList.add("hidden"); }
 if ($("shopEditClose")) $("shopEditClose").onclick = closeShopEdit;
 if ($("shopEditModal")) $("shopEditModal").onclick = (e) => { if (e.target.id === "shopEditModal") closeShopEdit(); };
 if ($("shopEditImages")) $("shopEditImages").onclick = () => { if (shopEditState.p) { closeShopEdit(); openImgUpdate(shopEditState.p); } };
+if ($("shopCoverUpload")) $("shopCoverUpload").onclick = () => {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+  inp.onchange = async (e) => { const f = e.target.files[0]; if (f) { const durl = await fileToDataURL(f); setShopCover({ image: durl }); } };
+  inp.click();
+};
 if ($("shopEditSave")) $("shopEditSave").onclick = async (e) => {
   const btn = e.currentTarget, note = $("shopEditNote"); btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳ Đang lưu…";
   try {

@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-shopify-edit-product"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-shopify-edit-cover"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3510,9 +3510,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self.json(400, {"error": "Lỗi tải SP: %s" % e})
             p = d.get("product") or {}
+            cover_id = (p.get("image") or {}).get("id")
             return self.json(200, {
                 "id": p.get("id"), "title": p.get("title", ""), "body_html": p.get("body_html", ""),
-                "status": p.get("status", ""),
+                "status": p.get("status", ""), "cover_id": cover_id,
+                "images": [{"id": im.get("id"), "src": im.get("src"), "position": im.get("position")}
+                           for im in (p.get("images") or [])],
                 "options": [{"name": o.get("name"), "position": o.get("position"),
                              "values": o.get("values") or []} for o in (p.get("options") or [])],
                 "variants": [{"id": v.get("id"), "title": v.get("title"), "option1": v.get("option1"),
@@ -3695,6 +3698,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_shopify_update(body)
         if path == "/api/shopify-add-variant":
             return self.handle_shopify_add_variant(body)
+        if path == "/api/shopify-set-cover":
+            return self.handle_shopify_set_cover(body)
         if path == "/api/upscale":
             return self.handle_upscale(body)
         if path == "/api/make-mockup":
@@ -4284,6 +4289,33 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             return self.json(400, {"error": "Lưu lỗi: %s" % e})
         return self.json(200, {"ok": True})
+
+    def handle_shopify_set_cover(self, body):
+        """Đặt ảnh BÌA: chọn ảnh có sẵn (image_id -> position 1) hoặc thêm ảnh mới làm bìa."""
+        if not shopify_configured():
+            return self.json(400, {"error": "Chưa cấu hình Shopify."})
+        pid = body.get("id")
+        if not pid:
+            return self.json(400, {"error": "Thiếu id sản phẩm."})
+        img_id = body.get("image_id")
+        new_img = body.get("image") or ""
+        try:
+            if new_img:
+                b = new_img.split(",", 1)[1] if str(new_img).startswith("data:") else new_img
+                st, d = shopify_api("POST", "products/%s/images.json" % pid,
+                                    {"image": {"attachment": b, "position": 1}})
+                if st not in (200, 201):
+                    return self.json(400, {"error": "Thêm ảnh bìa lỗi: %s" % json.dumps(d)[:160]})
+                return self.json(200, {"ok": True, "cover_id": (d.get("image") or {}).get("id")})
+            if img_id:
+                st, d = shopify_api("PUT", "products/%s/images/%s.json" % (pid, img_id),
+                                    {"image": {"id": img_id, "position": 1}})
+                if st != 200:
+                    return self.json(400, {"error": "Đặt bìa lỗi: %s" % json.dumps(d)[:160]})
+                return self.json(200, {"ok": True, "cover_id": img_id})
+        except Exception as e:
+            return self.json(400, {"error": "Lỗi: %s" % e})
+        return self.json(400, {"error": "Cần chọn ảnh có sẵn hoặc tải ảnh mới."})
 
     def handle_shopify_add_variant(self, body):
         """Thêm variant (màu có swatch + các size) cho SP có sẵn + gán ảnh cho màu mới.
