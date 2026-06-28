@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-vn-taste"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-en-niche"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3974,15 +3974,15 @@ NAME_STYLES = {
     "minimal": ("⚪ Minimalist", "clean MINIMALIST modern typography — an elegant thin script or simple sans-serif, monochrome, lots of negative space, \"{stamp}\" very small and subtle"),
     "couple_heart": ("💞 Couple Heart", "a small photo-frame heart at the top, the name in a clean rounded font below, a tiny tagline, soft modern romantic vibe, \"{stamp}\" under the name"),
 }
-VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm", "Phương Linh", "Bảo Ngọc",
-            "Minh Khôi", "Thu Hà", "Gia Bảo", "Lê Phương", "Trần Hoà", "Nguyễn An", "Quỳnh Như",
-            "Tuấn Kiệt", "Mai Chi", "Khánh Vy", "Hải Đăng", "Thanh Trúc", "Anh Thư", "Bảo Trâm",
-            "Đăng Khoa", "Phương Anh", "Ngọc Diệp", "Hữu Phước", "Tường Vy", "Quốc Bảo", "Diễm My",
-            "Nhật Minh", "Cẩm Tú", "Gia Hân", "Đình Phong", "Thảo Nguyên", "Hoàng Yến", "Trí Dũng"]
+EN_NAMES = ["Jackson", "Emma", "Liam", "Olivia", "Noah", "Ava", "Mason", "Sophia", "Ethan",
+            "Isabella", "Lucas", "Mia", "Logan", "Amelia", "Aiden", "Harper", "James", "Evelyn",
+            "Oliver", "Luna", "Benjamin", "Charlotte", "Elijah", "Grace", "Henry", "Chloe", "Leo",
+            "Zoe", "Owen", "Lily", "Wyatt", "Hannah", "Nora", "Ryan", "Ella", "Aria", "Dylan",
+            "Scarlett", "Hunter", "Violet", "Stella", "Brooklyn", "Mateo", "Hazel", "Sebastian"]
 
 
 def name_suggest():
-    name = random.choice(VN_NAMES)
+    name = random.choice(EN_NAMES)
     if random.random() < 0.5:
         stamp = "EST %d" % random.randint(1992, 2012)
     else:
@@ -3994,52 +3994,51 @@ def name_design_prompt(name, stamp, style_key):
     label, frag = NAME_STYLES.get(style_key, NAME_STYLES["globe"])
     frag = frag.replace("{stamp}", stamp or "")
     return ("A flat VECTOR T-SHIRT PRINT DESIGN (artwork / graphic ONLY — NOT a t-shirt mockup, NOT a "
-            "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design for the "
-            "Vietnamese custom-name t-shirt niche. The MAIN focal element is the Vietnamese name \""
+            "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design for the global "
+            "(Etsy/US) custom-name t-shirt niche. The MAIN focal element is the first name \""
             + name + "\" rendered as large stylised lettering in this exact style: " + frag + ". "
-            "Spell the name EXACTLY \"" + name + "\" with correct Vietnamese diacritics; do NOT add any "
-            "other name or words. Centered, balanced composition on a PLAIN PURE WHITE background, crisp "
-            "clean PRINT-READY vector artwork, bold high-contrast, ready to screen-print on a t-shirt. "
-            "No mockup, no shirt, no human, no watermark.")
+            "Spell the name EXACTLY \"" + name + "\"; do NOT add any other name or words. Centered, "
+            "balanced composition on a PLAIN PURE WHITE background, crisp clean PRINT-READY vector "
+            "artwork, BOLD HIGH-CONTRAST, ready to screen-print on a t-shirt. No mockup, no shirt, no "
+            "human, no watermark.")
 
 
 _NAME_AI_SUFFIX = (" IMPORTANT: render as a FLAT VECTOR t-shirt PRINT design, ARTWORK ONLY — NOT a "
                    "t-shirt mockup, NOT a person, NOT a photo of a shirt. Centered, balanced composition "
                    "on a PLAIN PURE WHITE background, crisp clean PRINT-READY vector, bold high-contrast. "
-                   "Spell the name EXACTLY with correct Vietnamese diacritics; no other names, no watermark.")
+                   "Spell the name EXACTLY as given; no other names, no watermark.")
 
 
 def name_concepts(name, stamp, n):
     """AI tự DÙNG KIẾN THỨC về ngách custom-name tee -> nghĩ n concept design (mỗi cái 1 prompt)."""
     if not API_KEY:
         return []
-    sys = ("You are a SENIOR print-on-demand designer & TREND ANALYST for the VIETNAMESE Gen-Z "
-           "CUSTOM-NAME / PERSONALISED-NAME T-SHIRT market (áo thun in tên, áo đôi, áo nhóm). You know "
-           "EXACTLY what is best-selling in Vietnam right now (2025-2026):\n"
-           "• CUTE / KAWAII rules — chubby adorable MASCOTS are a craze: CAPYBARA (massive), teddy BEARS "
-           "(gấu), CATS (mèo), bunnies, ducks; soft pastel colours, rounded shapes, cute little faces, "
-           "tiny hearts/stars/clouds, often paired with the name.\n"
-           "• Y2K RETRO 2000s nostalgia — sparkle stars, glossy puffy BUBBLE letters, chrome, galaxy, "
-           "quirky playful vibe; plus the trendy outlined 'studio' bubble look (cream & warm brown).\n"
-           "• 70s GROOVY revival — funky rounded letters, daisies, sunbursts, earthy warm palette.\n"
-           "• KOREAN MINIMALIST — 'đơn giản mà chất': clean elegant thin typography, small tagline, lots "
-           "of white space, muted neutral tones.\n"
-           "• VARSITY / streetwear for group & class tees with an 'EST <year>'.\n"
-           "• 2026 colour trend = warm MUTED tones: chocolate brown, wine red, moss/olive green, cream, "
-           "terracotta, soft pastels — mature yet playful.\n"
-           "The base tee is usually white, black or cream; fit is OVERSIZE unisex. Design name graphics "
-           "that feel NATIVE to Vietnamese Gen-Z taste (cute, aesthetic, on-trend) — NOT generic western "
-           "clipart, NOT cheesy. You pick what truly converts in Vietnam.")
+    sys = ("You are a SENIOR print-on-demand designer & TREND ANALYST for the global CUSTOM-NAME / "
+           "PERSONALISED-NAME T-SHIRT niche (the big Etsy / Amazon Merch / US POD market). You know "
+           "EXACTLY what is BEST-SELLING in this niche in 2025-2026:\n"
+           "• RETRO / NOSTALGIA — 90s & early-2000s revival: vintage DISTRESSED washed-out screen-print "
+           "texture, retro colour palettes, vintage signage/label looks, faded grunge.\n"
+           "• Y2K AESTHETIC (huge with Gen Z) — bubbly graffiti & glossy CHROME text, sparkle stars, "
+           "puffy bubble letters, early-2000s vibe.\n"
+           "• VARSITY / COLLEGIATE — bold large athletic lettering with stars and an 'EST <year>'.\n"
+           "• GROOVY 70s — funky rounded letters, daisies, sunbursts, earthy palette.\n"
+           "• CUTE / KAWAII — soft pastel bubble letters, adorable mascots (bear, cat, bunny), hearts & "
+           "stars (great for kids/feminine names).\n"
+           "• BOHO FLORAL, WESTERN/COWBOY (rope/stars), and clean MINIMALIST SCRIPT.\n"
+           "Personalisation cues: the NAME is the hero, plus an 'EST <year>' or a date; common gift/event "
+           "themes (birthday, team, family). HIGH-CONTRAST designs sell best (pop in the thumbnail). "
+           "Design like a TOP Etsy custom-name shop — clean, on-trend, giftable, print-ready. Names are "
+           "ENGLISH first names.")
     acc = (' Include a small accent text "%s".' % stamp) if stamp else ""
-    user = ("Act as the art director for a Vietnamese custom-name tee brand. Propose %d DISTINCT, "
-            "on-trend, commercially strong designs whose single main element is the Vietnamese name "
-            "\"%s\".%s Choose styles from the BEST-SELLING Vietnamese directions above (e.g. kawaii "
-            "mascot / Y2K bubble / 70s groovy / Korean minimalist / retro studio / varsity) — vary them, "
-            "do NOT repeat, and let the NAME'S VIBE guide the choice (e.g. a soft feminine name → cute "
-            "pastel / kawaii mascot; a strong name → varsity / streetwear; neutral → Korean minimalist / "
-            "Y2K). Prefer the trendy warm muted or soft pastel palettes. For EACH, write a detailed "
-            "English IMAGE-GENERATION prompt for a flat vector print artwork on a pure white background "
-            "(typography style, exact colours, decorative elements, layout). Return strict JSON: "
+    user = ("Act as the art director for a top custom-name tee shop. Propose %d DISTINCT, on-trend, "
+            "commercially strong designs whose single hero element is the first name \"%s\".%s Choose "
+            "styles from the BEST-SELLING niche directions above (retro/distressed, Y2K bubble, varsity, "
+            "70s groovy, kawaii cute, boho floral, western, minimalist script) — vary them, do NOT "
+            "repeat, and let the NAME'S VIBE guide the choice (soft/feminine → cute pastel or floral; "
+            "strong → varsity or western; neutral → Y2K or minimalist). Make each HIGH-CONTRAST and "
+            "thumbnail-friendly. For EACH, write a detailed English IMAGE-GENERATION prompt for a flat "
+            "vector print artwork on a pure white background (typography style, exact colours, decorative "
+            "elements, layout). Return strict JSON: "
             "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
             "with EXACTLY %d items." % (n, name, acc, n))
     try:
