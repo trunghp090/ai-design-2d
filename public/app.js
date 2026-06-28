@@ -4788,7 +4788,7 @@ function pgpostRender(items) {
       : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>';
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="pgpost-tick" value="' + it.id + '"></td>' +
-      '<td style="position:relative"><img src="' + (it.image_urls || [])[0] + '" style="width:54px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:0 4px;border-radius:6px">' + n + '🖼</span></td>' +
+      '<td style="position:relative"><img src="' + (it.image_urls || [])[0] + '" style="width:54px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:0 4px;border-radius:6px">' + n + '🖼</span>' + (it.source === "auto" ? '<span style="position:absolute;top:2px;left:2px;background:var(--violet);color:#fff;font-size:9px;padding:0 4px;border-radius:6px">🤖</span>' : '') + (it.product ? '<div class="hint" style="max-width:60px;font-size:9px;line-height:1.1;margin-top:2px">' + (it.product || "").slice(0, 26) + '</div>' : '') + '</td>' +
       '<td><textarea class="input pgpost-cap" rows="4" style="width:320px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
       '<td style="white-space:nowrap">' + resCell + '</td>' +
       '<td><button class="btn-ghost sm pgpost-del">🗑️</button></td>' +

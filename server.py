@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-autopilot"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-autopilot-board"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2171,12 +2171,22 @@ def autopost_run_one(cfg):
     if lk and lk not in cap:
         cap += "\n\n🛒 MUA NGAY: " + lk
     chans = cfg.get("channels") or ["fb"]
+    # GHI vào Bảng bài FB/IG (📋) để thấy được trên trang tự động đăng
+    pid = hashlib.md5(("auto%s%s" % (time.time(), urls[0])).encode()).hexdigest()[:12]
+    with _pgpost_lock:
+        items = pgpost_load()
+        items.insert(0, {"id": pid, "caption": cap, "product": p.get("title", ""),
+                         "image_urls": urls, "status": "posting", "source": "auto",
+                         "created": time.time()})
+        pgpost_save(items)
     res = {}
     if "fb" in chans:
         res["fb"] = fb_post_core(urls, cap)
     if "ig" in chans:
         res["ig"] = ig_post_core(urls, cap)
     ok = bool(res) and all(r.get("ok") for r in res.values())
+    _pgpost_set(pid, status=("posted" if ok else "error"),
+                result={k: (v.get("url") if v.get("ok") else v.get("error")) for k, v in res.items()})
     detail = "%s · %s" % (ADS_CONCEPTS[key][0], (p.get("title") or "")[:24])
     if not ok:
         detail += " — " + "; ".join((r.get("error") or "")[:40] for r in res.values() if not r.get("ok"))
