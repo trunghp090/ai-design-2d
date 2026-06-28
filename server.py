@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-en-niche"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-ai-freeform"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3982,12 +3982,7 @@ EN_NAMES = ["Jackson", "Emma", "Liam", "Olivia", "Noah", "Ava", "Mason", "Sophia
 
 
 def name_suggest():
-    name = random.choice(EN_NAMES)
-    if random.random() < 0.5:
-        stamp = "EST %d" % random.randint(1992, 2012)
-    else:
-        stamp = "%02d.%02d.%d" % (random.randint(1, 28), random.randint(1, 12), random.randint(1992, 2012))
-    return name, stamp
+    return random.choice(EN_NAMES), ""   # chỉ gợi ý TÊN, không EST/năm
 
 
 def name_design_prompt(name, stamp, style_key):
@@ -4013,34 +4008,21 @@ def name_concepts(name, stamp, n):
     """AI tự DÙNG KIẾN THỨC về ngách custom-name tee -> nghĩ n concept design (mỗi cái 1 prompt)."""
     if not API_KEY:
         return []
-    sys = ("You are a SENIOR print-on-demand designer & TREND ANALYST for the global CUSTOM-NAME / "
-           "PERSONALISED-NAME T-SHIRT niche (the big Etsy / Amazon Merch / US POD market). You know "
-           "EXACTLY what is BEST-SELLING in this niche in 2025-2026:\n"
-           "• RETRO / NOSTALGIA — 90s & early-2000s revival: vintage DISTRESSED washed-out screen-print "
-           "texture, retro colour palettes, vintage signage/label looks, faded grunge.\n"
-           "• Y2K AESTHETIC (huge with Gen Z) — bubbly graffiti & glossy CHROME text, sparkle stars, "
-           "puffy bubble letters, early-2000s vibe.\n"
-           "• VARSITY / COLLEGIATE — bold large athletic lettering with stars and an 'EST <year>'.\n"
-           "• GROOVY 70s — funky rounded letters, daisies, sunbursts, earthy palette.\n"
-           "• CUTE / KAWAII — soft pastel bubble letters, adorable mascots (bear, cat, bunny), hearts & "
-           "stars (great for kids/feminine names).\n"
-           "• BOHO FLORAL, WESTERN/COWBOY (rope/stars), and clean MINIMALIST SCRIPT.\n"
-           "Personalisation cues: the NAME is the hero, plus an 'EST <year>' or a date; common gift/event "
-           "themes (birthday, team, family). HIGH-CONTRAST designs sell best (pop in the thumbnail). "
-           "Design like a TOP Etsy custom-name shop — clean, on-trend, giftable, print-ready. Names are "
-           "ENGLISH first names.")
-    acc = (' Include a small accent text "%s".' % stamp) if stamp else ""
-    user = ("Act as the art director for a top custom-name tee shop. Propose %d DISTINCT, on-trend, "
-            "commercially strong designs whose single hero element is the first name \"%s\".%s Choose "
-            "styles from the BEST-SELLING niche directions above (retro/distressed, Y2K bubble, varsity, "
-            "70s groovy, kawaii cute, boho floral, western, minimalist script) — vary them, do NOT "
-            "repeat, and let the NAME'S VIBE guide the choice (soft/feminine → cute pastel or floral; "
-            "strong → varsity or western; neutral → Y2K or minimalist). Make each HIGH-CONTRAST and "
-            "thumbnail-friendly. For EACH, write a detailed English IMAGE-GENERATION prompt for a flat "
-            "vector print artwork on a pure white background (typography style, exact colours, decorative "
-            "elements, layout). Return strict JSON: "
-            "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
-            "with EXACTLY %d items." % (n, name, acc, n))
+    sys = ("You are a WORLD-CLASS print-on-demand designer and trend expert for the global CUSTOM-NAME / "
+           "PERSONALISED-NAME T-SHIRT niche (the big Etsy / Amazon Merch / US POD market). You have deep, "
+           "up-to-date knowledge of what name designs are BEST-SELLING and trending in this niche right "
+           "now. Use YOUR OWN expert judgement to create the most commercial, on-trend, giftable name "
+           "graphics — YOU freely decide the styles, typography, colours and decorative elements that "
+           "will sell best. Names are English first names. Keep designs high-contrast and print-ready.")
+    user = ("Design %d DISTINCT, best-selling, on-trend CUSTOM-NAME t-shirt PRINT designs whose single "
+            "HERO element is the first name \"%s\" (the name is the focal point — do NOT add a year, "
+            "date, 'EST', tagline or any other text unless your concept truly needs it). Use your expert "
+            "knowledge of the niche — pick whatever styles you judge will sell best right now, make them "
+            "genuinely DIFFERENT from each other, and let the name's vibe guide you. For EACH, write a "
+            "detailed English IMAGE-GENERATION prompt for a flat vector print artwork on a pure white "
+            "background (typography style, exact colours, decorative elements, layout). Return strict "
+            "JSON: {\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed "
+            "prompt>\"}]} with EXACTLY %d items." % (n, name, n))
     try:
         out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
                           json_mode=True, max_tokens=2200, model=BEST_TEXT_MODEL)

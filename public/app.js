@@ -4843,12 +4843,6 @@ async function namedesInit() {
     namedesInited = true;
     $("ndSuggest").onclick = namedesSuggest;
     $("ndRun").onclick = namedesGenerate;
-    // nạp danh sách style niche
-    try {
-      const d = await (await fetch("/api/name-styles")).json();
-      const sel = $("ndStyle");
-      (d.styles || []).forEach(s => { const o = document.createElement("option"); o.value = s.key; o.textContent = s.label; sel.appendChild(o); });
-    } catch (e) {}
     if (!$("ndName").value) namedesSuggest();   // gợi ý sẵn 1 tên
   }
   namedesRender();
@@ -4856,14 +4850,14 @@ async function namedesInit() {
 async function namedesSuggest() {
   try {
     const d = await (await fetch("/api/name-suggest")).json();
-    $("ndName").value = d.name || ""; $("ndStamp").value = d.stamp || "";
+    $("ndName").value = d.name || "";
   } catch (e) {}
 }
 async function namedesGenerate() {
   const note = $("ndNote"); note.className = "gen-note"; note.textContent = "";
   const name = ($("ndName").value || "").trim();
   if (!name) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập tên (hoặc bấm 🎲 Gợi ý)."; return; }
-  const body = { name: name, stamp: ($("ndStamp").value || "").trim(), style: $("ndStyle").value, n: +$("ndN").value, transparent: $("ndTransparent").checked };
+  const body = { name: name, stamp: "", style: "auto", n: +$("ndN").value, transparent: $("ndTransparent").checked };
   $("ndRun").disabled = true;
   try {
     const r = await fetch("/api/name-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
