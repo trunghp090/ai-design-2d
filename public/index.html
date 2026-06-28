@@ -50,6 +50,7 @@
     <button class="app-tab" data-app="post">📱 Đăng bài</button>
     <button class="app-tab" data-app="ads">📣 FB Ads</button>
     <button class="app-tab" data-app="fbpost">📘 FB Post</button>
+    <button class="app-tab" data-app="admgr">📊 Quản lý Ads</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -1300,6 +1301,27 @@
         <div id="fbpResults" class="fp-creations list"></div>
         <div class="gallery-empty" id="fbpEmpty">Chưa có bộ ảnh. Đưa design + tick concept rồi bấm Tạo.</div>
       </section>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-admgr">
+    <div class="panel" style="max-width:1100px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 class="panel-title" style="font-size:18px;margin:0">📊 Quản lý &amp; phân tích Ads</h2>
+        <select id="admgrRange" class="input" style="width:auto;padding:6px 10px">
+          <option value="today">Hôm nay</option>
+          <option value="yesterday">Hôm qua</option>
+          <option value="last_7d" selected>7 ngày</option>
+          <option value="last_14d">14 ngày</option>
+          <option value="last_30d">30 ngày</option>
+          <option value="maximum">Toàn thời gian</option>
+        </select>
+        <button class="btn-ghost sm" id="admgrRefresh">🔄 Tải lại</button>
+        <a id="admgrMgr" href="#" target="_blank" class="btn-ghost sm" style="text-decoration:none">⚙ Mở Ads Manager</a>
+      </div>
+      <p class="gen-note" id="admgrNote"></p>
+      <div id="admgrTable" style="overflow:auto"></div>
+      <div class="gallery-empty" id="admgrEmpty">Chưa có chiến dịch nào (hoặc chưa cấu hình Facebook).</div>
     </div>
   </section>
 

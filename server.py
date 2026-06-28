@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-shop-all-channels"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-ads-manager"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3721,7 +3721,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/shop-all-channels":
+        if path == "/api/fb-ads-manager":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -3743,6 +3743,30 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200:
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"campaigns": d.get("data") or []})
+        if path == "/api/fb-ads-list":
+            if not fb_configured():
+                return self.json(200, {"campaigns": [], "configured": False})
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            rng = (qs.get("range") or ["last_7d"])[0]
+            if rng not in ("today", "yesterday", "last_7d", "last_14d", "last_30d", "maximum"):
+                rng = "last_7d"
+            fields = ("id,name,status,effective_status,objective,"
+                      "insights.date_preset(%s){spend,reach,impressions,clicks,ctr,cpc}" % rng)
+            st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
+                             {"fields": fields, "limit": "100"})
+            if st != 200:
+                return self.json(400, {"error": fb_err(d)})
+            out = []
+            for c in (d.get("data") or []):
+                ins = ((c.get("insights") or {}).get("data") or [{}])
+                ins = ins[0] if ins else {}
+                out.append({"id": c.get("id"), "name": c.get("name"), "status": c.get("status"),
+                            "effective_status": c.get("effective_status"), "objective": c.get("objective"),
+                            "spend": ins.get("spend"), "reach": ins.get("reach"),
+                            "impressions": ins.get("impressions"), "clicks": ins.get("clicks"),
+                            "ctr": ins.get("ctr"), "cpc": ins.get("cpc")})
+            mgr = "https://www.facebook.com/adsmanager/manage/campaigns?act=%s" % FB_AD_ACCOUNT_ID
+            return self.json(200, {"campaigns": out, "range": rng, "manager_url": mgr})
         if path == "/api/fb-adsets":
             if not fb_configured():
                 return self.json(200, {"adsets": []})
@@ -3935,6 +3959,26 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_ads_generate(body)
         if path == "/api/fb-ads-push":
             return self.handle_fb_ads_push(body)
+        if path == "/api/fb-ad-update":
+            if not fb_configured():
+                return self.json(400, {"error": "Chưa cấu hình Facebook."})
+            oid = (body.get("id") or "").strip()
+            if not oid:
+                return self.json(400, {"error": "Thiếu id."})
+            params = {}
+            if body.get("status") in ("ACTIVE", "PAUSED"):
+                params["status"] = body["status"]
+            if body.get("daily_budget"):
+                try:
+                    params["daily_budget"] = int(float(body["daily_budget"]))
+                except Exception:
+                    pass
+            if not params:
+                return self.json(400, {"error": "Không có gì để sửa."})
+            st, d = fb_graph("POST", oid, params)
+            if st != 200 or d.get("error"):
+                return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"ok": True})
         if path == "/api/fbpost-generate":
             return self.handle_fbpost_generate(body)
         if path == "/api/fb-post":

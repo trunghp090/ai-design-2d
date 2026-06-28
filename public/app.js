@@ -611,10 +611,12 @@ function showApp(app) {
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
+  document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "ads") adsInit();
   if (app === "fbpost") fbpInit();
+  if (app === "admgr") admgrInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
@@ -4223,4 +4225,61 @@ async function fbpPostToPage(it, card) {
     note.className = "gen-note ok"; note.innerHTML = "✓ Đã đăng lên Fanpage! <a href='" + d.url + "' target='_blank' style='color:var(--violet);font-weight:600'>Xem bài →</a>";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; btn.textContent = o; }
+}
+
+/* =====================================================================
+   QUẢN LÝ / PHÂN TÍCH ADS: list campaign + insights + bật/tắt + sửa ngân sách
+   ===================================================================== */
+let admgrInited = false;
+function admgrInit() {
+  if (!admgrInited) {
+    admgrInited = true;
+    $("admgrRefresh").onclick = admgrLoad;
+    $("admgrRange").onchange = admgrLoad;
+  }
+  admgrLoad();
+}
+const fmtNum = (n) => { const x = parseFloat(n); return isNaN(x) ? "—" : x.toLocaleString("vi-VN"); };
+async function admgrLoad() {
+  const note = $("admgrNote"), tbl = $("admgrTable");
+  note.className = "gen-note"; note.textContent = "Đang tải…"; tbl.innerHTML = "";
+  try {
+    const rng = $("admgrRange").value;
+    const d = await (await fetch("/api/fb-ads-list?range=" + encodeURIComponent(rng))).json();
+    if (d.error) throw new Error(d.error);
+    if (d.manager_url) $("admgrMgr").href = d.manager_url;
+    const cs = d.campaigns || [];
+    $("admgrEmpty").classList.toggle("hidden", cs.length > 0);
+    if (!cs.length) { note.textContent = ""; return; }
+    // tổng
+    const tot = cs.reduce((a, c) => { a.spend += parseFloat(c.spend || 0); a.reach += parseFloat(c.reach || 0); a.clicks += parseFloat(c.clicks || 0); a.impr += parseFloat(c.impressions || 0); return a; }, { spend: 0, reach: 0, clicks: 0, impr: 0 });
+    note.className = "gen-note ok"; note.innerHTML = "💰 Tổng chi tiêu: <b>" + fmtNum(tot.spend) + "đ</b> · 👁 Reach " + fmtNum(tot.reach) + " · 🖱 Click " + fmtNum(tot.clicks) + " · " + cs.length + " chiến dịch";
+    let html = '<table class="admgr-tbl"><thead><tr><th>Chiến dịch</th><th>Trạng thái</th><th>Chi tiêu</th><th>Reach</th><th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th></th></tr></thead><tbody>';
+    cs.forEach((c, i) => {
+      const active = c.status === "ACTIVE";
+      const badge = active ? '<span class="sl-badge on">Đang chạy</span>' : '<span class="sl-badge">Tạm dừng</span>';
+      html += '<tr>' +
+        '<td title="' + (c.name || "").replace(/"/g, "&quot;") + '">' + (c.name || "").slice(0, 38) + '<br><span class="hint">' + (c.objective || "") + '</span></td>' +
+        '<td>' + badge + '</td>' +
+        '<td><b>' + fmtNum(c.spend) + 'đ</b></td>' +
+        '<td>' + fmtNum(c.reach) + '</td><td>' + fmtNum(c.impressions) + '</td><td>' + fmtNum(c.clicks) + '</td>' +
+        '<td>' + (c.ctr ? parseFloat(c.ctr).toFixed(2) + "%" : "—") + '</td>' +
+        '<td>' + (c.cpc ? fmtNum(c.cpc) + "đ" : "—") + '</td>' +
+        '<td><button class="btn-ghost sm admgr-tog" data-id="' + c.id + '" data-st="' + c.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    tbl.innerHTML = html;
+    tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggle(b.dataset.id, b.dataset.st, b));
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+async function admgrToggle(id, cur, btn) {
+  const to = cur === "ACTIVE" ? "PAUSED" : "ACTIVE";
+  if (to === "ACTIVE" && !confirm("BẬT chiến dịch này = bắt đầu chạy + TIÊU TIỀN. Chắc chứ?")) return;
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳…";
+  try {
+    const r = await fetch("/api/fb-ad-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, status: to }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    admgrLoad();
+  } catch (e) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = o; }
 }
