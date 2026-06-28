@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-name-design"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-name-ai-niche"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4001,25 +4001,72 @@ def name_design_prompt(name, stamp, style_key):
             "No mockup, no shirt, no human, no watermark.")
 
 
+_NAME_AI_SUFFIX = (" IMPORTANT: render as a FLAT VECTOR t-shirt PRINT design, ARTWORK ONLY — NOT a "
+                   "t-shirt mockup, NOT a person, NOT a photo of a shirt. Centered, balanced composition "
+                   "on a PLAIN PURE WHITE background, crisp clean PRINT-READY vector, bold high-contrast. "
+                   "Spell the name EXACTLY with correct Vietnamese diacritics; no other names, no watermark.")
+
+
+def name_concepts(name, stamp, n):
+    """AI tự DÙNG KIẾN THỨC về ngách custom-name tee -> nghĩ n concept design (mỗi cái 1 prompt)."""
+    if not API_KEY:
+        return []
+    sys = ("You are a SENIOR print-on-demand designer and market analyst who specialises in the "
+           "CUSTOM-NAME / PERSONALISED-NAME T-SHIRT niche. You deeply know what designs sell best and "
+           "what is currently trending in this niche worldwide and for the Vietnamese Gen-Z market: the "
+           "retro outlined bubble 'studio' look, varsity/athletic, 70s groovy, Y2K chrome, vintage "
+           "americana, streetwear/graffiti, kawaii cute, clean minimalist, summer/beach, couple & family "
+           "photo-frame styles, blackletter, etc. — including their typical colour palettes, layouts and "
+           "decorative elements. You pick what truly converts.")
+    acc = (' Include a small accent text "%s".' % stamp) if stamp else ""
+    user = ("Act as the art director. Propose %d DISTINCT, on-trend, commercially strong CUSTOM-NAME "
+            "t-shirt PRINT designs whose single main element is the Vietnamese name \"%s\".%s Choose the "
+            "styles YOU judge best & most sellable for this niche — vary them, do not repeat, and let the "
+            "name's vibe guide the choice. For EACH, write a detailed English IMAGE-GENERATION prompt for "
+            "a flat vector print artwork on a pure white background (typography style, colours, decorative "
+            "elements, layout). Return strict JSON: "
+            "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
+            "with EXACTLY %d items." % (n, name, acc, n))
+    try:
+        out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
+                          json_mode=True, max_tokens=2200)
+        cons = (json.loads(out).get("concepts") or [])
+        res = []
+        for c in cons[:n]:
+            p = (c.get("prompt") or "").strip()
+            if p:
+                res.append({"title": (c.get("title") or "AI design")[:40], "prompt": p + _NAME_AI_SUFFIX})
+        return res
+    except Exception:
+        return []
+
+
 def run_name_design_job(job_id, name, stamp, style, n, transparent):
     keys = list(NAME_STYLES.keys())
+    # CHẾ ĐỘ AI: để AI tự nghiên cứu niche + nghĩ concept (khi không chọn style cứng)
+    ai_cons = name_concepts(name, stamp, n) if style not in NAME_STYLES else []
 
     def work(i):
-        sk = style if style in NAME_STYLES else random.choice(keys)
+        if style in NAME_STYLES:
+            title = NAME_STYLES[style][0]; prompt = name_design_prompt(name, stamp, style)
+        elif i < len(ai_cons):
+            title = "🤖 " + ai_cons[i]["title"]; prompt = ai_cons[i]["prompt"]
+        else:
+            sk = random.choice(keys); title = NAME_STYLES[sk][0]; prompt = name_design_prompt(name, stamp, sk)
         try:
-            b64 = openai_generate(name_design_prompt(name, stamp, sk), "1024x1024")
+            b64 = openai_generate(prompt, "1024x1024")
             if transparent and HAS_PIL:
                 try:
                     b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
                 except Exception:
                     pass
             b64 = strip_ai_meta_b64(b64)
-            g = gallery_add(b64, {"mode": "design", "prompt": "Tên: %s · %s" % (name, NAME_STYLES[sk][0])})
-            return {"image": b64, "title": NAME_STYLES[sk][0], "style": sk, "gallery": g}
+            g = gallery_add(b64, {"mode": "design", "prompt": "Tên: %s · %s" % (name, title)})
+            return {"image": b64, "title": title, "gallery": g}
         except urllib.error.HTTPError as e:
-            return {"error": openai_error_message(e), "title": NAME_STYLES.get(sk, ("?", ""))[0]}
+            return {"error": openai_error_message(e), "title": title}
         except Exception as e:
-            return {"error": str(e), "title": "?"}
+            return {"error": str(e), "title": title}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
         for res in ex.map(work, range(n)):
