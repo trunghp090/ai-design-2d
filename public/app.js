@@ -3583,7 +3583,6 @@ function adsInit() {
   if ($("adsMultiBtn")) $("adsMultiBtn").onclick = () => { const box = $("adsMultiInline"); if (box.classList.contains("hidden")) adsOpenMulti(); else box.classList.add("hidden"); };
   if ($("adsMultiClose")) $("adsMultiClose").onclick = () => $("adsMultiInline").classList.add("hidden");
   if ($("adsMultiSearch")) $("adsMultiSearch").oninput = (e) => adsRenderMulti(e.target.value);
-  if ($("adsMultiGen")) $("adsMultiGen").onclick = adsMultiGen;
   if ($("adsSendBoard")) $("adsSendBoard").onclick = adpostAddSelected;
   if ($("adsPickAll")) $("adsPickAll").onchange = (e) => { adsItems.forEach(c => { if (!c.loading) c._sel = e.target.checked; }); adsRenderAll(); };
   if ($("adsDesignPickModal")) $("adsDesignPickModal").onclick = (ev) => { if (ev.target.id === "adsDesignPickModal") $("adsDesignPickModal").classList.add("hidden"); };
@@ -3985,7 +3984,8 @@ function adsRenderConcepts() {
 }
 function adsUpdateRunBtn() {
   const n = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).length;
-  if ($("adsRunBtn")) $("adsRunBtn").textContent = "✨ Tạo ảnh Ads (" + n + " concept)";
+  const sp = (typeof adsMultiSel !== "undefined") ? adsMultiSel.size : 0;
+  if ($("adsRunBtn")) $("adsRunBtn").textContent = sp ? ("✨ Tạo ảnh Ads (" + sp + " SP × " + n + " concept)") : ("✨ Tạo ảnh Ads (" + n + " concept)");
 }
 
 async function adsAutoName(force) {
@@ -4084,14 +4084,27 @@ function adsRegen(c) {
 
 async function adsGenerate(autopush) {
   const note = $("adsNote"); note.className = "gen-note"; note.textContent = "";
-  if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design trước."; return; }
   const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }));
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept để tạo."; return; }
   const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
   const engine = ($("adsEngine") && $("adsEngine").value) || "";
-  // MỖI concept = 1 LUỒNG riêng (chạy song song hết); bấm lại để thêm luồng
+  // Nếu đang tick NHIỀU SP -> gen cho từng SP × concept (mỗi ảnh nhớ link/tên SP)
+  const chosen = (typeof adsMultiSel !== "undefined" && adsMultiSel.size)
+    ? adsMultiProducts.filter(p => adsMultiSel.has(p.id || p.store_url || p.title)) : [];
+  if (chosen.length) {
+    let n = 0;
+    chosen.forEach(p => {
+      const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên" };
+      cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, autopush, ctx); n++; });
+    });
+    $("adsProgress") && $("adsProgress").classList.remove("hidden");
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + n + " ảnh cho " + chosen.length + " SP × " + cons.length + " concept…";
+    return;
+  }
+  // Design đơn
+  if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design (hoặc tick SP) trước."; return; }
   cons.forEach(c => adsLaunchOne(c, name, hook, engine, autopush));
-  note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads" + (autopush ? " + tự đẩy lên FB Ads (PAUSED)…" : " (nhiều luồng — bấm tiếp để chạy thêm).");
+  note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads" + (autopush ? " + tự đẩy lên FB Ads…" : " (nhiều luồng — bấm tiếp để chạy thêm).");
 }
 
 async function adsLaunchOne(con, name, hook, engine, autopush, ctx) {
@@ -4627,22 +4640,6 @@ function adsRenderMulti(q) {
 }
 function updateMultiNote() {
   const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).length;
-  const n = $("adsMultiNote"); n.className = "gen-note";
-  n.textContent = "Đã chọn " + adsMultiSel.size + " SP × " + cons + " concept = " + (adsMultiSel.size * cons) + " ảnh sẽ tạo.";
-}
-function adsMultiGen() {
-  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key));
-  if (!adsMultiSel.size) { $("adsMultiNote").className = "gen-note err"; $("adsMultiNote").textContent = "✗ Chưa chọn SP nào."; return; }
-  if (!cons.length) { $("adsMultiNote").className = "gen-note err"; $("adsMultiNote").textContent = "✗ Chưa tick concept nào ở panel trái."; return; }
-  const chosen = adsMultiProducts.filter(p => adsMultiSel.has(p.id || p.store_url || p.title));
-  const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
-  const engine = ($("adsEngine") && $("adsEngine").value) || "";
-  let launched = 0;
-  chosen.forEach(p => {
-    const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên" };
-    cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, false, ctx); launched++; });
-  });
-  $("adsMultiInline").classList.add("hidden");
-  $("adsProgress") && $("adsProgress").classList.remove("hidden");
-  const note = $("adsNote"); note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + launched + " ảnh ads cho " + chosen.length + " SP (nhiều luồng)…";
+  const n = $("adsMultiNote"); if (n) { n.className = "gen-note"; n.textContent = "Đã chọn " + adsMultiSel.size + " SP × " + cons + " concept = " + (adsMultiSel.size * cons) + " ảnh."; }
+  if (typeof adsUpdateRunBtn === "function") adsUpdateRunBtn();   // cập nhật nhãn nút chính
 }
