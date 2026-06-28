@@ -574,3 +574,4 @@ textarea.input{resize:vertical;line-height:1.5}
 .admgr-tbl th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--line);color:var(--muted);font-size:12px;white-space:nowrap}
 .admgr-tbl td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 .admgr-tbl tr:hover{background:#fdf8f9}
+.ads-style-cap{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:600;padding:2px 4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

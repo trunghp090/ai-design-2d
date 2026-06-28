@@ -3592,28 +3592,38 @@ function adsInit() {
 }
 
 // ---- Kho style (style ảnh concept + kho kiểu chữ) ----
-const ADS_BUILTIN_STYLE_ID = "builtin-couple";
-let adsBuiltinStyleUrl = null;
+// Mỗi concept 1 ảnh style RIÊNG (gắn sẵn) — KHÔNG dùng chung nguồn
+const ADS_BUILTIN_STYLES = {
+  couple: "/style-couple-default.webp",
+  group: "/style-group.webp",
+  family: "/style-family.webp",
+  flatlay2: "/style-flatlay2.webp",
+  flatlay3: "/style-flatlay3.webp",
+};
+let adsBuiltinByKey = {};   // key concept -> dataURL ảnh style riêng
+async function adsLoadBuiltins() {
+  for (const k in ADS_BUILTIN_STYLES) {
+    if (adsBuiltinByKey[k]) continue;
+    try {
+      const b = await (await fetch(ADS_BUILTIN_STYLES[k])).blob();
+      adsBuiltinByKey[k] = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
+    } catch (e) {}
+  }
+}
 async function adsLoadStyles() {
   try {
-    // nạp ảnh style mặc định gắn sẵn (ảnh couple chubbie) -> dataURL (1 lần)
-    if (!adsBuiltinStyleUrl) {
-      try {
-        const b = await (await fetch("/style-couple-default.webp")).blob();
-        adsBuiltinStyleUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
-      } catch (e) {}
-    }
+    await adsLoadBuiltins();
     const d = await (await fetch("/api/gallery")).json();
     adsStyleBank = (d.items || []).filter(it => it.mode === "adsstyle").map(it => ({ id: it.id, url: it.url }));
-    // gắn style mặc định có sẵn lên đầu kho (có người - couple)
-    if (adsBuiltinStyleUrl && !adsStyleBank.some(s => s.id === ADS_BUILTIN_STYLE_ID))
-      adsStyleBank.unshift({ id: ADS_BUILTIN_STYLE_ID, url: adsBuiltinStyleUrl, builtin: true });
-    // nếu user chưa chọn mặc định khác (hoặc default cũ đã bị xoá) -> dùng ảnh couple
-    if (!adsDefaultStyleId || !adsStyleBank.some(s => s.id === adsDefaultStyleId)) adsDefaultStyleId = ADS_BUILTIN_STYLE_ID;
+    // gắn 5 style builtin (mỗi concept 1 ảnh) lên đầu kho, đúng thứ tự concept
+    ADS_CONCEPTS.slice().reverse().forEach(c => {
+      const u = adsBuiltinByKey[c.key]; const id = "builtin-" + c.key;
+      if (u && !adsStyleBank.some(s => s.id === id))
+        adsStyleBank.unshift({ id: id, url: u, builtin: true, forKey: c.key, label: c.label });
+    });
     adsTextStyleBank = (d.items || []).filter(it => it.mode === "adstextstyle").map(it => ({ id: it.id, url: it.url }));
-    // áp style mặc định cho concept chưa có style
-    const def = adsStyleBank.find(s => s.id === adsDefaultStyleId);
-    if (def) ADS_CONCEPTS.forEach(c => { if (!adsStyle[c.key]) adsStyle[c.key] = def.url; });
+    // MỖI concept dùng STYLE RIÊNG của nó làm mặc định (nếu chưa chọn cái khác)
+    ADS_CONCEPTS.forEach(c => { if (!adsStyle[c.key] && adsBuiltinByKey[c.key]) adsStyle[c.key] = adsBuiltinByKey[c.key]; });
     adsRenderConcepts(); adsRenderStyleBank();
   } catch (e) {}
 }
@@ -3669,12 +3679,13 @@ function adsRenderStyleBank() {
     const cell = document.createElement("div"); cell.className = "ads-style-cell" + (isDef ? " is-def" : "");
     cell.innerHTML =
       '<img src="' + s.url + '" loading="lazy" alt="">' +
-      (isText ? "" : '<button class="ads-style-star" title="Đặt mặc định">' + (isDef ? "⭐" : "☆") + '</button>') +
-      (s.builtin ? '<span class="ads-style-badge" title="Style mặc định gắn sẵn">📌</span>' : '<button class="ads-style-del" title="Xoá">×</button>');
+      (s.builtin
+        ? '<span class="ads-style-badge" title="Style chuẩn gắn sẵn cho concept này">📌</span>' + (s.label ? '<span class="ads-style-cap">' + s.label + '</span>' : '')
+        : ((isText ? "" : '<button class="ads-style-star" title="Đặt mặc định">' + (isDef ? "⭐" : "☆") + '</button>') + '<button class="ads-style-del" title="Xoá">×</button>'));
     cell.querySelector("img").onclick = () => adsPickStyle(s);
+    if (s.builtin) { grid.appendChild(cell); return; }
     const star = cell.querySelector(".ads-style-star");
     if (star) star.onclick = (e) => { e.stopPropagation(); adsSetDefaultStyle(s.id); };
-    if (s.builtin) { grid.appendChild(cell); return; }
     cell.querySelector(".ads-style-del").onclick = async (e) => {
       e.stopPropagation(); if (!confirm("Xoá khỏi kho?")) return;
       try {
