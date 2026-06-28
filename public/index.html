@@ -1266,6 +1266,12 @@
           <h3 style="margin:0">🖼️ Ảnh Ads <span id="adsCount" class="fp-count"></span></h3>
           <div class="fp-viewtoggle"><button id="adsViewList" class="active" title="Danh sách">☰</button><button id="adsViewGrid" title="Lưới">▦</button></div>
         </div>
+        <div id="adsSelBar" class="hidden" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 8px;padding:8px 10px;background:var(--violet-soft);border-radius:10px">
+          <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="adsPickAll"> Chọn tất cả ảnh</label>
+          <span class="hint" id="adsSelCount" style="margin:0">Đã chọn 0</span>
+          <span style="flex:1"></span>
+          <button class="btn-primary sm" id="adsSendBoard">➕ Đưa ảnh đã chọn sang Bài Ads</button>
+        </div>
         <div id="adsResults" class="fp-creations list"></div>
         <div class="gallery-empty" id="adsEmpty">Chưa có ảnh. Đưa design + upload ảnh style cho concept rồi bấm Tạo.</div>
       </section>

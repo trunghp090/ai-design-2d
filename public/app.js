@@ -3584,6 +3584,8 @@ function adsInit() {
   if ($("adsMultiClose")) $("adsMultiClose").onclick = () => $("adsMultiModal").classList.add("hidden");
   if ($("adsMultiSearch")) $("adsMultiSearch").oninput = (e) => adsRenderMulti(e.target.value);
   if ($("adsMultiGen")) $("adsMultiGen").onclick = adsMultiGen;
+  if ($("adsSendBoard")) $("adsSendBoard").onclick = adpostAddSelected;
+  if ($("adsPickAll")) $("adsPickAll").onchange = (e) => { adsItems.forEach(c => { if (!c.loading) c._sel = e.target.checked; }); adsRenderAll(); };
   if ($("adsDesignPickModal")) $("adsDesignPickModal").onclick = (ev) => { if (ev.target.id === "adsDesignPickModal") $("adsDesignPickModal").classList.add("hidden"); };
   if ($("adsDesignPickSearch")) $("adsDesignPickSearch").oninput = (e) => adsRenderDesignPick(e.target.value);
   // modal đẩy FB Ads
@@ -3875,7 +3877,7 @@ async function adsShowProductImages(p) {
         $("adsDesignPickModal").classList.add("hidden");
         const n = $("fbpNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design."; }
       } else {
-        adsDesignImg = im.src; adsRenderDesign(); adsProductLink = link;
+        adsDesignImg = im.src; adsRenderDesign(); adsProductLink = link; adsAutoName2 = (p.title || "Áo Thun In Tên");
         $("adsDesignPickModal").classList.add("hidden");
         const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design (đã nhớ link SP)."; }
       }
@@ -4021,9 +4023,11 @@ function adsRenderAll() {
     else if (c._pushed !== undefined) pushLine = '<br><span class="hint" style="color:var(--violet)">✓ Đã đẩy FB Ads (PAUSED) · <a href="' + (c._pushed || "#") + '" target="_blank">Ads Manager →</a></span>';
     else if (c._pusherr) pushLine = '<br><span class="hint" style="color:#c00">✗ Đẩy lỗi: ' + c._pusherr.slice(0, 50) + '</span>';
     card.innerHTML =
-      '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
+      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
+    const pick = card.querySelector(".ads-pick"); pick.checked = !!c._sel;
+    pick.onchange = (e) => { c._sel = e.target.checked; adsUpdateSel(); };
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
     card.querySelector(".b-board").onclick = (e) => adpostAddFromAd(c, e.currentTarget);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
@@ -4038,6 +4042,28 @@ function adsRenderAll() {
     };
     grid.appendChild(card);
   });
+  const real = adsItems.filter(c => !c.loading);
+  $("adsSelBar") && $("adsSelBar").classList.toggle("hidden", real.length === 0);
+  adsUpdateSel();
+}
+
+function adsUpdateSel() {
+  const sel = adsItems.filter(c => !c.loading && c._sel).length;
+  const real = adsItems.filter(c => !c.loading).length;
+  if ($("adsSelCount")) $("adsSelCount").textContent = "Đã chọn " + sel + "/" + real;
+  if ($("adsPickAll")) $("adsPickAll").checked = real > 0 && sel === real;
+}
+async function adpostAddSelected() {
+  const items = adsItems.filter(c => !c.loading && c._sel);
+  if (!items.length) { alert("Chưa tick ảnh nào."); return; }
+  const btn = $("adsSendBoard"); btn.disabled = true; const o = btn.textContent;
+  let ok = 0;
+  for (const c of items) {
+    try { await adpostAddFromAd(c); ok++; btn.textContent = "⏳ " + ok + "/" + items.length; c._sel = false; }
+    catch (e) {}
+  }
+  btn.textContent = "✓ Đã đưa " + ok + " bài"; adsUpdateSel(); adsRenderAll();
+  setTimeout(() => { btn.disabled = false; btn.textContent = o; }, 1800);
 }
 
 async function adsItemB64(c) {
@@ -4074,7 +4100,7 @@ async function adsLaunchOne(con, name, hook, engine, autopush, ctx) {
   try {
     const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || "", _ptitle: (ctx && ctx.title) || "" });
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || adsProductLink || "", _ptitle: (ctx && ctx.title) || adsAutoName2 || "" });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4444,7 +4470,7 @@ async function schedDel(id) {
 // đưa 1 ảnh ads sang Bảng bài (tự điền tiêu đề/link + AI viết caption)
 async function adpostAddFromAd(c, btn) {
   const url = c.url || (c.gallery && c.gallery.url);
-  if (!url) { alert("Ảnh này chưa lưu vào kho (không có URL công khai) — thử lại sau khi ảnh tạo xong."); return; }
+  if (!url) { if (btn) alert("Ảnh này chưa lưu vào kho (không có URL công khai) — thử lại sau khi ảnh tạo xong."); return false; }
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
   const title = (c.name || c._ptitle || adsAutoName2 || "Áo Thun In Tên").slice(0, 100);
   const link = c._link || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
@@ -4458,7 +4484,8 @@ async function adpostAddFromAd(c, btn) {
     const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, image_url: url }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài Ads"; }, 1500); }
-  } catch (e) { alert("✗ " + e.message); if (btn) { btn.disabled = false; btn.textContent = "➕ Bài Ads"; } }
+    return true;
+  } catch (e) { if (btn) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = "➕ Bài Ads"; } return false; }
 }
 
 let adpostInited = false, adpostPollTimer = null;
