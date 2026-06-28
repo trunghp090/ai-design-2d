@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-concept-style-sync"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-fbpost-3to4"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2146,7 +2146,7 @@ def _load_style_bytes(key):
 
 
 def autopost_gen_set(design_img, key, per_set):
-    asp = "1:1"; size = ASPECT_TO_SIZE.get(asp, "1024x1024")
+    asp = "3:4"; size = ASPECT_TO_SIZE.get(asp, "1024x1536")
     old_name = ads_read_name(design_img[0])
     nm = None
     if key == "couple":
