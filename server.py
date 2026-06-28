@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-regen-edit"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-pgpost-board"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2182,6 +2182,74 @@ def adpost_push_start(ids, gap, budget, age_min, age_max, genders, cta, fb_statu
     return True
 
 
+# ============ BẢNG BÀI ĐĂNG FANPAGE + INSTAGRAM (organic) + đẩy hàng loạt giãn cách ============
+PGPOST_FILE = os.path.join(GALLERY_DIR, "pgposts.json")
+_pgpost_lock = threading.Lock()
+PGPOST_PUSH = {"running": False, "done": 0, "total": 0, "gap": 45, "next_in": 0, "log": []}
+
+
+def pgpost_load():
+    try:
+        with open(PGPOST_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def pgpost_save(items):
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        with open(PGPOST_FILE, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _pgpost_set(pid, **fields):
+    with _pgpost_lock:
+        items = pgpost_load()
+        for it in items:
+            if it.get("id") == pid:
+                it.update(fields)
+        pgpost_save(items)
+
+
+def _pgpost_push_worker(ids, gap, channels):
+    PGPOST_PUSH.update(running=True, done=0, total=len(ids), gap=gap, next_in=0, log=[])
+    for i, pid in enumerate(ids):
+        with _pgpost_lock:
+            it = next((x for x in pgpost_load() if x.get("id") == pid), None)
+        if not it:
+            continue
+        _pgpost_set(pid, status="posting")
+        urls = it.get("image_urls") or []
+        cap = it.get("caption") or ""
+        res = {}
+        if "fb" in channels:
+            res["fb"] = fb_post_core(urls, cap)
+        if "ig" in channels:
+            res["ig"] = ig_post_core(urls, cap)
+        ok = bool(res) and all(r.get("ok") for r in res.values())
+        _pgpost_set(pid, status=("posted" if ok else "error"),
+                    result={k: (v.get("url") if v.get("ok") else v.get("error")) for k, v in res.items()})
+        PGPOST_PUSH["log"].append(("✓ " if ok else "✗ ") + (it.get("caption") or pid)[:40])
+        PGPOST_PUSH["done"] = i + 1
+        if i < len(ids) - 1:
+            for s in range(gap, 0, -1):
+                PGPOST_PUSH["next_in"] = s
+                time.sleep(1)
+            PGPOST_PUSH["next_in"] = 0
+    PGPOST_PUSH["running"] = False
+
+
+def pgpost_push_start(ids, gap, channels):
+    if PGPOST_PUSH["running"]:
+        return False
+    gap = max(20, min(600, int(gap or 45)))
+    threading.Thread(target=_pgpost_push_worker, args=(ids, gap, channels), daemon=True).start()
+    return True
+
+
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
     def work(shot):
         try:
@@ -4069,6 +4137,13 @@ class Handler(BaseHTTPRequestHandler):
                 items = sched_load()
             items = sorted(items, key=lambda x: x.get("when", 0))
             return self.json(200, {"items": items})
+        if path == "/api/pgpost-list":
+            with _pgpost_lock:
+                items = pgpost_load()
+            return self.json(200, {"items": items, "pushing": {
+                "running": PGPOST_PUSH["running"], "done": PGPOST_PUSH["done"],
+                "total": PGPOST_PUSH["total"], "gap": PGPOST_PUSH["gap"],
+                "next_in": PGPOST_PUSH["next_in"], "log": PGPOST_PUSH["log"][-8:]}})
         if path == "/api/adpost-list":
             with _adpost_lock:
                 items = adpost_load()
@@ -4335,6 +4410,53 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200 or d.get("error"):
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"ok": True})
+        if path == "/api/pgpost-add":
+            host = self.headers.get("Host") or ""
+
+            def absu3(u):
+                if not u:
+                    return ""
+                return u if str(u).startswith("http") else "https://%s%s" % (host, u if u.startswith("/") else "/" + u)
+            urls = [absu3(u) for u in (body.get("image_urls") or []) if u]
+            if not urls:
+                return self.json(400, {"error": "Thiếu ảnh."})
+            item = {
+                "id": hashlib.md5(("%s%s" % (time.time(), urls[0])).encode()).hexdigest()[:12],
+                "caption": (body.get("caption") or "").strip(),
+                "product": (body.get("product") or "").strip()[:120],
+                "image_urls": urls[:10],
+                "status": "draft",
+                "created": time.time(),
+            }
+            with _pgpost_lock:
+                items = pgpost_load()
+                items.insert(0, item)
+                pgpost_save(items)
+            return self.json(200, {"ok": True, "id": item["id"]})
+        if path == "/api/pgpost-update":
+            pid = (body.get("id") or "").strip()
+            if "caption" in body:
+                _pgpost_set(pid, caption=(body.get("caption") or "").strip())
+            return self.json(200, {"ok": True})
+        if path == "/api/pgpost-del":
+            pid = (body.get("id") or "").strip()
+            with _pgpost_lock:
+                pgpost_save([x for x in pgpost_load() if x.get("id") != pid])
+            return self.json(200, {"ok": True})
+        if path == "/api/pgpost-push-batch":
+            if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+                return self.json(400, {"error": "Chưa cấu hình Facebook."})
+            ids = [str(i) for i in (body.get("ids") or [])]
+            chans = [c for c in (body.get("channels") or []) if c in ("fb", "ig")]
+            if not ids:
+                return self.json(400, {"error": "Chưa chọn bài nào."})
+            if not chans:
+                return self.json(400, {"error": "Chọn ít nhất 1 kênh (FB/IG)."})
+            if PGPOST_PUSH["running"]:
+                return self.json(400, {"error": "Đang có đợt đăng chạy — chờ xong đã."})
+            gap = body.get("gap") or 45
+            ok = pgpost_push_start(ids, gap, chans)
+            return self.json(200, {"ok": ok, "count": len(ids), "gap": max(20, min(600, int(gap)))})
         if path == "/api/adpost-add":
             host = self.headers.get("Host") or ""
 

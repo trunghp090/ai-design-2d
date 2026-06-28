@@ -613,6 +613,7 @@ function showApp(app) {
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
   document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
+  document.getElementById("view-pgpost").classList.toggle("hidden", app !== "pgpost");
   document.getElementById("view-sched").classList.toggle("hidden", app !== "sched");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
@@ -620,6 +621,7 @@ function showApp(app) {
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
   if (app === "adpost") adpostInit();
+  if (app === "pgpost") pgpostInit();
   if (app === "sched") schedInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
@@ -4294,12 +4296,13 @@ function fbpRenderAll() {
       '<div class="fp-card-prompt">' + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
       '<textarea class="input fbp-cap" rows="3" placeholder="Caption bài đăng (AI tự viết)…"></textarea>' +
-      '<div class="fp-card-acts"><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button></div>' +
+      '<div class="fp-card-acts"><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
     card.querySelector(".fbp-cap").value = it.caption || (it.caption === "" ? "" : "⏳ AI đang viết caption…");
     card.querySelector(".fbp-cap").oninput = (e) => { it.caption = e.target.value; };
     card.querySelectorAll(".fbp-card img, div img[data-i]").forEach(() => {});
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
+    card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
     card.querySelector(".b-cap").onclick = () => fbpWriteCaption(it, true);
     card.querySelector(".b-post").onclick = (e) => fbpPostToPage(it, card);
     card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
@@ -4665,4 +4668,100 @@ function updateMultiNote() {
   const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).length;
   const n = $("adsMultiNote"); if (n) { n.className = "gen-note"; n.textContent = "Đã chọn " + adsMultiSel.size + " SP × " + cons + " concept = " + (adsMultiSel.size * cons) + " ảnh."; }
   if (typeof adsUpdateRunBtn === "function") adsUpdateRunBtn();   // cập nhật nhãn nút chính
+}
+
+/* =====================================================================
+   BẢNG BÀI ĐĂNG FANPAGE + INSTAGRAM (organic) — đưa bộ ảnh sang + đăng hàng loạt
+   ===================================================================== */
+async function pgpostAddFromSet(it, btn, card) {
+  const urls = (it.pics || []).map(p => p.url).filter(Boolean);
+  if (!urls.length) { alert("Bộ ảnh chưa có URL công khai (chưa lưu gallery) — đợi tạo xong rồi thử lại."); return; }
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  let cap = (card && card.querySelector(".fbp-cap") ? card.querySelector(".fbp-cap").value : (it.caption || "")).trim();
+  if (!cap || cap.startsWith("⏳")) { await fbpWriteCaption(it, true); cap = (it.caption || "").trim(); }   // AI tự viết content
+  try {
+    const r = await fetch("/api/pgpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ caption: cap, image_urls: urls, product: (typeof fbpProductLink !== "undefined" ? fbpProductLink : "") || "" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài đăng"; }, 1500); }
+  } catch (e) { alert("✗ " + e.message); if (btn) { btn.disabled = false; btn.textContent = "➕ Bài đăng"; } }
+}
+
+let pgpostInited = false, pgpostPollTimer = null;
+function pgpostInit() {
+  if (!pgpostInited) {
+    pgpostInited = true;
+    $("pgpostPushBtn").onclick = pgpostBatchPush;
+    $("pgpostAll").onchange = (e) => { document.querySelectorAll(".pgpost-tick").forEach(t => t.checked = e.target.checked); };
+    pgpostCheckIg();
+  }
+  pgpostLoad();
+}
+async function pgpostCheckIg() {
+  try {
+    const d = await (await fetch("/api/ig-status")).json();
+    const n = $("pgpostIgNote");
+    if (d.connected && d.can_publish) { n.className = "gen-note ok"; n.textContent = "✓ Instagram sẵn sàng: @" + (d.username || d.ig_id); }
+    else if (d.connected) { n.className = "gen-note"; n.innerHTML = "📷 IG đã nối <b>@" + (d.username || d.ig_id) + "</b> nhưng token thiếu quyền đăng — Facebook vẫn đăng được. (Thêm scope instagram_content_publish để bật IG.)"; }
+    else { n.className = "gen-note"; n.textContent = "📷 Instagram chưa nối — Facebook vẫn đăng được."; }
+  } catch (e) {}
+}
+const PGPOST_ST = { draft: ["⚪ Nháp", ""], posting: ["⏳ Đang đăng", ""], posted: ["✓ Đã đăng", "ok"], error: ["✗ Lỗi", "err"] };
+async function pgpostLoad() {
+  try {
+    const d = await (await fetch("/api/pgpost-list")).json();
+    const items = d.items || [];
+    $("pgpostEmpty").classList.toggle("hidden", items.length > 0);
+    pgpostRender(items);
+    const p = d.pushing || {}, note = $("pgpostNote");
+    if (p.running) {
+      note.className = "gen-note"; note.innerHTML = "⏳ Đang đăng <b>" + p.done + "/" + p.total + "</b>" + (p.next_in ? " · bài kế trong <b>" + p.next_in + "s</b>" : "") + "…";
+      if (!pgpostPollTimer) pgpostPollTimer = setInterval(pgpostLoad, 3000);
+    } else {
+      if (pgpostPollTimer) { clearInterval(pgpostPollTimer); pgpostPollTimer = null; }
+      if ((p.log || []).length && p.total) { note.className = "gen-note ok"; note.innerHTML = "✓ Xong đợt đăng " + p.total + " bài.<br>" + p.log.map(l => '<span class="hint">' + l.slice(0, 70) + '</span>').join("<br>"); }
+    }
+  } catch (e) {}
+}
+function pgpostRender(items) {
+  const box = $("pgpostList");
+  if (!items.length) { box.innerHTML = ""; return; }
+  let h = '<table class="admgr-tbl"><thead><tr><th></th><th>Ảnh</th><th>Content</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+  items.forEach(it => {
+    const st = PGPOST_ST[it.status] || ["?", ""], res = it.result || {};
+    const n = (it.image_urls || []).length;
+    const resCell = it.status === "posted"
+      ? Object.entries(res).map(([k, v]) => (String(v || "").startsWith("http") ? '<a href="' + v + '" target="_blank" style="color:var(--violet)">' + k + ' →</a>' : '<span style="color:#dc2626">' + k + ': ' + (v || "").slice(0, 30) + '</span>')).join("<br>")
+      : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>';
+    h += '<tr data-id="' + it.id + '">' +
+      '<td><input type="checkbox" class="pgpost-tick" value="' + it.id + '"></td>' +
+      '<td style="position:relative"><img src="' + (it.image_urls || [])[0] + '" style="width:54px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:0 4px;border-radius:6px">' + n + '🖼</span></td>' +
+      '<td><textarea class="input pgpost-cap" rows="4" style="width:320px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
+      '<td style="white-space:nowrap">' + resCell + '</td>' +
+      '<td><button class="btn-ghost sm pgpost-del">🗑️</button></td>' +
+      '</tr>';
+  });
+  h += '</tbody></table>';
+  box.innerHTML = h;
+  box.querySelectorAll("tr[data-id]").forEach(tr => {
+    const id = tr.dataset.id;
+    tr.querySelector(".pgpost-cap").onchange = (e) => fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: e.target.value }) });
+    tr.querySelector(".pgpost-del").onclick = async () => { if (!confirm("Xoá bài này?")) return; await fetch("/api/pgpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); pgpostLoad(); };
+  });
+}
+async function pgpostBatchPush() {
+  const ids = [...document.querySelectorAll(".pgpost-tick:checked")].map(t => t.value);
+  if (!ids.length) { const n = $("pgpostNote"); n.className = "gen-note err"; n.textContent = "✗ Chưa tick bài nào."; return; }
+  const chans = []; if ($("pgpostFb").checked) chans.push("fb"); if ($("pgpostIg").checked) chans.push("ig");
+  if (!chans.length) { const n = $("pgpostNote"); n.className = "gen-note err"; n.textContent = "✗ Chọn ít nhất 1 kênh (FB/IG)."; return; }
+  const gap = parseInt($("pgpostGap").value) || 45;
+  const ch = chans.map(c => c === "fb" ? "Facebook" : "Instagram").join(" + ");
+  if (!confirm("Đăng CÔNG KHAI " + ids.length + " bài lên " + ch + " ngay, giãn cách " + gap + "s/bài. Chắc chứ?")) return;
+  const btn = $("pgpostPushBtn"); btn.disabled = true;
+  try {
+    const r = await fetch("/api/pgpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, channels: chans, gap: gap }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const n = $("pgpostNote"); n.className = "gen-note"; n.textContent = "⏳ Bắt đầu đăng " + ids.length + " bài lên " + ch + "…";
+    pgpostLoad();
+  } catch (e) { const n = $("pgpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
+  finally { btn.disabled = false; }
 }

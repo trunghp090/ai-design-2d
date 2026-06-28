@@ -58,6 +58,7 @@
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 FB Post</button>
     <button class="app-tab" data-app="admgr" data-group="marketing">📊 Quản lý Ads</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
+    <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
     <button class="app-tab" data-app="sched" data-group="marketing">🗓️ Lịch content</button>
     <button class="app-tab" data-app="shopify" data-group="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist" data-group="shopify">📦 SP Shopify</button>
@@ -1397,6 +1398,26 @@
       <p class="gen-note" id="adpostNote" style="margin:8px 0 0"></p>
       <div id="adpostList" style="margin-top:10px;overflow:auto"></div>
       <div class="gallery-empty" id="adpostEmpty">Chưa có bài nào. Vào tab 📣 FB Ads tạo ảnh → bấm "➕ Bài Ads" để đưa sang đây.</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-pgpost">
+    <div class="panel" style="max-width:1100px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📋 Bài đăng Fanpage &amp; Instagram</h2>
+      <p class="panel-desc" style="margin:0 0 12px">Mỗi dòng = 1 bài đăng (bộ ảnh + content). Tick chọn → đăng hàng loạt lên Fanpage / Instagram, giãn cách an toàn.</p>
+      <p class="gen-note" id="pgpostIgNote" style="margin:0 0 10px"></p>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="pgpostAll"> Chọn tất cả</label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="pgpostFb" checked> 📘 Facebook</label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="pgpostIg"> 📷 Instagram</label>
+        <span style="flex:1"></span>
+        <label class="hint" style="margin:0">Giãn cách <input type="number" id="pgpostGap" value="45" min="20" max="600" style="width:60px;padding:5px 7px" class="input"> giây/bài</label>
+        <button class="btn-primary sm" id="pgpostPushBtn">📤 Đăng (đã chọn)</button>
+      </div>
+      <p class="hint" style="margin:2px 0 0">⚠️ Đăng công khai ngay lên Fanpage/IG. Nên giãn cách ≥ 30–60 giây, không đăng quá nhiều 1 lúc.</p>
+      <p class="gen-note" id="pgpostNote" style="margin:8px 0 0"></p>
+      <div id="pgpostList" style="margin-top:10px;overflow:auto"></div>
+      <div class="gallery-empty" id="pgpostEmpty">Chưa có bài nào. Vào tab 📘 FB Post tạo bộ ảnh → bấm "➕ Bài đăng" để đưa sang đây.</div>
     </div>
   </section>
 
