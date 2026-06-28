@@ -4555,13 +4555,17 @@ async function adpostBatchPush() {
   if (!ids.length) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ Chưa tick bài nào."; return; }
   const gap = parseInt($("adpostGap").value) || 90;
   const budget = parseInt($("adpostBudget").value) || 50000;
+  const active = $("adpostActive").checked;
   const est = Math.round((ids.length - 1) * gap / 60);
-  if (!confirm("Đẩy " + ids.length + " bài lên FB Ads (PAUSED), giãn cách " + gap + "s/bài (~" + est + " phút)?\nTài khoản còn mới nên đừng đẩy quá nhiều 1 lúc.")) return;
+  const warn = active
+    ? "⚠️ CHẠY NGAY: " + ids.length + " quảng cáo sẽ LÊN SÓNG + TIÊU TIỀN ngay (" + budget.toLocaleString("vi-VN") + "đ/ngày mỗi ad). Giãn cách " + gap + "s/bài (~" + est + " phút). Chắc chứ?"
+    : "Đẩy " + ids.length + " bài ở trạng thái TẠM DỪNG (chưa tiêu tiền), giãn cách " + gap + "s/bài. OK?";
+  if (!confirm(warn)) return;
   const btn = $("adpostPushBtn"); btn.disabled = true;
   try {
-    const r = await fetch("/api/adpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, gap: gap, daily_budget: budget }) });
+    const r = await fetch("/api/adpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, gap: gap, daily_budget: budget, active: active }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    const n = $("adpostNote"); n.className = "gen-note"; n.textContent = "⏳ Bắt đầu đẩy " + ids.length + " bài, giãn cách " + d.gap + "s…";
+    const n = $("adpostNote"); n.className = "gen-note"; n.textContent = "⏳ Bắt đầu đẩy " + ids.length + " bài (" + (active ? "CHẠY NGAY" : "Tạm dừng") + "), giãn cách " + d.gap + "s…";
     adpostLoad();
   } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }

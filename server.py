@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-headline-product"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-ads-active"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2016,8 +2016,10 @@ def start_scheduler():
 # ===================== ĐẨY 1 ẢNH -> FB ADS (core dùng lại cho batch) =====================
 def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, age_max,
                      genders, countries, cta, campaign_id="", adset_id="",
-                     campaign_name="", adset_name=""):
-    """Tạo Campaign/AdSet/Creative/Ad (PAUSED). Trả {ok, ad_id, campaign_id, adset_id, manager_url|error}."""
+                     campaign_name="", adset_name="", status="PAUSED"):
+    """Tạo Campaign/AdSet/Creative/Ad. status=ACTIVE để CHẠY NGAY (tiêu tiền) hoặc PAUSED.
+    Trả {ok, ad_id, campaign_id, adset_id, manager_url|error}."""
+    status = "ACTIVE" if str(status).upper() == "ACTIVE" else "PAUSED"
     if not fb_configured():
         return {"ok": False, "error": "Chưa cấu hình Facebook Ads."}
     if not img:
@@ -2052,7 +2054,7 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
             st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
                              {"name": campaign_name, "objective": "OUTCOME_TRAFFIC",
                               "special_ad_categories": "[]",
-                              "is_adset_budget_sharing_enabled": "false", "status": "PAUSED"})
+                              "is_adset_budget_sharing_enabled": "false", "status": status})
             if st != 200:
                 raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
             campaign_id = c["id"]
@@ -2066,7 +2068,7 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
                              {"name": adset_name, "campaign_id": cid, "daily_budget": budget,
                               "billing_event": "IMPRESSIONS", "optimization_goal": "LINK_CLICKS",
                               "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-                              "targeting": json.dumps(targeting), "status": "PAUSED"})
+                              "targeting": json.dumps(targeting), "status": status})
             if st != 200:
                 raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
             adset_id = a["id"]
@@ -2080,7 +2082,7 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
             raise RuntimeError("Tạo creative lỗi: " + fb_err(cr))
         st, ad = fb_graph("POST", "act_%s/ads" % FB_AD_ACCOUNT_ID,
                           {"name": adname, "adset_id": aid,
-                           "creative": json.dumps({"creative_id": cr["id"]}), "status": "PAUSED"})
+                           "creative": json.dumps({"creative_id": cr["id"]}), "status": status})
         if st != 200:
             raise RuntimeError("Tạo ad lỗi: " + fb_err(ad))
     except Exception as e:
@@ -2123,7 +2125,7 @@ def _adpost_set(pid, **fields):
         adpost_save(items)
 
 
-def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta):
+def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta, fb_status="PAUSED"):
     ADPOST_PUSH.update(running=True, done=0, total=len(ids), gap=gap, next_in=0, log=[])
     for i, pid in enumerate(ids):
         with _adpost_lock:
@@ -2133,7 +2135,8 @@ def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta):
         _adpost_set(pid, status="pushing")
         img, _ = fetch_image_bytes(it.get("image_url", ""))
         r = fb_ads_push_core(img, it.get("link"), it.get("caption"), it.get("title"),
-                             it.get("title"), budget, age_min, age_max, genders, ["VN"], cta)
+                             it.get("title"), budget, age_min, age_max, genders, ["VN"], cta,
+                             status=fb_status)
         if r.get("ok"):
             _adpost_set(pid, status="pushed",
                         result={"ad_id": r.get("ad_id"), "manager_url": r.get("manager_url")})
@@ -2151,12 +2154,12 @@ def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta):
     ADPOST_PUSH["running"] = False
 
 
-def adpost_push_start(ids, gap, budget, age_min, age_max, genders, cta):
+def adpost_push_start(ids, gap, budget, age_min, age_max, genders, cta, fb_status="PAUSED"):
     if ADPOST_PUSH["running"]:
         return False
     gap = max(30, min(600, int(gap or 90)))   # an toàn: tối thiểu 30s/bài
     threading.Thread(target=_adpost_push_worker,
-                     args=(ids, gap, budget, age_min, age_max, genders, cta), daemon=True).start()
+                     args=(ids, gap, budget, age_min, age_max, genders, cta, fb_status), daemon=True).start()
     return True
 
 
@@ -4365,9 +4368,10 @@ class Handler(BaseHTTPRequestHandler):
                 age_min = int(body.get("age_min") or 18); age_max = int(body.get("age_max") or 55)
             except Exception:
                 age_min, age_max = 18, 55
+            fb_status = "ACTIVE" if body.get("active") else "PAUSED"
             ok = adpost_push_start(ids, gap, budget, age_min, age_max,
-                                   body.get("genders") or [], body.get("cta") or "SHOP_NOW")
-            return self.json(200, {"ok": ok, "count": len(ids), "gap": max(30, min(600, int(gap)))})
+                                   body.get("genders") or [], body.get("cta") or "SHOP_NOW", fb_status)
+            return self.json(200, {"ok": ok, "count": len(ids), "gap": max(30, min(600, int(gap))), "status": fb_status})
         if path == "/api/sched-add":
             urls = body.get("image_urls") or []
             chans = [c for c in (body.get("channels") or []) if c in ("fb", "ig")]
