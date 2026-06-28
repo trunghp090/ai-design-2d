@@ -3595,8 +3595,8 @@ function adsInit() {
 // Mỗi concept 1 ảnh style RIÊNG (gắn sẵn) — KHÔNG dùng chung nguồn
 const ADS_BUILTIN_STYLES = {
   couple: "/style-couple-default.webp",
-  group: "/style-group.webp",
-  family: "/style-family.webp",
+  group: "/style-couple-default.webp",   // dùng chung ảnh couple thật làm tham chiếu style
+  family: "/style-couple-default.webp",  // (concept vẫn ra 3/4 người, chỉ mượn phong cách)
   flatlay2: "/style-flatlay2.webp",
   flatlay3: "/style-flatlay3.webp",
 };
