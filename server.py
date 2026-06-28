@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-autopilot-board"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-concept-style-sync"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2062,9 +2062,34 @@ AUTOPOST_DEFAULT = {"enabled": False, "per_day": 5, "channels": ["fb"], "start_h
                     "end_hour": 22, "per_set": 4, "last_date": "", "done_today": 0, "next_at": 0, "log": []}
 _autopost_running = [False]
 _autopost_prod_cache = {"at": 0, "items": []}
-_AUTOPOST_STYLE = {"couple": "style-couple-default.webp", "group": "style-group.webp",
-                   "family": "style-family.webp", "flatlay2": "style-flatlay2.webp",
+# Mặc định KHỚP với ADS_BUILTIN_STYLES bên FB Ads (group/family dùng ảnh couple, flatlay = sofa)
+_AUTOPOST_STYLE = {"couple": "style-couple-default.webp", "group": "style-couple-default.webp",
+                   "family": "style-couple-default.webp", "flatlay2": "style-flatlay2.webp",
                    "flatlay3": "style-flatlay3.webp"}
+CONCEPT_STYLE_FILE = os.path.join(GALLERY_DIR, "concept_styles.json")
+
+
+def concept_style_override():
+    """Style từng concept user tự đặt bên FB Ads (ghi đè mặc định). {key: dataURL/url}."""
+    try:
+        with open(CONCEPT_STYLE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def concept_style_save(key, img):
+    if key not in _AUTOPOST_STYLE or not img:
+        return False
+    ov = concept_style_override()
+    ov[key] = img
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        with open(CONCEPT_STYLE_FILE, "w", encoding="utf-8") as f:
+            json.dump(ov, f, ensure_ascii=False)
+        return True
+    except Exception:
+        return False
 
 
 def autopost_load():
@@ -2104,6 +2129,15 @@ def autopost_products():
 
 
 def _load_style_bytes(key):
+    # ưu tiên style user tự đặt bên FB Ads
+    ov = concept_style_override().get(key)
+    if ov:
+        try:
+            b, _ = fetch_image_bytes(ov)
+            if b:
+                return b
+        except Exception:
+            pass
     try:
         with open(os.path.join(ROOT, "public", _AUTOPOST_STYLE.get(key, "")), "rb") as f:
             return f.read()
@@ -4343,6 +4377,8 @@ class Handler(BaseHTTPRequestHandler):
                 items = sched_load()
             items = sorted(items, key=lambda x: x.get("when", 0))
             return self.json(200, {"items": items})
+        if path == "/api/concept-styles":
+            return self.json(200, {"styles": concept_style_override()})
         if path == "/api/autopost-status":
             cfg = autopost_load()
             nxt = float(cfg.get("next_at", 0))
@@ -4648,6 +4684,12 @@ class Handler(BaseHTTPRequestHandler):
                     cfg["next_at"] = now + 30
             autopost_save(cfg)
             return self.json(200, {"ok": True, "enabled": cfg["enabled"]})
+        if path == "/api/concept-style":   # lưu style 1 concept (đồng bộ autopilot)
+            key = (body.get("key") or "").strip()
+            img = body.get("image") or ""
+            if not concept_style_save(key, img):
+                return self.json(400, {"error": "key/ảnh không hợp lệ."})
+            return self.json(200, {"ok": True})
         if path == "/api/autopost-run-now":   # đăng thử 1 bài ngay (test)
             if _autopost_running[0]:
                 return self.json(400, {"error": "Đang chạy 1 bài rồi."})

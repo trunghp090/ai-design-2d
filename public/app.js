@@ -3652,7 +3652,7 @@ async function adsAddStyleToBank(durl, applyKey) {
       adsTextStyleImg = durl; adsRenderTextStyle();
     } else {
       if (g) adsStyleBank.unshift({ id: g.id, url: g.url });
-      if (applyKey) { adsStyle[applyKey] = durl; adsSel.add(applyKey); }
+      if (applyKey) { adsStyle[applyKey] = durl; adsSel.add(applyKey); adsSaveConceptStyle(applyKey, durl); }
       adsRenderConcepts();
     }
     adsRenderStyleBank();
@@ -3711,9 +3711,21 @@ function adsRenderStyleBank() {
   });
 }
 
+// Lưu style của 1 concept lên server -> autopilot dùng đúng style FB Ads bạn setup
+async function adsSaveConceptStyle(key, url) {
+  if (!key || !url) return;
+  try {
+    let data = url;
+    if (!String(url).startsWith("data:")) {
+      const b = await (await fetch(url)).blob();
+      data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+    }
+    fetch("/api/concept-style", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key, image: data }) });
+  } catch (e) {}
+}
 async function adsPickStyle(s) {
   if (adsStyleMode === "textstyle") { adsTextStyleImg = s.url; adsRenderTextStyle(); }
-  else if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); }
+  else if (adsStylePickFor) { adsStyle[adsStylePickFor] = s.url; adsSel.add(adsStylePickFor); adsRenderConcepts(); adsSaveConceptStyle(adsStylePickFor, s.url); }
   $("adsStyleModal").classList.add("hidden");
 }
 
