@@ -4111,7 +4111,7 @@ async function adsLaunchOne(con, name, hook, engine, autopush, ctx) {
   const lbl = ((ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key) + (ctx && ctx.title ? " · " + ctx.title.slice(0, 16) : "");
   const designImg = (ctx && ctx.image) || adsDesignImg;
   try {
-    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
+    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "1:1", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || adsProductLink || "", _ptitle: (ctx && ctx.title) || adsAutoName2 || "" });
     adsRenderAll();

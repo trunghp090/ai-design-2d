@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-no-sizechart"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-ads-1to1"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1526,6 +1526,10 @@ def _ads_text_part(name, hook, text_style, text_color=""):
     txt = 'a big bold headline "' + name + '"'
     if hook:
         txt += ' and a short punchy sub-line "' + hook + '"'
+    txt += (". CRITICAL LAYOUT: keep ALL ad text (the headline AND the sub-line) FULLY INSIDE the frame "
+            "within a safe central zone, with a GENEROUS margin from EVERY edge — top, bottom, left and "
+            "right; the headline must sit comfortably below the top edge (never flush against it). NEVER "
+            "let any letter touch, run past, or get cropped by the image edges; all text 100% visible")
     if text_style:
         txt += ' — render the ad text typography in this style: ' + text_style
     tc = (text_color or "").strip()
