@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-name-ai-niche"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-gpt4o-niche"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -94,6 +94,8 @@ API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
+# Model cao nhất cho việc sáng tạo (art director thiết kế tên) — mặc định gpt-4o
+BEST_TEXT_MODEL = os.environ.get("OPENAI_BEST_MODEL", "gpt-4o").strip()
 # Gemini "Nano Banana Pro" (ảnh chân thực hơn cho ảnh sản phẩm)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview").strip()
@@ -559,9 +561,9 @@ def openai_generate(prompt, size="1024x1024"):
     return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
 
 
-def openai_chat(messages, json_mode=True, max_tokens=1500):
+def openai_chat(messages, json_mode=True, max_tokens=1500, model=None):
     """Gọi AI text/vision (chat completions). Trả về nội dung text của câu trả lời."""
-    payload = {"model": TEXT_MODEL, "messages": messages, "max_tokens": max_tokens}
+    payload = {"model": (model or TEXT_MODEL), "messages": messages, "max_tokens": max_tokens}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(CHAT_URL, data=json.dumps(payload).encode(),
@@ -4029,7 +4031,7 @@ def name_concepts(name, stamp, n):
             "with EXACTLY %d items." % (n, name, acc, n))
     try:
         out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
-                          json_mode=True, max_tokens=2200)
+                          json_mode=True, max_tokens=2200, model=BEST_TEXT_MODEL)
         cons = (json.loads(out).get("concepts") or [])
         res = []
         for c in cons[:n]:
