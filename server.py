@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-ads-mgr-delete"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-sched-fb-ig"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1859,6 +1859,158 @@ def fb_page_token():
     """Lấy Page Access Token từ user/system token (cần quyền pages_manage_posts để đăng)."""
     st, d = fb_graph("GET", "%s" % FB_PAGE_ID, {"fields": "access_token"})
     return (d or {}).get("access_token")
+
+
+# ===================== ĐĂNG FB/IG (core dùng lại cho lịch tự động) =====================
+def fb_post_core(urls_abs, message):
+    """Đăng 1 bộ ảnh lên Fanpage. urls_abs = list URL công khai tuyệt đối. Trả {ok,url|error}."""
+    if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+        return {"ok": False, "error": "Chưa cấu hình Facebook."}
+    ptok = fb_page_token()
+    if not ptok:
+        return {"ok": False, "error": "Không lấy được Page token (cần pages_manage_posts)."}
+    media = []
+    for au in [u for u in (urls_abs or []) if u][:10]:
+        st, d = fb_graph("POST", "%s/photos" % FB_PAGE_ID, {"url": au, "published": "false"}, ptok)
+        if st == 200 and d.get("id"):
+            media.append({"media_fbid": d["id"]})
+        else:
+            return {"ok": False, "error": "Upload ảnh Trang lỗi: " + fb_err(d)}
+    if not media:
+        return {"ok": False, "error": "Không upload được ảnh."}
+    st, d = fb_graph("POST", "%s/feed" % FB_PAGE_ID,
+                     {"message": message, "attached_media": json.dumps(media)}, ptok)
+    if not d.get("id"):
+        return {"ok": False, "error": "Đăng bài lỗi: " + fb_err(d)}
+    return {"ok": True, "id": d["id"], "url": "https://www.facebook.com/%s" % d["id"]}
+
+
+def ig_user_id():
+    """ID tài khoản Instagram Business nối với Trang (None nếu chưa nối)."""
+    st, d = fb_graph("GET", "%s" % FB_PAGE_ID, {"fields": "instagram_business_account"})
+    return ((d or {}).get("instagram_business_account") or {}).get("id")
+
+
+def _ig_wait_ready(cid):
+    """Chờ media container IG xử lý xong (FINISHED) trước khi publish."""
+    for _ in range(25):
+        st, d = fb_graph("GET", "%s" % cid, {"fields": "status_code"})
+        sc = (d or {}).get("status_code")
+        if sc == "FINISHED":
+            return True
+        if sc == "ERROR":
+            return False
+        time.sleep(2)
+    return False
+
+
+def ig_post_core(urls_abs, caption):
+    """Đăng ảnh lên Instagram (1 ảnh hoặc carousel). Trả {ok,url|error}."""
+    if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+        return {"ok": False, "error": "Chưa cấu hình Facebook."}
+    igid = ig_user_id()
+    if not igid:
+        return {"ok": False, "error": "Trang chưa nối Instagram Business (hoặc token thiếu quyền instagram_basic/instagram_content_publish)."}
+    urls = [u for u in (urls_abs or []) if u][:10]
+    if not urls:
+        return {"ok": False, "error": "Thiếu ảnh."}
+    if len(urls) == 1:
+        st, d = fb_graph("POST", "%s/media" % igid, {"image_url": urls[0], "caption": caption})
+        cid = (d or {}).get("id")
+        if not cid:
+            return {"ok": False, "error": "Tạo media IG lỗi: " + fb_err(d)}
+        _ig_wait_ready(cid)
+        st, d = fb_graph("POST", "%s/media_publish" % igid, {"creation_id": cid})
+        mid = (d or {}).get("id")
+        if not mid:
+            return {"ok": False, "error": "Đăng IG lỗi: " + fb_err(d)}
+        return {"ok": True, "id": mid, "url": "https://www.instagram.com/"}
+    # carousel nhiều ảnh
+    children = []
+    for u in urls:
+        st, d = fb_graph("POST", "%s/media" % igid, {"image_url": u, "is_carousel_item": "true"})
+        cid = (d or {}).get("id")
+        if not cid:
+            return {"ok": False, "error": "Tạo ảnh carousel IG lỗi: " + fb_err(d)}
+        children.append(cid)
+    for cid in children:
+        _ig_wait_ready(cid)
+    st, d = fb_graph("POST", "%s/media" % igid,
+                     {"media_type": "CAROUSEL", "children": ",".join(children), "caption": caption})
+    car = (d or {}).get("id")
+    if not car:
+        return {"ok": False, "error": "Tạo carousel IG lỗi: " + fb_err(d)}
+    _ig_wait_ready(car)
+    st, d = fb_graph("POST", "%s/media_publish" % igid, {"creation_id": car})
+    mid = (d or {}).get("id")
+    if not mid:
+        return {"ok": False, "error": "Đăng carousel IG lỗi: " + fb_err(d)}
+    return {"ok": True, "id": mid, "url": "https://www.instagram.com/"}
+
+
+# ===================== LỊCH CONTENT TỰ ĐỘNG (FB + IG) =====================
+SCHED_FILE = os.path.join(GALLERY_DIR, "schedule.json")
+_sched_lock = threading.Lock()
+
+
+def sched_load():
+    try:
+        with open(SCHED_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def sched_save(items):
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        with open(SCHED_FILE, "w", encoding="utf-8") as f:
+            json.dump(items, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def sched_process():
+    """Đăng các bài tới hạn. Gọi định kỳ bởi luồng nền."""
+    with _sched_lock:
+        items = sched_load()
+    now = time.time()
+    due = [it for it in items if it.get("status") == "pending" and float(it.get("when", 0)) <= now]
+    if not due:
+        return
+    for it in due:
+        chans = it.get("channels") or ["fb"]
+        urls = it.get("image_urls") or []
+        msg = it.get("message") or ""
+        res = {}
+        if "fb" in chans:
+            res["fb"] = fb_post_core(urls, msg)
+        if "ig" in chans:
+            res["ig"] = ig_post_core(urls, msg)
+        ok = bool(res) and all(r.get("ok") for r in res.values())
+        it["status"] = "posted" if ok else "error"
+        it["result"] = {k: (v.get("url") if v.get("ok") else v.get("error")) for k, v in res.items()}
+        it["posted_at"] = now
+    # ghi lại, gộp theo id để không đè bài mới thêm trong lúc đăng
+    with _sched_lock:
+        cur = sched_load()
+        byid = {x.get("id"): x for x in cur}
+        for it in due:
+            byid[it.get("id")] = it
+        sched_save([v for v in byid.values() if v])
+
+
+def _sched_loop():
+    while True:
+        try:
+            sched_process()
+        except Exception:
+            pass
+        time.sleep(60)
+
+
+def start_scheduler():
+    threading.Thread(target=_sched_loop, daemon=True).start()
 
 
 def run_product_job(job_id, img, shots, bg_key, engine="openai", ai_prompt=False):
@@ -3721,7 +3873,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/fb-ads-mgr-delete":
+        if path == "/api/sched-fb-ig":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -3743,6 +3895,20 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200:
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"campaigns": d.get("data") or []})
+        if path == "/api/sched-list":
+            with _sched_lock:
+                items = sched_load()
+            items = sorted(items, key=lambda x: x.get("when", 0))
+            return self.json(200, {"items": items})
+        if path == "/api/ig-status":
+            if not fb_configured():
+                return self.json(200, {"connected": False, "reason": "Chưa cấu hình Facebook."})
+            igid = ig_user_id()
+            uname = ""
+            if igid:
+                st, d = fb_graph("GET", "%s" % igid, {"fields": "username"})
+                uname = (d or {}).get("username") or ""
+            return self.json(200, {"connected": bool(igid), "ig_id": igid or "", "username": uname})
         if path == "/api/fb-ads-list":
             if not fb_configured():
                 return self.json(200, {"campaigns": [], "configured": False})
@@ -3988,6 +4154,52 @@ class Handler(BaseHTTPRequestHandler):
             st, d = fb_graph("DELETE", oid, {})
             if st != 200 or d.get("error"):
                 return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"ok": True})
+        if path == "/api/sched-add":
+            urls = body.get("image_urls") or []
+            chans = [c for c in (body.get("channels") or []) if c in ("fb", "ig")]
+            when = body.get("when")
+            msg = (body.get("message") or "").strip()
+            if not urls:
+                return self.json(400, {"error": "Thiếu ảnh."})
+            if not chans:
+                return self.json(400, {"error": "Chọn ít nhất 1 kênh (FB/IG)."})
+            try:
+                when_ts = float(when)
+            except Exception:
+                return self.json(400, {"error": "Thời gian không hợp lệ."})
+            host = self.headers.get("Host") or ""
+            if "localhost" in host or "127.0.0.1" in host:
+                return self.json(400, {"error": "Lịch chỉ chạy trên bản LIVE (FB/IG cần URL ảnh công khai)."})
+
+            def absu(u):
+                if not u:
+                    return ""
+                return u if str(u).startswith("http") else "https://%s%s" % (host, u if u.startswith("/") else "/" + u)
+
+            item = {
+                "id": hashlib.md5(("%s%s" % (when_ts, ",".join(urls))).encode()).hexdigest()[:12],
+                "channels": chans,
+                "image_urls": [absu(u) for u in urls if u],
+                "thumb": absu(urls[0]) if urls else "",
+                "message": msg,
+                "when": when_ts,
+                "status": "pending",
+                "created": time.time(),
+            }
+            with _sched_lock:
+                items = sched_load()
+                items.append(item)
+                sched_save(items)
+            return self.json(200, {"ok": True, "id": item["id"]})
+        if path == "/api/sched-del":
+            sid = (body.get("id") or "").strip()
+            with _sched_lock:
+                items = [x for x in sched_load() if x.get("id") != sid]
+                sched_save(items)
+            return self.json(200, {"ok": True})
+        if path == "/api/sched-run":  # chạy thử ngay (test)
+            sched_process()
             return self.json(200, {"ok": True})
         if path == "/api/fbpost-generate":
             return self.handle_fbpost_generate(body)
@@ -5190,27 +5402,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if "localhost" in host or "127.0.0.1" in host:
             return self.json(400, {"error": "Đăng FB chỉ chạy trên bản LIVE (Facebook cần URL ảnh công khai), không chạy localhost."})
-        ptok = fb_page_token()
-        if not ptok:
-            return self.json(400, {"error": "Không lấy được Page token. Token cần là admin Trang + quyền pages_show_list."})
-        media = []
-        for u in urls[:10]:
-            au = absu(u)
-            if not au:
-                continue
-            st, d = fb_graph("POST", "%s/photos" % FB_PAGE_ID, {"url": au, "published": "false"}, ptok)
-            if st == 200 and d.get("id"):
-                media.append({"media_fbid": d["id"]})
-            else:
-                return self.json(400, {"error": "Đăng ảnh lên Trang lỗi (token có thể thiếu quyền pages_manage_posts): " + fb_err(d)})
-        if not media:
-            return self.json(400, {"error": "Không upload được ảnh nào."})
-        st, d = fb_graph("POST", "%s/feed" % FB_PAGE_ID,
-                         {"message": message, "attached_media": json.dumps(media)}, ptok)
-        if not d.get("id"):
-            return self.json(400, {"error": "Đăng bài lỗi: " + fb_err(d)})
-        pid = d["id"]
-        return self.json(200, {"ok": True, "post_id": pid, "url": "https://www.facebook.com/%s" % pid})
+        r = fb_post_core([absu(u) for u in urls], message)
+        if not r.get("ok"):
+            return self.json(400, {"error": r.get("error")})
+        return self.json(200, {"ok": True, "post_id": r.get("id"), "url": r.get("url")})
 
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""
@@ -5511,6 +5706,7 @@ def main():
     print("  Pillow: %s" % ("co (upscale Lanczos)" if HAS_PIL else "KHONG"))
     print("  rembg : %s" % ("co (xoa nen AI U2Net)" if HAS_REMBG else "KHONG"))
     print("=" * 60)
+    start_scheduler()
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
 
 

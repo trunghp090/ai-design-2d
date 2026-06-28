@@ -612,11 +612,13 @@ function showApp(app) {
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
+  document.getElementById("view-sched").classList.toggle("hidden", app !== "sched");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "ads") adsInit();
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
+  if (app === "sched") schedInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
@@ -4292,4 +4294,97 @@ async function admgrToggle(id, cur, btn) {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     admgrLoad();
   } catch (e) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = o; }
+}
+
+/* =====================================================================
+   LỊCH CONTENT TỰ ĐỘNG — FB + Instagram
+   ===================================================================== */
+let schedInited = false, schedSel = [], schedGallery = [];
+function schedInit() {
+  if (!schedInited) {
+    schedInited = true;
+    $("schedAddBtn").onclick = schedAdd;
+    // giờ mặc định: +1 tiếng, làm tròn
+    const d = new Date(Date.now() + 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    const pad = n => String(n).padStart(2, "0");
+    $("schedWhen").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    schedCheckIg();
+  }
+  schedLoadGallery();
+  schedLoadList();
+}
+async function schedCheckIg() {
+  try {
+    const d = await (await fetch("/api/ig-status")).json();
+    const n = $("schedIgNote");
+    if (d.connected) { n.className = "gen-note ok"; n.textContent = "✓ Instagram đã nối: @" + (d.username || d.ig_id); }
+    else { n.className = "gen-note"; n.innerHTML = "📷 <b>Instagram chưa nối</b> — Facebook vẫn đăng được. Để bật IG: vào Trang FB → Cài đặt → nối tài khoản Instagram Business + token cần quyền instagram_basic + instagram_content_publish."; }
+  } catch (e) {}
+}
+async function schedLoadGallery() {
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    schedGallery = d.items || [];
+    const box = $("schedPick"); box.innerHTML = "";
+    if (!schedGallery.length) { box.innerHTML = '<span class="hint">Kho ảnh trống — tạo ảnh ở các tab khác trước.</span>'; return; }
+    schedGallery.forEach(it => {
+      const on = schedSel.includes(it.url);
+      const d2 = document.createElement("div");
+      d2.style.cssText = "position:relative;width:62px;height:62px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid " + (on ? "var(--violet)" : "transparent");
+      d2.innerHTML = `<img src="${it.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">` + (on ? `<span style="position:absolute;top:2px;right:2px;background:var(--violet);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;display:grid;place-items:center">✓</span>` : "");
+      d2.onclick = () => { const i = schedSel.indexOf(it.url); if (i >= 0) schedSel.splice(i, 1); else schedSel.push(it.url); schedLoadGallery(); };
+      box.appendChild(d2);
+    });
+    $("schedPickNote").textContent = "Đã chọn " + schedSel.length + " ảnh" + (schedSel.length > 10 ? " (FB/IG tối đa 10)" : "");
+  } catch (e) {}
+}
+async function schedAdd() {
+  const note = $("schedNote");
+  const chans = []; if ($("schedFb").checked) chans.push("fb"); if ($("schedIg").checked) chans.push("ig");
+  const when = $("schedWhen").value;
+  if (!schedSel.length) { note.className = "gen-note err"; note.textContent = "✗ Chọn ít nhất 1 ảnh."; return; }
+  if (!chans.length) { note.className = "gen-note err"; note.textContent = "✗ Chọn ít nhất 1 kênh."; return; }
+  if (!when) { note.className = "gen-note err"; note.textContent = "✗ Chọn thời gian."; return; }
+  const ts = new Date(when).getTime() / 1000;
+  if (ts * 1000 < Date.now() - 60000) { note.className = "gen-note err"; note.textContent = "✗ Thời gian phải ở tương lai."; return; }
+  const btn = $("schedAddBtn"); btn.disabled = true; note.className = "gen-note"; note.textContent = "Đang lưu lịch…";
+  try {
+    const r = await fetch("/api/sched-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_urls: schedSel.slice(0, 10), channels: chans, message: $("schedCaption").value, when: ts }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "✓ Đã lên lịch! Hệ thống sẽ tự đăng đúng giờ.";
+    schedSel = []; $("schedCaption").value = ""; schedLoadGallery(); schedLoadList();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  finally { btn.disabled = false; }
+}
+const SCHED_STAT = { pending: ["⏳ Chờ đăng", ""], posted: ["✓ Đã đăng", "ok"], error: ["✗ Lỗi", "err"] };
+async function schedLoadList() {
+  try {
+    const d = await (await fetch("/api/sched-list")).json();
+    const items = d.items || [];
+    $("schedEmpty").classList.toggle("hidden", items.length > 0);
+    const box = $("schedList"); box.innerHTML = "";
+    items.forEach(it => {
+      const when = new Date((it.when || 0) * 1000).toLocaleString("vi-VN");
+      const st = SCHED_STAT[it.status] || ["?", ""];
+      const chans = (it.channels || []).map(c => c === "fb" ? "📘" : "📷").join(" ");
+      const res = it.result ? Object.entries(it.result).map(([k, v]) => (String(v || "").startsWith("http") ? `<a href="${v}" target="_blank" style="color:var(--violet)">${k} →</a>` : `<span style="color:#dc2626">${k}: ${v}</span>`)).join(" · ") : "";
+      const card = document.createElement("div");
+      card.style.cssText = "display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px";
+      card.innerHTML =
+        `<img src="${it.thumb || (it.image_urls || [])[0] || ''}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none">` +
+        `<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${chans} · ${when}</div>` +
+        `<div class="hint" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(it.message || "(không caption)").slice(0, 70)}</div>` +
+        (res ? `<div style="font-size:11px;margin-top:2px">${res}</div>` : "") + `</div>` +
+        `<span class="gen-note ${st[1]}" style="margin:0;white-space:nowrap">${st[0]} · ${(it.image_urls || []).length}🖼</span>` +
+        `<button class="btn-ghost sm sched-del" data-id="${it.id}">🗑️</button>`;
+      box.appendChild(card);
+    });
+    box.querySelectorAll(".sched-del").forEach(b => b.onclick = () => schedDel(b.dataset.id));
+  } catch (e) {}
+}
+async function schedDel(id) {
+  if (!confirm("Xoá bài này khỏi lịch?")) return;
+  await fetch("/api/sched-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) });
+  schedLoadList();
 }

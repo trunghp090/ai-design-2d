@@ -51,6 +51,7 @@
     <button class="app-tab" data-app="ads">📣 FB Ads</button>
     <button class="app-tab" data-app="fbpost">📘 FB Post</button>
     <button class="app-tab" data-app="admgr">📊 Quản lý Ads</button>
+    <button class="app-tab" data-app="sched">🗓️ Lịch content</button>
     <button class="app-tab" data-app="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist">📦 SP Shopify</button>
   </nav>
@@ -1322,6 +1323,39 @@
       <p class="gen-note" id="admgrNote"></p>
       <div id="admgrTable" style="overflow:auto"></div>
       <div class="gallery-empty" id="admgrEmpty">Chưa có chiến dịch nào (hoặc chưa cấu hình Facebook).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-sched">
+    <div class="panel" style="max-width:1100px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🗓️ Lịch content tự động — Facebook + Instagram</h2>
+      <p class="panel-desc" style="margin:0 0 14px">Chọn ảnh từ kho → viết caption → chọn kênh + thời gian → hệ thống tự đăng đúng giờ (chạy nền 24/7 trên bản live).</p>
+      <p class="gen-note" id="schedIgNote" style="margin:0 0 12px"></p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px" id="schedGrid2">
+        <div>
+          <label class="field-label">1. Chọn ảnh đăng (bấm vào ảnh trong kho)</label>
+          <div id="schedPick" style="display:flex;flex-wrap:wrap;gap:6px;max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px;background:#faf9fe"></div>
+          <p class="hint" id="schedPickNote">Đã chọn 0 ảnh</p>
+        </div>
+        <div>
+          <label class="field-label">2. Caption</label>
+          <textarea class="input" id="schedCaption" rows="5" placeholder="Nội dung bài đăng…"></textarea>
+          <label class="field-label" style="margin-top:10px">3. Kênh đăng</label>
+          <div style="display:flex;gap:16px;margin-top:4px">
+            <label class="switch-row" style="margin:0"><input type="checkbox" id="schedFb" checked> 📘 Facebook</label>
+            <label class="switch-row" style="margin:0"><input type="checkbox" id="schedIg"> 📷 Instagram</label>
+          </div>
+          <label class="field-label" style="margin-top:10px">4. Thời gian đăng</label>
+          <input type="datetime-local" class="input" id="schedWhen">
+          <button class="btn-primary sm" id="schedAddBtn" style="margin-top:14px;width:100%">🗓️ Lên lịch đăng</button>
+          <p class="gen-note" id="schedNote"></p>
+        </div>
+      </div>
+
+      <h3 style="font-size:15px;margin:22px 0 8px">📋 Hàng đợi đã lên lịch</h3>
+      <div id="schedList"></div>
+      <div class="gallery-empty" id="schedEmpty">Chưa có bài nào trong lịch.</div>
     </div>
   </section>
 
