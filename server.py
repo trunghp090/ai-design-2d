@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-est-stamp"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-design-extra"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3309,7 +3309,7 @@ DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt cre
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False, segment=""):
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False, segment="", extra=""):
     # Bước 1: AI nghĩ n design. segment -> bộ đồng bộ; auto_style -> AI tự chọn; ref -> từ ảnh; else theo style
     err_msg = None
     style_tag = ""          # None = tag theo từng concept (auto)
@@ -3331,9 +3331,12 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
     except Exception as e:
         concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e; style_tag = ""
     concepts = concepts[:DESIGN_MAX_TOTAL]
+    extra = (extra or "").strip()
     for c in concepts:
         tag = style_tag if style_tag is not None else ("AI chọn: " + (c.get("style") or "").strip() if (c.get("style") or "").strip() else "AI tự chọn")
         c["title"] = "[%s] %s" % (tag, c.get("title", "Design"))
+        if extra:   # prompt sửa của user -> áp cho mọi mẫu
+            c["prompt"] = c["prompt"] + " IMPORTANT EXTRA USER INSTRUCTIONS (must follow): " + extra
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
         if not job:
@@ -5366,7 +5369,7 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, styles, body.get("theme", ""),
                                    body.get("text", ""), n, size, transparent, ref_bytes,
                                    body.get("year", ""), bool(body.get("same_line")),
-                                   auto_style, segment),
+                                   auto_style, segment, (body.get("extra") or "").strip()[:600]),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
