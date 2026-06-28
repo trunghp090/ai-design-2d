@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-luxury-serif"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-est-stamp"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3992,7 +3992,12 @@ VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm",
 
 
 def name_suggest():
-    return random.choice(VN_NAMES), "EST %d" % random.randint(1995, 2012)   # AI gợi ý tên Việt + năm
+    y = random.randint(2000, 2025)
+    if random.random() < 0.35:
+        stamp = "EST %d.%d.%d" % (random.randint(1, 28), random.randint(1, 12), y)   # EST + ngày
+    else:
+        stamp = "EST %d" % y                                                          # EST + năm
+    return random.choice(VN_NAMES), stamp
 
 
 def name_design_prompt(name, stamp, style_key):

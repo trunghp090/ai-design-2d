@@ -1994,7 +1994,7 @@ function dsInit() {
   if ($("dsSuggestName")) $("dsSuggestName").onclick = async () => {
     try {
       const d = await (await fetch("/api/name-suggest")).json();
-      $("dsText").value = d.name || ""; $("dsYear").value = (d.stamp || "").replace(/^EST\s*/i, "");
+      $("dsText").value = d.name || ""; $("dsYear").value = d.stamp || "";   // giữ cả "EST"
     } catch (e) {}
   };
   const cl = $("dsCanvaLink"), cs = $("dsCanvaSave");
