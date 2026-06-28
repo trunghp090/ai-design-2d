@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-vn-name-year"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-luxury-serif"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2781,6 +2781,15 @@ DESIGN_STYLES = {
     "funny_vn": ("Funny Quote (ti\u1ebfng Vi\u1ec7t)", "funny / meme-style quote t-shirt \u2014 a witty cheeky humorous slogan (English by default), BOLD playful chunky or handwritten font, a small funny doodle/sticker, casual fun vibe, bright but clean (NOT elegant, NOT calm script)"),
     "floral_quote": ("Aesthetic Floral + Quote", "aesthetic floral quote t-shirt"),
     "luxury_minimal": ("Luxury Minimal Back-print", "luxury minimal back-print t-shirt"),
+    "luxury_serif_script": ("Luxury Serif + Script (Couture Club)",
+        "upscale LUXURY 'couture / heritage club' back-print t-shirt typography lockup — a LARGE bold "
+        "HIGH-CONTRAST SERIF main word (elegant ligatures, fashion-magazine serif), with a flowing "
+        "elegant SCRIPT word elegantly OVERLAPPING / crossing through it; refined small SPACED-UPPERCASE "
+        "supporting text — a short tagline (e.g. 'Original', 'Anniversary Edition', 'Athletic "
+        "Department', 'Legacy of Luxury'), an 'EST. 20xx' and/or a location line; thin decorative "
+        "horizontal lines and a tiny emblem / monogram or a small sparkle; sophisticated, premium, "
+        "expensive feel; monochrome BLACK or ONE muted accent (deep maroon / navy / warm cream) on a "
+        "clean background (The Couture Club / heritage-streetwear aesthetic)"),
     "social_club": ("Social Club / Community", "collegiate 'social club / community' t-shirt typography — varsity arched club name + 'EST. 20xx' + a place/locale line, tidy badge layout, clean 2-color (cream + navy/maroon)"),
     "sport_statement": ("Sport / Athletic Statement", "sport athletic statement t-shirt typography"),
     "liquid_chrome": ("Liquid Chrome / 3D Y2K", "liquid chrome 3D y2k t-shirt typography"),
@@ -3034,6 +3043,7 @@ VN_HOT_STYLES = [
     "sport_statement", "scribble", "streetwear", "mascot", "cute_mascot",
     "anime_nostalgia", "retro_groovy", "big_type", "retro_poster", "lineart",
     "flat_vector", "y2k_graffiti", "liquid_chrome", "calligraphy", "tattoo_oldschool",
+    "luxury_serif_script",
 ]
 
 
@@ -3962,7 +3972,7 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None):
 
 # ===================== TAB DESIGN TÊN CÁ NHÂN HOÁ (Custom-name T-shirt niche) =====================
 # Các style ĐẸP & PHỔ BIẾN của niche áo in tên (curated từ thị trường custom-name tee)
-NAME_STYLES = {
+NAMEDES_STYLES = {
     "globe": ("🌐 Retro Globe", "trendy retro outlined PUFFY bubble letters in cream & warm brown with a clean outline, a small minimalist wireframe GLOBE icon plus a few sparkle stars above the name, and a slim horizontal bar showing \"{stamp}\"; soft beige/cream aesthetic, modern Gen-Z 'studio' vibe"),
     "varsity": ("🏈 Varsity Athletic", "bold collegiate VARSITY athletic lettering, slightly italic with a layered drop-shadow outline, stars and dynamic speed/lightning lines, a small \"{stamp}\" tab underneath; energetic sporty look in two contrasting colours such as golden yellow + navy"),
     "retro70s": ("🌻 Retro 70s Groovy", "warm 1970s groovy ROUNDED bubble typography, funky retro letters, earthy palette (mustard, terracotta, cream), a vintage sunburst or rainbow arc behind, nostalgic feel, \"{stamp}\" as a small retro tag"),
@@ -3986,7 +3996,7 @@ def name_suggest():
 
 
 def name_design_prompt(name, stamp, style_key):
-    label, frag = NAME_STYLES.get(style_key, NAME_STYLES["globe"])
+    label, frag = NAMEDES_STYLES.get(style_key, NAMEDES_STYLES["globe"])
     frag = frag.replace("{stamp}", stamp or "")
     return ("A flat VECTOR T-SHIRT PRINT DESIGN (artwork / graphic ONLY — NOT a t-shirt mockup, NOT a "
             "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design in the "
@@ -4041,17 +4051,17 @@ def name_concepts(name, stamp, n):
 
 
 def run_name_design_job(job_id, name, stamp, style, n, transparent):
-    keys = list(NAME_STYLES.keys())
+    keys = list(NAMEDES_STYLES.keys())
     # CHẾ ĐỘ AI: để AI tự nghiên cứu niche + nghĩ concept (khi không chọn style cứng)
-    ai_cons = name_concepts(name, stamp, n) if style not in NAME_STYLES else []
+    ai_cons = name_concepts(name, stamp, n) if style not in NAMEDES_STYLES else []
 
     def work(i):
-        if style in NAME_STYLES:
-            title = NAME_STYLES[style][0]; prompt = name_design_prompt(name, stamp, style)
+        if style in NAMEDES_STYLES:
+            title = NAMEDES_STYLES[style][0]; prompt = name_design_prompt(name, stamp, style)
         elif i < len(ai_cons):
             title = "🤖 " + ai_cons[i]["title"]; prompt = ai_cons[i]["prompt"]
         else:
-            sk = random.choice(keys); title = NAME_STYLES[sk][0]; prompt = name_design_prompt(name, stamp, sk)
+            sk = random.choice(keys); title = NAMEDES_STYLES[sk][0]; prompt = name_design_prompt(name, stamp, sk)
         try:
             b64 = openai_generate(prompt, "1024x1024")
             if transparent and HAS_PIL:
@@ -4508,7 +4518,7 @@ class Handler(BaseHTTPRequestHandler):
             nm, stamp = name_suggest()
             return self.json(200, {"name": nm, "stamp": stamp})
         if path == "/api/name-styles":
-            return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in NAME_STYLES.items()]})
+            return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in NAMEDES_STYLES.items()]})
         if path == "/api/autopost-status":
             cfg = autopost_load()
             nxt = float(cfg.get("next_at", 0))

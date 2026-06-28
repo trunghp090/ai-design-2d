@@ -1821,6 +1821,7 @@ const DS_STYLES = [
   { key: "funny_vn", label: "😆 Funny Quote VN 🔥", hint: "Câu cà khịa tiếng Việt · viral, quà vui", ref: "funny quote tshirt typography" },
   { key: "floral_quote", label: "🌼 Floral + Quote", hint: "Nữ GenZ · hoa + câu nhẹ", ref: "aesthetic floral quote tshirt" },
   { key: "luxury_minimal", label: "🖤 Luxury Minimal", hint: "Quiet luxury · chữ nhỏ lưng", ref: "luxury minimal back print tshirt" },
+  { key: "luxury_serif_script", label: "👑 Luxury Serif+Script 🔥", hint: "Couture/heritage club · serif to + script bay đè chéo + EST năm + tagline (kiểu The Couture Club)", ref: "luxury serif script combination back print couture club tshirt" },
   { key: "social_club", label: "🎟️ Social Club", hint: "Tên hội/nhóm/lớp + năm", ref: "social club tshirt typography" },
   { key: "sport_statement", label: "🏀 Sport Statement", hint: "Thể thao · tên/số đội (World Cup 2026)", ref: "sport athletic typography tshirt" },
   { key: "liquid_chrome", label: "🪙 Liquid Chrome 3D", hint: "Chữ chrome 3D · teen cá tính", ref: "chrome 3d typography tshirt" },
@@ -1990,6 +1991,12 @@ let dsCanvaLink = "";
 try { dsCanvaLink = localStorage.getItem("canvaLink") || ""; } catch (e) {}
 function dsInit() {
   if (dsInited) return; dsInited = true;
+  if ($("dsSuggestName")) $("dsSuggestName").onclick = async () => {
+    try {
+      const d = await (await fetch("/api/name-suggest")).json();
+      $("dsText").value = d.name || ""; $("dsYear").value = (d.stamp || "").replace(/^EST\s*/i, "");
+    } catch (e) {}
+  };
   const cl = $("dsCanvaLink"), cs = $("dsCanvaSave");
   if (cl) {
     cl.value = dsCanvaLink;
