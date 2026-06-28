@@ -612,12 +612,14 @@ function showApp(app) {
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
+  document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
   document.getElementById("view-sched").classList.toggle("hidden", app !== "sched");
   document.getElementById("view-shopify").classList.toggle("hidden", app !== "shopify");
   document.getElementById("view-shoplist").classList.toggle("hidden", app !== "shoplist");
   if (app === "ads") adsInit();
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
+  if (app === "adpost") adpostInit();
   if (app === "sched") schedInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
@@ -3578,6 +3580,10 @@ function adsInit() {
   // pick design từ SP Shopify
   if ($("adsDesignFromShop")) $("adsDesignFromShop").onclick = () => { adsDesignPickTarget = "ads"; adsOpenDesignPick(); };
   if ($("adsDesignPickClose")) $("adsDesignPickClose").onclick = () => $("adsDesignPickModal").classList.add("hidden");
+  if ($("adsMultiBtn")) $("adsMultiBtn").onclick = adsOpenMulti;
+  if ($("adsMultiClose")) $("adsMultiClose").onclick = () => $("adsMultiModal").classList.add("hidden");
+  if ($("adsMultiSearch")) $("adsMultiSearch").oninput = (e) => adsRenderMulti(e.target.value);
+  if ($("adsMultiGen")) $("adsMultiGen").onclick = adsMultiGen;
   if ($("adsDesignPickModal")) $("adsDesignPickModal").onclick = (ev) => { if (ev.target.id === "adsDesignPickModal") $("adsDesignPickModal").classList.add("hidden"); };
   if ($("adsDesignPickSearch")) $("adsDesignPickSearch").oninput = (e) => adsRenderDesignPick(e.target.value);
   // modal đẩy FB Ads
@@ -4017,8 +4023,9 @@ function adsRenderAll() {
     card.innerHTML =
       '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
+      '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-board").onclick = (e) => adpostAddFromAd(c, e.currentTarget);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
     card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await adsItemB64(c), c.title || "ads"); b.disabled = false; };
@@ -4061,12 +4068,13 @@ async function adsGenerate(autopush) {
   note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads" + (autopush ? " + tự đẩy lên FB Ads (PAUSED)…" : " (nhiều luồng — bấm tiếp để chạy thêm).");
 }
 
-async function adsLaunchOne(con, name, hook, engine, autopush) {
-  const lbl = (ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key;
+async function adsLaunchOne(con, name, hook, engine, autopush, ctx) {
+  const lbl = ((ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key) + (ctx && ctx.title ? " · " + ctx.title.slice(0, 16) : "");
+  const designImg = (ctx && ctx.image) || adsDesignImg;
   try {
-    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
+    const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush });
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || "", _ptitle: (ctx && ctx.title) || "" });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4086,7 +4094,8 @@ function adsPoll(job) {
         const autopush = idx >= 0 && adsItems[idx].autopush;
         const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url,
                        concept: it.concept || "", name: it.name || "", hook: it.hook || "",
-                       aspect: it.aspect || "", bg: it.bg || "", model: it.model || "" };
+                       aspect: it.aspect || "", bg: it.bg || "", model: it.model || "",
+                       _link: (idx >= 0 && adsItems[idx]._link) || "", _ptitle: (idx >= 0 && adsItems[idx]._ptitle) || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
         if (autopush) fbAutoPush(real);   // tự đẩy lên FB Ads
@@ -4427,4 +4436,158 @@ async function schedDel(id) {
   if (!confirm("Xoá bài này khỏi lịch?")) return;
   await fetch("/api/sched-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) });
   schedLoadList();
+}
+
+/* =====================================================================
+   BẢNG BÀI FB ADS — gom bài (ảnh+tiêu đề+mô tả+link) + đẩy hàng loạt giãn cách
+   ===================================================================== */
+// đưa 1 ảnh ads sang Bảng bài (tự điền tiêu đề/link + AI viết caption)
+async function adpostAddFromAd(c, btn) {
+  const url = c.url || (c.gallery && c.gallery.url);
+  if (!url) { alert("Ảnh này chưa lưu vào kho (không có URL công khai) — thử lại sau khi ảnh tạo xong."); return; }
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  const title = (c.name || c._ptitle || adsAutoName2 || "Áo Thun In Tên").slice(0, 100);
+  const link = c._link || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
+  let caption = "🔥 " + title + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
+  try {
+    const src = c.image ? "data:image/png;base64," + c.image : url;
+    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
+    const d = await r.json(); if (r.ok && (d.facebook || "").trim()) caption = d.facebook.trim();
+  } catch (e) {}
+  try {
+    const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, image_url: url }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài Ads"; }, 1500); }
+  } catch (e) { alert("✗ " + e.message); if (btn) { btn.disabled = false; btn.textContent = "➕ Bài Ads"; } }
+}
+
+let adpostInited = false, adpostPollTimer = null;
+function adpostInit() {
+  if (!adpostInited) {
+    adpostInited = true;
+    $("adpostPushBtn").onclick = adpostBatchPush;
+    $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
+  }
+  adpostLoad();
+}
+const ADPOST_ST = { draft: ["⚪ Nháp", ""], pushing: ["⏳ Đang đẩy", ""], pushed: ["✓ Đã đẩy", "ok"], error: ["✗ Lỗi", "err"] };
+async function adpostLoad() {
+  try {
+    const d = await (await fetch("/api/adpost-list")).json();
+    const items = d.items || [];
+    $("adpostEmpty").classList.toggle("hidden", items.length > 0);
+    adpostRender(items);
+    const p = d.pushing || {};
+    const note = $("adpostNote");
+    if (p.running) {
+      note.className = "gen-note"; note.innerHTML = "⏳ Đang đẩy <b>" + p.done + "/" + p.total + "</b> bài" + (p.next_in ? " · bài kế trong <b>" + p.next_in + "s</b> (giãn cách an toàn)" : "") + "…";
+      if (!adpostPollTimer) adpostPollTimer = setInterval(adpostLoad, 3000);
+    } else {
+      if (adpostPollTimer) { clearInterval(adpostPollTimer); adpostPollTimer = null; }
+      if ((p.log || []).length && p.total) { note.className = "gen-note ok"; note.innerHTML = "✓ Xong đợt đẩy " + p.total + " bài.<br>" + p.log.map(l => '<span class="hint">' + l.slice(0, 80) + '</span>').join("<br>"); }
+    }
+  } catch (e) {}
+}
+function adpostRender(items) {
+  const box = $("adpostList");
+  if (!items.length) { box.innerHTML = ""; return; }
+  let h = '<table class="admgr-tbl"><thead><tr><th></th><th>Ảnh</th><th>Tiêu đề</th><th>Mô tả</th><th>Link SP</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+  items.forEach(it => {
+    const st = ADPOST_ST[it.status] || ["?", ""];
+    const res = it.result || {};
+    const stCell = it.status === "pushed" && res.manager_url
+      ? '<span class="gen-note ok" style="margin:0">✓ Đã đẩy</span><br><a href="' + res.manager_url + '" target="_blank" style="font-size:11px;color:var(--violet)">Ads Manager →</a>'
+      : (it.status === "error" ? '<span class="gen-note err" style="margin:0;font-size:11px">✗ ' + (res.error || "").slice(0, 50) + '</span>' : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>');
+    h += '<tr data-id="' + it.id + '">' +
+      '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
+      '<td><img src="' + it.image_url + '" style="width:56px;height:70px;object-fit:cover;border-radius:8px" loading="lazy"></td>' +
+      '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
+      '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
+      '<td><input class="input adpost-f" data-f="link" value="' + (it.link || "").replace(/"/g, "&quot;") + '" placeholder="link SP…" style="width:150px;padding:6px 8px;font-size:12px"></td>' +
+      '<td style="white-space:nowrap">' + stCell + '</td>' +
+      '<td><button class="btn-ghost sm adpost-del">🗑️</button></td>' +
+      '</tr>';
+  });
+  h += '</tbody></table>';
+  box.innerHTML = h;
+  box.querySelectorAll("tr[data-id]").forEach(tr => {
+    const id = tr.dataset.id;
+    tr.querySelectorAll(".adpost-f").forEach(f => f.onchange = () => {
+      fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, [f.dataset.f]: f.value }) });
+    });
+    tr.querySelector(".adpost-del").onclick = async () => {
+      if (!confirm("Xoá bài này khỏi bảng?")) return;
+      await fetch("/api/adpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) });
+      adpostLoad();
+    };
+  });
+}
+async function adpostBatchPush() {
+  const ids = [...document.querySelectorAll(".adpost-tick:checked")].map(t => t.value);
+  if (!ids.length) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ Chưa tick bài nào."; return; }
+  const gap = parseInt($("adpostGap").value) || 90;
+  const budget = parseInt($("adpostBudget").value) || 50000;
+  const est = Math.round((ids.length - 1) * gap / 60);
+  if (!confirm("Đẩy " + ids.length + " bài lên FB Ads (PAUSED), giãn cách " + gap + "s/bài (~" + est + " phút)?\nTài khoản còn mới nên đừng đẩy quá nhiều 1 lúc.")) return;
+  const btn = $("adpostPushBtn"); btn.disabled = true;
+  try {
+    const r = await fetch("/api/adpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, gap: gap, daily_budget: budget }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const n = $("adpostNote"); n.className = "gen-note"; n.textContent = "⏳ Bắt đầu đẩy " + ids.length + " bài, giãn cách " + d.gap + "s…";
+    adpostLoad();
+  } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
+  finally { btn.disabled = false; }
+}
+
+/* ---- Tạo ảnh Ads cho NHIỀU sản phẩm cùng lúc ---- */
+let adsMultiProducts = [], adsMultiSel = new Set();
+async function adsOpenMulti() {
+  $("adsMultiModal").classList.remove("hidden");
+  adsMultiSel = new Set();
+  const grid = $("adsMultiGrid"); grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Đang tải sản phẩm…</p>';
+  $("adsMultiNote").textContent = "";
+  try {
+    const d = await (await fetch("/api/shopify-products")).json();
+    if (d.error) throw new Error(d.error);
+    adsMultiProducts = (d.products || []).filter(p => p.image);
+    adsRenderMulti("");
+  } catch (e) { grid.innerHTML = ""; $("adsMultiNote").className = "gen-note err"; $("adsMultiNote").textContent = "⚠️ " + e.message; }
+}
+function adsRenderMulti(q) {
+  const grid = $("adsMultiGrid"); if (!grid) return;
+  const list = (adsMultiProducts || []).filter(p => !q || (p.title || "").toLowerCase().includes((q || "").toLowerCase()));
+  if (!list.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Không có sản phẩm.</p>'; return; }
+  grid.innerHTML = "";
+  list.forEach(p => {
+    const id = p.id || p.store_url || p.title;
+    const on = adsMultiSel.has(id);
+    const cell = document.createElement("div"); cell.className = "ads-style-cell";
+    cell.style.outline = on ? "3px solid var(--violet)" : "";
+    cell.innerHTML = '<img src="' + p.image + '" loading="lazy" alt="">' +
+      (on ? '<span class="ads-style-badge" style="background:var(--violet)">✓</span>' : '') +
+      '<span class="cover-tag" style="background:rgba(0,0,0,.6);max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.title || "").replace(/</g, "&lt;").slice(0, 22) + '</span>';
+    cell.querySelector("img").onclick = () => { if (adsMultiSel.has(id)) adsMultiSel.delete(id); else adsMultiSel.add(id); adsRenderMulti(q); updateMultiNote(); };
+    grid.appendChild(cell);
+  });
+}
+function updateMultiNote() {
+  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).length;
+  const n = $("adsMultiNote"); n.className = "gen-note";
+  n.textContent = "Đã chọn " + adsMultiSel.size + " SP × " + cons + " concept = " + (adsMultiSel.size * cons) + " ảnh sẽ tạo.";
+}
+function adsMultiGen() {
+  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key));
+  if (!adsMultiSel.size) { $("adsMultiNote").className = "gen-note err"; $("adsMultiNote").textContent = "✗ Chưa chọn SP nào."; return; }
+  if (!cons.length) { $("adsMultiNote").className = "gen-note err"; $("adsMultiNote").textContent = "✗ Chưa tick concept nào ở panel trái."; return; }
+  const chosen = adsMultiProducts.filter(p => adsMultiSel.has(p.id || p.store_url || p.title));
+  const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
+  const engine = ($("adsEngine") && $("adsEngine").value) || "";
+  let launched = 0;
+  chosen.forEach(p => {
+    const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên" };
+    cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, false, ctx); launched++; });
+  });
+  $("adsMultiModal").classList.add("hidden");
+  $("adsProgress") && $("adsProgress").classList.remove("hidden");
+  const note = $("adsNote"); note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + launched + " ảnh ads cho " + chosen.length + " SP (nhiều luồng)…";
 }

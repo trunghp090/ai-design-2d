@@ -57,6 +57,7 @@
     <button class="app-tab" data-app="ads" data-group="marketing">📣 FB Ads</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 FB Post</button>
     <button class="app-tab" data-app="admgr" data-group="marketing">📊 Quản lý Ads</button>
+    <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="sched" data-group="marketing">🗓️ Lịch content</button>
     <button class="app-tab" data-app="shopify" data-group="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist" data-group="shopify">📦 SP Shopify</button>
@@ -557,6 +558,19 @@
       <input type="text" id="adsDesignPickSearch" class="input" placeholder="🔎 Tìm theo tên sản phẩm…" />
       <div class="ads-style-grid" id="adsDesignPickGrid" style="max-height:360px;margin-top:10px"></div>
       <p class="gen-note" id="adsDesignPickNote" style="margin-top:8px"></p>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: Tạo ảnh Ads cho NHIỀU SP ===== -->
+  <div class="zoom-modal hidden" id="adsMultiModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="adsMultiClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">📦 Tạo ảnh Ads cho nhiều sản phẩm</h3>
+      <p class="hint" style="margin:0 0 8px">Tick các SP cần chạy + chọn sẵn <b>concept</b> ở panel trái. Mỗi SP sẽ tạo ảnh cho từng concept đã tick. Tạo xong bấm <b>➕ Bài Ads</b> trên mỗi ảnh để đưa sang Bảng bài.</p>
+      <input type="text" id="adsMultiSearch" class="input" placeholder="🔎 Tìm SP…" />
+      <div class="ads-style-grid" id="adsMultiGrid" style="max-height:320px;margin-top:10px"></div>
+      <p class="gen-note" id="adsMultiNote" style="margin-top:6px"></p>
+      <button class="btn-primary sm" id="adsMultiGen" style="margin-top:8px;width:100%">🎨 Tạo ảnh cho SP đã chọn</button>
     </div>
   </div>
 
@@ -1196,6 +1210,7 @@
         <div class="fp-refs" id="adsDesign"></div>
         <input type="file" id="adsDesignFile" accept="image/*" hidden />
         <button class="btn-ghost sm" id="adsDesignFromShop" style="margin-top:6px">🛍️ Chọn design từ SP Shopify</button>
+        <button class="btn-ghost sm" id="adsMultiBtn" style="margin-top:6px">📦 Tạo ảnh cho NHIỀU SP cùng lúc</button>
 
         <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
         <select id="adsEngine" class="input"></select>
@@ -1329,6 +1344,24 @@
       <p class="gen-note" id="admgrNote"></p>
       <div id="admgrTable" style="overflow:auto"></div>
       <div class="gallery-empty" id="admgrEmpty">Chưa có chiến dịch nào (hoặc chưa cấu hình Facebook).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-adpost">
+    <div class="panel" style="max-width:1150px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📋 Bảng bài Facebook Ads</h2>
+      <p class="panel-desc" style="margin:0 0 12px">Mỗi dòng = 1 bài ads hoàn chỉnh (ảnh + tiêu đề + mô tả + link). Tick chọn → đẩy hàng loạt lên FB Ads, <b>giãn cách an toàn</b> tránh checkpoint tài khoản.</p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="adpostAll"> Chọn tất cả</label>
+        <span style="flex:1"></span>
+        <label class="hint" style="margin:0">Giãn cách <input type="number" id="adpostGap" value="90" min="30" max="600" style="width:62px;padding:5px 7px" class="input"> giây/bài</label>
+        <label class="hint" style="margin:0">Ngân sách <input type="number" id="adpostBudget" value="50000" step="1000" style="width:92px;padding:5px 7px" class="input"> đ/ngày</label>
+        <button class="btn-primary sm" id="adpostPushBtn">📤 Đẩy lên FB Ads (đã chọn)</button>
+      </div>
+      <p class="hint" style="margin:2px 0 0">⚠️ An toàn: nên ≤ 15–20 bài/ngày khi tài khoản còn mới, giãn cách ≥ 60–90 giây. Ad tạo ra ở trạng thái TẠM DỪNG.</p>
+      <p class="gen-note" id="adpostNote" style="margin:8px 0 0"></p>
+      <div id="adpostList" style="margin-top:10px;overflow:auto"></div>
+      <div class="gallery-empty" id="adpostEmpty">Chưa có bài nào. Vào tab 📣 FB Ads tạo ảnh → bấm "➕ Bài Ads" để đưa sang đây.</div>
     </div>
   </section>
 
