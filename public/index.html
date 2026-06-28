@@ -51,6 +51,7 @@
     <button class="app-tab" data-app="recolor" data-group="design">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao" data-group="design">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="design">✨ Tạo design</button>
+    <button class="app-tab" data-app="namedes" data-group="design">✍️ Design tên</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
@@ -937,6 +938,44 @@
         </div>
         <div class="auto-grid" id="dsResults"></div>
         <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: DESIGN TÊN CÁ NHÂN HOÁ (Custom-name niche) ===== -->
+  <section class="auto-view app-view hidden" id="view-namedes">
+    <div class="layout">
+      <aside class="panel">
+        <h2 class="panel-title">✍️ Design tên cá nhân hoá</h2>
+        <p class="panel-desc">Chuyên niche <b>áo in tên</b>. AI gợi ý tên + năm, tự chọn style đẹp nhất của niche rồi vẽ design sẵn sàng in.</p>
+
+        <label class="field-label">Tên (Việt Nam, 2 từ)</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="ndName" class="input" placeholder="vd: Hoàng Long" style="flex:1">
+          <button class="btn-ghost sm" id="ndSuggest" title="AI gợi ý tên + năm">🎲 Gợi ý</button>
+        </div>
+        <label class="field-label">EST / Ngày tháng (tuỳ chọn)</label>
+        <input type="text" id="ndStamp" class="input" placeholder="vd: EST 2004 hoặc 08.02.2003">
+
+        <label class="field-label">Style</label>
+        <select id="ndStyle" class="input">
+          <option value="auto" selected>🤖 AI tự chọn style đẹp nhất (mỗi mẫu 1 style)</option>
+        </select>
+
+        <div style="display:flex;gap:16px;align-items:center;margin-top:14px">
+          <label class="hint" style="margin:0">Số mẫu <input type="number" id="ndN" value="4" min="1" max="8" class="input" style="width:60px;padding:6px 8px"></label>
+          <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="ndTransparent" checked> Nền trong suốt (PNG)</label>
+        </div>
+
+        <button class="btn-primary" id="ndRun" style="margin-top:16px">✨ Tạo design tên</button>
+        <p class="gen-note" id="ndNote"></p>
+        <div class="batch-progress hidden" id="ndProgress" style="margin-top:8px"><div class="bp-bar"><div class="bp-fill" id="ndBar"></div></div><span id="ndProgText" class="hint"></span></div>
+      </aside>
+
+      <section class="panel fp-main">
+        <div class="gallery-head"><h3 style="margin:0">🎨 Design tên <span id="ndCount" class="fp-count"></span></h3></div>
+        <div id="ndResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="ndEmpty">Nhập tên (hoặc 🎲 Gợi ý) rồi bấm Tạo. Mỗi mẫu là 1 design tên sẵn sàng lên áo.</div>
       </section>
     </div>
   </section>

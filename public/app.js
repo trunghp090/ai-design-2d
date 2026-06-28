@@ -607,6 +607,7 @@ function showApp(app) {
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
+  document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
@@ -626,6 +627,7 @@ function showApp(app) {
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") dsInit();
+  if (app === "namedes") namedesInit();
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
   if (app === "autopipe") apInit();
@@ -4830,4 +4832,88 @@ async function pgpostBatchPush() {
     pgpostLoad();
   } catch (e) { const n = $("pgpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }
+}
+
+/* =====================================================================
+   DESIGN TÊN CÁ NHÂN HOÁ — Custom-name T-shirt niche
+   ===================================================================== */
+let namedesInited = false, ndItems = [];
+async function namedesInit() {
+  if (!namedesInited) {
+    namedesInited = true;
+    $("ndSuggest").onclick = namedesSuggest;
+    $("ndRun").onclick = namedesGenerate;
+    // nạp danh sách style niche
+    try {
+      const d = await (await fetch("/api/name-styles")).json();
+      const sel = $("ndStyle");
+      (d.styles || []).forEach(s => { const o = document.createElement("option"); o.value = s.key; o.textContent = s.label; sel.appendChild(o); });
+    } catch (e) {}
+    if (!$("ndName").value) namedesSuggest();   // gợi ý sẵn 1 tên
+  }
+  namedesRender();
+}
+async function namedesSuggest() {
+  try {
+    const d = await (await fetch("/api/name-suggest")).json();
+    $("ndName").value = d.name || ""; $("ndStamp").value = d.stamp || "";
+  } catch (e) {}
+}
+async function namedesGenerate() {
+  const note = $("ndNote"); note.className = "gen-note"; note.textContent = "";
+  const name = ($("ndName").value || "").trim();
+  if (!name) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập tên (hoặc bấm 🎲 Gợi ý)."; return; }
+  const body = { name: name, stamp: ($("ndStamp").value || "").trim(), style: $("ndStyle").value, n: +$("ndN").value, transparent: $("ndTransparent").checked };
+  $("ndRun").disabled = true;
+  try {
+    const r = await fetch("/api/name-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    $("ndProgress").classList.remove("hidden"); $("ndBar").style.width = "0%"; $("ndProgText").textContent = "Đang tạo 0/" + d.total;
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang vẽ " + d.total + " design tên…";
+    namedesPoll(d.job_id);
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  finally { $("ndRun").disabled = false; }
+}
+function namedesPoll(job) {
+  let placed = 0;
+  const t = setInterval(async () => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job))).json();
+      const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+      $("ndBar").style.width = pct + "%"; $("ndProgText").textContent = "Đã xong " + d.done + "/" + d.total;
+      const items = d.items || [];
+      while (placed < items.length) { ndItems.unshift(items[placed]); placed++; namedesRender(); }
+      if (d.finished) {
+        clearInterval(t); $("ndProgress").classList.add("hidden");
+        const note = $("ndNote");
+        if ((d.errors || []).length && !items.length) { note.className = "gen-note err"; note.textContent = "✗ " + d.errors[0]; }
+        else { note.className = "gen-note ok"; note.textContent = "✓ Xong " + items.length + " design." + ((d.errors || []).length ? " (" + d.errors.length + " lỗi)" : ""); }
+        if (typeof loadGallery === "function") loadGallery();
+      }
+    } catch (e) {}
+  }, 2500);
+}
+function namedesRender() {
+  const grid = $("ndResults"); if (!grid) return;
+  $("ndCount").textContent = ndItems.length ? "(" + ndItems.length + ")" : "";
+  $("ndEmpty").classList.toggle("hidden", ndItems.length > 0);
+  grid.innerHTML = "";
+  ndItems.forEach(c => {
+    const src = c.image ? "data:image/png;base64," + c.image : (c.gallery && c.gallery.url);
+    const card = document.createElement("div"); card.className = "fp-card";
+    card.innerHTML =
+      '<div class="fp-card-prompt">' + (c.title || "Design") + '</div>' +
+      '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
+      '<div class="fp-card-acts"><button class="b-use">👕 Dùng / Lên áo</button><button class="b-zoom">🔍</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button></div>';
+    card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = () => { if (c.image) autoDownload(c.image, "design-ten"); };
+    card.querySelector(".b-use").onclick = () => {
+      showApp("clone");
+      if (typeof showDesign === "function" && c.image) showDesign(c.image);
+      const rt = document.querySelector('.rtab[data-rtab="design"]'); if (rt) rt.click();
+    };
+    grid.appendChild(card);
+  });
 }

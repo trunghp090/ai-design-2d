@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-fbpost-3to4"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-name-design"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3958,6 +3958,85 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None):
     return b64, p
 
 
+# ===================== TAB DESIGN TÊN CÁ NHÂN HOÁ (Custom-name T-shirt niche) =====================
+# Các style ĐẸP & PHỔ BIẾN của niche áo in tên (curated từ thị trường custom-name tee)
+NAME_STYLES = {
+    "globe": ("🌐 Retro Globe", "trendy retro outlined PUFFY bubble letters in cream & warm brown with a clean outline, a small minimalist wireframe GLOBE icon plus a few sparkle stars above the name, and a slim horizontal bar showing \"{stamp}\"; soft beige/cream aesthetic, modern Gen-Z 'studio' vibe"),
+    "varsity": ("🏈 Varsity Athletic", "bold collegiate VARSITY athletic lettering, slightly italic with a layered drop-shadow outline, stars and dynamic speed/lightning lines, a small \"{stamp}\" tab underneath; energetic sporty look in two contrasting colours such as golden yellow + navy"),
+    "retro70s": ("🌻 Retro 70s Groovy", "warm 1970s groovy ROUNDED bubble typography, funky retro letters, earthy palette (mustard, terracotta, cream), a vintage sunburst or rainbow arc behind, nostalgic feel, \"{stamp}\" as a small retro tag"),
+    "y2k": ("💿 Y2K Chrome", "glossy Y2K CHROME metallic bubble letters with reflections and sparkle stars, early-2000s silver-and-blue gradient aesthetic, \"{stamp}\" in a small chrome tag"),
+    "beach": ("🏝️ Beach Summer", "summer BEACH theme: palm-tree silhouettes, a setting sun, a surfboard and beach chair; the name in a relaxed ARCHED script ABOVE the scene; warm orange + black line-art, \"{stamp}\" as a small caption"),
+    "vintage": ("📻 Vintage Americana", "distressed VINTAGE americana screen-print, faded textured retro letters inside a worn badge/banner, muted warm palette, \"{stamp}\" in old-style numerals"),
+    "streetwear": ("🔥 Streetwear", "bold modern STREETWEAR graphic, chunky graffiti-influenced letters, urban high-contrast black/white with one accent colour, \"{stamp}\" as a sticker tag"),
+    "cute": ("🧸 Cute Bubble", "CUTE kawaii puffy bubble letters, soft pastel colours, tiny hearts and stars doodles around, playful adorable, \"{stamp}\" in a little ribbon"),
+    "minimal": ("⚪ Minimalist", "clean MINIMALIST modern typography — an elegant thin script or simple sans-serif, monochrome, lots of negative space, \"{stamp}\" very small and subtle"),
+    "couple_heart": ("💞 Couple Heart", "a small photo-frame heart at the top, the name in a clean rounded font below, a tiny tagline, soft modern romantic vibe, \"{stamp}\" under the name"),
+}
+VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm", "Phương Linh", "Bảo Ngọc",
+            "Minh Khôi", "Thu Hà", "Gia Bảo", "Lê Phương", "Trần Hoà", "Nguyễn An", "Quỳnh Như",
+            "Tuấn Kiệt", "Mai Chi", "Khánh Vy", "Hải Đăng", "Thanh Trúc", "Anh Thư", "Bảo Trâm",
+            "Đăng Khoa", "Phương Anh", "Ngọc Diệp", "Hữu Phước", "Tường Vy", "Quốc Bảo", "Diễm My",
+            "Nhật Minh", "Cẩm Tú", "Gia Hân", "Đình Phong", "Thảo Nguyên", "Hoàng Yến", "Trí Dũng"]
+
+
+def name_suggest():
+    name = random.choice(VN_NAMES)
+    if random.random() < 0.5:
+        stamp = "EST %d" % random.randint(1992, 2012)
+    else:
+        stamp = "%02d.%02d.%d" % (random.randint(1, 28), random.randint(1, 12), random.randint(1992, 2012))
+    return name, stamp
+
+
+def name_design_prompt(name, stamp, style_key):
+    label, frag = NAME_STYLES.get(style_key, NAME_STYLES["globe"])
+    frag = frag.replace("{stamp}", stamp or "")
+    return ("A flat VECTOR T-SHIRT PRINT DESIGN (artwork / graphic ONLY — NOT a t-shirt mockup, NOT a "
+            "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design for the "
+            "Vietnamese custom-name t-shirt niche. The MAIN focal element is the Vietnamese name \""
+            + name + "\" rendered as large stylised lettering in this exact style: " + frag + ". "
+            "Spell the name EXACTLY \"" + name + "\" with correct Vietnamese diacritics; do NOT add any "
+            "other name or words. Centered, balanced composition on a PLAIN PURE WHITE background, crisp "
+            "clean PRINT-READY vector artwork, bold high-contrast, ready to screen-print on a t-shirt. "
+            "No mockup, no shirt, no human, no watermark.")
+
+
+def run_name_design_job(job_id, name, stamp, style, n, transparent):
+    keys = list(NAME_STYLES.keys())
+
+    def work(i):
+        sk = style if style in NAME_STYLES else random.choice(keys)
+        try:
+            b64 = openai_generate(name_design_prompt(name, stamp, sk), "1024x1024")
+            if transparent and HAS_PIL:
+                try:
+                    b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
+                except Exception:
+                    pass
+            b64 = strip_ai_meta_b64(b64)
+            g = gallery_add(b64, {"mode": "design", "prompt": "Tên: %s · %s" % (name, NAME_STYLES[sk][0])})
+            return {"image": b64, "title": NAME_STYLES[sk][0], "style": sk, "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": NAME_STYLES.get(sk, ("?", ""))[0]}
+        except Exception as e:
+            return {"error": str(e), "title": "?"}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, range(n)):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def clone_compare_fix(orig_bytes, result_bytes, size="auto", transparent=True):
     """AI đối chiếu MẪU GỐC vs KẾT QUẢ (sau tách nền) -> liệt kê khác biệt -> vẽ lại từ gốc cho khớp.
     Trả (b64_đã_sửa, info{match,differences,fix})."""
@@ -4379,6 +4458,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"items": items})
         if path == "/api/concept-styles":
             return self.json(200, {"styles": concept_style_override()})
+        if path == "/api/name-suggest":
+            nm, stamp = name_suggest()
+            return self.json(200, {"name": nm, "stamp": stamp})
+        if path == "/api/name-styles":
+            return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in NAME_STYLES.items()]})
         if path == "/api/autopost-status":
             cfg = autopost_load()
             nxt = float(cfg.get("next_at", 0))
@@ -4630,6 +4714,26 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_ads_text(body)
         if path == "/api/ads-generate":
             return self.handle_ads_generate(body)
+        if path == "/api/name-design":
+            if not API_KEY:
+                return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+            nm = (body.get("name") or "").strip()[:40]
+            if not nm:
+                return self.json(400, {"error": "Cần nhập TÊN (vd Hoàng Long)."})
+            stamp = (body.get("stamp") or "").strip()[:30]
+            style = (body.get("style") or "auto").strip()
+            transparent = bool(body.get("transparent"))
+            try:
+                n = max(1, min(8, int(body.get("n") or 4)))
+            except Exception:
+                n = 4
+            with _batch_lock:
+                _batch_seq[0] += 1
+                job_id = "nd%d_%d" % (int(time.time()), _batch_seq[0])
+                BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+            threading.Thread(target=run_name_design_job,
+                             args=(job_id, nm, stamp, style, n, transparent), daemon=True).start()
+            return self.json(200, {"job_id": job_id, "total": n})
         if path == "/api/fb-ads-push":
             return self.handle_fb_ads_push(body)
         if path == "/api/fb-ad-update":
