@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-adpost-campaign"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-oversize-textcolor"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1533,13 +1533,13 @@ def _ads_text_part(name, hook, text_style, text_color=""):
         txt += (". Render BOTH the headline and the sub-line in this exact COLOUR: " + tc + " — use this "
                 "one colour consistently, clearly readable with strong contrast against its background")
     else:
-        txt += (". IMPORTANT — pick ONE ad-text COLOUR that clearly BELONGS to the photo's palette and "
-                "does NOT clash with the t-shirt PRINTS: take the design's MAIN print colour (or a "
-                "deeper/darker shade of it), or a deep neutral tone already present in the scene; apply "
-                "that same colour to BOTH the headline and the sub-line. It must look intentionally "
-                "colour-coordinated with the shirts and the whole image, never a harsh or randomly "
-                "clashing colour, while staying highly READABLE with strong contrast against its "
-                "background")
+        txt += (". IMPORTANT — choose ONE ad-text COLOUR that looks PREMIUM and HARMONIOUS with the whole "
+                "photo, never harsh: prefer a DEEP, RICH, SOPHISTICATED tone — a darkened / muted shade of "
+                "the design's main colour, or a deep neutral already in the warm scene (charcoal, near-black, "
+                "espresso, deep warm brown). STRONGLY AVOID bright, neon, saturated or pure-primary headline "
+                "colours (no bright orange / bright blue / pure red). Apply that same elegant colour to BOTH "
+                "the headline and the sub-line, clearly readable with strong contrast against the light "
+                "background, looking intentionally colour-coordinated and tasteful, like a high-end brand ad")
     return txt
 
 
@@ -1617,7 +1617,9 @@ _ADS_KEEP = (
 _ADS_REAL = (
     "Make it a NATURAL, candid, TRUE-TO-LIFE lifestyle PHOTOGRAPH — real Vietnamese people with real "
     "skin and hair, soft natural light, realistic fabric and folds; NOT 3D, NOT CGI, NOT a cartoon, NOT "
-    "an AI-looking render. The t-shirts are OVERSIZE — relaxed, boxy, slightly drop-shoulder fit. ")
+    "an AI-looking render. The ADULTS' t-shirts are clearly ADULT OVERSIZE streetwear — roomy, wide, "
+    "boxy body with DROP SHOULDERS and wide short sleeves, worn loose and relaxed (size L–XXL look), "
+    "longer hem; NOT slim-fit, NOT tight, NOT small. ")
 
 
 _ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two names, never keep the "
@@ -1647,8 +1649,10 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
             scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3
         on_bg = (" on " + bg) if bg else ""
-        scene = ("Lay %d OVERSIZE (relaxed, boxy) t-shirts out FLAT in a clean tidy flatlay "
-                 "arrangement%s, NO people. Natural, realistic product photo. " % (n, on_bg))
+        scene = ("Lay %d ADULT UNISEX OVERSIZE t-shirts out FLAT in a clean tidy flatlay arrangement%s, "
+                 "NO people. The shirts are clearly BIG adult oversize streetwear tees — WIDE boxy body, "
+                 "wide short sleeves, drop shoulders, roomy relaxed cut (size L–XXL look), longer hem; "
+                 "NOT slim, NOT small, NOT kids' shirts. Natural, realistic product photo. " % (n, on_bg))
     return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
             _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE +
             ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
