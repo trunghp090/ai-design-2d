@@ -2348,7 +2348,7 @@ async function dsPollAll() {
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
   const note = $("dsNote"); note.className = "gen-note"; note.textContent = "";
-  if (!dsSegment && !dsAuto && !dsPicked.size && !dsRefImg) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách, tệp khách, bật 🎯 AI tự chọn style, hoặc tải ảnh tham chiếu."; return; }
+  if (!dsSegment && !dsAuto && !dsPicked.size && !dsRefImg && !($("dsExtra")?.value || "").trim()) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn phong cách, bật 🎯 AI tự chọn style, tải ảnh tham chiếu, HOẶC tự điền prompt ở ô bên dưới."; return; }
   $("dsProgress").classList.remove("hidden");
   try {
     const r = await fetch("/api/design-gen", {

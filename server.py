@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-design-extra"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-custom-prompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2882,6 +2882,30 @@ def _variety_hint(styles, n):
     return "Mỗi design có CHỦ THỂ/bố cục KHÁC NHAU, đa dạng, tránh trùng lặp giữa các mẫu."
 
 
+def design_concepts_custom(prompt, theme, text, n, year="", same_line=False):
+    """Không chọn style — dùng PROMPT user tự điền làm mô tả design."""
+    n = max(1, min(int(n or 3), 8))
+    base = (prompt or "").strip()
+    parts = []
+    if (text or "").strip():
+        parts.append('the text "%s" is the main printed element' % text.strip())
+    if (year or "").strip():
+        parts.append('include "%s"' % year.strip())
+    if (theme or "").strip():
+        parts.append('theme/niche: %s' % theme.strip())
+    if same_line and (text or "").strip():
+        parts.append("keep the words on ONE single line (do not stack)")
+    ctx = (" — " + "; ".join(parts) + "." if parts else "")
+    suffix = (" Render as a FLAT VECTOR t-shirt PRINT design, ARTWORK ONLY (NOT a mockup, NOT a "
+              "person, NOT a photo of a shirt), centered on a PLAIN PURE WHITE background, crisp "
+              "PRINT-READY, bold high-contrast, no watermark.")
+    cons = []
+    for i in range(n):
+        v = base + ctx + suffix + (" Variation %d — give it a distinct fresh take." % (i + 1) if n > 1 else "")
+        cons.append({"prompt": v, "title": "Prompt tự điền", "style": ""})
+    return cons
+
+
 def design_concepts(styles, theme, text, n, year="", same_line=False):
     """styles: list khoá phong cách. Nhiều style -> TRỘN vào cùng mỗi design (fusion)."""
     n = max(1, min(int(n or 3), 8))
@@ -3313,8 +3337,14 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
     # Bước 1: AI nghĩ n design. segment -> bộ đồng bộ; auto_style -> AI tự chọn; ref -> từ ảnh; else theo style
     err_msg = None
     style_tag = ""          # None = tag theo từng concept (auto)
+    extra = (extra or "").strip()
+    # KHÔNG chọn style + có prompt tự điền -> dùng prompt đó làm design
+    custom_mode = bool(extra) and not segment and not auto_style and not ref and not styles
     try:
-        if segment in SEGMENTS:
+        if custom_mode:
+            concepts = design_concepts_custom(extra, theme, text, n, year, same_line)
+            style_tag = "Prompt tự điền"
+        elif segment in SEGMENTS:
             concepts = design_concepts_segment(segment, styles, theme, text, year, same_line, auto_style)
             style_tag = SEGMENTS[segment]["name"]
         elif auto_style:
@@ -3331,11 +3361,10 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
     except Exception as e:
         concepts = []; err_msg = "Lỗi nghĩ mẫu: %s" % e; style_tag = ""
     concepts = concepts[:DESIGN_MAX_TOTAL]
-    extra = (extra or "").strip()
     for c in concepts:
         tag = style_tag if style_tag is not None else ("AI chọn: " + (c.get("style") or "").strip() if (c.get("style") or "").strip() else "AI tự chọn")
         c["title"] = "[%s] %s" % (tag, c.get("title", "Design"))
-        if extra:   # prompt sửa của user -> áp cho mọi mẫu
+        if extra and not custom_mode:   # có style -> prompt là YÊU CẦU THÊM; không style -> prompt là design (đã dùng ở custom_mode)
             c["prompt"] = c["prompt"] + " IMPORTANT EXTRA USER INSTRUCTIONS (must follow): " + extra
     with _batch_lock:
         job = BATCH_JOBS.get(job_id)
@@ -5351,8 +5380,8 @@ class Handler(BaseHTTPRequestHandler):
         ref_src = body.get("ref", "")
         if ref_src:
             ref_bytes, _ = fetch_image_bytes(ref_src)
-        if not segment and not auto_style and not styles and not ref_bytes:
-            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', chọn tệp khách, hoặc tải ảnh tham chiếu."})
+        if not segment and not auto_style and not styles and not ref_bytes and not (body.get("extra") or "").strip():
+            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', tải ảnh tham chiếu, HOẶC tự điền prompt ở ô bên dưới."})
         if segment:
             n = SEGMENTS[segment]["n"]      # bộ đồng bộ -> số mẫu cố định theo tệp
         else:
