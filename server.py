@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-sched-fb-ig"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-ig-scope"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3873,7 +3873,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/sched-fb-ig":
+        if path == "/api/fb-post-test":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -3908,7 +3908,11 @@ class Handler(BaseHTTPRequestHandler):
             if igid:
                 st, d = fb_graph("GET", "%s" % igid, {"fields": "username"})
                 uname = (d or {}).get("username") or ""
-            return self.json(200, {"connected": bool(igid), "ig_id": igid or "", "username": uname})
+            st, d = fb_graph("GET", "me/permissions", {})
+            perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
+            can_pub = "instagram_content_publish" in perms
+            return self.json(200, {"connected": bool(igid), "ig_id": igid or "",
+                                   "username": uname, "can_publish": can_pub})
         if path == "/api/fb-ads-list":
             if not fb_configured():
                 return self.json(200, {"campaigns": [], "configured": False})

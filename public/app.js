@@ -4318,8 +4318,9 @@ async function schedCheckIg() {
   try {
     const d = await (await fetch("/api/ig-status")).json();
     const n = $("schedIgNote");
-    if (d.connected) { n.className = "gen-note ok"; n.textContent = "✓ Instagram đã nối: @" + (d.username || d.ig_id); }
-    else { n.className = "gen-note"; n.innerHTML = "📷 <b>Instagram chưa nối</b> — Facebook vẫn đăng được. Để bật IG: vào Trang FB → Cài đặt → nối tài khoản Instagram Business + token cần quyền instagram_basic + instagram_content_publish."; }
+    if (d.connected && d.can_publish) { n.className = "gen-note ok"; n.textContent = "✓ Instagram sẵn sàng: @" + (d.username || d.ig_id) + " — đăng được."; }
+    else if (d.connected) { n.className = "gen-note"; n.innerHTML = "📷 IG đã nối <b>@" + (d.username || d.ig_id) + "</b> nhưng <b>token thiếu quyền đăng</b> — tạo lại token thêm <code>instagram_basic</code> + <code>instagram_content_publish</code>. (Facebook vẫn đăng bình thường.)"; }
+    else { n.className = "gen-note"; n.innerHTML = "📷 <b>Instagram chưa nối</b> — Facebook vẫn đăng được. Để bật IG: nối Instagram Business vào Trang + token cần instagram_basic + instagram_content_publish."; }
   } catch (e) {}
 }
 async function schedLoadGallery() {
