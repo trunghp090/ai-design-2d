@@ -3605,7 +3605,7 @@ async function adsLoadBuiltins() {
   for (const k in ADS_BUILTIN_STYLES) {
     if (adsBuiltinByKey[k]) continue;
     try {
-      const b = await (await fetch(ADS_BUILTIN_STYLES[k])).blob();
+      const b = await (await fetch(ADS_BUILTIN_STYLES[k] + "?v=2")).blob();
       adsBuiltinByKey[k] = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
     } catch (e) {}
   }
