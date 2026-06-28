@@ -4317,11 +4317,16 @@ async function fbpWriteCaption(it, force) {
     const d = await r.json();
     it.caption = (r.ok && (d.facebook || "").trim()) ? d.facebook.trim() : fb;
   } catch (e) { it.caption = fb; }
+  // CTA "Mua ngay" + link sản phẩm (bài Trang không có nút CTA -> để trong caption)
+  const lk = fbpProductLink || "";
+  if (lk && !it.caption.includes(lk)) it.caption += "\n\n🛒 MUA NGAY: " + lk;
   fbpRenderAll();
 }
 async function fbpPostToPage(it, card) {
   const note = card.querySelector(".fbp-postnote"), btn = card.querySelector(".b-post");
-  const cap = card.querySelector(".fbp-cap").value.trim();
+  let cap = card.querySelector(".fbp-cap").value.trim();
+  const lk = fbpProductLink || "";
+  if (lk && !cap.includes(lk)) cap += "\n\n🛒 MUA NGAY: " + lk;   // đảm bảo có CTA + link SP
   const urls = (it.pics || []).map(p => p.url).filter(Boolean);
   if (!urls.length) { note.className = "gen-note err"; note.textContent = "⚠️ Bộ ảnh chưa có URL (chưa lưu gallery)."; return; }
   if (!confirm("Đăng bộ " + urls.length + " ảnh này lên Fanpage rieng.vn NGAY? (đăng công khai)")) return;
