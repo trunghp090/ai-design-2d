@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-gpt4o-niche"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-vn-taste"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4013,20 +4013,33 @@ def name_concepts(name, stamp, n):
     """AI tự DÙNG KIẾN THỨC về ngách custom-name tee -> nghĩ n concept design (mỗi cái 1 prompt)."""
     if not API_KEY:
         return []
-    sys = ("You are a SENIOR print-on-demand designer and market analyst who specialises in the "
-           "CUSTOM-NAME / PERSONALISED-NAME T-SHIRT niche. You deeply know what designs sell best and "
-           "what is currently trending in this niche worldwide and for the Vietnamese Gen-Z market: the "
-           "retro outlined bubble 'studio' look, varsity/athletic, 70s groovy, Y2K chrome, vintage "
-           "americana, streetwear/graffiti, kawaii cute, clean minimalist, summer/beach, couple & family "
-           "photo-frame styles, blackletter, etc. — including their typical colour palettes, layouts and "
-           "decorative elements. You pick what truly converts.")
+    sys = ("You are a SENIOR print-on-demand designer & TREND ANALYST for the VIETNAMESE Gen-Z "
+           "CUSTOM-NAME / PERSONALISED-NAME T-SHIRT market (áo thun in tên, áo đôi, áo nhóm). You know "
+           "EXACTLY what is best-selling in Vietnam right now (2025-2026):\n"
+           "• CUTE / KAWAII rules — chubby adorable MASCOTS are a craze: CAPYBARA (massive), teddy BEARS "
+           "(gấu), CATS (mèo), bunnies, ducks; soft pastel colours, rounded shapes, cute little faces, "
+           "tiny hearts/stars/clouds, often paired with the name.\n"
+           "• Y2K RETRO 2000s nostalgia — sparkle stars, glossy puffy BUBBLE letters, chrome, galaxy, "
+           "quirky playful vibe; plus the trendy outlined 'studio' bubble look (cream & warm brown).\n"
+           "• 70s GROOVY revival — funky rounded letters, daisies, sunbursts, earthy warm palette.\n"
+           "• KOREAN MINIMALIST — 'đơn giản mà chất': clean elegant thin typography, small tagline, lots "
+           "of white space, muted neutral tones.\n"
+           "• VARSITY / streetwear for group & class tees with an 'EST <year>'.\n"
+           "• 2026 colour trend = warm MUTED tones: chocolate brown, wine red, moss/olive green, cream, "
+           "terracotta, soft pastels — mature yet playful.\n"
+           "The base tee is usually white, black or cream; fit is OVERSIZE unisex. Design name graphics "
+           "that feel NATIVE to Vietnamese Gen-Z taste (cute, aesthetic, on-trend) — NOT generic western "
+           "clipart, NOT cheesy. You pick what truly converts in Vietnam.")
     acc = (' Include a small accent text "%s".' % stamp) if stamp else ""
-    user = ("Act as the art director. Propose %d DISTINCT, on-trend, commercially strong CUSTOM-NAME "
-            "t-shirt PRINT designs whose single main element is the Vietnamese name \"%s\".%s Choose the "
-            "styles YOU judge best & most sellable for this niche — vary them, do not repeat, and let the "
-            "name's vibe guide the choice. For EACH, write a detailed English IMAGE-GENERATION prompt for "
-            "a flat vector print artwork on a pure white background (typography style, colours, decorative "
-            "elements, layout). Return strict JSON: "
+    user = ("Act as the art director for a Vietnamese custom-name tee brand. Propose %d DISTINCT, "
+            "on-trend, commercially strong designs whose single main element is the Vietnamese name "
+            "\"%s\".%s Choose styles from the BEST-SELLING Vietnamese directions above (e.g. kawaii "
+            "mascot / Y2K bubble / 70s groovy / Korean minimalist / retro studio / varsity) — vary them, "
+            "do NOT repeat, and let the NAME'S VIBE guide the choice (e.g. a soft feminine name → cute "
+            "pastel / kawaii mascot; a strong name → varsity / streetwear; neutral → Korean minimalist / "
+            "Y2K). Prefer the trendy warm muted or soft pastel palettes. For EACH, write a detailed "
+            "English IMAGE-GENERATION prompt for a flat vector print artwork on a pure white background "
+            "(typography style, exact colours, decorative elements, layout). Return strict JSON: "
             "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
             "with EXACTLY %d items." % (n, name, acc, n))
     try:
