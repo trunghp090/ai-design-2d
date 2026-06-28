@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-strip-ai-meta"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-autopilot"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2044,11 +2044,181 @@ def _sched_loop():
             sched_process()
         except Exception:
             pass
+        try:
+            autopost_tick()
+        except Exception:
+            pass
         time.sleep(60)
 
 
 def start_scheduler():
     threading.Thread(target=_sched_loop, daemon=True).start()
+
+
+# ============ PHI CÔNG TỰ ĐỘNG: mỗi ngày tự gen + đăng N bài random lên FB + IG ============
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://riengvnapp.cloud").rstrip("/")
+AUTOPOST_FILE = os.path.join(GALLERY_DIR, "autopost.json")
+AUTOPOST_DEFAULT = {"enabled": False, "per_day": 5, "channels": ["fb"], "start_hour": 8,
+                    "end_hour": 22, "per_set": 4, "last_date": "", "done_today": 0, "next_at": 0, "log": []}
+_autopost_running = [False]
+_autopost_prod_cache = {"at": 0, "items": []}
+_AUTOPOST_STYLE = {"couple": "style-couple-default.webp", "group": "style-group.webp",
+                   "family": "style-family.webp", "flatlay2": "style-flatlay2.webp",
+                   "flatlay3": "style-flatlay3.webp"}
+
+
+def autopost_load():
+    try:
+        with open(AUTOPOST_FILE, "r", encoding="utf-8") as f:
+            return {**AUTOPOST_DEFAULT, **json.load(f)}
+    except Exception:
+        return dict(AUTOPOST_DEFAULT)
+
+
+def autopost_save(cfg):
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        with open(AUTOPOST_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def autopost_products():
+    if time.time() - _autopost_prod_cache["at"] < 3600 and _autopost_prod_cache["items"]:
+        return _autopost_prod_cache["items"]
+    if not shopify_configured():
+        return []
+    try:
+        st, d = shopify_api("GET", "products.json?limit=50&status=active")
+        out = []
+        for p in (d.get("products") or []):
+            img = (p.get("image") or {}).get("src") or ((p.get("images") or [{}])[0].get("src") if p.get("images") else "")
+            if img:
+                out.append({"title": p.get("title", ""), "image": img,
+                            "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else ""})
+        _autopost_prod_cache.update(at=time.time(), items=out)
+        return out
+    except Exception:
+        return []
+
+
+def _load_style_bytes(key):
+    try:
+        with open(os.path.join(ROOT, "public", _AUTOPOST_STYLE.get(key, "")), "rb") as f:
+            return f.read()
+    except Exception:
+        return None
+
+
+def autopost_gen_set(design_img, key, per_set):
+    asp = "1:1"; size = ASPECT_TO_SIZE.get(asp, "1024x1024")
+    old_name = ads_read_name(design_img[0])
+    nm = None
+    if key == "couple":
+        nm = ads_couple_names(); names = [nm["female"], nm["male"]]
+    elif key in ADS_CONCEPT_N:
+        names = ads_n_names(ADS_CONCEPT_N[key])
+    else:
+        names = ads_n_names(1)
+    imgs = [design_img]; img_n = None
+    ref = _load_style_bytes(key)
+    if ref:
+        imgs.append((ref, "image/png")); img_n = 2
+    hints = _FBPOST_FLAT_SHOTS if key.startswith("flatlay") else _FBPOST_SHOTS
+    label = "FB Post · %s" % ADS_CONCEPTS[key][0]
+    urls = []
+    for i in range(max(1, min(6, per_set))):
+        v = "Shot %d of a matching set — %s. " % (i + 1, hints[i % len(hints)])
+        prompt = fbpost_prompt(key, names, nm, img_n, "", old_name, v)
+        b64 = gen_shot(imgs, prompt, size, "openai", asp, lock=False, quality="medium")
+        if HAS_PIL:
+            try:
+                b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
+            except Exception:
+                pass
+        b64 = strip_ai_meta_b64(b64)
+        g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
+        u = g.get("url")
+        if u:
+            urls.append(u if str(u).startswith("http") else PUBLIC_BASE_URL + u)
+    return urls
+
+
+def autopost_run_one(cfg):
+    prods = autopost_products()
+    if not prods:
+        return False, "Không có sản phẩm Shopify active."
+    p = random.choice(prods)
+    key = random.choice(list(_AUTOPOST_STYLE.keys()))    # concept random
+    dd, dm = fetch_image_bytes(p["image"])
+    if not dd:
+        return False, "Không tải được ảnh SP."
+    try:
+        urls = autopost_gen_set((dd, dm or "image/png"), key, int(cfg.get("per_set", 4)))
+    except Exception as e:
+        return False, "Gen lỗi: %s" % str(e)[:80]
+    if not urls:
+        return False, "Gen không ra ảnh."
+    cap = "🔥 Áo thun in tên cá nhân hoá theo tên riêng — chất vải đẹp, in sắc nét.\n👉 Đặt ngay tại rieng.vn!"
+    try:
+        c = product_content(dd, "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. %s" % p.get("title", ""))
+        if (c.get("facebook") or "").strip():
+            cap = c["facebook"].strip()
+    except Exception:
+        pass
+    lk = p.get("store_url") or ""
+    if lk and lk not in cap:
+        cap += "\n\n🛒 MUA NGAY: " + lk
+    chans = cfg.get("channels") or ["fb"]
+    res = {}
+    if "fb" in chans:
+        res["fb"] = fb_post_core(urls, cap)
+    if "ig" in chans:
+        res["ig"] = ig_post_core(urls, cap)
+    ok = bool(res) and all(r.get("ok") for r in res.values())
+    detail = "%s · %s" % (ADS_CONCEPTS[key][0], (p.get("title") or "")[:24])
+    if not ok:
+        detail += " — " + "; ".join((r.get("error") or "")[:40] for r in res.values() if not r.get("ok"))
+    return ok, detail
+
+
+def _autopost_do():
+    try:
+        ok, msg = autopost_run_one(autopost_load())
+        cfg = autopost_load()
+        cfg["done_today"] = int(cfg.get("done_today", 0)) + 1
+        per_day = max(1, int(cfg.get("per_day", 5)))
+        span = max(1, int(cfg.get("end_hour", 22)) - int(cfg.get("start_hour", 8))) * 3600
+        cfg["next_at"] = time.time() + max(1200, int(span / per_day))
+        log = cfg.get("log", [])
+        log.append(("✓ " if ok else "✗ ") + time.strftime("%H:%M", time.localtime()) + " " + (msg or ""))
+        cfg["log"] = log[-15:]
+        autopost_save(cfg)
+    except Exception:
+        pass
+    finally:
+        _autopost_running[0] = False
+
+
+def autopost_tick():
+    cfg = autopost_load()
+    if not cfg.get("enabled") or _autopost_running[0]:
+        return
+    now = time.time()
+    day = time.strftime("%Y-%m-%d", time.localtime(now))
+    if cfg.get("last_date") != day:
+        cfg["last_date"] = day; cfg["done_today"] = 0
+        lt = time.localtime(now)
+        start_ts = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, int(cfg.get("start_hour", 8)), 0, 0, 0, 0, -1))
+        cfg["next_at"] = max(now, start_ts)
+        autopost_save(cfg)
+    if int(cfg.get("done_today", 0)) >= int(cfg.get("per_day", 5)):
+        return
+    if now < float(cfg.get("next_at", 0)):
+        return
+    _autopost_running[0] = True
+    threading.Thread(target=_autopost_do, daemon=True).start()
 
 
 # ===================== ĐẨY 1 ẢNH -> FB ADS (core dùng lại cho batch) =====================
@@ -4163,6 +4333,16 @@ class Handler(BaseHTTPRequestHandler):
                 items = sched_load()
             items = sorted(items, key=lambda x: x.get("when", 0))
             return self.json(200, {"items": items})
+        if path == "/api/autopost-status":
+            cfg = autopost_load()
+            nxt = float(cfg.get("next_at", 0))
+            return self.json(200, {
+                "enabled": cfg.get("enabled"), "per_day": cfg.get("per_day"),
+                "channels": cfg.get("channels"), "start_hour": cfg.get("start_hour"),
+                "end_hour": cfg.get("end_hour"), "per_set": cfg.get("per_set"),
+                "done_today": cfg.get("done_today"), "running": _autopost_running[0],
+                "next_at": nxt, "next_in": max(0, int(nxt - time.time())) if nxt else 0,
+                "log": (cfg.get("log") or [])[-10:]})
         if path == "/api/pgpost-list":
             with _pgpost_lock:
                 items = pgpost_load()
@@ -4435,6 +4615,34 @@ class Handler(BaseHTTPRequestHandler):
             st, d = fb_graph("DELETE", oid, {})
             if st != 200 or d.get("error"):
                 return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"ok": True})
+        if path == "/api/autopost-config":
+            cfg = autopost_load()
+            if "enabled" in body:
+                cfg["enabled"] = bool(body.get("enabled"))
+            if body.get("per_day"):
+                cfg["per_day"] = max(1, min(20, int(body.get("per_day"))))
+            if body.get("per_set"):
+                cfg["per_set"] = max(1, min(6, int(body.get("per_set"))))
+            if body.get("channels") is not None:
+                cfg["channels"] = [c for c in body.get("channels") if c in ("fb", "ig")] or ["fb"]
+            if body.get("start_hour") is not None:
+                cfg["start_hour"] = max(0, min(23, int(body.get("start_hour"))))
+            if body.get("end_hour") is not None:
+                cfg["end_hour"] = max(1, min(24, int(body.get("end_hour"))))
+            # bật lần đầu -> đặt lịch chạy ngay trong hôm nay
+            if cfg["enabled"]:
+                now = time.time()
+                cfg["last_date"] = time.strftime("%Y-%m-%d", time.localtime(now))
+                if float(cfg.get("next_at", 0)) < now:
+                    cfg["next_at"] = now + 30
+            autopost_save(cfg)
+            return self.json(200, {"ok": True, "enabled": cfg["enabled"]})
+        if path == "/api/autopost-run-now":   # đăng thử 1 bài ngay (test)
+            if _autopost_running[0]:
+                return self.json(400, {"error": "Đang chạy 1 bài rồi."})
+            _autopost_running[0] = True
+            threading.Thread(target=_autopost_do, daemon=True).start()
             return self.json(200, {"ok": True})
         if path == "/api/pgpost-add":
             host = self.headers.get("Host") or ""

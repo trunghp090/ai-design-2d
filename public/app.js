@@ -4423,9 +4423,63 @@ function schedInit() {
     const pad = n => String(n).padStart(2, "0");
     $("schedWhen").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     schedCheckIg();
+    aplInit();
   }
   schedLoadGallery();
   schedLoadList();
+  aplLoad();
+}
+
+/* ---- Phi công tự động: tự gen + đăng random ---- */
+let aplInited = false, aplTimer = null;
+function aplInit() {
+  if (aplInited) return; aplInited = true;
+  $("apSave").onclick = aplSave;
+  $("apEnabled").onchange = aplSave;
+  $("apRunNow").onclick = aplRunNow;
+}
+async function aplLoad() {
+  try {
+    const d = await (await fetch("/api/autopost-status")).json();
+    $("apEnabled").checked = !!d.enabled;
+    $("apPerDay").value = d.per_day || 5;
+    $("apPerSet").value = d.per_set || 4;
+    $("apStart").value = d.start_hour != null ? d.start_hour : 8;
+    $("apEnd").value = d.end_hour != null ? d.end_hour : 22;
+    $("apFb").checked = (d.channels || []).includes("fb");
+    $("apIg").checked = (d.channels || []).includes("ig");
+    const st = $("apStatus");
+    if (d.enabled) {
+      const mins = Math.round((d.next_in || 0) / 60);
+      st.className = "gen-note ok";
+      st.innerHTML = "🟢 Đang bật · đã đăng <b>" + (d.done_today || 0) + "/" + (d.per_day || 5) + "</b> hôm nay" + (d.running ? " · ⏳ đang đăng…" : (d.next_in ? " · bài kế ~" + mins + " phút" : ""));
+    } else { st.className = "gen-note"; st.textContent = "⚪ Đang tắt"; }
+    $("apLog").textContent = (d.log || []).slice().reverse().join("\n");
+    if (d.enabled && !aplTimer) aplTimer = setInterval(aplLoad, 15000);
+    if (!d.enabled && aplTimer) { clearInterval(aplTimer); aplTimer = null; }
+  } catch (e) {}
+}
+async function aplSave() {
+  const chans = []; if ($("apFb").checked) chans.push("fb"); if ($("apIg").checked) chans.push("ig");
+  const enabled = $("apEnabled").checked;
+  if (enabled && !chans.length) { alert("Chọn ít nhất 1 kênh (FB/IG)."); $("apEnabled").checked = false; return; }
+  if (enabled && !confirm("BẬT phi công tự động: tool sẽ TỰ ĐĂNG CÔNG KHAI " + ($("apPerDay").value) + " bài/ngày lên " + chans.map(c => c === "fb" ? "Facebook" : "Instagram").join(" + ") + ". Chắc chứ?")) { $("apEnabled").checked = false; return; }
+  try {
+    const r = await fetch("/api/autopost-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: enabled, per_day: +$("apPerDay").value, per_set: +$("apPerSet").value, start_hour: +$("apStart").value, end_hour: +$("apEnd").value, channels: chans }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    aplLoad();
+  } catch (e) { alert("✗ " + e.message); }
+}
+async function aplRunNow() {
+  if (!confirm("Đăng THỬ 1 bài random NGAY (công khai)? Mất ~1-3 phút để gen + đăng.")) return;
+  const btn = $("apRunNow"); btn.disabled = true; btn.textContent = "⏳ Đang chạy…";
+  try {
+    const r = await fetch("/api/autopost-run-now", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    setTimeout(aplLoad, 2000);
+    if (!aplTimer) aplTimer = setInterval(aplLoad, 15000);
+  } catch (e) { alert("✗ " + e.message); }
+  finally { setTimeout(() => { btn.disabled = false; btn.textContent = "⚡ Đăng thử 1 bài ngay"; }, 3000); }
 }
 async function schedCheckIg() {
   try {

@@ -1422,8 +1422,29 @@
   </section>
 
   <section class="auto-view app-view hidden" id="view-sched">
+    <div class="panel" style="max-width:1100px;margin:0 auto 18px;border:2px solid var(--violet-soft)">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <h2 class="panel-title" style="font-size:18px;margin:0">🤖 Phi công tự động — tự gen &amp; đăng random</h2>
+        <label class="switch-row" style="margin:0;font-size:14px;font-weight:700;color:var(--violet)"><input type="checkbox" id="apEnabled"> Bật tự đăng</label>
+        <span style="flex:1"></span>
+        <span class="gen-note" id="apStatus" style="margin:0"></span>
+      </div>
+      <p class="panel-desc" style="margin:6px 0 12px">Mỗi ngày tool tự chọn <b>random sản phẩm + concept</b>, gen bộ ảnh sạch (đã bỏ nhãn AI), AI viết content rồi <b>tự đăng</b> lên Fanpage/Instagram, giãn đều trong ngày.</p>
+      <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+        <label class="hint" style="margin:0">Số bài/ngày<br><input type="number" id="apPerDay" value="5" min="1" max="20" class="input" style="width:70px;padding:6px 8px"></label>
+        <label class="hint" style="margin:0">Ảnh/bài<br><input type="number" id="apPerSet" value="4" min="1" max="6" class="input" style="width:64px;padding:6px 8px"></label>
+        <label class="hint" style="margin:0">Từ giờ<br><input type="number" id="apStart" value="8" min="0" max="23" class="input" style="width:60px;padding:6px 8px"></label>
+        <label class="hint" style="margin:0">Đến giờ<br><input type="number" id="apEnd" value="22" min="1" max="24" class="input" style="width:60px;padding:6px 8px"></label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="apFb" checked> 📘 FB</label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="apIg"> 📷 IG</label>
+        <button class="btn-ghost sm" id="apSave">💾 Lưu cài đặt</button>
+        <button class="btn-ghost sm" id="apRunNow">⚡ Đăng thử 1 bài ngay</button>
+      </div>
+      <div id="apLog" class="hint" style="margin-top:10px;white-space:pre-line"></div>
+    </div>
+
     <div class="panel" style="max-width:1100px;margin:0 auto">
-      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🗓️ Lịch content tự động — Facebook + Instagram</h2>
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🗓️ Lịch content thủ công — Facebook + Instagram</h2>
       <p class="panel-desc" style="margin:0 0 14px">Chọn ảnh từ kho → viết caption → chọn kênh + thời gian → hệ thống tự đăng đúng giờ (chạy nền 24/7 trên bản live).</p>
       <p class="gen-note" id="schedIgNote" style="margin:0 0 12px"></p>
 
