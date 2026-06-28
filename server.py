@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-shop-size-prices"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-shop-all-channels"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -682,6 +682,34 @@ def shopify_graphql(query, variables=None):
     req.add_header("Content-Type", "application/json")
     r = urllib.request.urlopen(req, timeout=60)
     return json.loads(r.read().decode("utf-8", "ignore"))
+
+
+_SHOP_PUBS = [None]   # cache danh sách kênh bán (publications)
+
+
+def shopify_publications():
+    if _SHOP_PUBS[0] is not None:
+        return _SHOP_PUBS[0]
+    try:
+        res = shopify_graphql("{ publications(first: 25){ nodes{ id name } } }")
+        pubs = [n["id"] for n in (((res.get("data") or {}).get("publications") or {}).get("nodes") or [])]
+    except Exception:
+        pubs = []
+    _SHOP_PUBS[0] = pubs
+    return pubs
+
+
+def shopify_publish_all(product_gid):
+    """Bật SP lên TẤT CẢ kênh bán (Online Store, Facebook&Instagram, TikTok, Google…)."""
+    pubs = shopify_publications()
+    if not pubs or not product_gid:
+        return
+    q = ("mutation($id:ID!,$in:[PublicationInput!]!){ publishablePublish(id:$id, input:$in){ "
+         "userErrors{ message } } }")
+    try:
+        shopify_graphql(q, {"id": product_gid, "in": [{"publicationId": p} for p in pubs]})
+    except Exception:
+        pass
 
 
 # --------------------------------------------------------------------------- #
@@ -3693,7 +3721,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/shop-size-prices":
+        if path == "/api/shop-all-channels":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -4854,6 +4882,8 @@ class Handler(BaseHTTPRequestHandler):
             pos += 1
         for i in order[1:]:
             attach(variants_in[i], pos); pos += 1
+
+        shopify_publish_all(gid)   # bật tất cả kênh bán (Online Store, FB&IG, TikTok, Google)
 
         return {"ok": True, "url": shop_admin_url(pid),
                 "store_url": ("https://rieng.vn/products/%s" % prod.get("handle", "")) if prod.get("handle") else "",
