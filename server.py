@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-pgpost-board"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-strip-ai-meta"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -505,6 +505,30 @@ def crop_to_aspect(raw, aspect):
         return buf.getvalue()
     except Exception:
         return raw
+
+
+def strip_ai_meta(raw):
+    """Tạo lại file ảnh sạch (bỏ metadata C2PA/EXIF/XMP mà gpt-image nhúng) — giống xuất qua Canva.
+    Giúp Facebook/IG không gắn nhãn 'Made with AI'. Giữ nguyên pixel + alpha."""
+    if not HAS_PIL:
+        return raw
+    try:
+        im = Image.open(io.BytesIO(raw))
+        # vẽ lại sang ảnh MỚI tinh -> không kế thừa bất kỳ metadata/info nào của file gốc
+        clean = Image.new(im.mode, im.size)
+        clean.putdata(list(im.getdata()))
+        buf = io.BytesIO()
+        clean.save(buf, "PNG")   # PNG mới, không truyền exif/pnginfo -> sạch metadata
+        return buf.getvalue()
+    except Exception:
+        return raw
+
+
+def strip_ai_meta_b64(b64):
+    try:
+        return base64.b64encode(strip_ai_meta(base64.b64decode(b64))).decode()
+    except Exception:
+        return b64
 
 
 def openai_edit(images, prompt, size, native_transparent, quality=""):
@@ -1730,6 +1754,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                     b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
                 except Exception:
                     pass
+            b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB không gắn nhãn "Made with AI"
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             model = engine_model_label(engine)
             adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
@@ -1843,6 +1868,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
                     except Exception:
                         pass
+                b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id")})
             return {"concept": key, "title": label, "pics": pics}
