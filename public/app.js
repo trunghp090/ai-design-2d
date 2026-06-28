@@ -4265,13 +4265,23 @@ async function admgrLoad() {
         '<td>' + fmtNum(c.reach) + '</td><td>' + fmtNum(c.impressions) + '</td><td>' + fmtNum(c.clicks) + '</td>' +
         '<td>' + (c.ctr ? parseFloat(c.ctr).toFixed(2) + "%" : "—") + '</td>' +
         '<td>' + (c.cpc ? fmtNum(c.cpc) + "đ" : "—") + '</td>' +
-        '<td><button class="btn-ghost sm admgr-tog" data-id="' + c.id + '" data-st="' + c.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button></td>' +
+        '<td style="white-space:nowrap"><button class="btn-ghost sm admgr-tog" data-id="' + c.id + '" data-st="' + c.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button> <button class="btn-ghost sm admgr-del" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '">🗑️</button></td>' +
         '</tr>';
     });
     html += '</tbody></table>';
     tbl.innerHTML = html;
     tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggle(b.dataset.id, b.dataset.st, b));
+    tbl.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+async function admgrDelete(id, name, btn) {
+  if (!confirm("Xoá vĩnh viễn chiến dịch \"" + (name || id) + "\"? (không hoàn tác)")) return;
+  btn.disabled = true; btn.textContent = "⏳";
+  try {
+    const r = await fetch("/api/fb-ad-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    admgrLoad();
+  } catch (e) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = "🗑️"; }
 }
 async function admgrToggle(id, cur, btn) {
   const to = cur === "ACTIVE" ? "PAUSED" : "ACTIVE";

@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-ads-manager"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-fb-ads-mgr-delete"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3721,7 +3721,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/fb-ads-manager":
+        if path == "/api/fb-ads-mgr-delete":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -3976,6 +3976,16 @@ class Handler(BaseHTTPRequestHandler):
             if not params:
                 return self.json(400, {"error": "Không có gì để sửa."})
             st, d = fb_graph("POST", oid, params)
+            if st != 200 or d.get("error"):
+                return self.json(400, {"error": fb_err(d)})
+            return self.json(200, {"ok": True})
+        if path == "/api/fb-ad-delete":
+            if not fb_configured():
+                return self.json(400, {"error": "Chưa cấu hình Facebook."})
+            oid = (body.get("id") or "").strip()
+            if not oid:
+                return self.json(400, {"error": "Thiếu id."})
+            st, d = fb_graph("DELETE", oid, {})
             if st != 200 or d.get("error"):
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"ok": True})
