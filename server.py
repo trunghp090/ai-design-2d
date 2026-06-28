@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-ads-1to1"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-regen-edit"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1711,14 +1711,18 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
             if text_style_img:
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
-            if key == "couple":
-                prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
-            elif key in ADS_CONCEPT_N:
-                names = ads_n_names(ADS_CONCEPT_N[key])
-                prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
+            cp = (c.get("custom_prompt") or "").strip()
+            if cp:
+                prompt = cp   # user tự sửa prompt -> dùng nguyên văn
             else:
-                prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style, text_color)
-            prompt += _ads_brand_clause(brand)
+                if key == "couple":
+                    prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
+                elif key in ADS_CONCEPT_N:
+                    names = ads_n_names(ADS_CONCEPT_N[key])
+                    prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
+                else:
+                    prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style, text_color)
+                prompt += _ads_brand_clause(brand)
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
             # cắt về ĐÚNG tỉ lệ user chọn (model chỉ ra vài size cố định)
             if HAS_PIL:
@@ -1731,7 +1735,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
             g = gallery_add(b64, {"mode": "ads", "prompt": label, "ads": adsmeta})
             return {"image": b64, "title": label, "concept": key, "name": name, "hook": hook,
-                    "aspect": asp, "bg": bg, "model": model, "gallery": g}
+                    "aspect": asp, "bg": bg, "model": model, "gallery": g, "prompt": prompt}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
         except Exception as e:
@@ -5470,7 +5474,8 @@ class Handler(BaseHTTPRequestHandler):
             if c.get("ref"):
                 rb, _ = fetch_image_bytes(c["ref"])
                 ref = rb
-            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200]})
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
+                         "custom_prompt": (c.get("custom_prompt") or "").strip()[:4000]})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
         engine = resolve_engine_id(body)

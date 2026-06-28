@@ -561,6 +561,28 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: Tạo lại ảnh Ads (sửa prompt + tỉ lệ) ===== -->
+  <div class="zoom-modal hidden" id="adsRegenModal">
+    <div class="pn-box" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="adsRegenClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 8px">🔄 Tạo lại ảnh — sửa prompt &amp; tỉ lệ</h3>
+      <label class="field-label" style="margin-top:0">Tỉ lệ ảnh</label>
+      <select id="adsRegenAspect" class="input">
+        <option value="1:1">Vuông 1:1</option>
+        <option value="4:5">Dọc 4:5 (feed)</option>
+        <option value="9:16">Dọc 9:16 (story/reel)</option>
+        <option value="2:3">Dọc 2:3</option>
+        <option value="3:4">Dọc 3:4</option>
+        <option value="16:9">Ngang 16:9</option>
+        <option value="3:2">Ngang 3:2</option>
+      </select>
+      <label class="field-label">Câu prompt (sửa được)</label>
+      <textarea id="adsRegenPrompt" class="input" rows="10" style="font-size:12px;line-height:1.5;font-family:ui-monospace,Menlo,monospace"></textarea>
+      <p class="hint" style="margin:6px 0 0">Sửa prompt rồi bấm Tạo lại. Xoá trống = dùng lại prompt mặc định của concept.</p>
+      <button class="btn-primary sm" id="adsRegenGo" style="margin-top:10px;width:100%">🔄 Tạo lại ảnh</button>
+    </div>
+  </div>
+
   <!-- ===== MODAL: Kho ảnh style FB Ads ===== -->
   <div class="zoom-modal hidden" id="adsStyleModal">
     <div class="pn-box" onclick="event.stopPropagation()">
