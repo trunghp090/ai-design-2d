@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-adpost-board"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-headline-product"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4328,6 +4328,7 @@ class Handler(BaseHTTPRequestHandler):
                 "title": (body.get("title") or "Áo Thun In Tên").strip()[:100],
                 "caption": (body.get("caption") or "").strip(),
                 "link": (body.get("link") or "").strip(),
+                "product": (body.get("product") or "").strip()[:120],
                 "image_url": iu,
                 "status": "draft",
                 "created": time.time(),

@@ -4023,7 +4023,7 @@ function adsRenderAll() {
     else if (c._pushed !== undefined) pushLine = '<br><span class="hint" style="color:var(--violet)">✓ Đã đẩy FB Ads (PAUSED) · <a href="' + (c._pushed || "#") + '" target="_blank">Ads Manager →</a></span>';
     else if (c._pusherr) pushLine = '<br><span class="hint" style="color:#c00">✗ Đẩy lỗi: ' + c._pusherr.slice(0, 50) + '</span>';
     card.innerHTML =
-      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
+      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + (c._ptitle ? ' <span class="hint" style="color:var(--violet)">· 📦 ' + c._ptitle.replace(/</g, "&lt;").slice(0, 24) + (c._link ? ' 🔗' : '') + '</span>' : '') + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     const pick = card.querySelector(".ads-pick"); pick.checked = !!c._sel;
@@ -4472,16 +4472,17 @@ async function adpostAddFromAd(c, btn) {
   const url = c.url || (c.gallery && c.gallery.url);
   if (!url) { if (btn) alert("Ảnh này chưa lưu vào kho (không có URL công khai) — thử lại sau khi ảnh tạo xong."); return false; }
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
-  const title = (c.name || c._ptitle || adsAutoName2 || "Áo Thun In Tên").slice(0, 100);
+  const title = (c.name || "Áo Thun In Tên").slice(0, 100);   // = HEADLINE FB Ads, mặc định Áo Thun In Tên
+  const product = c._ptitle || adsAutoName2 || "";            // SP gốc (chỉ để biết ảnh thuộc SP nào)
   const link = c._link || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
-  let caption = "🔥 " + title + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
+  let caption = "🔥 " + (product || title) + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
   try {
     const src = c.image ? "data:image/png;base64," + c.image : url;
     const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
     const d = await r.json(); if (r.ok && (d.facebook || "").trim()) caption = d.facebook.trim();
   } catch (e) {}
   try {
-    const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, image_url: url }) });
+    const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, product: product, image_url: url }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài Ads"; }, 1500); }
     return true;
@@ -4518,7 +4519,7 @@ async function adpostLoad() {
 function adpostRender(items) {
   const box = $("adpostList");
   if (!items.length) { box.innerHTML = ""; return; }
-  let h = '<table class="admgr-tbl"><thead><tr><th></th><th>Ảnh</th><th>Tiêu đề</th><th>Mô tả</th><th>Link SP</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+  let h = '<table class="admgr-tbl"><thead><tr><th></th><th>Ảnh / SP</th><th>Tiêu đề <span class="hint">(= headline)</span></th><th>Mô tả</th><th>Link SP</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
   items.forEach(it => {
     const st = ADPOST_ST[it.status] || ["?", ""];
     const res = it.result || {};
@@ -4527,7 +4528,7 @@ function adpostRender(items) {
       : (it.status === "error" ? '<span class="gen-note err" style="margin:0;font-size:11px">✗ ' + (res.error || "").slice(0, 50) + '</span>' : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>');
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
-      '<td><img src="' + it.image_url + '" style="width:56px;height:70px;object-fit:cover;border-radius:8px" loading="lazy"></td>' +
+      '<td><img src="' + it.image_url + '" style="width:56px;height:70px;object-fit:cover;border-radius:8px" loading="lazy">' + (it.product ? '<div class="hint" style="max-width:64px;font-size:10px;line-height:1.2;margin-top:2px">📦 ' + (it.product || "").slice(0, 30) + '</div>' : '') + '</td>' +
       '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
       '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
       '<td><input class="input adpost-f" data-f="link" value="' + (it.link || "").replace(/"/g, "&quot;") + '" placeholder="link SP…" style="width:150px;padding:6px 8px;font-size:12px"></td>' +
