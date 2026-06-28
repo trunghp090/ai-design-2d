@@ -1019,7 +1019,7 @@
         <div class="auto-row" style="margin-top:12px">
           <div>
             <label class="field-label">Giá mặc định (VND)</label>
-            <input type="text" id="shopPrice" class="input" value="269000" placeholder="VD: 269000" />
+            <input type="text" id="shopPrice" class="input" value="219000" placeholder="VD: 219000" />
           </div>
           <div>
             <label class="field-label">Trạng thái</label>
@@ -1068,7 +1068,12 @@
         <label class="ds-check" style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer">
           <input type="checkbox" id="shopUseSizes" checked /> Tạo biến thể Size cho mỗi sản phẩm
         </label>
-        <input type="text" id="shopSizes" class="input" style="margin-top:6px" placeholder="Các size, cách nhau dấu phẩy" value="S, M, L, XL, XXL" />
+        <input type="text" id="shopSizes" class="input" style="margin-top:6px" placeholder="Các size, cách nhau dấu phẩy" value="1, 2, 3, 4, 5, 6, S, M, L, XL, XXL" />
+
+        <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:8px;font-size:13px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="shopPerSizePrice" /> 💵 Đặt giá riêng theo từng size
+        </label>
+        <div id="shopSizePriceBox" class="hidden" style="margin-top:6px"></div>
 
         <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer">
           <input type="checkbox" id="shopAi" checked /> 🤖 AI nhận style + viết mô tả SEO + tag từ ảnh. Tên theo công thức: <b>Áo Thun in Tên + Style + MS + RIENGVN</b> (để trống ô tên = dùng công thức)

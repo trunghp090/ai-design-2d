@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.26-fb-post-test"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.26-shop-size-prices"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3693,7 +3693,7 @@ class Handler(BaseHTTPRequestHandler):
             perms = [p["permission"] for p in (d.get("data") or []) if p.get("status") == "granted"]
             return self.json(200, {"perms": perms, "can_ads": "ads_management" in perms,
                                    "can_post": "pages_manage_posts" in perms})
-        if path == "/api/fb-post-test":
+        if path == "/api/shop-size-prices":
             if not fb_configured():
                 return self.json(200, {"ok": False, "error": "chưa cấu hình"})
             ptok = fb_page_token()
@@ -4685,6 +4685,8 @@ class Handler(BaseHTTPRequestHandler):
         tmpl = (body.get("templateSuffix") or "").strip()
         def_desc = (body.get("description") or "").strip()
         sizes = [s for s in (body.get("sizes") or []) if str(s).strip()]
+        size_prices = {str(k).strip(): str(v).strip() for k, v in (body.get("size_prices") or {}).items()
+                       if str(v).strip()}   # giá riêng theo size (tuỳ chọn)
         size_chart = (body.get("sizeChart") or "").strip()
         coll_title = (body.get("collection") or "").strip()
         coll_id = None
@@ -4697,14 +4699,14 @@ class Handler(BaseHTTPRequestHandler):
         for it in items:
             try:
                 results.append(self._shopify_one(it, use_ai, ptype, vendor, category, tmpl,
-                                                 def_desc, sizes, size_chart, coll_id))
+                                                 def_desc, sizes, size_chart, coll_id, size_prices))
             except urllib.error.HTTPError as e:
                 results.append({"ok": False, "error": openai_error_message(e)})
             except Exception as e:
                 results.append({"ok": False, "error": str(e)})
         return self.json(200, {"results": results})
 
-    def _shopify_one(self, it, use_ai, ptype, vendor, category, tmpl, def_desc, sizes, size_chart, coll_id):
+    def _shopify_one(self, it, use_ai, ptype, vendor, category, tmpl, def_desc, sizes, size_chart, coll_id, size_prices=None):
         variants_in = [v for v in (it.get("variants") or []) if v.get("image")]
         if not variants_in:
             return {"ok": False, "error": "Sản phẩm không có ảnh."}
@@ -4767,7 +4769,8 @@ class Handler(BaseHTTPRequestHandler):
                               else {"optionName": "Màu", "name": c})
                 if s is not None:
                     ov.append({"optionName": "Size", "name": s})
-                vv = {"price": price}
+                vprice = (size_prices or {}).get(str(s), price)   # giá riêng theo size nếu có
+                vv = {"price": vprice}
                 if ov:
                     vv["optionValues"] = ov
                 gql_variants.append(vv)

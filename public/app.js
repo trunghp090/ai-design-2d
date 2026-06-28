@@ -2398,14 +2398,30 @@ function shopInit() {
   $("shopClear").onclick = () => { shopItems = []; shopRender(); };
   $("shopPush").onclick = shopPush;
   // đổi size/giá -> cập nhật bảng Color×Size preview
-  $("shopUseSizes").addEventListener("change", () => shopRender());
-  $("shopSizes").addEventListener("input", () => shopRender());
-  $("shopPrice").addEventListener("input", () => { if (!shopItems.some(it => it.price)) shopRender(); });
+  $("shopUseSizes").addEventListener("change", () => { shopRender(); shopRenderSizePrices(); });
+  $("shopSizes").addEventListener("input", () => { shopRender(); shopRenderSizePrices(); });
+  $("shopPrice").addEventListener("input", () => { if (!shopItems.some(it => it.price)) shopRender(); shopRenderSizePrices(); });
+  if ($("shopPerSizePrice")) $("shopPerSizePrice").addEventListener("change", (e) => { $("shopSizePriceBox").classList.toggle("hidden", !e.target.checked); shopRenderSizePrices(); });
   $("shopSizeFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) shopSetSizeChart(await fileToDataURL(f), f.name); e.target.value = ""; };
   const sz = $("shopSizeDrop");
   sz.addEventListener("dragover", e => { e.preventDefault(); sz.classList.add("drag"); });
   sz.addEventListener("dragleave", () => sz.classList.remove("drag"));
   sz.addEventListener("drop", async e => { e.preventDefault(); sz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) shopSetSizeChart(await fileToDataURL(f), f.name); });
+}
+let shopSizePrices = {};  // size -> giá riêng (khi bật "giá theo size")
+function shopRenderSizePrices() {
+  const box = $("shopSizePriceBox"); if (!box) return;
+  const on = $("shopPerSizePrice") && $("shopPerSizePrice").checked && $("shopUseSizes").checked;
+  if (!on) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  const sizes = ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean);
+  const def = ($("shopPrice").value || "").trim() || "219000";
+  box.innerHTML = sizes.map(s =>
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+    '<span style="width:46px;font-size:13px;font-weight:600">' + s.replace(/</g, "&lt;") + '</span>' +
+    '<input type="text" class="input shop-szp" data-sz="' + s.replace(/"/g, "&quot;") + '" style="flex:1;padding:5px 8px" placeholder="mặc định ' + def + '" value="' + (shopSizePrices[s] || "") + '">' +
+    '</div>').join("");
+  box.querySelectorAll(".shop-szp").forEach(inp => inp.oninput = (e) => { const v = e.target.value.trim(); if (v) shopSizePrices[e.target.dataset.sz] = v; else delete shopSizePrices[e.target.dataset.sz]; });
 }
 let shopSizeChart = "";   // dataURL ảnh bảng size dùng chung
 function shopSetSizeChart(durl, name) {
@@ -2630,6 +2646,7 @@ async function shopPush() {
         sizes: $("shopUseSizes").checked
           ? ($("shopSizes").value || "").split(",").map(s => s.trim()).filter(Boolean)
           : [],
+        size_prices: ($("shopPerSizePrice") && $("shopPerSizePrice").checked) ? shopSizePrices : {},
         items: shopItems.map(it => ({ title: it.title, description: it.description, price: it.price, status: it.status, cover: it.cover || 0, coverImage: it.coverImage || "", variants: (it.variants || []).map(v => ({ image: v.image, color: v.color })) })),
       }),
     });
