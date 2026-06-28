@@ -4850,14 +4850,14 @@ async function namedesInit() {
 async function namedesSuggest() {
   try {
     const d = await (await fetch("/api/name-suggest")).json();
-    $("ndName").value = d.name || "";
+    $("ndName").value = d.name || ""; if ($("ndStamp")) $("ndStamp").value = d.stamp || "";
   } catch (e) {}
 }
 async function namedesGenerate() {
   const note = $("ndNote"); note.className = "gen-note"; note.textContent = "";
   const name = ($("ndName").value || "").trim();
   if (!name) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập tên (hoặc bấm 🎲 Gợi ý)."; return; }
-  const body = { name: name, stamp: "", style: "auto", n: +$("ndN").value, transparent: $("ndTransparent").checked };
+  const body = { name: name, stamp: ($("ndStamp") && $("ndStamp").value || "").trim(), style: "auto", n: +$("ndN").value, transparent: $("ndTransparent").checked };
   $("ndRun").disabled = true;
   try {
     const r = await fetch("/api/name-design", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

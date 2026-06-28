@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-ai-freeform"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-vn-name-year"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3974,25 +3974,26 @@ NAME_STYLES = {
     "minimal": ("⚪ Minimalist", "clean MINIMALIST modern typography — an elegant thin script or simple sans-serif, monochrome, lots of negative space, \"{stamp}\" very small and subtle"),
     "couple_heart": ("💞 Couple Heart", "a small photo-frame heart at the top, the name in a clean rounded font below, a tiny tagline, soft modern romantic vibe, \"{stamp}\" under the name"),
 }
-EN_NAMES = ["Jackson", "Emma", "Liam", "Olivia", "Noah", "Ava", "Mason", "Sophia", "Ethan",
-            "Isabella", "Lucas", "Mia", "Logan", "Amelia", "Aiden", "Harper", "James", "Evelyn",
-            "Oliver", "Luna", "Benjamin", "Charlotte", "Elijah", "Grace", "Henry", "Chloe", "Leo",
-            "Zoe", "Owen", "Lily", "Wyatt", "Hannah", "Nora", "Ryan", "Ella", "Aria", "Dylan",
-            "Scarlett", "Hunter", "Violet", "Stella", "Brooklyn", "Mateo", "Hazel", "Sebastian"]
+VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm", "Phương Linh", "Bảo Ngọc",
+            "Minh Khôi", "Thu Hà", "Gia Bảo", "Lê Phương", "Trần Hoà", "Nguyễn An", "Quỳnh Như",
+            "Tuấn Kiệt", "Mai Chi", "Khánh Vy", "Hải Đăng", "Thanh Trúc", "Anh Thư", "Bảo Trâm",
+            "Đăng Khoa", "Phương Anh", "Ngọc Diệp", "Hữu Phước", "Tường Vy", "Quốc Bảo", "Diễm My",
+            "Nhật Minh", "Cẩm Tú", "Gia Hân", "Đình Phong", "Thảo Nguyên", "Hoàng Yến", "Trí Dũng"]
 
 
 def name_suggest():
-    return random.choice(EN_NAMES), ""   # chỉ gợi ý TÊN, không EST/năm
+    return random.choice(VN_NAMES), "EST %d" % random.randint(1995, 2012)   # AI gợi ý tên Việt + năm
 
 
 def name_design_prompt(name, stamp, style_key):
     label, frag = NAME_STYLES.get(style_key, NAME_STYLES["globe"])
     frag = frag.replace("{stamp}", stamp or "")
     return ("A flat VECTOR T-SHIRT PRINT DESIGN (artwork / graphic ONLY — NOT a t-shirt mockup, NOT a "
-            "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design for the global "
-            "(Etsy/US) custom-name t-shirt niche. The MAIN focal element is the first name \""
+            "person, NOT a photo of a shirt). It is a personalised CUSTOM-NAME tee design in the "
+            "custom-name t-shirt niche style. The MAIN focal element is the Vietnamese name \""
             + name + "\" rendered as large stylised lettering in this exact style: " + frag + ". "
-            "Spell the name EXACTLY \"" + name + "\"; do NOT add any other name or words. Centered, "
+            "Spell the name EXACTLY \"" + name + "\" with correct Vietnamese diacritics; do NOT add any "
+            "other name. Centered, "
             "balanced composition on a PLAIN PURE WHITE background, crisp clean PRINT-READY vector "
             "artwork, BOLD HIGH-CONTRAST, ready to screen-print on a t-shirt. No mockup, no shirt, no "
             "human, no watermark.")
@@ -4001,7 +4002,8 @@ def name_design_prompt(name, stamp, style_key):
 _NAME_AI_SUFFIX = (" IMPORTANT: render as a FLAT VECTOR t-shirt PRINT design, ARTWORK ONLY — NOT a "
                    "t-shirt mockup, NOT a person, NOT a photo of a shirt. Centered, balanced composition "
                    "on a PLAIN PURE WHITE background, crisp clean PRINT-READY vector, bold high-contrast. "
-                   "Spell the name EXACTLY as given; no other names, no watermark.")
+                   "Spell the name EXACTLY as given with correct Vietnamese diacritics; no other names, "
+                   "no watermark.")
 
 
 def name_concepts(name, stamp, n):
@@ -4013,16 +4015,17 @@ def name_concepts(name, stamp, n):
            "up-to-date knowledge of what name designs are BEST-SELLING and trending in this niche right "
            "now. Use YOUR OWN expert judgement to create the most commercial, on-trend, giftable name "
            "graphics — YOU freely decide the styles, typography, colours and decorative elements that "
-           "will sell best. Names are English first names. Keep designs high-contrast and print-ready.")
+           "will sell best. The name is a VIETNAMESE name (keep its exact spelling and diacritics). Keep "
+           "designs high-contrast and print-ready.")
+    acc = (' Add the small accent text "%s" as a tasteful sub-element.' % stamp) if stamp else ""
     user = ("Design %d DISTINCT, best-selling, on-trend CUSTOM-NAME t-shirt PRINT designs whose single "
-            "HERO element is the first name \"%s\" (the name is the focal point — do NOT add a year, "
-            "date, 'EST', tagline or any other text unless your concept truly needs it). Use your expert "
-            "knowledge of the niche — pick whatever styles you judge will sell best right now, make them "
-            "genuinely DIFFERENT from each other, and let the name's vibe guide you. For EACH, write a "
-            "detailed English IMAGE-GENERATION prompt for a flat vector print artwork on a pure white "
-            "background (typography style, exact colours, decorative elements, layout). Return strict "
-            "JSON: {\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed "
-            "prompt>\"}]} with EXACTLY %d items." % (n, name, n))
+            "HERO element is the Vietnamese name \"%s\".%s Use your expert knowledge of the niche — pick "
+            "whatever styles you judge will sell best right now, make them genuinely DIFFERENT from each "
+            "other, and let the name's vibe guide you. For EACH, write a detailed English "
+            "IMAGE-GENERATION prompt for a flat vector print artwork on a pure white background "
+            "(typography style, exact colours, decorative elements, layout). Return strict JSON: "
+            "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
+            "with EXACTLY %d items." % (n, name, acc, n))
     try:
         out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
                           json_mode=True, max_tokens=2200, model=BEST_TEXT_MODEL)
