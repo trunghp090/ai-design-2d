@@ -626,8 +626,21 @@ function showApp(app) {
   if (app === "shoplist") shoplistInit();
   if (app === "autopipe") apInit();
   if (app === "post") postInit();
+  // đồng bộ nhóm lớn theo tab đang mở (kể cả khi showApp gọi từ nơi khác)
+  const tabEl = document.querySelector('.app-tab[data-app="' + app + '"]');
+  if (tabEl) showGroup(tabEl.dataset.group, true);
+}
+function showGroup(g, keepApp) {
+  document.querySelectorAll(".app-group").forEach(b => b.classList.toggle("active", b.dataset.group === g));
+  document.querySelectorAll(".app-tab").forEach(t => t.classList.toggle("ghidden", t.dataset.group !== g));
+  if (!keepApp) {
+    const first = document.querySelector('.app-tab[data-group="' + g + '"]');
+    if (first) showApp(first.dataset.app);
+  }
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
+document.querySelectorAll(".app-group").forEach(b => b.onclick = () => showGroup(b.dataset.group));
+showGroup("design", true);
 
 /* =====================================================================
    TÍNH NĂNG: AUTO RESEARCH (độc lập — có upload/niche/kết quả riêng)
