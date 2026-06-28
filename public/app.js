@@ -4495,8 +4495,29 @@ function adpostInit() {
     adpostInited = true;
     $("adpostPushBtn").onclick = adpostBatchPush;
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
+    if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
+    adpostLoadCampaigns();
   }
   adpostLoad();
+}
+async function adpostLoadCampaigns() {
+  const sel = $("adpostCampaign"); if (!sel) return;
+  try {
+    const d = await (await fetch("/api/fb-campaigns")).json();
+    sel.innerHTML = '<option value="">➕ Tạo chiến dịch mới</option>';
+    (d.campaigns || []).forEach(c => { const o = document.createElement("option"); o.value = c.id; o.textContent = (c.name || c.id).slice(0, 40) + (c.status === "PAUSED" ? " (dừng)" : ""); sel.appendChild(o); });
+  } catch (e) {}
+  adpostOnCampaignChange();
+}
+async function adpostOnCampaignChange() {
+  const cid = $("adpostCampaign").value, sel = $("adpostAdset");
+  sel.innerHTML = '<option value="">➕ Tạo nhóm mới</option>';
+  if (cid) {
+    try {
+      const d = await (await fetch("/api/fb-adsets?campaign_id=" + encodeURIComponent(cid))).json();
+      (d.adsets || []).forEach(a => { const o = document.createElement("option"); o.value = a.id; o.textContent = (a.name || a.id).slice(0, 36); sel.appendChild(o); });
+    } catch (e) {}
+  }
 }
 const ADPOST_ST = { draft: ["⚪ Nháp", ""], pushing: ["⏳ Đang đẩy", ""], pushed: ["✓ Đã đẩy", "ok"], error: ["✗ Lỗi", "err"] };
 async function adpostLoad() {
@@ -4563,7 +4584,9 @@ async function adpostBatchPush() {
   if (!confirm(warn)) return;
   const btn = $("adpostPushBtn"); btn.disabled = true;
   try {
-    const r = await fetch("/api/adpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, gap: gap, daily_budget: budget, active: active }) });
+    const campaign_id = ($("adpostCampaign") && $("adpostCampaign").value) || "";
+    const adset_id = ($("adpostAdset") && $("adpostAdset").value) || "";
+    const r = await fetch("/api/adpost-push-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: ids, gap: gap, daily_budget: budget, active: active, campaign_id: campaign_id, adset_id: adset_id }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     const n = $("adpostNote"); n.className = "gen-note"; n.textContent = "⏳ Bắt đầu đẩy " + ids.length + " bài (" + (active ? "CHẠY NGAY" : "Tạm dừng") + "), giãn cách " + d.gap + "s…";
     adpostLoad();
