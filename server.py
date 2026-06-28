@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-oversize-textcolor"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.28-no-sizechart"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5368,13 +5368,7 @@ class Handler(BaseHTTPRequestHandler):
                 pos += 1
         # ảnh variant được chọn (featured nếu không có ảnh bìa riêng)
         attach(variants_in[order[0]], pos); pos += 1
-        # bảng size đặt ngay sau ảnh bìa
-        chart = size_chart or shop_default_size_chart()
-        if chart:
-            b = chart.split(",", 1)[1] if chart.startswith("data:") else chart
-            shopify_api("POST", "products/%d/images.json" % pid,
-                        {"image": {"attachment": b, "position": pos, "alt": "Bảng size"}})
-            pos += 1
+        # (KHÔNG còn tự thêm ảnh bảng size vào media — chỉ ảnh áo)
         for i in order[1:]:
             attach(variants_in[i], pos); pos += 1
 
