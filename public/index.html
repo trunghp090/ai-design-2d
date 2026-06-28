@@ -561,19 +561,6 @@
     </div>
   </div>
 
-  <!-- ===== MODAL: Tạo ảnh Ads cho NHIỀU SP ===== -->
-  <div class="zoom-modal hidden" id="adsMultiModal">
-    <div class="pn-box" onclick="event.stopPropagation()">
-      <button class="zoom-close" id="adsMultiClose" style="position:absolute;top:8px;right:8px">✕</button>
-      <h3 style="margin:0 0 4px">📦 Tạo ảnh Ads cho nhiều sản phẩm</h3>
-      <p class="hint" style="margin:0 0 8px">Tick các SP cần chạy + chọn sẵn <b>concept</b> ở panel trái. Mỗi SP sẽ tạo ảnh cho từng concept đã tick. Tạo xong bấm <b>➕ Bài Ads</b> trên mỗi ảnh để đưa sang Bảng bài.</p>
-      <input type="text" id="adsMultiSearch" class="input" placeholder="🔎 Tìm SP…" />
-      <div class="ads-style-grid" id="adsMultiGrid" style="max-height:320px;margin-top:10px"></div>
-      <p class="gen-note" id="adsMultiNote" style="margin-top:6px"></p>
-      <button class="btn-primary sm" id="adsMultiGen" style="margin-top:8px;width:100%">🎨 Tạo ảnh cho SP đã chọn</button>
-    </div>
-  </div>
-
   <!-- ===== MODAL: Kho ảnh style FB Ads ===== -->
   <div class="zoom-modal hidden" id="adsStyleModal">
     <div class="pn-box" onclick="event.stopPropagation()">
@@ -1211,6 +1198,17 @@
         <input type="file" id="adsDesignFile" accept="image/*" hidden />
         <button class="btn-ghost sm" id="adsDesignFromShop" style="margin-top:6px">🛍️ Chọn design từ SP Shopify</button>
         <button class="btn-ghost sm" id="adsMultiBtn" style="margin-top:6px">📦 Tạo ảnh cho NHIỀU SP cùng lúc</button>
+        <div id="adsMultiInline" class="hidden" style="margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fdf8f9">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:700">📦 Chọn nhiều SP (tick)</span>
+            <button class="btn-ghost sm" id="adsMultiClose">✕ Đóng</button>
+          </div>
+          <p class="hint" style="margin:0 0 6px">Tick SP + chọn sẵn concept. Mỗi SP tạo ảnh cho từng concept. Tạo xong bấm ➕ Bài Ads để đưa sang Bảng bài.</p>
+          <input type="text" id="adsMultiSearch" class="input" placeholder="🔎 Tìm SP…" style="padding:6px 8px" />
+          <div class="ads-style-grid" id="adsMultiGrid" style="max-height:240px;margin-top:8px"></div>
+          <p class="gen-note" id="adsMultiNote" style="margin:6px 0 0"></p>
+          <button class="btn-primary sm" id="adsMultiGen" style="margin-top:8px;width:100%">🎨 Tạo ảnh cho SP đã chọn</button>
+        </div>
 
         <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
         <select id="adsEngine" class="input"></select>

@@ -3580,8 +3580,8 @@ function adsInit() {
   // pick design từ SP Shopify
   if ($("adsDesignFromShop")) $("adsDesignFromShop").onclick = () => { adsDesignPickTarget = "ads"; adsOpenDesignPick(); };
   if ($("adsDesignPickClose")) $("adsDesignPickClose").onclick = () => $("adsDesignPickModal").classList.add("hidden");
-  if ($("adsMultiBtn")) $("adsMultiBtn").onclick = adsOpenMulti;
-  if ($("adsMultiClose")) $("adsMultiClose").onclick = () => $("adsMultiModal").classList.add("hidden");
+  if ($("adsMultiBtn")) $("adsMultiBtn").onclick = () => { const box = $("adsMultiInline"); if (box.classList.contains("hidden")) adsOpenMulti(); else box.classList.add("hidden"); };
+  if ($("adsMultiClose")) $("adsMultiClose").onclick = () => $("adsMultiInline").classList.add("hidden");
   if ($("adsMultiSearch")) $("adsMultiSearch").oninput = (e) => adsRenderMulti(e.target.value);
   if ($("adsMultiGen")) $("adsMultiGen").onclick = adsMultiGen;
   if ($("adsSendBoard")) $("adsSendBoard").onclick = adpostAddSelected;
@@ -4597,7 +4597,7 @@ async function adpostBatchPush() {
 /* ---- Tạo ảnh Ads cho NHIỀU sản phẩm cùng lúc ---- */
 let adsMultiProducts = [], adsMultiSel = new Set();
 async function adsOpenMulti() {
-  $("adsMultiModal").classList.remove("hidden");
+  $("adsMultiInline").classList.remove("hidden");
   adsMultiSel = new Set();
   const grid = $("adsMultiGrid"); grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Đang tải sản phẩm…</p>';
   $("adsMultiNote").textContent = "";
@@ -4642,7 +4642,7 @@ function adsMultiGen() {
     const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên" };
     cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, false, ctx); launched++; });
   });
-  $("adsMultiModal").classList.add("hidden");
+  $("adsMultiInline").classList.add("hidden");
   $("adsProgress") && $("adsProgress").classList.remove("hidden");
   const note = $("adsNote"); note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + launched + " ảnh ads cho " + chosen.length + " SP (nhiều luồng)…";
 }
