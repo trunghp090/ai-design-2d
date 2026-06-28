@@ -2692,7 +2692,7 @@ async function shoplistLoad() {
         (p.image ? '<img src="' + p.image + '" alt="">' : '<div class="sl-noimg">No image</div>') +
         '<div class="gmeta" title="' + (p.title || "").replace(/"/g, "&quot;") + '">' + (p.title || "Sản phẩm") + '</div>' +
         '<div class="sl-info">' + stt + ' · ' + p.variants + ' variant' + (price ? ' · ' + price : '') + '</div>' +
-        '<div class="gacts"><button class="b-ads">📣 Tạo Ads</button><button class="b-edit">✏️ Sửa</button><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
+        '<div class="gacts"><button class="b-adspush">🚀 Lên Ads luôn</button><button class="b-fbpost">📘 FB Post</button><button class="b-ads">📣 Tạo Ads</button><button class="b-edit">✏️ Sửa</button><button class="b-prod">📸 Ảnh SP</button><button class="b-open">🌐 Xem trang bán</button><button class="b-img">🖼️ Ảnh</button><button class="b-admin" title="Mở trong admin Shopify">⚙</button><button class="b-del">🗑️ Xoá</button></div>';
       card.querySelector(".b-prod").onclick = () => {
         if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo."); return; }
         showApp("product");
@@ -2711,6 +2711,8 @@ async function shoplistLoad() {
       card.querySelector(".b-img").onclick = () => openImgUpdate(p);
       card.querySelector(".b-edit").onclick = () => openShopEdit(p);
       card.querySelector(".b-ads").onclick = () => adsFromProduct(p);
+      card.querySelector(".b-adspush").onclick = () => { if (confirm("Tạo ảnh ads + tự ĐẨY lên FB Ads (PAUSED) cho \"" + (p.title || "SP") + "\"?")) adsFromProduct(p, true); };
+      card.querySelector(".b-fbpost").onclick = () => fbpFromProduct(p);
       card.querySelector(".b-del").onclick = async (e) => {
         if (!confirm("Xoá sản phẩm \"" + (p.title || "") + "\" khỏi Shopify? (không hoàn tác)")) return;
         const btn = e.currentTarget; btn.disabled = true; btn.textContent = "⏳";
@@ -3661,16 +3663,32 @@ async function adsPickStyle(s) {
 }
 
 // ---- 1 NÚT: từ SP Shopify -> nạp design + gen ads luôn ----
-function adsFromProduct(p) {
+function adsFromProduct(p, autopush) {
   if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo ads."); return; }
   showApp("ads");                       // tự gọi adsInit
   adsProductLink = p.store_url || p.url || "";   // nhớ link SP để đẩy FB
+  adsAutoName2 = (p.title || "Áo Thun In Tên");
   setTimeout(() => {
     adsDesignImg = p.image; adsRenderDesign();
-    if (!adsSel.size) { adsSel.add("flatlay3"); adsRenderConcepts(); }   // mặc định 1 concept
-    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design từ \"" + (p.title || "SP") + "\" — đang tạo ads…"; }
-    adsGenerate();                       // gen luôn các concept đã tick
+    adsSel.clear(); adsSel.add("flatlay3"); adsRenderConcepts();   // mặc định 1 concept
+    const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design từ \"" + (p.title || "SP") + "\" — đang tạo ads" + (autopush ? " + tự đẩy lên FB Ads…" : "…"); }
+    adsGenerate(autopush);               // gen (+ tự đẩy nếu autopush)
   }, 150);
+}
+let adsAutoName2 = "";
+
+// Tự đẩy 1 ad lên FB Ads với cấu hình mặc định (campaign mới, 50k/ngày, VN 18-55)
+async function fbAutoPush(item) {
+  const src = item.image ? "data:image/png;base64," + item.image : item.url;
+  const link = adsProductLink || "https://rieng.vn";
+  const msg = "🔥 " + (item.name || adsAutoName2 || "Áo Thun In Tên") + " — cá nhân hoá theo tên riêng.\n👉 Đặt ngay tại rieng.vn!";
+  item._pushing = true; adsRenderAll();
+  try {
+    const r = await fetch("/api/fb-ads-push", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, link: link, message: msg, name: item.name || adsAutoName2, headline: item.name || adsAutoName2, daily_budget: 50000, cta: "SHOP_NOW", genders: [], age_min: 18, age_max: 55, campaign_id: "", adset_id: "" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    item._pushing = false; item._pushed = d.manager_url || "";
+  } catch (e) { item._pushing = false; item._pusherr = e.message; }
+  adsRenderAll();
 }
 
 // ---- Đẩy 1 ad lên Facebook Ads (tạo chiến dịch PAUSED) ----
@@ -3949,8 +3967,12 @@ function adsRenderAll() {
     if (c.aspect) mparts.push(c.aspect);
     if (c.bg) mparts.push("🖼️ " + c.bg);
     const meta = mparts.join(" · ");
+    let pushLine = "";
+    if (c._pushing) pushLine = '<br><span class="hint">⏳ Đang đẩy lên FB Ads…</span>';
+    else if (c._pushed !== undefined) pushLine = '<br><span class="hint" style="color:var(--violet)">✓ Đã đẩy FB Ads (PAUSED) · <a href="' + (c._pushed || "#") + '" target="_blank">Ads Manager →</a></span>';
+    else if (c._pusherr) pushLine = '<br><span class="hint" style="color:#c00">✗ Đẩy lỗi: ' + c._pusherr.slice(0, 50) + '</span>';
     card.innerHTML =
-      '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + '</div>' +
+      '<div class="fp-card-prompt">' + (c.title || "Ads") + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
@@ -3984,7 +4006,7 @@ function adsRegen(c) {
   const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "⏳ Đang tạo lại 1 ảnh ads…"; }
 }
 
-async function adsGenerate() {
+async function adsGenerate(autopush) {
   const note = $("adsNote"); note.className = "gen-note"; note.textContent = "";
   if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design trước."; return; }
   const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }));
@@ -3992,16 +4014,16 @@ async function adsGenerate() {
   const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
   const engine = ($("adsEngine") && $("adsEngine").value) || "";
   // MỖI concept = 1 LUỒNG riêng (chạy song song hết); bấm lại để thêm luồng
-  cons.forEach(c => adsLaunchOne(c, name, hook, engine));
-  note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads (nhiều luồng — bấm tiếp để chạy thêm).";
+  cons.forEach(c => adsLaunchOne(c, name, hook, engine, autopush));
+  note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads" + (autopush ? " + tự đẩy lên FB Ads (PAUSED)…" : " (nhiều luồng — bấm tiếp để chạy thêm).");
 }
 
-async function adsLaunchOne(con, name, hook, engine) {
+async function adsLaunchOne(con, name, hook, engine, autopush) {
   const lbl = (ADS_CONCEPTS.find(x => x.key === con.key) || {}).label || con.key;
   try {
     const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: adsDesignImg, name: name, hook: hook, engine: engine, aspect: ($("adsAspect") && $("adsAspect").value) || "4:5", quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [con] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl });
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4018,11 +4040,13 @@ function adsPoll(job) {
       while (placed < items.length) {
         const it = items[placed];
         const idx = adsItems.findIndex(c => c.loading && c.job === job);
+        const autopush = idx >= 0 && adsItems[idx].autopush;
         const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url,
                        concept: it.concept || "", name: it.name || "", hook: it.hook || "",
                        aspect: it.aspect || "", bg: it.bg || "", model: it.model || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
+        if (autopush) fbAutoPush(real);   // tự đẩy lên FB Ads
       }
       if (d.finished) {
         clearInterval(timer);
@@ -4042,6 +4066,18 @@ function adsPoll(job) {
    ===================================================================== */
 let fbpInited = false, fbpDesignImg = null, fbpStyle = {}, fbpBg = {}, fbpSel = new Set();
 let fbpItems = [], fbpProductLink = "", fbpPickKey = null, fbpPasteTo = "design";
+
+function fbpFromProduct(p) {
+  if (!p.image) { alert("Sản phẩm này chưa có ảnh."); return; }
+  showApp("fbpost");
+  fbpProductLink = p.store_url || p.url || "";
+  setTimeout(() => {
+    fbpDesignImg = p.image; fbpRenderDesign();
+    fbpSel.clear(); fbpSel.add("flatlay3"); fbpRenderConcepts();
+    const n = $("fbpNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design từ \"" + (p.title || "SP") + "\" — đang tạo bộ ảnh post…"; }
+    fbpGenerate();
+  }, 200);
+}
 
 function fbpInit() {
   if (fbpInited) return; fbpInited = true;
