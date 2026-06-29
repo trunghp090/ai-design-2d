@@ -3764,6 +3764,18 @@ function adsInit() {
   if ($("adsRegenGo")) $("adsRegenGo").onclick = adsRegenGo;
   if ($("adsSendBoard")) $("adsSendBoard").onclick = adpostAddSelected;
   if ($("adsPickAll")) $("adsPickAll").onchange = (e) => { adsItems.forEach(c => { if (!c.loading) c._sel = e.target.checked; }); adsRenderAll(); };
+  if ($("adsDelSel")) $("adsDelSel").onclick = async () => {
+    const sel = adsItems.filter(c => !c.loading && c._sel);
+    const note = $("adsNote");
+    if (!sel.length) { if (note) { note.className = "gen-note err"; note.textContent = "⚠️ Chưa chọn ảnh nào để xoá."; } return; }
+    if (!confirm("Xoá " + sel.length + " ảnh ads đã chọn?")) return;
+    for (const c of sel) { const gid = c.gallery && c.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }).catch(() => {}); }
+    adsItems = adsItems.filter(c => c.loading || !c._sel);
+    if ($("adsPickAll")) $("adsPickAll").checked = false;
+    adsRenderAll();
+    if (typeof loadGallery === "function") loadGallery();
+    if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã xoá " + sel.length + " ảnh."; }
+  };
   if ($("adsDesignPickModal")) $("adsDesignPickModal").onclick = (ev) => { if (ev.target.id === "adsDesignPickModal") $("adsDesignPickModal").classList.add("hidden"); };
   if ($("adsDesignPickSearch")) $("adsDesignPickSearch").oninput = (e) => adsRenderDesignPick(e.target.value);
   // modal đẩy FB Ads
@@ -4781,6 +4793,7 @@ function adpostInit() {
   if (!adpostInited) {
     adpostInited = true;
     $("adpostPushBtn").onclick = adpostBatchPush;
+    if ($("adpostDelSel")) $("adpostDelSel").onclick = adpostDelSelected;
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
     adpostLoadCampaigns();
@@ -4879,6 +4892,16 @@ async function adpostBatchPush() {
     adpostLoad();
   } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }
+}
+async function adpostDelSelected() {
+  const ids = [...document.querySelectorAll(".adpost-tick:checked")].map(t => t.value);
+  const n = $("adpostNote");
+  if (!ids.length) { if (n) { n.className = "gen-note err"; n.textContent = "✗ Chưa tick bài nào để xoá."; } return; }
+  if (!confirm("Xoá " + ids.length + " bài đã chọn khỏi bảng?")) return;
+  for (const id of ids) { await fetch("/api/adpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).catch(() => {}); }
+  if ($("adpostAll")) $("adpostAll").checked = false;
+  if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã xoá " + ids.length + " bài."; }
+  adpostLoad();
 }
 
 /* ---- Tạo ảnh Ads cho NHIỀU sản phẩm cùng lúc ---- */
