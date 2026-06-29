@@ -336,8 +336,8 @@
     <div class="auto-wrap">
       <!-- Cột nhập -->
       <section class="panel">
-        <h2 class="panel-title">🎨 Đổi màu theo áo</h2>
-        <p class="panel-desc">Giữ nguyên hình/chữ/bố cục, AI <b>phối lại màu</b> của design cho hợp & rõ trên từng màu áo.</p>
+        <h2 class="panel-title">🎨 Đổi màu theo prompt</h2>
+        <p class="panel-desc">Giữ nguyên hình/chữ/bố cục — bạn <b>tự viết yêu cầu</b>: design đang trên nền gì, đổi cho hợp áo màu gì, giữ/đổi màu nào.</p>
 
         <label class="field-label">Design cần đổi màu</label>
         <label class="dropzone" id="recolorDrop">
@@ -350,8 +350,9 @@
         <button class="btn-ghost sm" id="recolorPaste" style="margin-top:8px">📋 Dán ảnh</button>
         <div class="thumb-row" id="recolorThumbs"></div>
 
-        <label class="field-label">Chọn màu áo</label>
-        <div class="color-chips" id="recolorChips"></div>
+        <label class="field-label" style="margin-top:12px">✏️ Prompt đổi màu (bạn tự viết)</label>
+        <textarea id="recolorPrompt" class="input" rows="3" placeholder="VD: Design đang trên nền trắng. Phối lại cho hợp áo ĐEN, giữ nguyên màu chữ navy, đổi viền và bông tuyết sang trắng/xanh nhạt cho nổi."></textarea>
+        <p class="hint" style="margin-top:5px">Ghi rõ: nền hiện tại · áo màu gì · giữ/đổi màu nào · phong cách.</p>
 
         <label class="field-label" style="margin-top:12px">Tỉ lệ</label>
         <select id="recolorSize" class="input">
@@ -360,7 +361,7 @@
           <option value="landscape">Ngang</option>
         </select>
 
-        <label class="field-label" style="margin-top:12px">Số bản phối / mỗi màu áo</label>
+        <label class="field-label" style="margin-top:12px">Số bản phối</label>
         <select id="recolorCount" class="input">
           <option value="1">1 bản</option>
           <option value="2">2 bản</option>
@@ -374,10 +375,7 @@
         <div class="color-chips" id="recolorBgPresets"></div>
         <p class="hint" style="margin-top:6px">Chỉ để XEM. File lưu/tải là PNG nền trong suốt để in.</p>
 
-        <label class="field-label" style="margin-top:12px">✏️ Yêu cầu thêm (tuỳ chọn)</label>
-        <input type="text" id="recolorReq" class="input" placeholder="VD: chữ màu vàng gold · giữ nguyên màu logo · tránh màu hồng…" />
-
-        <button class="btn-primary" id="recolorRunBtn" style="margin-top:12px">🎨 Đổi màu theo áo đã chọn</button>
+        <button class="btn-primary" id="recolorRunBtn" style="margin-top:14px">🎨 Đổi màu theo prompt</button>
         <p class="gen-note" id="recolorNote"></p>
       </section>
 

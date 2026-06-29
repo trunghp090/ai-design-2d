@@ -833,7 +833,8 @@ let recolorImg = null;            // dataURL design đầu vào
 const recolorPicked = new Set(["black", "white"]); // mặc định chọn cả 2
 
 function recolorRenderChips() {
-  const box = $("recolorChips"); box.innerHTML = "";
+  const box = $("recolorChips"); if (!box) return;   // tab đổi màu giờ dùng prompt, bỏ chip
+  box.innerHTML = "";
   RECOLOR_LIST.forEach(c => {
     const el = document.createElement("div");
     el.className = "cchip" + (recolorPicked.has(c.key) ? " on" : "");
@@ -915,7 +916,7 @@ const RECOLOR_BG = [
   { id: "sunset",label: "Hoàng hôn",   kind: "grad", c1: "#ffe29f", c2: "#ff719a", dir: "d" },
   { id: "mint",  label: "Mint",        kind: "grad", c1: "#d9fff0", c2: "#a8e6cf", dir: "v" },
 ];
-let recolorBg = "shirt";        // preset đang chọn
+let recolorBg = "none";         // preset xem trước (mặc định trong suốt — prompt mode)
 let recolorItems = [];          // kết quả tách nền từ server
 
 function recolorRenderBgPresets() {
@@ -1101,51 +1102,43 @@ $("recolorDownloadSel").onclick = async () => {
 $("recolorRunBtn").onclick = async () => {
   const note = $("recolorNote"); note.className = "gen-note"; note.textContent = "";
   if (!recolorImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải design hoặc bấm 'Dùng design đang mở'."; return; }
-  if (!recolorPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 màu áo."; return; }
+  const prompt = ($("recolorPrompt") && $("recolorPrompt").value || "").trim();
+  if (!prompt) { note.className = "gen-note err"; note.textContent = "⚠️ Viết prompt đổi màu (áo màu gì · nền nào · giữ/đổi màu nào)."; return; }
   $("recolorEmpty").classList.add("hidden");
-  const colors = [...recolorPicked];
-  const userNote = ($("recolorReq") && $("recolorReq").value || "").trim();
   const size = $("recolorSize").value;
-  const N = Math.max(1, Math.min(parseInt($("recolorCount") && $("recolorCount").value, 10) || 4, 6));   // số bản / mỗi màu áo
+  const N = Math.max(1, Math.min(parseInt($("recolorCount") && $("recolorCount").value, 10) || 4, 6));   // số bản
   const VNOTES = recolorVariantNotes(N);
-  $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang tạo ' + (N * colors.length) + ' bản (' + N + ' bản × ' + colors.length + ' màu áo) — song song, hiện dần…</div>';
+  $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang tạo ' + N + ' bản theo prompt — song song, hiện dần…</div>';
   const allItems = [];
   let okCnt = 0, errCnt = 0;
   const jobs = [];
-  colors.forEach(colorKey => {
-    for (let k = 0; k < N; k++) {
-      jobs.push((async (ck, vi) => {
-        const vid = RECOLOR_LIST.find(c => c.key === ck);
-        const cvi = vid ? vid.vi : ck;
-        const tid = loadTaskAdd("🎨 Áo " + cvi + " — bản " + (vi + 1) + "/" + N + "…");
-        try {
-          const r = await fetch("/api/recolor", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              image: recolorImg, colors: [ck], size: size,
-              note: (userNote ? userNote + " " : "") + VNOTES[vi],
-            }),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.error || "Lỗi");
-          const it = (data.items || [])[0];
-          if (!it || !it.image) throw new Error("AI không trả kết quả.");
-          it.title = "Áo " + cvi + " · bản " + (vi + 1);
-          allItems.push(it); okCnt++;
-          await recolorRender(allItems.slice());     // hiện dần
-          loadTaskDone(tid, true, "✓ Áo " + cvi + " bản " + (vi + 1));
-        } catch (e) {
-          errCnt++; loadTaskDone(tid, false, "✕ Áo " + cvi + " bản " + (vi + 1) + ": " + e.message);
-        }
-        note.className = "gen-note"; note.textContent = "🎨 Đã xong " + okCnt + "/" + (N * colors.length) + " bản…";
-      })(colorKey, k));
-    }
-  });
+  for (let k = 0; k < N; k++) {
+    jobs.push((async (vi) => {
+      const tid = loadTaskAdd("🎨 Bản " + (vi + 1) + "/" + N + "…");
+      try {
+        const r = await fetch("/api/recolor", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: recolorImg, prompt: prompt, size: size, note: (N > 1 ? VNOTES[vi] : "") }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Lỗi");
+        const it = (data.items || [])[0];
+        if (!it || !it.image) throw new Error("AI không trả kết quả.");
+        it.title = "Bản " + (vi + 1);
+        allItems.push(it); okCnt++;
+        await recolorRender(allItems.slice());     // hiện dần
+        loadTaskDone(tid, true, "✓ Bản " + (vi + 1));
+      } catch (e) {
+        errCnt++; loadTaskDone(tid, false, "✕ Bản " + (vi + 1) + ": " + e.message);
+      }
+      note.className = "gen-note"; note.textContent = "🎨 Đã xong " + okCnt + "/" + N + " bản…";
+    })(k));
+  }
   await Promise.all(jobs);
   if (!allItems.length) {
     $("recolorResults").innerHTML = "";
     $("recolorEmpty").classList.remove("hidden");
-    $("recolorEmpty").textContent = "✗ Đổi màu lỗi cả " + (N * colors.length) + " bản.";
+    $("recolorEmpty").textContent = "✗ Đổi màu lỗi cả " + N + " bản.";
     note.className = "gen-note err"; note.textContent = "✗ Không tạo được bản nào.";
     return;
   }

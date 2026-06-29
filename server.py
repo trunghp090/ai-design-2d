@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-recolor-simple"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-recolor-prompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5875,18 +5875,40 @@ class Handler(BaseHTTPRequestHandler):
         img_src = body.get("image", "")
         if not img_src:
             return self.json(400, {"error": "Chưa có design đầu vào để đổi màu."})
+        user_prompt = (body.get("prompt") or "").strip()[:800]   # prompt tự viết của user
         colors = [c for c in (body.get("colors") or []) if c in RECOLOR]
-        if not colors:
-            return self.json(400, {"error": "Hãy chọn ít nhất 1 màu áo."})
+        if not user_prompt and not colors:
+            return self.json(400, {"error": "Viết prompt đổi màu, hoặc chọn màu áo."})
         size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
-        note = (body.get("note") or "").strip()[:400]   # yêu cầu thêm của user
+        note = (body.get("note") or "").strip()[:400]   # gợi ý đa dạng giữa các bản
 
         d, m = fetch_image_bytes(img_src)
         if not d:
             return self.json(400, {"error": "Không đọc được ảnh design."})
         img = [(d, m)]
-
         bg = detect_bg_desc(d)   # nền hiện tại của design (đọc góc ảnh)
+
+        # ===== CHẾ ĐỘ PROMPT TỰ VIẾT (user gõ yêu cầu) =====
+        if user_prompt:
+            base = ("This is my t-shirt print design, currently shown on a %s background. "
+                    "Keep the design IDENTICAL — same text, fonts, layout, decorations and "
+                    "proportions — only change the COLOURS as requested below. "
+                    "USER REQUEST: %s. " % (bg, user_prompt))
+            if note:
+                base += note + " "
+            base += ("Output ONLY the artwork on a plain pure-white empty background (no shirt) "
+                     "so it cuts out cleanly.")
+            try:
+                b64, _ = gen_design(img, "cloner", base, size, True, quality="high")
+                b64 = preserve_alpha(d, b64)
+                g = gallery_add(b64, {"mode": "recolor", "prompt": user_prompt[:80]})
+                return self.json(200, {"items": [{"image": b64, "title": "Bản phối",
+                                       "gallery": g}], "errors": []})
+            except urllib.error.HTTPError as e:
+                return self.json(502, {"error": openai_error_message(e)})
+            except Exception as e:
+                return self.json(500, {"error": "Đổi màu lỗi: %s" % e})
+
         items, errors = [], []
         for key in colors:
             vi, hexv = RECOLOR[key][0], RECOLOR[key][1]
