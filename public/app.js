@@ -1051,32 +1051,55 @@ $("recolorRunBtn").onclick = async () => {
   if (!recolorImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải design hoặc bấm 'Dùng design đang mở'."; return; }
   if (!recolorPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 màu áo."; return; }
   $("recolorEmpty").classList.add("hidden");
-  $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang phối lại màu cho ' + recolorPicked.size + ' màu áo… (≈30–60 giây/màu)</div>';
-  const tid = loadTaskAdd("🎨 Đổi màu " + recolorPicked.size + " màu áo…");
-  try {
-    const r = await fetch("/api/recolor", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        image: recolorImg,
-        colors: [...recolorPicked],
-        size: $("recolorSize").value,
-        note: ($("recolorReq") && $("recolorReq").value || "").trim(),
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
-    recolorRender(data.items || []);
-    note.className = "gen-note ok";
-    note.textContent = "✓ Đã đổi " + (data.items || []).length + " màu! Đã lưu vào Lịch sử.";
-    loadTaskDone(tid, true, "✓ Xong " + (data.items || []).length + " màu áo");
-    if (typeof loadGallery === "function") loadGallery();
-  } catch (err) {
+  const colors = [...recolorPicked];
+  const userNote = ($("recolorReq") && $("recolorReq").value || "").trim();
+  const size = $("recolorSize").value;
+  const N = CUT_RECOLOR_VARIANTS.length;   // 4 bản / mỗi màu áo
+  $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang tạo ' + (N * colors.length) + ' bản (' + N + ' bản × ' + colors.length + ' màu áo) — song song, hiện dần…</div>';
+  const allItems = [];
+  let okCnt = 0, errCnt = 0;
+  const jobs = [];
+  colors.forEach(colorKey => {
+    for (let k = 0; k < N; k++) {
+      jobs.push((async (ck, vi) => {
+        const vid = RECOLOR_LIST.find(c => c.key === ck);
+        const cvi = vid ? vid.vi : ck;
+        const tid = loadTaskAdd("🎨 Áo " + cvi + " — bản " + (vi + 1) + "/" + N + "…");
+        try {
+          const r = await fetch("/api/recolor", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image: recolorImg, colors: [ck], size: size,
+              note: (userNote ? userNote + " " : "") + CUT_RECOLOR_VARIANTS[vi],
+            }),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.error || "Lỗi");
+          const it = (data.items || [])[0];
+          if (!it || !it.image) throw new Error("AI không trả kết quả.");
+          it.title = "Áo " + cvi + " · bản " + (vi + 1);
+          allItems.push(it); okCnt++;
+          await recolorRender(allItems.slice());     // hiện dần
+          loadTaskDone(tid, true, "✓ Áo " + cvi + " bản " + (vi + 1));
+        } catch (e) {
+          errCnt++; loadTaskDone(tid, false, "✕ Áo " + cvi + " bản " + (vi + 1) + ": " + e.message);
+        }
+        note.className = "gen-note"; note.textContent = "🎨 Đã xong " + okCnt + "/" + (N * colors.length) + " bản…";
+      })(colorKey, k));
+    }
+  });
+  await Promise.all(jobs);
+  if (!allItems.length) {
     $("recolorResults").innerHTML = "";
     $("recolorEmpty").classList.remove("hidden");
-    $("recolorEmpty").textContent = "✗ " + err.message;
-    note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-    loadTaskDone(tid, false, "✕ Đổi màu lỗi");
+    $("recolorEmpty").textContent = "✗ Đổi màu lỗi cả " + (N * colors.length) + " bản.";
+    note.className = "gen-note err"; note.textContent = "✗ Không tạo được bản nào.";
+    return;
   }
+  await recolorRender(allItems.slice());   // render cuối -> hiện đủ tất cả bản
+  note.className = "gen-note ok";
+  note.textContent = "✓ Xong " + okCnt + " bản (giữ bản đẹp nhất, tải về). Đã lưu Lịch sử." + (errCnt ? " (" + errCnt + " bản lỗi)" : "");
+  if (typeof loadGallery === "function") loadGallery();
 };
 
 /* =====================================================================
