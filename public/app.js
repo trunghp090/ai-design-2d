@@ -4796,17 +4796,32 @@ function adpostInit() {
     if ($("adpostDelSel")) $("adpostDelSel").onclick = adpostDelSelected;
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
+    if ($("adpostReload")) $("adpostReload").onclick = async () => {
+      const b = $("adpostReload"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tải…";
+      await adpostLoadCampaigns(); adpostLoad();
+      b.disabled = false; b.textContent = o;
+    };
     adpostLoadCampaigns();
   }
   adpostLoad();
 }
 async function adpostLoadCampaigns() {
   const sel = $("adpostCampaign"); if (!sel) return;
+  const keep = sel.value;
   try {
-    const d = await (await fetch("/api/fb-campaigns")).json();
+    const d = await (await fetch("/api/fb-campaigns?ts=" + Date.now())).json();   // ts -> tránh cache
     sel.innerHTML = '<option value="">➕ Tạo chiến dịch mới</option>';
-    (d.campaigns || []).forEach(c => { const o = document.createElement("option"); o.value = c.id; o.textContent = (c.name || c.id).slice(0, 40) + (c.status === "PAUSED" ? " (dừng)" : ""); sel.appendChild(o); });
-  } catch (e) {}
+    const cs = d.campaigns || [];
+    cs.forEach(c => {
+      const o = document.createElement("option"); o.value = c.id;
+      const stt = c.status === "PAUSED" ? " (tạm dừng)" : (c.status && c.status !== "ACTIVE" ? " (" + c.status.toLowerCase() + ")" : "");
+      o.textContent = (c.name || c.id).slice(0, 40) + stt;
+      sel.appendChild(o);
+    });
+    if (keep) sel.value = keep;
+    const n = $("adpostNote");
+    if (n) { n.className = "gen-note ok"; n.textContent = "🔄 Đã tải " + cs.length + " chiến dịch từ tài khoản FB." + (cs.length === 0 ? " (Lưu ý: chiến dịch DRAFT chưa publish trên Ads Manager sẽ KHÔNG hiện qua API — publish/bật rồi tải lại.)" : ""); }
+  } catch (e) { const n = $("adpostNote"); if (n) { n.className = "gen-note err"; n.textContent = "✗ Tải chiến dịch lỗi: " + e.message; } }
   adpostOnCampaignChange();
 }
 async function adpostOnCampaignChange() {
@@ -4849,7 +4864,7 @@ function adpostRender(items) {
       : (it.status === "error" ? '<span class="gen-note err" style="margin:0;font-size:11px">✗ ' + (res.error || "").slice(0, 50) + '</span>' : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>');
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
-      '<td><img src="' + it.image_url + '" style="width:56px;height:70px;object-fit:cover;border-radius:8px" loading="lazy">' + (it.product ? '<div class="hint" style="max-width:64px;font-size:10px;line-height:1.2;margin-top:2px">📦 ' + (it.product || "").slice(0, 30) + '</div>' : '') + '</td>' +
+      '<td><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' + (it.product ? '<div class="hint" style="max-width:64px;font-size:10px;line-height:1.2;margin-top:2px">📦 ' + (it.product || "").slice(0, 30) + '</div>' : '') + '</td>' +
       '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
       '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
       '<td><input class="input adpost-f" data-f="link" value="' + (it.link || "").replace(/"/g, "&quot;") + '" placeholder="link SP…" style="width:150px;padding:6px 8px;font-size:12px"></td>' +
@@ -4859,6 +4874,7 @@ function adpostRender(items) {
   });
   h += '</tbody></table>';
   box.innerHTML = h;
+  box.querySelectorAll(".adpost-img").forEach(im => im.onclick = () => { if (typeof openZoom === "function") openZoom(im.dataset.full); });
   box.querySelectorAll("tr[data-id]").forEach(tr => {
     const id = tr.dataset.id;
     tr.querySelectorAll(".adpost-f").forEach(f => f.onchange = () => {
