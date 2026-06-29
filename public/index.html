@@ -969,7 +969,8 @@
         </select>
         <label class="switch-row" style="margin-top:10px;font-size:13px"><input type="checkbox" id="cutMatting" checked> Viền mịn (alpha matting)</label>
 
-        <button class="btn-primary" id="cutRun" style="margin-top:14px">✂️ Tách nền</button>
+        <button class="btn-primary" id="cutRun" style="margin-top:14px">✂️ Tách nền (AI)</button>
+        <button class="btn-ghost sm" id="cutManualBtn" style="margin-top:8px;width:100%">🖱️ Tách thủ công (click vào nền)</button>
         <p class="gen-note" id="cutNote"></p>
       </aside>
 
@@ -980,6 +981,26 @@
       </section>
     </div>
   </section>
+
+  <!-- ===== MODAL: Tách nền THỦ CÔNG (magic wand) ===== -->
+  <div class="zoom-modal hidden" id="cutManualModal">
+    <div style="background:#fff;border-radius:14px;padding:16px;max-width:94vw;max-height:94vh;overflow:auto;position:relative" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="cutManualClose" style="position:absolute;top:8px;right:8px;z-index:2">✕</button>
+      <h3 style="margin:0 0 8px">🖱️ Tách nền thủ công — click vào vùng cần xoá</h3>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label class="hint" style="margin:0">Độ nhạy màu <input type="range" id="cutTol" min="5" max="140" value="35" style="vertical-align:middle"> <b id="cutTolVal">35</b></label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="cutGlobal"> Xoá MỌI chỗ cùng màu (không chỉ vùng liền)</label>
+        <span style="flex:1"></span>
+        <button class="btn-ghost sm" id="cutUndo">↶ Hoàn tác</button>
+        <button class="btn-ghost sm" id="cutResetBtn">⟲ Đặt lại</button>
+        <button class="btn-primary sm" id="cutManualDone">✓ Dùng kết quả</button>
+      </div>
+      <div style="display:inline-block;background:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff;border:1px solid var(--line);border-radius:8px;max-width:100%">
+        <canvas id="cutCanvas" style="max-width:100%;display:block;cursor:crosshair"></canvas>
+      </div>
+      <p class="hint" style="margin:6px 0 0">Click vào nền (hoặc vùng màu) để xoá. Kéo "độ nhạy" nếu xoá thiếu/thừa. Bật "xoá mọi chỗ cùng màu" để xoá toàn bộ pixel cùng màu.</p>
+    </div>
+  </div>
 
   <section class="auto-view app-view hidden" id="view-namedes">
     <div class="layout">

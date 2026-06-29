@@ -1265,7 +1265,7 @@ async function lenaoInit() {
   if (lenaoInited) return; lenaoInited = true;
   try {
     const data = await (await fetch("/api/mockups")).json();
-    lenaoSlots = (data.items || []).filter(it => it.side !== "back").map(it => ({
+    lenaoSlots = (data.items || []).filter(it => it.side !== "back" && /trang|trắng|white|_den|đen|black/i.test((it.file || "") + " " + (it.name || ""))).map(it => ({
       url: it.url, name: it.name || "Áo",
       design: null, designImg: null,
       state: { xPct: 50, yPct: 40, wPct: 42 },
@@ -4935,6 +4935,12 @@ function cutoutInit() {
     drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
     drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); addCutFiles(e.dataTransfer.files); });
     $("cutRun").onclick = cutoutRun;
+    if ($("cutManualBtn")) $("cutManualBtn").onclick = () => {
+      const src = cutInputs[cutInputs.length - 1] || (cutItems[0] && cutItems[0].image);
+      if (!src) { const n = $("cutNote"); n.className = "gen-note err"; n.textContent = "⚠️ Tải/dán 1 ảnh trước đã."; return; }
+      cutOpenManual(src, -1);   // -1 = thêm mới vào kết quả
+    };
+    cutManualWire();
   }
   cutoutRender();
 }
@@ -4971,12 +4977,88 @@ function cutoutRender() {
     const card = document.createElement("div"); card.className = "fp-card";
     card.innerHTML =
       '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-zoom">🔍</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải PNG</button><button class="b-del">🗑️</button></div>';
+      '<div class="fp-card-acts"><button class="b-edit">🖱️ Sửa</button><button class="b-zoom">🔍</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải PNG</button><button class="b-del">🗑️</button></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-edit").onclick = () => cutOpenManual(c.image, idx);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(c.image, "tach-nen");
     card.querySelector(".b-del").onclick = () => { cutItems.splice(idx, 1); cutoutRender(); };
     grid.appendChild(card);
   });
+}
+
+/* ---- Tách nền THỦ CÔNG (magic wand, client-side) ---- */
+let cutBase = null, cutUndo = [], cutEditIdx = -1, cutManualWired = false;
+function cutManualWire() {
+  if (cutManualWired) return; cutManualWired = true;
+  const close = () => $("cutManualModal").classList.add("hidden");
+  $("cutManualClose").onclick = close;
+  $("cutManualModal").onclick = close;
+  $("cutTol").oninput = (e) => { $("cutTolVal").textContent = e.target.value; };
+  $("cutUndo").onclick = () => {
+    const cv = $("cutCanvas"), ctx = cv.getContext("2d");
+    if (cutUndo.length) { ctx.putImageData(cutUndo.pop(), 0, 0); }
+  };
+  $("cutResetBtn").onclick = () => {
+    const cv = $("cutCanvas"), ctx = cv.getContext("2d");
+    if (cutBase) { ctx.putImageData(cutBase, 0, 0); cutUndo = []; }
+  };
+  $("cutManualDone").onclick = () => {
+    const cv = $("cutCanvas");
+    const b64 = cv.toDataURL("image/png").split(",")[1];
+    if (cutEditIdx >= 0 && cutItems[cutEditIdx]) cutItems[cutEditIdx].image = b64;
+    else cutItems.unshift({ image: b64 });
+    cutoutRender(); close();
+  };
+  $("cutCanvas").onclick = (e) => {
+    const cv = $("cutCanvas"), ctx = cv.getContext("2d");
+    const rect = cv.getBoundingClientRect();
+    const x = Math.round((e.clientX - rect.left) * cv.width / rect.width);
+    const y = Math.round((e.clientY - rect.top) * cv.height / rect.height);
+    if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return;
+    cutUndo.push(ctx.getImageData(0, 0, cv.width, cv.height));
+    if (cutUndo.length > 25) cutUndo.shift();
+    cutMagicErase(cv, ctx, x, y, +$("cutTol").value, $("cutGlobal").checked);
+  };
+}
+function cutOpenManual(srcB64, idx) {
+  cutEditIdx = (typeof idx === "number") ? idx : -1;
+  const img = new Image();
+  img.onload = () => {
+    const cv = $("cutCanvas"), ctx = cv.getContext("2d");
+    let w = img.width, h = img.height, max = 1100;
+    if (Math.max(w, h) > max) { const s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+    cv.width = w; cv.height = h;
+    ctx.clearRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+    cutBase = ctx.getImageData(0, 0, w, h); cutUndo = [];
+    $("cutManualModal").classList.remove("hidden");
+  };
+  img.src = String(srcB64).startsWith("data:") ? srcB64 : ("data:image/png;base64," + srcB64);
+}
+// xoá pixel cùng màu: global = mọi nơi; else flood-fill vùng liền kề
+function cutMagicErase(cv, ctx, x, y, tolerance, global) {
+  const w = cv.width, h = cv.height, im = ctx.getImageData(0, 0, w, h), d = im.data;
+  const i0 = (y * w + x) * 4, tr = d[i0], tg = d[i0 + 1], tb = d[i0 + 2];
+  if (d[i0 + 3] === 0) return;
+  const tol = tolerance * tolerance * 3;
+  const close = (i) => { const dr = d[i] - tr, dg = d[i + 1] - tg, db = d[i + 2] - tb; return dr * dr + dg * dg + db * db <= tol; };
+  if (global) {
+    for (let i = 0; i < d.length; i += 4) { if (d[i + 3] !== 0 && close(i)) d[i + 3] = 0; }
+  } else {
+    const stack = [y * w + x], seen = new Uint8Array(w * h);
+    while (stack.length) {
+      const p = stack.pop();
+      if (seen[p]) continue; seen[p] = 1;
+      const i = p * 4;
+      if (d[i + 3] === 0 || !close(i)) continue;
+      d[i + 3] = 0;
+      const px = p % w, py = (p - px) / w;
+      if (px + 1 < w) stack.push(p + 1);
+      if (px - 1 >= 0) stack.push(p - 1);
+      if (py + 1 < h) stack.push(p + w);
+      if (py - 1 >= 0) stack.push(p - w);
+    }
+  }
+  ctx.putImageData(im, 0, 0);
 }
