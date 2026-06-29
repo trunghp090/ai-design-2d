@@ -2226,7 +2226,7 @@ function dsMakeCard(key, it) {
     card.innerHTML =
       '<img src="' + dsSrc(it) + '" loading="lazy" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
-      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>' +
+      '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>' +
       '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Nhập nội dung chỉnh sửa…"><button class="ds-fixbtn">Sửa</button></div>';
     card._cur = it.image; card._it = it; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom(dsSrc(it));
@@ -2238,6 +2238,16 @@ function dsMakeCard(key, it) {
       if (typeof recolorRenderThumb === "function") recolorRenderThumb();
     };
     card.querySelector(".b-var").onclick = async (e) => dsMakeVariations(await dsB64(it), e.currentTarget);
+    card.querySelector(".b-cut").onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      const im = await dsB64(it); b.disabled = false;
+      // mở editor tách nền thủ công; xong -> đưa sang tab Tách nền
+      cutOpenManual(im, -1, (b64) => {
+        cutItems.unshift({ image: b64 });
+        showApp("cutout"); cutoutRender();
+        const n = $("cutNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã tách nền thủ công design — ở đây bạn có thể lên áo / đổi màu / tải."; }
+      });
+    };
     card.querySelector(".b-use").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; const im = await dsB64(it); b.disabled = false; showApp("clone"); showDesign(im); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(dsSrc(it), e.currentTarget);
     card.querySelector(".b-canva").onclick = async (e) => {
@@ -5113,7 +5123,7 @@ async function cutDoRecolor(idx, colorKey, colorVi) {
 
 /* ---- Tách nền THỦ CÔNG (magic wand, client-side) ---- */
 let cutBase = null, cutUndo = [], cutEditIdx = -1, cutManualWired = false;
-let cutScale = 1, cutFitW = 0;
+let cutScale = 1, cutFitW = 0, cutDoneHandler = null;
 function cutApplyZoom(s) {
   cutScale = Math.max(0.4, Math.min(s, 6));
   const cv = $("cutCanvas"); if (!cv) return;
@@ -5142,6 +5152,7 @@ function cutManualWire() {
   $("cutManualDone").onclick = () => {
     const cv = $("cutCanvas");
     const b64 = cv.toDataURL("image/png").split(",")[1];
+    if (cutDoneHandler) { const h = cutDoneHandler; cutDoneHandler = null; close(); h(b64); return; }
     if (cutEditIdx >= 0 && cutItems[cutEditIdx]) cutItems[cutEditIdx].image = b64;
     else cutItems.unshift({ image: b64 });
     cutoutRender(); close();
@@ -5186,8 +5197,10 @@ function cutManualWire() {
     cutMagicErase(cv, ctx, p.x, p.y, +$("cutTol").value, $("cutGlobal").checked);
   };
 }
-function cutOpenManual(srcB64, idx) {
+function cutOpenManual(srcB64, idx, onDone) {
+  cutManualWire();   // đảm bảo nút modal đã gắn (mở được từ tab Tạo design)
   cutEditIdx = (typeof idx === "number") ? idx : -1;
+  cutDoneHandler = (typeof onDone === "function") ? onDone : null;
   const img = new Image();
   img.onload = () => {
     const cv = $("cutCanvas"), ctx = cv.getContext("2d");
