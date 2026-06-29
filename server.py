@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.28-custom-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ai-recolor"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -178,6 +178,33 @@ def recolor_instruction(key):
             "Keep the area around/behind the artwork EMPTY on a PLAIN PURE WHITE background — do "
             "NOT tint or fill the background with any color (no magenta/pink/colored backdrop) — so "
             "it can be cut out cleanly. Output only the artwork, no shirt." % (vi, hexv, guide))
+
+
+def recolor_plan(design_bytes, color_key):
+    """AI (gpt-4o vision) NHÌN design + màu áo -> chỉ thị phối lại màu CỤ THỂ cho đẹp + tương phản tốt."""
+    if not API_KEY or not design_bytes:
+        return ""
+    vi, hexv, _ = RECOLOR[color_key]
+    sys = ("You are an expert APPAREL graphic colourist. Given a t-shirt PRINT design and the SHIRT "
+           "colour it will be printed on, decide how to RE-COLOUR the design so it looks premium and is "
+           "CLEARLY VISIBLE with strong contrast on that shirt — while keeping the artwork, text, fonts, "
+           "icons and composition IDENTICAL (only the colours change).")
+    user = [
+        {"type": "text", "text": (
+            "Shirt colour: %s (hex %s). Analyse the design's current colours and elements, then give ONE "
+            "short precise RE-COLOUR instruction (English) mapping each part to colours that POP on a %s "
+            "shirt: ensure HIGH CONTRAST (on a DARK shirt use light / cream / white as the main ink plus "
+            "1-2 tasteful bright accents; on a LIGHT shirt use dark / rich tones), keep it harmonious & "
+            "premium, and NEVER use a colour too close to the shirt colour (it would disappear). "
+            "Reply strict JSON: {\"instruction\":\"...\"}." % (vi, hexv, vi))},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(design_bytes).decode()}},
+    ]
+    try:
+        out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
+                          json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
+        return (json.loads(out).get("instruction") or "").strip()[:600]
+    except Exception:
+        return ""
 
 
 def flatten_on_color(b64_png, hexv):
@@ -3992,10 +4019,18 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None):
                 raise urllib.error.HTTPError(e.url, e.code, msg, e.headers, None)
     p = override or build_prompt(mode, user_prompt, "chroma" if transparent else "solid")
     b64 = openai_edit(images, p, size, native_transparent=False)
-    # TÍCH HỢP: clone xong tự tách nền luôn (chroma key) -> trả design trong suốt sẵn.
+    # TÍCH HỢP: clone xong tự tách nền luôn -> trả design trong suốt sẵn.
+    # Ưu tiên rembg AI (U2Net + alpha matting: viền mịn, giữ phần trắng của design); fallback flat.
     if transparent and HAS_PIL:
         try:
-            raw = remove_flat_bg(base64.b64decode(b64))
+            raw = base64.b64decode(b64)
+            out = None
+            if HAS_REMBG:
+                try:
+                    out = remove_bg_ai(raw, "u2net", True)
+                except Exception:
+                    out = None
+            raw = out if out else remove_flat_bg(raw)
             b64 = base64.b64encode(raw).decode()
         except Exception:
             pass  # nếu lỗi vẫn trả design có nền
@@ -5350,6 +5385,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 # vẽ bản TÁCH NỀN (để client ghép nền tuỳ ý), lưu bản này vào lịch sử
                 instr = recolor_instruction(key)
+                plan = recolor_plan(d, key)   # AI nhìn design -> phối màu cụ thể hợp áo
+                if plan:
+                    instr += " SPECIFIC COLOUR PLAN for THIS exact design (follow it precisely): " + plan
                 if note:
                     instr += " ADDITIONAL USER REQUEST (follow it): " + note
                 b64, _ = gen_design(img, "cloner", instr, size, True)
