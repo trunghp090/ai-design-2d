@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-agent-chat"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-brain-info"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2422,10 +2422,11 @@ def agent_chat(message, product_ctx="", history=None):
         hist_txt += "%s: %s\n" % (role, (h.get("text") or "")[:300])
     user_msg = (hist_txt + "\nNgười dùng: " + message if hist_txt else message) + fb_ctx + \
                "\n\n(Trả JSON đúng định dạng đã hướng dẫn.)"
-    raw = None
+    raw, planner = None, None
     if ANTHROPIC_API_KEY:
         try:
             raw = claude_text(sys_prompt, user_msg, max_tokens=1500)
+            planner = "Claude %s" % ANTHROPIC_MODEL
         except Exception:
             raw = None
     if not raw:
@@ -2435,9 +2436,9 @@ def agent_chat(message, product_ctx="", history=None):
             raw = openai_chat([{"role": "system", "content": sys_prompt},
                                {"role": "user", "content": user_msg}],
                               json_mode=True, max_tokens=1500, model=BEST_TEXT_MODEL)
+            planner = "gpt-4o" + (" (Claude lỗi)" if ANTHROPIC_API_KEY else "")
         except Exception as e:
             return {"error": "AI lỗi: %s" % str(e)[:120]}
-    planner = "Claude %s" % ANTHROPIC_MODEL if ANTHROPIC_API_KEY else "gpt-4o"
     try:
         d = json.loads(_strip_json_fence(raw))
     except Exception:
@@ -4952,7 +4953,8 @@ class Handler(BaseHTTPRequestHandler):
                                    "ai_upscale": HAS_ONNX,
                                    "auth_required": AUTH_REQUIRED})
         if path == "/api/version":
-            return self.json(200, {"version": APP_VERSION, "image_model": MODEL})
+            return self.json(200, {"version": APP_VERSION, "image_model": MODEL,
+                                   "agent_brain": ("Claude " + ANTHROPIC_MODEL) if ANTHROPIC_API_KEY else "gpt-4o (chưa có ANTHROPIC_API_KEY)"})
         if path == "/api/fb-status":
             return self.json(200, {"configured": fb_configured(),
                                    "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID})
