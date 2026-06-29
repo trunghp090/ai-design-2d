@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-recolor-contrast"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-strong-cutout"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2510,10 +2510,7 @@ def _ag_gen_design(p, ctx):
             pr += " " + extra
         b64 = openai_generate(pr, "1024x1024")
         if HAS_PIL:
-            try:
-                b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
-            except Exception:
-                pass
+            b64 = strip_bg_strong_b64(b64)
         b64 = strip_ai_meta_b64(b64)
         g = gallery_add(b64, {"mode": "design", "prompt": theme})
         out.append({"b64": b64, "url": g.get("url")})
@@ -3862,11 +3859,7 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
         try:
             b64 = openai_generate(c["prompt"], size)
             if transparent and HAS_PIL:
-                try:
-                    b64 = base64.b64encode(
-                        remove_flat_bg(base64.b64decode(b64))).decode()
-                except Exception:
-                    pass
+                b64 = strip_bg_strong_b64(b64)
             g = gallery_add(b64, {"mode": "design", "prompt": c["title"]})
             return {"image": b64, "title": c["title"], "gallery": g}
         except urllib.error.HTTPError as e:
@@ -3954,13 +3947,10 @@ def _split_names(name):
 
 
 def _gen_base_b64(prompt, size, transparent=True):
-    """Vẽ design từ prompt (như tab Tạo design) + tách nền."""
+    """Vẽ design từ prompt (như tab Tạo design) + tách nền MẠNH."""
     b64 = openai_generate(prompt, size)
     if transparent and HAS_PIL:
-        try:
-            b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
-        except Exception:
-            pass
+        b64 = strip_bg_strong_b64(b64)
     return b64
 
 
@@ -4402,6 +4392,27 @@ def remove_bg_ai(raw, model="u2net", matting=True):
     return _rembg_remove(raw, session=rembg_session(model), post_process_mask=True)
 
 
+def strip_bg_strong(raw):
+    """Tách nền MẠNH dùng CHUNG cho mọi tác vụ: rembg U2Net + alpha matting (viền mịn,
+    giữ phần trắng của design), fallback flood-fill khi không có rembg / lỗi."""
+    if HAS_REMBG:
+        try:
+            out = remove_bg_ai(raw, "u2net", True)
+            if out:
+                return out
+        except Exception:
+            pass
+    return remove_flat_bg(raw)
+
+
+def strip_bg_strong_b64(b64):
+    """Như strip_bg_strong nhưng nhận/đưa base64 (tiện thay tại chỗ)."""
+    try:
+        return base64.b64encode(strip_bg_strong(base64.b64decode(b64))).decode()
+    except Exception:
+        return b64
+
+
 def remove_bg_cutoutpro(raw):
     """Xoá nền bằng API cutout.pro (Cut Pro). Trả PNG bytes hoặc raise lỗi."""
     if not CUTOUTPRO_KEY:
@@ -4590,10 +4601,7 @@ def run_name_design_job(job_id, name, stamp, style, n, transparent):
         try:
             b64 = openai_generate(prompt, "1024x1024")
             if transparent and HAS_PIL:
-                try:
-                    b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
-                except Exception:
-                    pass
+                b64 = strip_bg_strong_b64(b64)
             b64 = strip_ai_meta_b64(b64)
             g = gallery_add(b64, {"mode": "design", "prompt": "Tên: %s · %s" % (name, title)})
             return {"image": b64, "title": title, "gallery": g}
