@@ -3907,6 +3907,7 @@ function adsFromProduct(p, autopush) {
   if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo ads."); return; }
   showApp("ads");                       // tự gọi adsInit
   adsProductLink = p.store_url || p.url || "";   // nhớ link SP để đẩy FB
+  if ($("adsLink")) $("adsLink").value = adsProductLink;   // hiện link vào ô
   adsAutoName2 = (p.title || "Áo Thun In Tên");
   setTimeout(() => {
     adsDesignImg = p.image; adsRenderDesign();
@@ -4067,6 +4068,7 @@ async function adsShowProductImages(p) {
         const n = $("fbpNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design."; }
       } else {
         adsDesignImg = im.src; adsRenderDesign(); adsProductLink = link; adsAutoName2 = (p.title || "Áo Thun In Tên");
+        if ($("adsLink")) $("adsLink").value = link;   // hiện link vào ô
         $("adsDesignPickModal").classList.add("hidden");
         const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design (đã nhớ link SP)."; }
       }
@@ -4322,7 +4324,8 @@ async function adsLaunchOne(con, name, hook, engine, autopush, ctx, opts) {
   try {
     const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: aspect, quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [conSend] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || adsProductLink || "", _ptitle: (ctx && ctx.title) || adsAutoName2 || "", _design: designImg });
+    const linkVal = (ctx && ctx.link) || ($("adsLink") && $("adsLink").value.trim()) || adsProductLink || "";
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: linkVal, _ptitle: (ctx && ctx.title) || adsAutoName2 || "", _design: designImg });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4757,7 +4760,7 @@ async function adpostAddFromAd(c, btn) {
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
   const title = (c.name || "Áo Thun In Tên").slice(0, 100);   // = HEADLINE FB Ads, mặc định Áo Thun In Tên
   const product = c._ptitle || adsAutoName2 || "";            // SP gốc (chỉ để biết ảnh thuộc SP nào)
-  const link = c._link || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
+  const link = c._link || ($("adsLink") && $("adsLink").value.trim()) || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
   let caption = "🔥 " + (product || title) + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
   try {
     const src = c.image ? "data:image/png;base64," + c.image : url;
