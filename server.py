@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ads-allnames"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ads-cursive"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1747,10 +1747,13 @@ _ADS_ONE = ("Each shirt's MAIN big name is exactly ONE (the new one) — never k
             "allowed and is handled below.) ")
 
 _ADS_ALLNAMES = ("CRITICAL RULE FOR NAMES: treat EVERY human/personal NAME on the design as personalised "
-                 "text that MUST be DIFFERENT on every shirt — this includes BOTH the big MAIN name AND "
-                 "any SMALL secondary person/pet name line (e.g. a little name under the date). No name, "
-                 "big or small, may be identical on two shirts. Keep IDENTICAL only the NON-name text "
-                 "(taglines, series/club words, 'EST', dates and numbers like '14.02 2024'). ")
+                 "text that MUST be DIFFERENT on every shirt. This includes ALL of: (a) the big MAIN name, "
+                 "(b) any CURSIVE / handwritten / SIGNATURE-style script name overlapping or under the main "
+                 "name (for example a cursive 'Annie' — this is a NAME, NOT a logo, so it MUST change too), "
+                 "and (c) any small printed secondary name line. NONE of these names may be identical on two "
+                 "shirts, and the original names from the reference (e.g. 'Annie') must NOT be kept. Keep "
+                 "IDENTICAL only the NON-name text (taglines/series words like 'CUSTOM MADE SERIES' / "
+                 "'LIMITED MEMBERS EDITION', 'EST', dates and numbers like '12.08.2003'). ")
 
 
 def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg="", text_color=""):
@@ -1761,18 +1764,19 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     # tên nhỏ phụ ĐA DẠNG: mỗi áo 1 tên nhỏ khác (nếu design có dòng tên nhỏ dưới)
     subs = random.sample(VN_NICKS, min(n, len(VN_NICKS))) if "VN_NICKS" in globals() else []
     perslot = " ".join(
-        ('Shirt #%d shows the main name "%s"%s.' % (
+        ('Shirt #%d: main name "%s"%s.' % (
             i + 1, names[i],
-            (' and the small secondary name "%s" beneath it' % subs[i]) if i < len(subs) else ""))
+            (', and ALL secondary name elements (the cursive signature script AND any small name line) say "%s"' % subs[i]) if i < len(subs) else ""))
         for i in range(n))
     sub_clause = ""
     if subs:
-        sub_clause = ("SMALL SECONDARY NAME — IMPORTANT: if the design has a small secondary PERSON/pet "
-                      "name line (a human-style name, e.g. under the EST/date — NOT a tagline/series word), "
-                      "you MUST replace it with a DIFFERENT name on EACH shirt (keep its small size, "
-                      "position and font); it must NOT stay the same across shirts: " +
-                      "; ".join('shirt #%d small secondary name → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
-                      ". Only if the design truly has NO such small personal name, do not add one. ")
+        sub_clause = ("SECONDARY NAME(S) — VERY IMPORTANT: the design may carry a secondary personal name "
+                      "shown as a CURSIVE / handwritten SIGNATURE script (e.g. a cursive 'Annie') and/or a "
+                      "small printed name line. Treat ALL of these as ONE secondary name and REPLACE it per "
+                      "shirt with the value below — NEVER keep the reference's 'Annie' or repeat any value; "
+                      "keep the original cursive/script style, size and position: " +
+                      "; ".join('shirt #%d secondary name → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
+                      ". Only if the design truly has no secondary personal name at all, do not add one. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
     if concept_key == "group":
