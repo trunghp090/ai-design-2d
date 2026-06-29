@@ -52,6 +52,7 @@
     <button class="app-tab" data-app="lenao" data-group="design">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="design">✨ Tạo design</button>
     <button class="app-tab" data-app="namedes" data-group="design">✍️ Design tên</button>
+    <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
@@ -947,6 +948,39 @@
   </section>
 
   <!-- ===== VIEW: DESIGN TÊN CÁ NHÂN HOÁ (Custom-name niche) ===== -->
+  <!-- ===== VIEW: TÁCH NỀN ===== -->
+  <section class="auto-view app-view hidden" id="view-cutout">
+    <div class="layout">
+      <aside class="panel">
+        <h2 class="panel-title">✂️ Tách nền ảnh</h2>
+        <p class="panel-desc">Xoá nền bằng AI (rembg) — viền mịn, giữ chi tiết. Tải / kéo-thả / dán nhiều ảnh.</p>
+
+        <label class="dropzone" id="cutDrop">
+          <input type="file" id="cutFile" accept="image/*" multiple hidden />
+          <span class="dz-icon">🖼️</span>
+          <span>Tải / kéo-thả / dán (Ctrl+V) ảnh cần tách nền</span>
+        </label>
+
+        <label class="field-label" style="margin-top:14px">Phương pháp</label>
+        <select id="cutMethod" class="input">
+          <option value="u2net" selected>🤖 AI rembg (u2net) — chuẩn, nhanh</option>
+          <option value="isnet-general-use">✨ AI chất lượng cao (isnet) — chi tiết hơn</option>
+          <option value="flat">⚡ Nền phẳng (tức thì, nền trơn 1 màu)</option>
+        </select>
+        <label class="switch-row" style="margin-top:10px;font-size:13px"><input type="checkbox" id="cutMatting" checked> Viền mịn (alpha matting)</label>
+
+        <button class="btn-primary" id="cutRun" style="margin-top:14px">✂️ Tách nền</button>
+        <p class="gen-note" id="cutNote"></p>
+      </aside>
+
+      <section class="panel fp-main">
+        <div class="gallery-head"><h3 style="margin:0">🪄 Kết quả <span id="cutCount" class="fp-count"></span></h3></div>
+        <div id="cutResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="cutEmpty">Tải ảnh lên rồi bấm Tách nền. Kết quả là PNG trong suốt, tải về dùng ngay.</div>
+      </section>
+    </div>
+  </section>
+
   <section class="auto-view app-view hidden" id="view-namedes">
     <div class="layout">
       <aside class="panel">

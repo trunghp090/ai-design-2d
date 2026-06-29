@@ -608,6 +608,7 @@ function showApp(app) {
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
+  document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
@@ -628,6 +629,7 @@ function showApp(app) {
   if (app === "product") prodInit();
   if (app === "design") dsInit();
   if (app === "namedes") namedesInit();
+  if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
   if (app === "autopipe") apInit();
@@ -3537,6 +3539,7 @@ document.addEventListener("paste", async (e) => {
     else if (view === "ads") { adsHandlePaste(durl); }
     else if (view === "fbpost") { fbpHandlePaste(durl); }
     else if (view === "shopify") { await shopAddFiles([file]); }
+    else if (view === "cutout") { await addCutFiles([file]); }
   } catch (err) { /* im lặng */ }
 });
 
@@ -4915,6 +4918,65 @@ function namedesRender() {
       if (typeof showDesign === "function" && c.image) showDesign(c.image);
       const rt = document.querySelector('.rtab[data-rtab="design"]'); if (rt) rt.click();
     };
+    grid.appendChild(card);
+  });
+}
+
+/* =====================================================================
+   TÁCH NỀN — xoá nền ảnh bằng AI (rembg)
+   ===================================================================== */
+let cutoutInited = false, cutInputs = [], cutItems = [];
+function cutoutInit() {
+  if (!cutoutInited) {
+    cutoutInited = true;
+    const drop = $("cutDrop"), file = $("cutFile");
+    file.onchange = (e) => { addCutFiles(e.target.files); e.target.value = ""; };
+    drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+    drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); addCutFiles(e.dataTransfer.files); });
+    $("cutRun").onclick = cutoutRun;
+  }
+  cutoutRender();
+}
+async function addCutFiles(files) {
+  for (const f of files) { if (f && f.type.startsWith("image/")) cutInputs.push(await fileToDataURL(f)); }
+  const n = $("cutNote"); n.className = "gen-note"; n.textContent = cutInputs.length ? ("📎 Đã thêm " + cutInputs.length + " ảnh — bấm Tách nền.") : "";
+}
+// dán ảnh khi đang ở tab Tách nền (router paste của app gọi addCutFiles nếu có)
+window.cutoutPaste = (durl) => { if (durl) { cutInputs.push(durl); $("cutNote").textContent = "📎 Đã dán " + cutInputs.length + " ảnh — bấm Tách nền."; } };
+async function cutoutRun() {
+  const note = $("cutNote");
+  if (!cutInputs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải/dán ít nhất 1 ảnh."; return; }
+  const method = $("cutMethod").value, matting = $("cutMatting").checked;
+  const btn = $("cutRun"); btn.disabled = true; let ok = 0;
+  const batch = cutInputs.slice(); cutInputs = [];
+  for (let i = 0; i < batch.length; i++) {
+    note.className = "gen-note"; note.textContent = "⏳ Đang tách nền " + (i + 1) + "/" + batch.length + "…";
+    try {
+      const r = await fetch("/api/remove-bg", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: batch[i], method: method, matting: matting }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      cutItems.unshift({ image: d.image }); ok++; cutoutRender();
+    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  }
+  note.className = "gen-note ok"; note.textContent = "✓ Xong " + ok + " ảnh.";
+  btn.disabled = false;
+}
+function cutoutRender() {
+  const grid = $("cutResults"); if (!grid) return;
+  $("cutCount").textContent = cutItems.length ? "(" + cutItems.length + ")" : "";
+  $("cutEmpty").classList.toggle("hidden", cutItems.length > 0);
+  grid.innerHTML = "";
+  cutItems.forEach((c, idx) => {
+    const src = "data:image/png;base64," + c.image;
+    const card = document.createElement("div"); card.className = "fp-card";
+    card.innerHTML =
+      '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff"><img src="' + src + '" loading="lazy" alt=""></div>' +
+      '<div class="fp-card-acts"><button class="b-zoom">🔍</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải PNG</button><button class="b-del">🗑️</button></div>';
+    card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = () => autoDownload(c.image, "tach-nen");
+    card.querySelector(".b-del").onclick = () => { cutItems.splice(idx, 1); cutoutRender(); };
     grid.appendChild(card);
   });
 }
