@@ -768,17 +768,13 @@ $("autoRunBtn").onclick = () => {
 /* =====================================================================
    TÍNH NĂNG: ĐỔI MÀU THEO ÁO (độc lập)
    ===================================================================== */
+// CHỈ 2 màu áo đang bán: Đen + Trắng. Prompt: "phối lại màu cho hợp in trên áo đen/trắng".
 const RECOLOR_LIST = [
-  { key: "black",  vi: "Đen",     sw: "#1c1c1e" },
-  { key: "white",  vi: "Trắng",   sw: "#f5f5f5" },
-  { key: "brown",  vi: "Nâu",     sw: "#6b4a2f" },
-  { key: "sand",   vi: "Be",      sw: "#d8c3a5" },
-  { key: "forest", vi: "Xanh rêu",sw: "#2f5d3a" },
-  { key: "red",    vi: "Đỏ",      sw: "#b3261e" },
-  { key: "maroon", vi: "Đỏ đô",   sw: "#5e1a1d" },
+  { key: "black",  vi: "Đen",   sw: "#1c1c1e" },
+  { key: "white",  vi: "Trắng", sw: "#f5f5f5" },
 ];
 let recolorImg = null;            // dataURL design đầu vào
-const recolorPicked = new Set(["black", "white"]); // mặc định chọn
+const recolorPicked = new Set(["black", "white"]); // mặc định chọn cả 2
 
 function recolorRenderChips() {
   const box = $("recolorChips"); box.innerHTML = "";
