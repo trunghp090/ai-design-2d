@@ -1050,9 +1050,9 @@ $("recolorRunBtn").onclick = async () => {
   const note = $("recolorNote"); note.className = "gen-note"; note.textContent = "";
   if (!recolorImg) { note.className = "gen-note err"; note.textContent = "⚠️ Hãy tải design hoặc bấm 'Dùng design đang mở'."; return; }
   if (!recolorPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 màu áo."; return; }
-  const btn = $("recolorRunBtn"); btn.disabled = true;
   $("recolorEmpty").classList.add("hidden");
   $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang phối lại màu cho ' + recolorPicked.size + ' màu áo… (≈30–60 giây/màu)</div>';
+  const tid = loadTaskAdd("🎨 Đổi màu " + recolorPicked.size + " màu áo…");
   try {
     const r = await fetch("/api/recolor", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -1068,14 +1068,14 @@ $("recolorRunBtn").onclick = async () => {
     recolorRender(data.items || []);
     note.className = "gen-note ok";
     note.textContent = "✓ Đã đổi " + (data.items || []).length + " màu! Đã lưu vào Lịch sử.";
+    loadTaskDone(tid, true, "✓ Xong " + (data.items || []).length + " màu áo");
     if (typeof loadGallery === "function") loadGallery();
   } catch (err) {
     $("recolorResults").innerHTML = "";
     $("recolorEmpty").classList.remove("hidden");
     $("recolorEmpty").textContent = "✗ " + err.message;
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
-  } finally {
-    btn.disabled = false;
+    loadTaskDone(tid, false, "✕ Đổi màu lỗi");
   }
 };
 
@@ -2184,9 +2184,10 @@ function dsRender() {
   let entries = Object.entries(dsItems);   // [key, item]
   if (!entries.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
   $("dsEmpty").classList.add("hidden");
-  // nếu đã chấm điểm -> sắp xếp điểm cao lên trước
+  // nếu đã chấm điểm -> sắp xếp điểm cao lên trước; chưa chấm -> MỚI NHẤT lên đầu
   const anyRated = entries.some(([, it]) => typeof it.score === "number");
   if (anyRated) entries = entries.sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+  else entries = entries.reverse();
   grid.innerHTML = "";
   entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it)); });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
@@ -4985,18 +4986,19 @@ async function cutoutRun() {
   const note = $("cutNote");
   if (!cutInputs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải/dán ít nhất 1 ảnh."; return; }
   const method = $("cutMethod").value, matting = $("cutMatting").checked;
-  const btn = $("cutRun"); btn.disabled = true; let ok = 0;
-  const batch = cutInputs.slice(); cutInputs = [];
-  for (let i = 0; i < batch.length; i++) {
-    note.className = "gen-note"; note.textContent = "⏳ Đang tách nền " + (i + 1) + "/" + batch.length + "…";
+  const batch = cutInputs.slice(); cutInputs = [];   // nhả ngay -> up ảnh mới chạy tiếp được
+  note.className = "gen-note"; note.textContent = "⏳ Đang tách nền " + batch.length + " ảnh (song song)…";
+  // chạy SONG SONG, mỗi ảnh 1 ô loading riêng
+  await Promise.all(batch.map(async (img, i) => {
+    const tid = loadTaskAdd("✂️ Tách nền ảnh " + (i + 1) + "…");
     try {
-      const r = await fetch("/api/remove-bg", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: batch[i], method: method, matting: matting }) });
+      const r = await fetch("/api/remove-bg", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: img, method: method, matting: matting }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-      cutItems.unshift({ image: d.image }); ok++; cutoutRender();
-    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
-  }
-  note.className = "gen-note ok"; note.textContent = "✓ Xong " + ok + " ảnh.";
-  btn.disabled = false;
+      cutItems.unshift({ image: d.image }); cutoutRender();
+      loadTaskDone(tid, true, "✓ Tách nền ảnh " + (i + 1));
+    } catch (e) { loadTaskDone(tid, false, "✕ Ảnh " + (i + 1) + ": " + e.message); }
+  }));
+  note.className = "gen-note ok"; note.textContent = "✓ Hoàn tất.";
 }
 function cutoutRender() {
   const grid = $("cutResults"); if (!grid) return;
@@ -5043,27 +5045,24 @@ async function cutToShirt(b64) {
   if (typeof lenaoApplyAll === "function") await lenaoApplyAll(durl);
 }
 
-// AI đổi màu design cho hợp nền màu áo -> thêm bản mới vào kết quả
-let cutRecoloring = false;
+// AI đổi màu design cho hợp nền màu áo -> thêm bản mới vào kết quả (ĐA LUỒNG)
 async function cutDoRecolor(idx, colorKey, colorVi) {
-  if (cutRecoloring) return;
   const c = cutItems[idx]; if (!c) return;
-  const note = $("cutNote"); cutRecoloring = true;
-  note.className = "gen-note"; note.textContent = "🎨 AI đang đổi màu design hợp áo " + colorVi + "… (≈30–60s)";
+  const snap = c.image;   // chốt ảnh nguồn (idx có thể đổi khi unshift bản mới)
+  const tid = loadTaskAdd("🎨 Đổi màu design hợp áo " + colorVi + "…");
   try {
-    const durl = "data:image/png;base64," + c.image;
     const r = await fetch("/api/recolor", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: durl, colors: [colorKey], size: "portrait" }),
+      body: JSON.stringify({ image: "data:image/png;base64," + snap, colors: [colorKey], size: "portrait" }),
     });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     const it = (d.items || [])[0];
     if (!it || !it.image) throw new Error("AI không trả kết quả.");
     cutItems.unshift({ image: it.image }); cutoutRender();
-    note.className = "gen-note ok"; note.textContent = "✓ Đã thêm bản đổi màu (hợp áo " + colorVi + ") vào đầu danh sách.";
+    loadTaskDone(tid, true, "✓ Xong bản hợp áo " + colorVi);
   } catch (e) {
-    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
-  } finally { cutRecoloring = false; }
+    loadTaskDone(tid, false, "✕ Đổi màu lỗi: " + e.message);
+  }
 }
 
 /* ---- Tách nền THỦ CÔNG (magic wand, client-side) ---- */
@@ -5366,4 +5365,42 @@ async function agentPollChat(bubble) {
       if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
     }
   } catch (e) {}
+}
+
+/* =====================================================================
+   LOADING DOCK — cửa sổ loading nổi dùng chung, mọi tác vụ chạy nền
+   ===================================================================== */
+const _loadTasks = {}; let _loadSeq = 0;
+(function injectLoadCss() {
+  if (document.getElementById("loadDockCss")) return;
+  const st = document.createElement("style"); st.id = "loadDockCss";
+  st.textContent =
+    "@keyframes loadspin{to{transform:rotate(360deg)}}" +
+    "@keyframes loadIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}" +
+    "#loadDock{position:fixed;right:16px;bottom:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;max-width:320px}" +
+    "#loadDock .ltask{background:var(--panel,#fff);color:var(--text,#222);border:1px solid var(--line,#e3d9dc);border-left:3px solid var(--accent,#9a2a3a);border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px #0003;display:flex;align-items:center;gap:9px;animation:loadIn .2s}" +
+    "#loadDock .lspin{width:14px;height:14px;flex:0 0 auto;border:2px solid #9a2a3a44;border-top-color:#9a2a3a;border-radius:50%;animation:loadspin .7s linear infinite}";
+  document.head.appendChild(st);
+})();
+function loadTaskAdd(label) {
+  const id = ++_loadSeq;
+  let dock = document.getElementById("loadDock");
+  if (!dock) { dock = document.createElement("div"); dock.id = "loadDock"; document.body.appendChild(dock); }
+  const el = document.createElement("div"); el.className = "ltask";
+  el.innerHTML = '<span class="lspin"></span><span class="ltxt"></span>';
+  el.querySelector(".ltxt").textContent = label || "Đang xử lý…";
+  dock.appendChild(el);
+  _loadTasks[id] = { el };
+  return id;
+}
+function loadTaskDone(id, ok, msg) {
+  const t = _loadTasks[id]; if (!t) return;
+  const sp = t.el.querySelector(".lspin");
+  if (sp) sp.outerHTML = '<span style="flex:0 0 auto;font-weight:700;color:' + (ok === false ? "#c0392b" : "#2e7d32") + '">' + (ok === false ? "✕" : "✓") + "</span>";
+  if (msg) t.el.querySelector(".ltxt").textContent = msg;
+  t.el.style.borderLeftColor = ok === false ? "#c0392b" : "#2e7d32";
+  setTimeout(() => {
+    t.el.remove(); delete _loadTasks[id];
+    const d = document.getElementById("loadDock"); if (d && !d.children.length) d.remove();
+  }, ok === false ? 4500 : 1600);
 }
