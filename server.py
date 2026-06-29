@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-recolor-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-shopify-tag-q1"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6494,8 +6494,11 @@ class Handler(BaseHTTPRequestHandler):
         }
         if tmpl:
             prod_input["templateSuffix"] = tmpl
-        if tags:
-            prod_input["tags"] = tags
+        # luôn gắn tag mặc định "q1" cho MỌI sản phẩm (kèm tag AI/ user nếu có)
+        tags = list(tags) + [t.strip() for t in (it.get("tags") or []) if str(t).strip()]
+        if not any(str(t).strip().lower() == "q1" for t in tags):
+            tags.append("q1")
+        prod_input["tags"] = tags
         if product_options:
             prod_input["productOptions"] = product_options
         if gql_variants:
