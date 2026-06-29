@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-recolor-hq"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-revert-flatcut"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4393,15 +4393,10 @@ def remove_bg_ai(raw, model="u2net", matting=True):
 
 
 def strip_bg_strong(raw):
-    """Tách nền MẠNH dùng CHUNG cho mọi tác vụ: rembg U2Net + alpha matting (viền mịn,
-    giữ phần trắng của design), fallback flood-fill khi không có rembg / lỗi."""
-    if HAS_REMBG:
-        try:
-            out = remove_bg_ai(raw, "u2net", True)
-            if out:
-                return out
-        except Exception:
-            pass
+    """ĐÃ REVERT VỀ BAN ĐẦU: tách nền PHẲNG (remove_flat_bg) cho các tác vụ TẠO DESIGN.
+    Lý do: rembg U2Net cắt SAI với design chữ/logo nền phẳng (tưởng cả khối là vật thể →
+    cắt nham nhở). Tách nền phẳng (xoá nền trơn từ mép) sạch hơn cho design AI.
+    (Tab Tách nền riêng vẫn dùng rembg qua /api/remove-bg để user chủ động chọn.)"""
     return remove_flat_bg(raw)
 
 
