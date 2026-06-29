@@ -4869,7 +4869,8 @@ function adpostRender(items) {
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
       '<td><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' + (it.product ? '<div class="hint" style="max-width:64px;font-size:10px;line-height:1.2;margin-top:2px">📦 ' + (it.product || "").slice(0, 30) + '</div>' : '') + '</td>' +
       '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
-      '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
+      '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea>' +
+        '<button class="btn-ghost sm adpost-recap" style="margin-top:4px;font-size:11px">🔄 Đổi mô tả khác</button></td>' +
       '<td><input class="input adpost-f" data-f="link" value="' + (it.link || "").replace(/"/g, "&quot;") + '" placeholder="link SP…" style="width:150px;padding:6px 8px;font-size:12px"></td>' +
       '<td style="white-space:nowrap">' + stCell + '</td>' +
       '<td><button class="btn-ghost sm adpost-del">🗑️</button></td>' +
@@ -4887,6 +4888,21 @@ function adpostRender(items) {
       if (!confirm("Xoá bài này khỏi bảng?")) return;
       await fetch("/api/adpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) });
       adpostLoad();
+    };
+    // 🔄 Đổi mô tả khác (AI viết bản mới) -> cập nhật textarea + lưu
+    const recap = tr.querySelector(".adpost-recap");
+    if (recap) recap.onclick = async () => {
+      const it = items.find(x => x.id === id); if (!it) return;
+      const ta = tr.querySelector('textarea[data-f="caption"]');
+      const old = recap.textContent; recap.disabled = true; recap.textContent = "⏳ Đang viết…";
+      try {
+        const info = "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. " + (it.product ? ("SP: " + it.product + ". ") : "") + "Hợp couple/đội nhóm/gia đình, CÓ size trẻ em. Viết 1 bản mô tả KHÁC, mới mẻ.";
+        const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: it.image_url, info: info }) });
+        const d = await r.json();
+        const cap = (r.ok && (d.facebook || "").trim()) ? d.facebook.trim() : "";
+        if (cap) { ta.value = cap; fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: cap }) }); it.caption = cap; }
+      } catch (e) {}
+      recap.disabled = false; recap.textContent = old;
     };
   });
 }
