@@ -360,6 +360,16 @@
           <option value="landscape">Ngang</option>
         </select>
 
+        <label class="field-label" style="margin-top:12px">Số bản phối / mỗi màu áo</label>
+        <select id="recolorCount" class="input">
+          <option value="1">1 bản</option>
+          <option value="2">2 bản</option>
+          <option value="3">3 bản</option>
+          <option value="4" selected>4 bản</option>
+          <option value="5">5 bản</option>
+          <option value="6">6 bản</option>
+        </select>
+
         <label class="field-label">Nền xem trước</label>
         <div class="color-chips" id="recolorBgPresets"></div>
         <p class="hint" style="margin-top:6px">Chỉ để XEM. File lưu/tải là PNG nền trong suốt để in.</p>
@@ -971,6 +981,16 @@
           <option value="flat">⚡ Nền phẳng (tức thì, nền trơn 1 màu)</option>
         </select>
         <label class="switch-row" style="margin-top:10px;font-size:13px"><input type="checkbox" id="cutMatting" checked> Viền mịn (alpha matting)</label>
+
+        <label class="field-label" style="margin-top:12px">🎨 Số bản khi đổi màu</label>
+        <select id="cutRecolorCount" class="input">
+          <option value="1">1 bản</option>
+          <option value="2">2 bản</option>
+          <option value="3">3 bản</option>
+          <option value="4" selected>4 bản</option>
+          <option value="5">5 bản</option>
+          <option value="6">6 bản</option>
+        </select>
 
         <button class="btn-primary" id="cutRun" style="margin-top:14px">✂️ Tách nền (AI)</button>
         <button class="btn-ghost sm" id="cutManualBtn" style="margin-top:8px;width:100%">🖱️ Tách thủ công (click vào nền)</button>

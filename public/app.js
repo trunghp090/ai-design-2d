@@ -1054,7 +1054,8 @@ $("recolorRunBtn").onclick = async () => {
   const colors = [...recolorPicked];
   const userNote = ($("recolorReq") && $("recolorReq").value || "").trim();
   const size = $("recolorSize").value;
-  const N = CUT_RECOLOR_VARIANTS.length;   // 4 bản / mỗi màu áo
+  const N = Math.max(1, Math.min(parseInt($("recolorCount") && $("recolorCount").value, 10) || 4, 6));   // số bản / mỗi màu áo
+  const VNOTES = recolorVariantNotes(N);
   $("recolorResults").innerHTML = '<div class="gallery-empty">🎨 AI đang tạo ' + (N * colors.length) + ' bản (' + N + ' bản × ' + colors.length + ' màu áo) — song song, hiện dần…</div>';
   const allItems = [];
   let okCnt = 0, errCnt = 0;
@@ -1070,7 +1071,7 @@ $("recolorRunBtn").onclick = async () => {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               image: recolorImg, colors: [ck], size: size,
-              note: (userNote ? userNote + " " : "") + CUT_RECOLOR_VARIANTS[vi],
+              note: (userNote ? userNote + " " : "") + VNOTES[vi],
             }),
           });
           const data = await r.json();
@@ -5074,18 +5075,31 @@ const CUT_RECOLOR_VARIANTS = [
   "Variation 2: add one or two tasteful bright accent colours that pop.",
   "Variation 3: muted, premium, sophisticated tones.",
   "Variation 4: bright, vibrant, energetic tones.",
+  "Variation 5: monochrome / tone-on-tone elegant look.",
+  "Variation 6: warm-vs-cool duotone contrast.",
 ];
+// trả về n chỉ thị hướng phối khác nhau (lặp lại + đánh số nếu n > danh sách)
+function recolorVariantNotes(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const base = CUT_RECOLOR_VARIANTS[i % CUT_RECOLOR_VARIANTS.length];
+    out.push(i < CUT_RECOLOR_VARIANTS.length ? base : (base + " (alt take " + (i + 1) + ")"));
+  }
+  return out;
+}
 async function cutDoRecolor(idx, colorKey, colorVi) {
   const c = cutItems[idx]; if (!c) return;
   const snap = c.image;   // chốt ảnh nguồn (idx đổi khi unshift bản mới)
-  const N = CUT_RECOLOR_VARIANTS.length;   // 4 option
+  const cc = $("cutRecolorCount");
+  const N = Math.max(1, Math.min(parseInt(cc && cc.value, 10) || 4, 6));   // số bản chọn được
+  const VNOTES = recolorVariantNotes(N);
   for (let k = 0; k < N; k++) {
     (async (vi) => {
       const tid = loadTaskAdd("🎨 " + colorVi + " — bản " + (vi + 1) + "/" + N + "…");
       try {
         const r = await fetch("/api/recolor", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: "data:image/png;base64," + snap, colors: [colorKey], size: "portrait", note: CUT_RECOLOR_VARIANTS[vi] }),
+          body: JSON.stringify({ image: "data:image/png;base64," + snap, colors: [colorKey], size: "portrait", note: VNOTES[vi] }),
         });
         const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
         const it = (d.items || [])[0];
