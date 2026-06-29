@@ -614,6 +614,7 @@ function showApp(app) {
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
+  document.getElementById("view-agent").classList.toggle("hidden", app !== "agent");
   document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
   document.getElementById("view-pgpost").classList.toggle("hidden", app !== "pgpost");
   document.getElementById("view-sched").classList.toggle("hidden", app !== "sched");
@@ -622,6 +623,7 @@ function showApp(app) {
   if (app === "ads") adsInit();
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
+  if (app === "agent") agentInit();
   if (app === "adpost") adpostInit();
   if (app === "pgpost") pgpostInit();
   if (app === "sched") schedInit();
@@ -5115,4 +5117,60 @@ function cutMagicErase(cv, ctx, x, y, tolerance, global) {
     }
   }
   ctx.putImageData(im, 0, 0);
+}
+
+/* =====================================================================
+   TRỢ LÝ AI — lệnh -> kế hoạch -> duyệt -> chạy
+   ===================================================================== */
+let agentInited = false, agentSteps = [], agentTimer = null;
+function agentInit() {
+  if (!agentInited) {
+    agentInited = true;
+    $("agentPlanBtn").onclick = agentPlan;
+    document.querySelectorAll(".agent-eg").forEach(s => s.onclick = () => { $("agentCmd").value = s.textContent; });
+  }
+  agentPoll();
+}
+async function agentPlan() {
+  const note = $("agentNote"), cmd = ($("agentCmd").value || "").trim();
+  if (!cmd) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập lệnh."; return; }
+  note.className = "gen-note"; note.textContent = "🧠 AI đang lập kế hoạch…"; $("agentPlan").innerHTML = "";
+  try {
+    const d = await (await fetch("/api/agent-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) })).json();
+    if (d.error) throw new Error(d.error);
+    agentSteps = d.steps || [];
+    if (!agentSteps.length) { note.className = "gen-note err"; note.textContent = "AI chưa lập được kế hoạch — thử lệnh rõ hơn."; return; }
+    note.className = "gen-note ok"; note.textContent = "📋 " + (d.summary || "Kế hoạch:");
+    let h = '<div style="border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:6px">';
+    agentSteps.forEach((s, i) => { h += '<div style="padding:4px 0;font-size:13px">' + (i + 1) + '. <b>' + (s.label || s.action) + '</b> <span class="hint">[' + s.action + ']</span></div>'; });
+    h += '<button class="btn-primary sm" id="agentRunBtn" style="margin-top:8px">✓ Duyệt &amp; chạy</button> <button class="btn-ghost sm" id="agentCancelBtn">✕ Huỷ</button></div>';
+    $("agentPlan").innerHTML = h;
+    $("agentRunBtn").onclick = agentRun;
+    $("agentCancelBtn").onclick = () => { agentSteps = []; $("agentPlan").innerHTML = ""; $("agentNote").textContent = ""; };
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+async function agentRun() {
+  if (!agentSteps.length) return;
+  const danger = agentSteps.some(s => s.action === "push_fb_ads" || s.action === "post_fbig");
+  if (danger && !confirm("Kế hoạch có bước ĐĂNG/ĐẨY ADS thật (có thể tiêu tiền/đăng công khai). Duyệt chạy?")) return;
+  $("agentPlan").innerHTML = "";
+  try {
+    const r = await fetch("/api/agent-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps: agentSteps }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    $("agentNote").className = "gen-note"; $("agentNote").textContent = "⏳ Đang chạy kế hoạch…";
+    agentPoll();
+  } catch (e) { $("agentNote").className = "gen-note err"; $("agentNote").textContent = "✗ " + e.message; }
+}
+async function agentPoll() {
+  try {
+    const d = await (await fetch("/api/agent-status")).json();
+    $("agentLog").textContent = (d.log || []).join("\n");
+    if (d.running) {
+      $("agentNote").className = "gen-note"; $("agentNote").textContent = "⏳ Đang chạy bước " + d.cur + "/" + d.total + "…";
+      if (!agentTimer) agentTimer = setInterval(agentPoll, 3000);
+    } else {
+      if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
+      if (d.done && (d.log || []).length) { $("agentNote").className = "gen-note ok"; $("agentNote").textContent = "✓ Xong kế hoạch (" + d.total + " bước). Ảnh đã lưu trong Lịch sử/các tab tương ứng."; }
+    }
+  } catch (e) {}
 }

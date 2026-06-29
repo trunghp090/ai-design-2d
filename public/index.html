@@ -57,6 +57,7 @@
     <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
+    <button class="app-tab" data-app="agent" data-group="marketing">🤖 Trợ lý AI</button>
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
@@ -1568,6 +1569,24 @@
       <h3 style="font-size:15px;margin:22px 0 8px">📋 Hàng đợi đã lên lịch</h3>
       <div id="schedList"></div>
       <div class="gallery-empty" id="schedEmpty">Chưa có bài nào trong lịch.</div>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: TRỢ LÝ AI ===== -->
+  <section class="auto-view app-view hidden" id="view-agent">
+    <div class="panel" style="max-width:980px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🤖 Trợ lý AI — ra lệnh, AI tự làm</h2>
+      <p class="panel-desc" style="margin:0 0 12px">Gõ lệnh bằng tiếng Việt → AI lập <b>kế hoạch</b> → bạn <b>duyệt</b> → tool tự chạy. VD: <i>"Tạo 3 design áo in tên Gen-Z rồi làm ảnh ads"</i>.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span class="btn-ghost sm agent-eg" style="cursor:pointer">Tạo 3 design áo in tên rồi làm ảnh ads</span>
+        <span class="btn-ghost sm agent-eg" style="cursor:pointer">Làm bộ ảnh FB Post từ design rồi đăng Fanpage</span>
+        <span class="btn-ghost sm agent-eg" style="cursor:pointer">Xem báo cáo hiệu suất ads 7 ngày</span>
+      </div>
+      <textarea id="agentCmd" class="input" rows="2" placeholder="Nhập lệnh cho AI…"></textarea>
+      <button class="btn-primary sm" id="agentPlanBtn" style="margin-top:8px">🧠 Lập kế hoạch</button>
+      <p class="gen-note" id="agentNote" style="margin-top:8px"></p>
+      <div id="agentPlan" style="margin-top:6px"></div>
+      <div id="agentLog" class="hint" style="margin-top:10px;white-space:pre-line"></div>
     </div>
   </section>
 

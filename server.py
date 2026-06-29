@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ai-recolor"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ai-agent"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2292,6 +2292,172 @@ def autopost_tick():
         return
     _autopost_running[0] = True
     threading.Thread(target=_autopost_do, daemon=True).start()
+
+
+# ============================ TRỢ LÝ AI — điều khiển tool bằng lệnh ============================
+# Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
+AGENT_ACTIONS = {
+    "gen_design": "Tạo N design mới. params: {theme, n, text, extra}",
+    "gen_ads": "Tạo ảnh quảng cáo FB từ design vừa tạo. params: {n, concept}",
+    "push_fb_ads": "Đẩy ảnh ads (vừa tạo) lên FB Ads. params: {daily_budget, active(bool), link}",
+    "gen_fbpost": "Tạo bộ ảnh FB Post sạch từ design. params: {per_set}",
+    "post_fbig": "Đăng bộ ảnh FB Post lên Fanpage/Instagram. params: {channels:['fb','ig'], caption}",
+    "ads_optimize": "Xem hiệu suất ads + bật/tắt theo mục tiêu. params: {range, action(report|pause_low|activate)}",
+}
+AGENT_RUN = {"running": False, "cur": 0, "total": 0, "steps": [], "log": [], "done": False}
+
+
+def agent_plan(command):
+    """gpt-4o đọc lệnh -> kế hoạch các bước (JSON)."""
+    if not API_KEY:
+        return {"error": "Chưa cấu hình OPENAI_API_KEY."}
+    acts = "\n".join("- %s: %s" % (k, v) for k, v in AGENT_ACTIONS.items())
+    sys = ("You are the orchestration brain of a Vietnamese print-on-demand tool. Convert the user's "
+           "command into an ordered PLAN of steps using ONLY these available actions:\n" + acts +
+           "\nChain them logically (e.g. gen_design then gen_ads then push_fb_ads). Choose sensible "
+           "params. Money/publish steps (push_fb_ads, post_fbig) keep small & safe by default "
+           "(daily_budget 50000, active false unless told). Reply STRICT JSON: "
+           "{\"summary\":\"<1 dòng tiếng Việt>\",\"steps\":[{\"action\":\"<key>\",\"label\":\"<mô tả "
+           "tiếng Việt>\",\"params\":{...}}]}. Only actions from the list.")
+    try:
+        out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": command}],
+                          json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
+        d = json.loads(out)
+        steps = [s for s in (d.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
+        return {"summary": (d.get("summary") or "").strip(), "steps": steps}
+    except Exception as e:
+        return {"error": "Lập kế hoạch lỗi: %s" % str(e)[:120]}
+
+
+def _ag_gen_design(p, ctx):
+    n = max(1, min(int(p.get("n", 3) or 3), 6))
+    theme = (p.get("theme") or p.get("prompt") or "Custom name T-shirt").strip()
+    cons = design_concepts_auto(theme, (p.get("text") or "").strip(), n)
+    extra = (p.get("extra") or "").strip()
+    out = []
+    for c in cons[:n]:
+        pr = c.get("prompt", "")
+        if extra:
+            pr += " " + extra
+        b64 = openai_generate(pr, "1024x1024")
+        if HAS_PIL:
+            try:
+                b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
+            except Exception:
+                pass
+        b64 = strip_ai_meta_b64(b64)
+        g = gallery_add(b64, {"mode": "design", "prompt": theme})
+        out.append({"b64": b64, "url": g.get("url")})
+    ctx["designs"] = out
+    return "Đã tạo %d design (%s)." % (len(out), theme)
+
+
+def _ag_gen_ads(p, ctx):
+    if not ctx.get("designs"):
+        return "Chưa có design — bỏ qua."
+    dd = base64.b64decode(ctx["designs"][0]["b64"])
+    key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
+    ref = _load_style_bytes(key)
+    cons = [{"key": key, "ref": ref, "bg": ""}]
+    with _batch_lock:
+        _batch_seq[0] += 1
+        sj = "agads_%d" % _batch_seq[0]
+        BATCH_JOBS[sj] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+    run_ads_job(sj, (dd, "image/png"), cons, "Áo Thun In Tên", "Cá nhân hoá theo tên riêng",
+                "openai", "1:1", quality="medium")
+    items = BATCH_JOBS.get(sj, {}).get("items", [])
+    ctx["ad_images"] = [{"b64": it.get("image"), "url": (it.get("gallery") or {}).get("url")} for it in items]
+    return "Đã tạo %d ảnh ads." % len(ctx["ad_images"])
+
+
+def _ag_push_fb_ads(p, ctx):
+    if not ctx.get("ad_images"):
+        return "Chưa có ảnh ads — bỏ qua."
+    status = "ACTIVE" if p.get("active") else "PAUSED"
+    budget = p.get("daily_budget") or 50000
+    link = p.get("link") or ctx.get("product_link") or "https://rieng.vn"
+    ok = 0
+    for it in ctx["ad_images"]:
+        img = base64.b64decode(it["b64"]) if it.get("b64") else None
+        r = fb_ads_push_core(img, link, "Áo thun in tên cá nhân hoá.", "Áo Thun In Tên",
+                             "Áo Thun In Tên", budget, 18, 55, [], ["VN"], "SHOP_NOW", status=status)
+        if r.get("ok"):
+            ok += 1
+    return "Đã đẩy %d ad lên FB Ads (%s)." % (ok, "CHẠY" if status == "ACTIVE" else "TẠM DỪNG")
+
+
+def _ag_gen_fbpost(p, ctx):
+    if not ctx.get("designs"):
+        return "Chưa có design — bỏ qua."
+    dd = base64.b64decode(ctx["designs"][0]["b64"])
+    per_set = max(1, min(int(p.get("per_set", 4) or 4), 5))
+    cons = [{"key": "flatlay3", "ref": _load_style_bytes("flatlay3"), "bg": ""}]
+    with _batch_lock:
+        _batch_seq[0] += 1
+        sj = "agfbp_%d" % _batch_seq[0]
+        BATCH_JOBS[sj] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+    run_fbpost_job(sj, (dd, "image/png"), cons, "openai", "3:4", "medium", per_set)
+    items = BATCH_JOBS.get(sj, {}).get("items", [])
+    pics = items[0].get("pics", []) if items else []
+    ctx["post_urls"] = [PUBLIC_BASE_URL + p2["url"] if not str(p2.get("url", "")).startswith("http") else p2["url"] for p2 in pics if p2.get("url")]
+    return "Đã tạo bộ %d ảnh FB Post." % len(ctx["post_urls"])
+
+
+def _ag_post_fbig(p, ctx):
+    urls = ctx.get("post_urls") or []
+    if not urls:
+        return "Chưa có ảnh để đăng — bỏ qua."
+    cap = p.get("caption") or "Áo thun in tên cá nhân hoá theo tên riêng.\n🛒 rieng.vn"
+    chans = [c for c in (p.get("channels") or ["fb"]) if c in ("fb", "ig")] or ["fb"]
+    res = []
+    if "fb" in chans:
+        res.append("FB " + ("✓" if fb_post_core(urls, cap).get("ok") else "✗"))
+    if "ig" in chans:
+        res.append("IG " + ("✓" if ig_post_core(urls, cap).get("ok") else "✗"))
+    return "Đăng: " + " · ".join(res)
+
+
+def _ag_ads_optimize(p, ctx):
+    if not fb_configured():
+        return "Chưa cấu hình FB."
+    rng = p.get("range") or "last_7d"
+    fields = "id,name,status,insights.date_preset(%s){spend,clicks,ctr}" % rng
+    st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID, {"fields": fields, "limit": "50"})
+    cs = d.get("data") or []
+    lines = []
+    for c in cs[:8]:
+        ins = ((c.get("insights") or {}).get("data") or [{}])[0]
+        lines.append("%s: chi %s, click %s, CTR %s" % ((c.get("name") or "")[:20],
+                     ins.get("spend", "0"), ins.get("clicks", "0"), ins.get("ctr", "0")))
+    return "Báo cáo %d chiến dịch:\n" % len(cs) + "\n".join(lines)
+
+
+_AGENT_DISPATCH = {
+    "gen_design": _ag_gen_design, "gen_ads": _ag_gen_ads, "push_fb_ads": _ag_push_fb_ads,
+    "gen_fbpost": _ag_gen_fbpost, "post_fbig": _ag_post_fbig, "ads_optimize": _ag_ads_optimize,
+}
+
+
+def _agent_worker(steps):
+    AGENT_RUN.update(running=True, cur=0, total=len(steps), log=[], done=False)
+    ctx = {}
+    for i, s in enumerate(steps):
+        AGENT_RUN["cur"] = i + 1
+        fn = _AGENT_DISPATCH.get(s.get("action"))
+        label = s.get("label") or s.get("action")
+        try:
+            msg = fn(s.get("params") or {}, ctx) if fn else "Bỏ qua (không rõ action)."
+            AGENT_RUN["log"].append("✓ %s — %s" % (label, msg))
+        except Exception as e:
+            AGENT_RUN["log"].append("✗ %s — lỗi: %s" % (label, str(e)[:100]))
+    AGENT_RUN.update(running=False, done=True)
+
+
+def agent_run_start(steps):
+    if AGENT_RUN["running"]:
+        return False
+    threading.Thread(target=_agent_worker, args=(steps,), daemon=True).start()
+    return True
 
 
 # ===================== ĐẨY 1 ẢNH -> FB ADS (core dùng lại cho batch) =====================
@@ -4586,6 +4752,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"items": items})
         if path == "/api/concept-styles":
             return self.json(200, {"styles": concept_style_override()})
+        if path == "/api/agent-status":
+            return self.json(200, {"running": AGENT_RUN["running"], "cur": AGENT_RUN["cur"],
+                                   "total": AGENT_RUN["total"], "done": AGENT_RUN["done"],
+                                   "log": AGENT_RUN["log"]})
         if path == "/api/name-suggest":
             nm, stamp = name_suggest()
             return self.json(200, {"name": nm, "stamp": stamp})
@@ -4916,6 +5086,19 @@ class Handler(BaseHTTPRequestHandler):
                     cfg["next_at"] = now + 30
             autopost_save(cfg)
             return self.json(200, {"ok": True, "enabled": cfg["enabled"]})
+        if path == "/api/agent-plan":
+            cmd = (body.get("command") or "").strip()
+            if not cmd:
+                return self.json(400, {"error": "Nhập lệnh."})
+            return self.json(200, agent_plan(cmd))
+        if path == "/api/agent-run":
+            steps = [s for s in (body.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
+            if not steps:
+                return self.json(400, {"error": "Kế hoạch rỗng."})
+            if AGENT_RUN["running"]:
+                return self.json(400, {"error": "Đang chạy 1 kế hoạch — chờ xong."})
+            agent_run_start(steps)
+            return self.json(200, {"ok": True, "total": len(steps)})
         if path == "/api/concept-style":   # lưu style 1 concept (đồng bộ autopilot)
             key = (body.get("key") or "").strip()
             img = body.get("image") or ""
