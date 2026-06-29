@@ -1590,32 +1590,29 @@
         <p class="hint" style="margin-top:6px;font-size:11px">Chọn SP để AI dùng tên, giá, link đúng trong kế hoạch.</p>
       </div>
 
-      <!-- CỘT PHẢI: lệnh + kế hoạch -->
-      <div class="panel">
-        <h2 class="panel-title" style="font-size:17px;margin:0 0 2px">🤖 Trợ lý AI — ra lệnh, AI tự làm</h2>
-        <p class="panel-desc" style="margin:0 0 10px;font-size:13px">Gõ lệnh → AI lập <b>kế hoạch</b> → bạn <b>duyệt</b> → tool tự chạy.</p>
+      <!-- CỘT PHẢI: chat -->
+      <div class="panel" style="display:flex;flex-direction:column;height:78vh;padding-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <h2 class="panel-title" style="font-size:16px;margin:0">🤖 Trợ lý AI</h2>
+          <span id="agentPlannerBadge" class="hint" style="font-size:11px"></span>
+        </div>
+        <p class="panel-desc" style="margin:0 0 8px;font-size:12px">Hỏi / nhờ phân tích / xin lời khuyên → mình trả lời. Ra lệnh → mình lập kế hoạch, bạn bấm <b>Duyệt</b> hoặc gõ <b>"chạy đi"</b>.</p>
 
         <!-- Ví dụ nhanh -->
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Phân tích hiệu suất ads tuần này</span>
+          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Nên chạy ngân sách bao nhiêu cho áo couple?</span>
           <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Tạo 3 design rồi làm ảnh ads</span>
-          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Viết content + làm ảnh FB Post + đăng Fanpage</span>
-          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Phân tích FB Ads 7 ngày → scale chiến dịch tốt</span>
-          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Dừng ads CTR thấp + bật ads hiệu quả</span>
-          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Làm full: design → ads → đẩy FB Ads</span>
+          <span class="btn-ghost sm agent-eg" style="cursor:pointer;font-size:11px">Viết content + làm FB Post + đăng Fanpage</span>
         </div>
 
-        <textarea id="agentCmd" class="input" rows="2" placeholder="Nhập lệnh… VD: 'Tạo 3 design áo in tên Gen-Z rồi làm ảnh ads và đẩy lên FB Ads ngân sách 50k'"></textarea>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn-primary sm" id="agentPlanBtn">🧠 Lập kế hoạch</button>
-          <span id="agentPlannerBadge" class="hint" style="font-size:11px"></span>
-        </div>
-        <p class="gen-note" id="agentNote" style="margin-top:8px"></p>
-        <div id="agentPlan" style="margin-top:6px"></div>
+        <!-- Khung chat -->
+        <div id="agentChat" style="flex:1;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)"></div>
 
-        <!-- Log chạy -->
-        <div id="agentLogWrap" style="display:none;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px">
-          <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--accent)">📋 Tiến độ thực thi</div>
-          <div id="agentLog" style="font-size:12px;white-space:pre-line;line-height:1.7"></div>
+        <!-- Ô nhập -->
+        <div style="display:flex;gap:8px;align-items:flex-end;padding:10px 0">
+          <textarea id="agentCmd" class="input" rows="1" placeholder="Nhắn cho Trợ lý AI… (Enter để gửi)" style="flex:1;resize:none"></textarea>
+          <button class="btn-primary sm" id="agentPlanBtn" style="white-space:nowrap">Gửi ➤</button>
         </div>
       </div>
 

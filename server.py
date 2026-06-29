@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-claude-planner"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-agent-chat"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2365,6 +2365,92 @@ def agent_plan(command, product_ctx=""):
         return {"error": "Parse JSON lỗi: %s | raw: %s" % (str(e)[:80], (raw or "")[:120])}
 
 
+def _strip_json_fence(txt):
+    txt = (txt or "").strip()
+    if txt.startswith("```"):
+        txt = txt.split("```")[-2] if "```" in txt[3:] else txt
+        txt = txt.lstrip("`")
+        if txt.lower().startswith("json"):
+            txt = txt[4:]
+    return txt.strip()
+
+
+_AGENT_FB_KW = ("ads", "quảng cáo", "quang cao", "chiến dịch", "chien dich", "hiệu suất",
+                "hieu suat", "ctr", "cpc", "ngân sách", "ngan sach", "chi tiêu", "chi tieu",
+                "campaign", "roas", "doanh thu", "quảng", "facebook ads")
+
+_AGENT_CHAT_SYSTEM = """Bạn là Trợ lý AI của rieng.vn — thương hiệu áo thun in tên cá nhân hoá (Việt Nam).
+Tool có sẵn: tạo design AI, tạo ảnh quảng cáo, đẩy FB Ads, đăng Fanpage/Instagram, phân tích hiệu suất.
+
+Sản phẩm đang chọn (nếu có): {product_ctx}
+
+Người dùng có thể: (A) HỎI / cần PHÂN TÍCH / cần LỜI KHUYÊN, hoặc (B) RA LỆNH làm việc.
+
+QUY TẮC PHÂN LOẠI:
+- Nếu là câu hỏi, nhờ giải thích, phân tích số liệu, xin tư vấn/chiến lược, trò chuyện
+  → trả {{"mode":"answer","text":"<câu trả lời tiếng Việt hữu ích, cụ thể, dùng dữ liệu được cung cấp nếu có>"}}.
+  TUYỆT ĐỐI không lập kế hoạch, không thực thi gì.
+- Nếu là LỆNH muốn tool LÀM việc (tạo design, làm ảnh ads, đăng bài, đẩy ads, scale, dừng ads...)
+  → trả {{"mode":"plan","summary":"<1 dòng>","steps":[{{"action":"<key>","label":"<mô tả VN>","params":{{...}}}}]}}.
+  CHỈ lập kế hoạch — KHÔNG tự chạy (người dùng sẽ bấm Duyệt / gõ 'chạy đi').
+
+Các action dùng cho mode=plan (chỉ dùng key trong list):
+{actions}
+Lưu ý: bước tiêu tiền/đăng công khai (push_fb_ads, post_fbig) mặc định daily_budget=50000, active=false.
+
+Chỉ trả JSON thuần (không markdown, không giải thích ngoài JSON)."""
+
+
+def agent_chat(message, product_ctx="", history=None):
+    """Phân loại: trả lời (answer) hoặc lập kế hoạch (plan). Không thực thi."""
+    acts = "\n".join("- %s: %s" % (k, v) for k, v in AGENT_ACTIONS.items())
+    sys_prompt = _AGENT_CHAT_SYSTEM.format(product_ctx=product_ctx or "chưa chọn sản phẩm", actions=acts)
+    # Nếu câu hỏi liên quan ads → lấy sẵn dữ liệu để AI phân tích chính xác
+    fb_ctx = ""
+    low = message.lower()
+    if any(k in low for k in _AGENT_FB_KW) and fb_configured():
+        try:
+            data = fb_ads_data_text("last_7d")
+            if data:
+                fb_ctx = "\n\n[Dữ liệu FB Ads 7 ngày gần nhất để bạn phân tích]:\n" + data
+        except Exception:
+            pass
+    # Ghép lịch sử hội thoại ngắn (để AI nhớ ngữ cảnh)
+    hist_txt = ""
+    for h in (history or [])[-6:]:
+        role = "Người dùng" if h.get("role") == "user" else "Trợ lý"
+        hist_txt += "%s: %s\n" % (role, (h.get("text") or "")[:300])
+    user_msg = (hist_txt + "\nNgười dùng: " + message if hist_txt else message) + fb_ctx + \
+               "\n\n(Trả JSON đúng định dạng đã hướng dẫn.)"
+    raw = None
+    if ANTHROPIC_API_KEY:
+        try:
+            raw = claude_text(sys_prompt, user_msg, max_tokens=1500)
+        except Exception:
+            raw = None
+    if not raw:
+        if not API_KEY:
+            return {"error": "Chưa cấu hình ANTHROPIC_API_KEY hoặc OPENAI_API_KEY."}
+        try:
+            raw = openai_chat([{"role": "system", "content": sys_prompt},
+                               {"role": "user", "content": user_msg}],
+                              json_mode=True, max_tokens=1500, model=BEST_TEXT_MODEL)
+        except Exception as e:
+            return {"error": "AI lỗi: %s" % str(e)[:120]}
+    planner = "Claude %s" % ANTHROPIC_MODEL if ANTHROPIC_API_KEY else "gpt-4o"
+    try:
+        d = json.loads(_strip_json_fence(raw))
+    except Exception:
+        # AI trả text thuần (không phải JSON) → coi như câu trả lời
+        return {"mode": "answer", "text": raw.strip(), "planner": planner}
+    if d.get("mode") == "plan":
+        steps = [s for s in (d.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
+        if not steps:
+            return {"mode": "answer", "text": (d.get("summary") or d.get("text") or "Mình chưa rõ ý, bạn nói cụ thể hơn nhé."), "planner": planner}
+        return {"mode": "plan", "summary": (d.get("summary") or "").strip(), "steps": steps, "planner": planner}
+    return {"mode": "answer", "text": (d.get("text") or d.get("answer") or "").strip() or "Mình chưa rõ, bạn hỏi lại nhé.", "planner": planner}
+
+
 def _ag_gen_design(p, ctx):
     n = max(1, min(int(p.get("n", 3) or 3), 6))
     theme = (p.get("theme") or p.get("prompt") or "Custom name T-shirt").strip()
@@ -2477,18 +2563,15 @@ def _ag_ads_optimize(p, ctx):
     return "Báo cáo %d chiến dịch:\n" % len(cs) + "\n".join(lines)
 
 
-def _ag_analyze_fb(p, ctx):
-    """Lấy dữ liệu FB Ads → Claude phân tích & cho lời khuyên."""
+def fb_ads_data_text(rng="last_7d", limit=12):
+    """Trả về text tóm tắt dữ liệu các chiến dịch FB Ads (dùng cho analyze + chat)."""
     if not fb_configured():
-        return "Chưa cấu hình FB Ads."
-    rng = p.get("range") or "last_7d"
+        return ""
     fields = "id,name,status,insights.date_preset(%s){spend,impressions,clicks,ctr,cpc,reach,frequency,actions}" % rng
     st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID, {"fields": fields, "limit": "30"})
     cs = d.get("data") or []
-    if not cs:
-        return "Không có dữ liệu chiến dịch trong %s." % rng
     rows = []
-    for c in cs[:12]:
+    for c in cs[:limit]:
         ins = ((c.get("insights") or {}).get("data") or [{}])[0]
         acts_d = {a.get("action_type"): a.get("value") for a in (ins.get("actions") or [])}
         rows.append("- %s [%s]: chi %s₫ | reach %s | CTR %.2f%% | CPC %s₫ | purchase %s" % (
@@ -2496,7 +2579,17 @@ def _ag_analyze_fb(p, ctx):
             ins.get("spend", "0"), ins.get("reach", "0"),
             float(ins.get("ctr") or 0), ins.get("cpc", "0"),
             acts_d.get("purchase") or acts_d.get("offsite_conversion.fb_pixel_purchase") or "0"))
-    data_txt = "\n".join(rows)
+    return "\n".join(rows)
+
+
+def _ag_analyze_fb(p, ctx):
+    """Lấy dữ liệu FB Ads → Claude phân tích & cho lời khuyên."""
+    if not fb_configured():
+        return "Chưa cấu hình FB Ads."
+    rng = p.get("range") or "last_7d"
+    data_txt = fb_ads_data_text(rng)
+    if not data_txt:
+        return "Không có dữ liệu chiến dịch trong %s." % rng
     if not ANTHROPIC_API_KEY and not API_KEY:
         return "Dữ liệu:\n" + data_txt
     sys_a = ("Bạn là chuyên gia FB Ads cho thương hiệu áo thun in tên rieng.vn (Việt Nam). "
@@ -5243,6 +5336,16 @@ class Handler(BaseHTTPRequestHandler):
                 prod_ctx = "Tên: %s | Giá: %s | Link: %s" % (
                     prod.get("name") or "", prod.get("price") or "", prod.get("link") or "")
             return self.json(200, agent_plan(cmd, prod_ctx))
+        if path == "/api/agent-chat":
+            msg = (body.get("message") or "").strip()
+            if not msg:
+                return self.json(400, {"error": "Nhập nội dung."})
+            prod = body.get("product") or {}
+            prod_ctx = ""
+            if prod:
+                prod_ctx = "Tên: %s | Giá: %s | Link: %s" % (
+                    prod.get("name") or "", prod.get("price") or "", prod.get("link") or "")
+            return self.json(200, agent_chat(msg, prod_ctx, body.get("history") or []))
         if path == "/api/agent-run":
             steps = [s for s in (body.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
             if not steps:
