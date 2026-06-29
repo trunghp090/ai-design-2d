@@ -971,8 +971,10 @@
         <label class="dropzone" id="cutDrop">
           <input type="file" id="cutFile" accept="image/*" multiple hidden />
           <span class="dz-icon">🖼️</span>
-          <span>Tải / kéo-thả / dán (Ctrl+V) ảnh cần tách nền</span>
+          <span>Tải / kéo-thả / dán (Ctrl+V) · chuột phải để dán</span>
         </label>
+        <button type="button" class="btn-ghost sm paste-btn" id="cutPaste" style="margin-top:8px;width:100%">📋 Dán ảnh từ clipboard</button>
+        <div id="cutThumbs" class="thumb-row" style="margin-top:8px"></div>
 
         <label class="field-label" style="margin-top:14px">Phương pháp</label>
         <select id="cutMethod" class="input">

@@ -40,6 +40,62 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
 /* ---------- upload file ---------- */
 let uploaded = [];
 const fileToDataURL = (f) => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+
+/* ---- DÁN ẢNH dùng chung: Clipboard API + chuột phải + thông báo nhỏ ---- */
+function toast(msg, ok) {
+  if (typeof loadTaskAdd === "function") { const id = loadTaskAdd(msg); loadTaskDone(id, ok !== false, msg); }
+}
+async function clipboardImageDataURL() {
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read) return null;
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      const type = it.types.find(t => t.startsWith("image/"));
+      if (type) { const blob = await it.getType(type); return await fileToDataURL(blob); }
+    }
+  } catch (e) {}
+  return null;
+}
+// gắn CHUỘT PHẢI -> dán ảnh cho 1 vùng (dropzone). onImage(dataURL).
+function attachContextPaste(el, onImage) {
+  if (!el || el._ctxPaste) return; el._ctxPaste = true;
+  el.addEventListener("contextmenu", async (e) => {
+    e.preventDefault();
+    const durl = await clipboardImageDataURL();
+    if (durl) onImage(durl);
+    else toast("Chuột phải dán: clipboard chưa có ảnh — copy 1 ảnh trước.", false);
+  });
+}
+// UNIVERSAL: mọi .dropzone đều có CHUỘT PHẢI dán + nút 📋 Dán (route qua file input có sẵn)
+function attachUniversalPaste() {
+  document.querySelectorAll(".dropzone").forEach(dz => {
+    if (dz._uPaste) return; dz._uPaste = true;
+    const input = dz.querySelector('input[type="file"]');
+    const doPaste = async () => {
+      const durl = await clipboardImageDataURL();
+      if (!durl) { toast("Clipboard chưa có ảnh — copy 1 ảnh trước.", false); return; }
+      if (!input) { toast("Vùng này chưa hỗ trợ dán tự động — dùng Ctrl+V.", false); return; }
+      try {
+        const blob = await (await fetch(durl)).blob();
+        const file = new File([blob], "pasted.png", { type: blob.type || "image/png" });
+        const dt = new DataTransfer(); dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        toast("✓ Đã dán ảnh");
+      } catch (e) { toast("Trình duyệt chặn dán tự động — thử Ctrl+V.", false); }
+    };
+    dz.addEventListener("contextmenu", (e) => { e.preventDefault(); doPaste(); });
+    // chèn nút 📋 Dán ngay dưới (trừ khi đã có sẵn nút paste-btn)
+    const nxt = dz.nextElementSibling;
+    if (!(nxt && nxt.classList && nxt.classList.contains("paste-btn"))) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "btn-ghost sm paste-btn";
+      b.textContent = "📋 Dán ảnh"; b.style.cssText = "margin-top:6px;width:100%";
+      b.onclick = doPaste;
+      dz.insertAdjacentElement("afterend", b);
+    }
+  });
+}
 async function addFiles(files) {
   for (const f of files) {
     if (!f.type.startsWith("image/") || uploaded.length >= 4) continue;
@@ -4997,6 +5053,8 @@ function cutoutInit() {
     drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
     drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("drag"); addCutFiles(e.dataTransfer.files); });
     $("cutRun").onclick = cutoutRun;
+    // 📋 Dán (nút riêng hiện thumbnail ngay); chuột phải do universal paste lo
+    if ($("cutPaste")) $("cutPaste").onclick = async () => { const durl = await clipboardImageDataURL(); if (durl) { cutInputs.push(durl); cutRenderThumbs(); toast("✓ Đã dán ảnh"); } else toast("Clipboard chưa có ảnh — copy 1 ảnh rồi thử lại.", false); };
     if ($("cutManualBtn")) $("cutManualBtn").onclick = () => {
       const src = cutInputs[cutInputs.length - 1] || (cutItems[0] && cutItems[0].image);
       if (!src) { const n = $("cutNote"); n.className = "gen-note err"; n.textContent = "⚠️ Tải/dán 1 ảnh trước đã."; return; }
@@ -5004,19 +5062,29 @@ function cutoutInit() {
     };
     cutManualWire();
   }
+  cutRenderThumbs();
   cutoutRender();
+}
+function cutRenderThumbs() {
+  const box = $("cutThumbs"); if (box) {
+    box.innerHTML = cutInputs.map((d, i) =>
+      '<div class="thumb"><img src="' + d + '" alt=""><button class="thumb-x" data-i="' + i + '">×</button></div>'
+    ).join("");
+    box.querySelectorAll(".thumb-x").forEach(b => b.onclick = () => { cutInputs.splice(+b.dataset.i, 1); cutRenderThumbs(); });
+  }
+  const n = $("cutNote"); if (n) { n.className = "gen-note"; n.textContent = cutInputs.length ? ("📎 Đã thêm " + cutInputs.length + " ảnh — bấm Tách nền.") : ""; }
 }
 async function addCutFiles(files) {
   for (const f of files) { if (f && f.type.startsWith("image/")) cutInputs.push(await fileToDataURL(f)); }
-  const n = $("cutNote"); n.className = "gen-note"; n.textContent = cutInputs.length ? ("📎 Đã thêm " + cutInputs.length + " ảnh — bấm Tách nền.") : "";
+  cutRenderThumbs();
 }
 // dán ảnh khi đang ở tab Tách nền (router paste của app gọi addCutFiles nếu có)
-window.cutoutPaste = (durl) => { if (durl) { cutInputs.push(durl); $("cutNote").textContent = "📎 Đã dán " + cutInputs.length + " ảnh — bấm Tách nền."; } };
+window.cutoutPaste = (durl) => { if (durl) { cutInputs.push(durl); cutRenderThumbs(); } };
 async function cutoutRun() {
   const note = $("cutNote");
   if (!cutInputs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải/dán ít nhất 1 ảnh."; return; }
   const method = $("cutMethod").value, matting = $("cutMatting").checked;
-  const batch = cutInputs.slice(); cutInputs = [];   // nhả ngay -> up ảnh mới chạy tiếp được
+  const batch = cutInputs.slice(); cutInputs = []; cutRenderThumbs();   // nhả ngay -> up ảnh mới chạy tiếp được
   note.className = "gen-note"; note.textContent = "⏳ Đang tách nền " + batch.length + " ảnh (song song)…";
   // chạy SONG SONG, mỗi ảnh 1 ô loading riêng
   await Promise.all(batch.map(async (img, i) => {
@@ -5463,3 +5531,6 @@ function loadTaskDone(id, ok, msg) {
     const d = document.getElementById("loadDock"); if (d && !d.children.length) d.remove();
   }, ok === false ? 4500 : 1600);
 }
+
+// Kích hoạt dán (chuột phải + nút) cho mọi dropzone khi tải xong
+try { attachUniversalPaste(); } catch (e) {}
