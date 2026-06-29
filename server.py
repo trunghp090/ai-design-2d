@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-revert-flatcut"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-recolor-faithful"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -144,20 +144,17 @@ COLOR_VI = {
 # Bảng màu áo cho tính năng "Đổi màu theo áo": key -> (nhãn VN, hex áo, gợi ý phối màu)
 RECOLOR = {
     "black":  ("đen", "#1c1c1e",
-               "the shirt is BLACK. TOP PRIORITY = MAKE THE WHOLE DESIGN LIGHT. The MAIN FILL / "
-               "body of EVERY letter and large graphic MUST become a LIGHT tone (white, cream, "
-               "off-white, ivory). CONVERT every dark OR medium-dark colour — including NAVY "
-               "BLUE, dark teal, dark green, dark red, brown, grey — into light/cream/white. Do "
-               "NOT leave any large area navy/blue/dark or it VANISHES on black. Only thin "
-               "outlines or tiny accents may be a BRIGHT saturated colour (gold, ice-blue, red); "
-               "never dark. Net effect: the design reads as a LIGHT, bright print on black"),
+               "the shirt is BLACK. Keep the design FAITHFUL and KEEP every colour that is already "
+               "light or bright (they show fine on black). ONLY the parts that are DARK — dark navy, "
+               "black, very deep tones that would vanish on black — should be lifted to a LIGHTER "
+               "version of the SAME hue (e.g. dark navy → light ice-blue/cream-blue) so they stay "
+               "visible. Keep all accents, snow, stars and the design's overall character unchanged"),
     "white":  ("trắng", "#f5f5f5",
-               "the shirt is WHITE. TOP PRIORITY = MAKE THE WHOLE DESIGN DARK/RICH. The MAIN "
-               "FILL / body of EVERY letter and large graphic MUST become a DARK, deep, "
-               "saturated tone (deep navy, black, dark maroon, forest) with dark outlines. "
-               "CONVERT every white, cream, pale or light element into a dark/rich colour. Do "
-               "NOT leave any large area white/pale or it VANISHES on white. Only small accents "
-               "may be a bright mid-tone. Net effect: the design reads as a DARK, rich print on white"),
+               "the shirt is WHITE. KEEP the main lettering colour EXACTLY as it is (e.g. dark navy "
+               "lettering already pops on white — DO NOT change it). ONLY change elements that are "
+               "WHITE or very pale (white outlines, white snow caps, pale fills) into a soft VISIBLE "
+               "tone (light grey-blue, soft beige, light navy) so they do not disappear on white. "
+               "Keep everything else identical to the original"),
     "brown":  ("nâu", "#6b4a2f",
                "the shirt is a medium-dark warm BROWN, so use cream, beige, off-white and "
                "warm pastel tones with light outlines; avoid dark brown that blends in"),
@@ -179,18 +176,13 @@ RECOLOR = {
 def recolor_instruction(key):
     """Chỉ thị TIẾNG ANH: giữ nguyên design, CHỈ phối lại màu cho hợp màu áo."""
     vi, hexv, guide = RECOLOR[key]
-    is_dark = key in ("black", "forest", "maroon", "brown")
-    rule = ("MANDATORY: the MAIN FILL of every letter/graphic must be LIGHT (white/cream); flip any "
-            "dark or navy fill to light."
-            if is_dark else
-            "MANDATORY: the MAIN FILL of every letter/graphic must be DARK & rich; flip any white/pale "
-            "fill to dark.")
-    return ("Keep the illustration, text, fonts and composition IDENTICAL — do not redraw or move "
-            "anything, only change COLOURS. %s Re-map the colours so the design POPS with strong "
-            "luminance contrast when printed on a %s (%s) t-shirt: %s. "
-            "Keep the area around/behind the artwork EMPTY on a PLAIN PURE WHITE background — do "
-            "NOT tint or fill the background with any color (no magenta/pink/colored backdrop) — so "
-            "it can be cut out cleanly. Output only the artwork, no shirt." % (rule, vi, hexv, guide))
+    return ("Reproduce this EXACT design with PERFECT fidelity: identical letters, fonts, layout, "
+            "decorative elements (snow, stars, lines), proportions and texture — do NOT redraw, "
+            "restyle, move or simplify anything. Make the MINIMUM colour changes possible: KEEP every "
+            "colour that already stands out well on a %s shirt, and only recolour the specific "
+            "elements that would be hard to see on a %s (%s) shirt. %s Preserve the design's main "
+            "colour identity and character. Output ONLY the artwork on a plain pure-white EMPTY "
+            "background (no shirt, no tint of any colour) so it cuts out cleanly." % (vi, vi, hexv, guide))
 
 
 def recolor_plan(design_bytes, color_key):
@@ -198,28 +190,24 @@ def recolor_plan(design_bytes, color_key):
     if not API_KEY or not design_bytes:
         return ""
     vi, hexv, _ = RECOLOR[color_key]
-    sys = ("You are an expert APPAREL graphic colourist. Given a t-shirt PRINT design and the SHIRT "
-           "colour it will be printed on, decide how to RE-COLOUR the design so it looks premium and is "
-           "CLEARLY VISIBLE with strong contrast on that shirt — while keeping the artwork, text, fonts, "
-           "icons and composition IDENTICAL (only the colours change). The #1 rule is LUMINANCE CONTRAST "
-           "with the shirt: on a DARK shirt the MAIN FILL of letters/graphics MUST be LIGHT; on a LIGHT "
-           "shirt the MAIN FILL MUST be DARK. Flip the design's overall lightness to oppose the shirt — "
-           "do NOT preserve a dark fill on a dark shirt or a light fill on a light shirt.")
+    sys = ("You are an expert APPAREL graphic colourist. Keep the design IDENTICAL and FAITHFUL and make "
+           "the MINIMUM colour changes. KEEP every colour that already contrasts well with the shirt; "
+           "ONLY recolour the elements whose brightness is too close to the shirt colour (they would "
+           "vanish). Preserve the design's MAIN colour identity and character — do NOT flip or remap the "
+           "whole palette. Think like a designer making the smallest tweak so the design reads cleanly.")
     is_dark = color_key in ("black", "forest", "maroon", "brown")
-    flip = ("This shirt is DARK: the MAIN FILL/body of every letter and large shape MUST become LIGHT "
-            "(white/cream/ivory). Convert ALL dark or medium-dark colours (incl. NAVY, dark blue/green/red, "
-            "grey) to light tones. Only thin outlines/tiny accents may be a BRIGHT colour."
+    note = ("This shirt is DARK: keep the light/bright parts as-is; ONLY lift the parts that are dark "
+            "(dark navy/black/deep) to a lighter version of the SAME hue so they stay visible. Keep accents."
             if is_dark else
-            "This shirt is LIGHT: the MAIN FILL/body of every letter and large shape MUST become DARK & rich "
-            "(deep navy, black, dark maroon). Convert ALL white/cream/pale colours to dark tones. Only tiny "
-            "accents may be a bright mid-tone.")
+            "This shirt is LIGHT: keep the dark/coloured lettering EXACTLY as-is (it already pops); ONLY "
+            "change WHITE or very pale elements (white outline, white snow, pale fills) to a soft visible "
+            "tone so they don't disappear.")
     user = [
         {"type": "text", "text": (
-            "Shirt colour: %s (hex %s). %s Analyse the design's current colours element by element, then give "
-            "ONE precise RE-COLOUR instruction (English) stating the NEW colour for each part (main letter "
-            "fill, outline, decorative elements, sub-text). Ensure HIGH luminance contrast vs the shirt, keep "
-            "it harmonious & premium, and NEVER use a colour close to the shirt colour. "
-            "Reply strict JSON: {\"instruction\":\"...\"}." % (vi, hexv, flip))},
+            "Shirt colour: %s (hex %s). %s Analyse the design's colours element by element, then give ONE "
+            "precise instruction (English) listing ONLY the elements that need a new colour and their new "
+            "colour — and explicitly say to KEEP the rest unchanged. Keep it harmonious, premium, faithful. "
+            "Reply strict JSON: {\"instruction\":\"...\"}." % (vi, hexv, note))},
         {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(design_bytes).decode()}},
     ]
     try:
