@@ -5448,8 +5448,13 @@ function cutMagicErase(cv, ctx, x, y, tolerance, global) {
    TRỢ LÝ AI — chọn SP + lệnh -> Claude lập kế hoạch -> duyệt -> chạy
    ===================================================================== */
 let agentInited = false, agentSteps = [], agentTimer = null, agentProduct = null;
-let agentHistory = [], agentPendingPlan = null, agentGreeted = false;
+let agentHistory = [], agentPendingPlan = null, agentGreeted = false, agentPendingImg = null;
 
+function agentRenderImgPrev() {
+  const box = $("agentImgPrev"); if (!box) return;
+  box.innerHTML = agentPendingImg ? '<div class="thumb"><img src="' + agentPendingImg + '" alt=""><button class="thumb-x">×</button></div>' : "";
+  const x = box.querySelector(".thumb-x"); if (x) x.onclick = () => { agentPendingImg = null; agentRenderImgPrev(); };
+}
 function agentInit() {
   if (!agentInited) {
     agentInited = true;
@@ -5457,6 +5462,9 @@ function agentInit() {
     $("agentCmd").addEventListener("keydown", e => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agentSend(); }
     });
+    if ($("agentImgBtn")) $("agentImgBtn").onclick = () => $("agentImgFile").click();
+    if ($("agentImgFile")) $("agentImgFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { agentPendingImg = await fileToDataURL(f); agentRenderImgPrev(); } e.target.value = ""; };
+    if ($("agentImgBtn")) attachContextPaste($("agentImgBtn"), async (durl) => { agentPendingImg = durl; agentRenderImgPrev(); });
     document.querySelectorAll(".agent-eg").forEach(s => s.onclick = () => { $("agentCmd").value = s.textContent.trim(); $("agentCmd").focus(); });
     if (!agentGreeted) {
       agentGreeted = true;
@@ -5544,17 +5552,21 @@ const RUN_RE = /^(ch[aạ]y|ch[aạ]y\s*đi|l[aà]m\s*đi|l[aà]m\s*lu[oô]n|ok\
 
 async function agentSend() {
   const inp = $("agentCmd"), msg = (inp.value || "").trim();
-  if (!msg) return;
+  const img = agentPendingImg;
+  if (!msg && !img) return;
   inp.value = "";
-  agentBubble("me", msg);
-  agentHistory.push({ role: "user", text: msg });
+  // bong bóng người dùng: ảnh (nếu có) + chữ
+  agentBubble("me", (img ? '<img src="' + img + '" style="max-width:160px;border-radius:8px;display:block;margin-bottom:' + (msg ? "6px" : "0") + '">' : "") + agentEsc(msg), true);
+  agentHistory.push({ role: "user", text: (img ? "[gửi 1 ảnh] " : "") + msg });
+  agentPendingImg = null; agentRenderImgPrev();
 
-  // "chạy đi" + đang có kế hoạch chờ → chạy luôn
-  if (agentPendingPlan && RUN_RE.test(msg)) { return agentExecute(agentPendingPlan); }
+  // "chạy đi" + đang có kế hoạch chờ → chạy luôn (chỉ khi không kèm ảnh)
+  if (!img && agentPendingPlan && RUN_RE.test(msg)) { return agentExecute(agentPendingPlan); }
 
-  const thinking = agentBubble("ai", "💭 Đang xử lý…");
+  const thinking = agentBubble("ai", img ? "👀 Đang xem ảnh…" : "💭 Đang xử lý…");
   try {
     const body = { message: msg, history: agentHistory.slice(0, -1) };
+    if (img) body.image = img;
     if (agentProduct) body.product = agentProduct;
     const d = await (await fetch("/api/agent-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
     if (thinking) thinking.remove();

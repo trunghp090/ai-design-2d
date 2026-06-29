@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ads-caption"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-agent-vision"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2493,10 +2493,20 @@ Lưu ý: bước tiêu tiền/đăng công khai (push_fb_ads, post_fbig) mặc �
 Chỉ trả JSON thuần (không markdown, không giải thích ngoài JSON)."""
 
 
-def agent_chat(message, product_ctx="", history=None):
-    """Phân loại: trả lời (answer) hoặc lập kế hoạch (plan). Không thực thi."""
+def agent_chat(message, product_ctx="", history=None, image=None):
+    """Phân loại: trả lời (answer) hoặc lập kế hoạch (plan). Không thực thi.
+    image: dataURL/url ảnh user gửi để AI XEM (vision)."""
     acts = "\n".join("- %s: %s" % (k, v) for k, v in AGENT_ACTIONS.items())
     sys_prompt = _AGENT_CHAT_SYSTEM.format(product_ctx=product_ctx or "chưa chọn sản phẩm", actions=acts)
+    img_bytes = None
+    if image:
+        try:
+            img_bytes, _ = fetch_image_bytes(image)
+        except Exception:
+            img_bytes = None
+    if img_bytes:
+        message = (message or "").strip() or "Xem ảnh này giúp mình (phân tích / nhận xét)."
+        message = "[Người dùng có GỬI KÈM 1 ẢNH — hãy nhìn ảnh để trả lời] " + message
     # Nếu câu hỏi liên quan ads → lấy sẵn dữ liệu để AI phân tích chính xác
     fb_ctx = ""
     low = message.lower()
@@ -2517,7 +2527,10 @@ def agent_chat(message, product_ctx="", history=None):
     raw, planner = None, None
     if ANTHROPIC_API_KEY:
         try:
-            raw = claude_text(sys_prompt, user_msg, max_tokens=1500)
+            if img_bytes:
+                raw = claude_vision(sys_prompt, user_msg, img_bytes, max_tokens=1500)
+            else:
+                raw = claude_text(sys_prompt, user_msg, max_tokens=1500)
             planner = "Claude %s" % ANTHROPIC_MODEL
         except Exception:
             raw = None
@@ -2525,8 +2538,14 @@ def agent_chat(message, product_ctx="", history=None):
         if not API_KEY:
             return {"error": "Chưa cấu hình ANTHROPIC_API_KEY hoặc OPENAI_API_KEY."}
         try:
+            if img_bytes:
+                b64 = base64.b64encode(img_bytes).decode()
+                user_content = [{"type": "text", "text": user_msg},
+                                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+            else:
+                user_content = user_msg
             raw = openai_chat([{"role": "system", "content": sys_prompt},
-                               {"role": "user", "content": user_msg}],
+                               {"role": "user", "content": user_content}],
                               json_mode=True, max_tokens=1500, model=BEST_TEXT_MODEL)
             planner = "gpt-4o" + (" (Claude lỗi)" if ANTHROPIC_API_KEY else "")
         except Exception as e:
@@ -5446,14 +5465,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, agent_plan(cmd, prod_ctx))
         if path == "/api/agent-chat":
             msg = (body.get("message") or "").strip()
-            if not msg:
-                return self.json(400, {"error": "Nhập nội dung."})
+            image = body.get("image") or ""
+            if not msg and not image:
+                return self.json(400, {"error": "Nhập nội dung hoặc gửi ảnh."})
             prod = body.get("product") or {}
             prod_ctx = ""
             if prod:
                 prod_ctx = "Tên: %s | Giá: %s | Link: %s" % (
                     prod.get("name") or "", prod.get("price") or "", prod.get("link") or "")
-            return self.json(200, agent_chat(msg, prod_ctx, body.get("history") or []))
+            return self.json(200, agent_chat(msg, prod_ctx, body.get("history") or [], image))
         if path == "/api/agent-run":
             steps = [s for s in (body.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
             if not steps:

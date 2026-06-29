@@ -1639,8 +1639,12 @@
         <!-- Khung chat -->
         <div id="agentChat" style="flex:1;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)"></div>
 
+        <!-- Ảnh đính kèm (preview) -->
+        <div id="agentImgPrev" class="thumb-row" style="padding:4px 0 0"></div>
         <!-- Ô nhập -->
         <div style="display:flex;gap:8px;align-items:flex-end;padding:10px 0">
+          <input type="file" id="agentImgFile" accept="image/*" hidden />
+          <button class="btn-ghost sm" id="agentImgBtn" title="Gửi ảnh cho AI xem" style="white-space:nowrap">📎 Ảnh</button>
           <textarea id="agentCmd" class="input" rows="1" placeholder="Nhắn cho Trợ lý AI… (Enter để gửi)" style="flex:1;resize:none"></textarea>
           <button class="btn-primary sm" id="agentPlanBtn" style="white-space:nowrap">Gửi ➤</button>
         </div>
