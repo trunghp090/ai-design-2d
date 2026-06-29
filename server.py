@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ads-subvary"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ads-allnames"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1742,8 +1742,15 @@ _ADS_REAL = (
     "longer hem; NOT slim-fit, NOT tight, NOT small. ")
 
 
-_ADS_ONE = ("Each shirt shows EXACTLY ONE name (the new one) — never show two names, never keep the "
-            "design's original name anywhere. ")
+_ADS_ONE = ("Each shirt's MAIN big name is exactly ONE (the new one) — never keep the design's original "
+            "main name anywhere. (A separate small secondary person-name line, if the design has one, is "
+            "allowed and is handled below.) ")
+
+_ADS_ALLNAMES = ("CRITICAL RULE FOR NAMES: treat EVERY human/personal NAME on the design as personalised "
+                 "text that MUST be DIFFERENT on every shirt — this includes BOTH the big MAIN name AND "
+                 "any SMALL secondary person/pet name line (e.g. a little name under the date). No name, "
+                 "big or small, may be identical on two shirts. Keep IDENTICAL only the NON-name text "
+                 "(taglines, series/club words, 'EST', dates and numbers like '14.02 2024'). ")
 
 
 def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg="", text_color=""):
@@ -1760,12 +1767,12 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
         for i in range(n))
     sub_clause = ""
     if subs:
-        sub_clause = ("ALSO: IF the design has a SMALL secondary PERSON/pet name line beneath the main "
-                      "name (a human-style name, NOT a tagline/date/series word), replace THAT small "
-                      "secondary name with a DIFFERENT one on each shirt too (keep its small size, "
-                      "position and style): " +
-                      "; ".join('shirt #%d → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
-                      ". If the design has no such small personal name, do NOT add one. ")
+        sub_clause = ("SMALL SECONDARY NAME — IMPORTANT: if the design has a small secondary PERSON/pet "
+                      "name line (a human-style name, e.g. under the EST/date — NOT a tagline/series word), "
+                      "you MUST replace it with a DIFFERENT name on EACH shirt (keep its small size, "
+                      "position and font); it must NOT stay the same across shirts: " +
+                      "; ".join('shirt #%d small secondary name → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
+                      ". Only if the design truly has NO such small personal name, do not add one. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
     if concept_key == "group":
@@ -1788,9 +1795,9 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
                  "wide short sleeves, drop shoulders, roomy relaxed cut (size L–XXL look), longer hem; "
                  "NOT slim, NOT small, NOT kids' shirts. Natural, realistic product photo. " % (n, on_bg))
     return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
-            _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
-            ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
-             "the same name. " % (n, n, namelist, perslot)) +
+            _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
+            ("There are %d shirts with %d DIFFERENT main names: %s. %s Every name (big and small) is "
+             "DIFFERENT on every shirt — do NOT repeat any name. " % (n, n, namelist, perslot)) +
             style +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
@@ -1802,9 +1809,13 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     style = _ads_style_clauses(img_style_n, txt_style_n)
     bg = (bg or "").strip()
     bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
+    subs = random.sample(VN_NICKS, 2) if "VN_NICKS" in globals() else []
+    sub_clause = (("SMALL SECONDARY NAME: if the design has a small secondary person-name line, make it "
+                   "DIFFERENT on each shirt — man's shirt → \"%s\", woman's shirt → \"%s\" (keep small "
+                   "size/position/font); do NOT keep it the same. " % (subs[0], subs[1])) if subs else "")
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
-            "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ads_replace_clause(old_name) +
-            _ADS_ONE +
+            "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ADS_ALLNAMES +
+            _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
             "There are TWO shirts. The MAN's shirt shows the FEMALE name \"" + nm["female"] + "\"; the "
             "WOMAN's shirt shows the MALE name \"" + nm["male"] + "\". This swap is ON PURPOSE: the "
             "man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt MUST show \""
