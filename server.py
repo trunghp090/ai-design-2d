@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ai-agent"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-claude-planner"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2297,36 +2297,72 @@ def autopost_tick():
 # ============================ TRỢ LÝ AI — điều khiển tool bằng lệnh ============================
 # Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
 AGENT_ACTIONS = {
-    "gen_design": "Tạo N design mới. params: {theme, n, text, extra}",
-    "gen_ads": "Tạo ảnh quảng cáo FB từ design vừa tạo. params: {n, concept}",
-    "push_fb_ads": "Đẩy ảnh ads (vừa tạo) lên FB Ads. params: {daily_budget, active(bool), link}",
-    "gen_fbpost": "Tạo bộ ảnh FB Post sạch từ design. params: {per_set}",
-    "post_fbig": "Đăng bộ ảnh FB Post lên Fanpage/Instagram. params: {channels:['fb','ig'], caption}",
-    "ads_optimize": "Xem hiệu suất ads + bật/tắt theo mục tiêu. params: {range, action(report|pause_low|activate)}",
+    "gen_design":    "Tạo design áo mới từ theme/chủ đề. params: {theme, n, text, extra}",
+    "gen_ads":       "Tạo ảnh quảng cáo FB từ design/sản phẩm đã chọn. params: {n, concept}",
+    "push_fb_ads":   "Đẩy ads lên FB Ads (tạo campaign+nhóm+ad). params: {daily_budget, active, link, campaign_name}",
+    "gen_fbpost":    "Tạo bộ ảnh FB Post từ design/sản phẩm. params: {per_set}",
+    "post_fbig":     "Đăng ảnh lên Fanpage/Instagram. params: {channels, caption}",
+    "analyze_fb":    "Phân tích FB Ads account: chi tiêu/CTR/CPC → ĐÁNH GIÁ + LỜI KHUYÊN chiến lược. params: {range}",
+    "scale_ads":     "Scale ngân sách chiến dịch đang hiệu quả (CTR > min_ctr). params: {range, factor, min_ctr}",
+    "ads_optimize":  "Bật/tắt/dừng ads theo hiệu suất. params: {range, action: report|pause_low|activate_all}",
+    "write_content": "Claude viết content/caption cho sản phẩm đã chọn (FB post, ads, campaign). params: {type, tone}",
 }
 AGENT_RUN = {"running": False, "cur": 0, "total": 0, "steps": [], "log": [], "done": False}
 
+# System prompt cho Claude làm planner — giải thích ngữ cảnh đầy đủ
+_AGENT_SYSTEM = """Bạn là não điều khiển (AI orchestrator) của công cụ thiết kế áo thun cá nhân hoá rieng.vn (Việt Nam).
+Tool đã tích hợp sẵn: gen design AI, tạo ảnh quảng cáo FB, đẩy lên FB Ads/Fanpage/Instagram, phân tích hiệu suất.
 
-def agent_plan(command):
-    """gpt-4o đọc lệnh -> kế hoạch các bước (JSON)."""
-    if not API_KEY:
-        return {"error": "Chưa cấu hình OPENAI_API_KEY."}
+Sản phẩm hiện tại (nếu có): {product_ctx}
+
+Danh sách hành động CÓ THỂ DÙNG (chỉ dùng các action này):
+{actions}
+
+Nguyên tắc lập kế hoạch:
+- Chọn & sắp xếp các action theo lệnh, chuỗi logic (ví dụ gen_design → gen_ads → push_fb_ads).
+- Bước tiêu tiền hoặc đăng công khai (push_fb_ads, post_fbig): mặc định daily_budget=50000, active=false.
+- Lấy link sản phẩm từ ngữ cảnh nếu có, không tự đặt.
+- Nếu lệnh phân tích/đánh giá → analyze_fb trước, rồi scale_ads/ads_optimize nếu phù hợp.
+- Viết content cho SP → write_content TRƯỚC gen_fbpost.
+- Trả về ĐÚNG định dạng JSON sau, không giải thích thêm:
+{{"summary":"<1 dòng tiếng Việt tóm tắt kế hoạch>","steps":[{{"action":"<key>","label":"<mô tả tiếng Việt>","params":{{...}}}}]}}"""
+
+
+def agent_plan(command, product_ctx=""):
+    """Claude (ưu tiên) / gpt-4o (fallback) đọc lệnh -> kế hoạch JSON."""
     acts = "\n".join("- %s: %s" % (k, v) for k, v in AGENT_ACTIONS.items())
-    sys = ("You are the orchestration brain of a Vietnamese print-on-demand tool. Convert the user's "
-           "command into an ordered PLAN of steps using ONLY these available actions:\n" + acts +
-           "\nChain them logically (e.g. gen_design then gen_ads then push_fb_ads). Choose sensible "
-           "params. Money/publish steps (push_fb_ads, post_fbig) keep small & safe by default "
-           "(daily_budget 50000, active false unless told). Reply STRICT JSON: "
-           "{\"summary\":\"<1 dòng tiếng Việt>\",\"steps\":[{\"action\":\"<key>\",\"label\":\"<mô tả "
-           "tiếng Việt>\",\"params\":{...}}]}. Only actions from the list.")
+    sys_prompt = _AGENT_SYSTEM.format(product_ctx=product_ctx or "chưa chọn sản phẩm", actions=acts)
+    raw = None
+    # ── ưu tiên Claude (hiểu ngữ cảnh phức tạp hơn) ──
+    if ANTHROPIC_API_KEY:
+        try:
+            raw = claude_text(sys_prompt,
+                              command + "\n\nChỉ trả JSON thuần (không markdown, không giải thích).",
+                              max_tokens=1200)
+        except Exception:
+            raw = None
+    # ── fallback OpenAI ──
+    if not raw:
+        if not API_KEY:
+            return {"error": "Chưa cấu hình ANTHROPIC_API_KEY hoặc OPENAI_API_KEY."}
+        try:
+            raw = openai_chat([{"role": "system", "content": sys_prompt},
+                               {"role": "user", "content": command}],
+                              json_mode=True, max_tokens=1200, model=BEST_TEXT_MODEL)
+        except Exception as e:
+            return {"error": "Lập kế hoạch lỗi: %s" % str(e)[:120]}
     try:
-        out = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": command}],
-                          json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
-        d = json.loads(out)
+        # Claude đôi khi bọc ```json ... ``` — strip ra
+        txt = raw.strip()
+        if txt.startswith("```"):
+            txt = txt.split("```")[-2] if "```" in txt[3:] else txt
+            txt = txt.lstrip("`").lstrip("json").strip()
+        d = json.loads(txt)
         steps = [s for s in (d.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
-        return {"summary": (d.get("summary") or "").strip(), "steps": steps}
+        planner = "Claude %s" % ANTHROPIC_MODEL if ANTHROPIC_API_KEY else "gpt-4o"
+        return {"summary": (d.get("summary") or "").strip(), "steps": steps, "planner": planner}
     except Exception as e:
-        return {"error": "Lập kế hoạch lỗi: %s" % str(e)[:120]}
+        return {"error": "Parse JSON lỗi: %s | raw: %s" % (str(e)[:80], (raw or "")[:120])}
 
 
 def _ag_gen_design(p, ctx):
@@ -2421,42 +2457,153 @@ def _ag_ads_optimize(p, ctx):
     if not fb_configured():
         return "Chưa cấu hình FB."
     rng = p.get("range") or "last_7d"
-    fields = "id,name,status,insights.date_preset(%s){spend,clicks,ctr}" % rng
+    action = p.get("action") or "report"
+    fields = "id,name,status,insights.date_preset(%s){spend,clicks,ctr,cpc}" % rng
     st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID, {"fields": fields, "limit": "50"})
     cs = d.get("data") or []
     lines = []
-    for c in cs[:8]:
+    for c in cs[:10]:
         ins = ((c.get("insights") or {}).get("data") or [{}])[0]
-        lines.append("%s: chi %s, click %s, CTR %s" % ((c.get("name") or "")[:20],
-                     ins.get("spend", "0"), ins.get("clicks", "0"), ins.get("ctr", "0")))
+        ctr = float(ins.get("ctr") or 0)
+        lines.append("%s: chi %s₫ | click %s | CTR %.2f%% | CPC %s₫ [%s]" % (
+            (c.get("name") or "")[:22], ins.get("spend", "0"), ins.get("clicks", "0"),
+            ctr, ins.get("cpc", "0"), c.get("status", "")))
+        if action == "pause_low" and ctr < 0.5 and c.get("status") == "ACTIVE":
+            fb_graph("POST", c["id"], {"status": "PAUSED"})
+            lines[-1] += " → ĐÃ DỪNG"
+        elif action == "activate_all" and c.get("status") == "PAUSED":
+            fb_graph("POST", c["id"], {"status": "ACTIVE"})
+            lines[-1] += " → ĐÃ BẬT"
     return "Báo cáo %d chiến dịch:\n" % len(cs) + "\n".join(lines)
 
 
+def _ag_analyze_fb(p, ctx):
+    """Lấy dữ liệu FB Ads → Claude phân tích & cho lời khuyên."""
+    if not fb_configured():
+        return "Chưa cấu hình FB Ads."
+    rng = p.get("range") or "last_7d"
+    fields = "id,name,status,insights.date_preset(%s){spend,impressions,clicks,ctr,cpc,reach,frequency,actions}" % rng
+    st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID, {"fields": fields, "limit": "30"})
+    cs = d.get("data") or []
+    if not cs:
+        return "Không có dữ liệu chiến dịch trong %s." % rng
+    rows = []
+    for c in cs[:12]:
+        ins = ((c.get("insights") or {}).get("data") or [{}])[0]
+        acts_d = {a.get("action_type"): a.get("value") for a in (ins.get("actions") or [])}
+        rows.append("- %s [%s]: chi %s₫ | reach %s | CTR %.2f%% | CPC %s₫ | purchase %s" % (
+            (c.get("name") or "")[:28], c.get("status", ""),
+            ins.get("spend", "0"), ins.get("reach", "0"),
+            float(ins.get("ctr") or 0), ins.get("cpc", "0"),
+            acts_d.get("purchase") or acts_d.get("offsite_conversion.fb_pixel_purchase") or "0"))
+    data_txt = "\n".join(rows)
+    if not ANTHROPIC_API_KEY and not API_KEY:
+        return "Dữ liệu:\n" + data_txt
+    sys_a = ("Bạn là chuyên gia FB Ads cho thương hiệu áo thun in tên rieng.vn (Việt Nam). "
+             "Phân tích dữ liệu chiến dịch, đánh giá hiệu suất, chỉ ra điểm mạnh/yếu, "
+             "và đưa ra ít nhất 3 lời khuyên cụ thể (scale cái nào, dừng cái nào, thay creative, "
+             "tối ưu targeting, thử gì tiếp). Tiếng Việt, ngắn gọn, thực tế.")
+    user_a = "Dữ liệu FB Ads (%s):\n%s\n\nPhân tích + lời khuyên?" % (rng, data_txt)
+    try:
+        advice = claude_text(sys_a, user_a, max_tokens=800) if ANTHROPIC_API_KEY else \
+                 openai_chat([{"role": "system", "content": sys_a}, {"role": "user", "content": user_a}],
+                             max_tokens=800, model=BEST_TEXT_MODEL)
+        ctx["fb_analysis"] = advice
+        return "📊 PHÂN TÍCH FB ADS:\n\n%s" % advice
+    except Exception as e:
+        return "Dữ liệu:\n" + data_txt + "\n\n(AI phân tích lỗi: %s)" % str(e)[:60]
+
+
+def _ag_scale_ads(p, ctx):
+    """Scale ngân sách các chiến dịch có CTR > min_ctr."""
+    if not fb_configured():
+        return "Chưa cấu hình FB Ads."
+    rng = p.get("range") or "last_7d"
+    factor = float(p.get("factor") or 1.5)
+    min_ctr = float(p.get("min_ctr") or 1.0)
+    fields = "id,name,status,daily_budget,insights.date_preset(%s){ctr}" % rng
+    st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID, {"fields": fields, "limit": "30"})
+    scaled, skipped = [], []
+    for c in (d.get("data") or []):
+        ins = ((c.get("insights") or {}).get("data") or [{}])[0]
+        ctr = float(ins.get("ctr") or 0)
+        bud = int(c.get("daily_budget") or 0)
+        name = (c.get("name") or "")[:25]
+        if ctr >= min_ctr and c.get("status") == "ACTIVE" and bud > 0:
+            new_bud = int(bud * factor)
+            r2, _ = fb_graph("POST", c["id"], {"daily_budget": str(new_bud)})
+            if r2 == 200:
+                scaled.append("%s: %d₫ → %d₫ (CTR %.2f%%)" % (name, bud, new_bud, ctr))
+            else:
+                skipped.append("%s: lỗi cập nhật" % name)
+        else:
+            skipped.append("%s: CTR %.2f%% < %.1f%% hoặc không ACTIVE" % (name, ctr, min_ctr))
+    result = "Scale x%.1f (CTR ≥ %.1f%%):\n" % (factor, min_ctr)
+    if scaled:
+        result += "✓ " + "\n✓ ".join(scaled)
+    if skipped:
+        result += "\n— " + "\n— ".join(skipped)
+    return result or "Không có chiến dịch đủ điều kiện."
+
+
+def _ag_write_content(p, ctx):
+    """Claude viết content/caption cho sản phẩm."""
+    prod = ctx.get("product") or {}
+    name = prod.get("name") or p.get("product_name") or "áo thun in tên"
+    link = prod.get("link") or ctx.get("product_link") or "https://rieng.vn"
+    price = prod.get("price") or prod.get("variants", [{}])[0].get("price") if prod.get("variants") else ""
+    content_type = p.get("type") or "fb_post"
+    tone = p.get("tone") or "vui tươi, gần gũi Gen-Z Việt Nam"
+    sys_c = ("Bạn là copywriter cho rieng.vn — áo thun in tên cá nhân hoá. "
+             "Viết content theo yêu cầu, tone: %s, tiếng Việt, ngắn gọn, emoji phù hợp. "
+             "Thêm CTA 'Mua ngay' kèm link sản phẩm." % tone)
+    user_c = ("Sản phẩm: %s. Giá: %s. Link: %s.\nViết %s cho bài đăng FB/IG (200-300 chữ)." %
+              (name, price or "liên hệ", link, content_type))
+    try:
+        txt = claude_text(sys_c, user_c, 600) if ANTHROPIC_API_KEY else \
+              openai_chat([{"role": "system", "content": sys_c}, {"role": "user", "content": user_c}],
+                          max_tokens=600, model=BEST_TEXT_MODEL)
+        ctx["written_caption"] = txt
+        return "✍️ Content:\n%s" % txt
+    except Exception as e:
+        return "Lỗi viết content: %s" % str(e)[:80]
+
+
 _AGENT_DISPATCH = {
-    "gen_design": _ag_gen_design, "gen_ads": _ag_gen_ads, "push_fb_ads": _ag_push_fb_ads,
-    "gen_fbpost": _ag_gen_fbpost, "post_fbig": _ag_post_fbig, "ads_optimize": _ag_ads_optimize,
+    "gen_design":    _ag_gen_design,
+    "gen_ads":       _ag_gen_ads,
+    "push_fb_ads":   _ag_push_fb_ads,
+    "gen_fbpost":    _ag_gen_fbpost,
+    "post_fbig":     _ag_post_fbig,
+    "ads_optimize":  _ag_ads_optimize,
+    "analyze_fb":    _ag_analyze_fb,
+    "scale_ads":     _ag_scale_ads,
+    "write_content": _ag_write_content,
 }
 
 
-def _agent_worker(steps):
+def _agent_worker(steps, product=None):
     AGENT_RUN.update(running=True, cur=0, total=len(steps), log=[], done=False)
     ctx = {}
+    if product:
+        ctx["product"] = product
+        ctx["product_link"] = product.get("link") or ("https://rieng.vn/products/%s" % product.get("handle", ""))
     for i, s in enumerate(steps):
         AGENT_RUN["cur"] = i + 1
         fn = _AGENT_DISPATCH.get(s.get("action"))
         label = s.get("label") or s.get("action")
         try:
             msg = fn(s.get("params") or {}, ctx) if fn else "Bỏ qua (không rõ action)."
-            AGENT_RUN["log"].append("✓ %s — %s" % (label, msg))
+            AGENT_RUN["log"].append(("✓ %s — %s" % (label, msg))[:400])
         except Exception as e:
             AGENT_RUN["log"].append("✗ %s — lỗi: %s" % (label, str(e)[:100]))
     AGENT_RUN.update(running=False, done=True)
 
 
-def agent_run_start(steps):
+def agent_run_start(steps, product=None):
     if AGENT_RUN["running"]:
         return False
-    threading.Thread(target=_agent_worker, args=(steps,), daemon=True).start()
+    threading.Thread(target=_agent_worker, args=(steps, product), daemon=True).start()
     return True
 
 
@@ -5090,14 +5237,19 @@ class Handler(BaseHTTPRequestHandler):
             cmd = (body.get("command") or "").strip()
             if not cmd:
                 return self.json(400, {"error": "Nhập lệnh."})
-            return self.json(200, agent_plan(cmd))
+            prod = body.get("product") or {}
+            prod_ctx = ""
+            if prod:
+                prod_ctx = "Tên: %s | Giá: %s | Link: %s" % (
+                    prod.get("name") or "", prod.get("price") or "", prod.get("link") or "")
+            return self.json(200, agent_plan(cmd, prod_ctx))
         if path == "/api/agent-run":
             steps = [s for s in (body.get("steps") or []) if s.get("action") in AGENT_ACTIONS]
             if not steps:
                 return self.json(400, {"error": "Kế hoạch rỗng."})
             if AGENT_RUN["running"]:
                 return self.json(400, {"error": "Đang chạy 1 kế hoạch — chờ xong."})
-            agent_run_start(steps)
+            agent_run_start(steps, product=body.get("product") or None)
             return self.json(200, {"ok": True, "total": len(steps)})
         if path == "/api/concept-style":   # lưu style 1 concept (đồng bộ autopilot)
             key = (body.get("key") or "").strip()

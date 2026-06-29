@@ -5120,57 +5120,145 @@ function cutMagicErase(cv, ctx, x, y, tolerance, global) {
 }
 
 /* =====================================================================
-   TRỢ LÝ AI — lệnh -> kế hoạch -> duyệt -> chạy
+   TRỢ LÝ AI — chọn SP + lệnh -> Claude lập kế hoạch -> duyệt -> chạy
    ===================================================================== */
-let agentInited = false, agentSteps = [], agentTimer = null;
+let agentInited = false, agentSteps = [], agentTimer = null, agentProduct = null;
+
 function agentInit() {
   if (!agentInited) {
     agentInited = true;
     $("agentPlanBtn").onclick = agentPlan;
-    document.querySelectorAll(".agent-eg").forEach(s => s.onclick = () => { $("agentCmd").value = s.textContent; });
+    document.querySelectorAll(".agent-eg").forEach(s => s.onclick = () => { $("agentCmd").value = s.textContent.trim(); });
+    // product picker
+    agentLoadProducts();
+    const srch = $("agentSpSearch");
+    if (srch) srch.oninput = () => agentFilterSp(srch.value);
+    if ($("agentSpClear")) $("agentSpClear").onclick = () => agentSelectProduct(null);
   }
   agentPoll();
 }
+
+let _agentAllSp = [];
+async function agentLoadProducts() {
+  try {
+    const d = await (await fetch("/api/shopify-products?limit=60")).json();
+    _agentAllSp = (d.products || []).map(p => ({
+      id: p.id, name: p.title || p.name || "",
+      price: (p.variants && p.variants[0] ? p.variants[0].price : p.price) || "",
+      handle: p.handle || "",
+      link: p.handle ? "https://rieng.vn/products/" + p.handle : "https://rieng.vn",
+      img: (p.images && p.images[0] ? p.images[0].src : "") || ""
+    }));
+    agentFilterSp("");
+  } catch (e) {
+    const el = $("agentSpList");
+    if (el) el.innerHTML = '<p class="hint" style="font-size:11px">Chưa kết nối Shopify.</p>';
+  }
+}
+function agentFilterSp(q) {
+  const el = $("agentSpList"); if (!el) return;
+  const items = q ? _agentAllSp.filter(p => p.name.toLowerCase().includes(q.toLowerCase())) : _agentAllSp;
+  if (!items.length) { el.innerHTML = '<p class="hint" style="font-size:11px">Không tìm thấy.</p>'; return; }
+  el.innerHTML = items.slice(0, 40).map(p =>
+    '<div class="agent-sp-item" data-id="' + p.id + '" style="display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid transparent;font-size:12px">' +
+    (p.img ? '<img src="' + p.img + '" style="width:30px;height:30px;object-fit:cover;border-radius:4px">' : '<div style="width:30px;height:30px;background:var(--bg2);border-radius:4px"></div>') +
+    '<div><div style="font-weight:600;line-height:1.2">' + (p.name.length > 30 ? p.name.slice(0, 30) + '…' : p.name) + '</div>' +
+    (p.price ? '<div style="color:var(--text2)">' + Number(p.price).toLocaleString("vi") + '₫</div>' : '') + '</div></div>'
+  ).join("");
+  el.querySelectorAll(".agent-sp-item").forEach(row => {
+    row.onmouseenter = () => row.style.background = "var(--bg2)";
+    row.onmouseleave = () => { if (!row.classList.contains("selected")) row.style.background = ""; };
+    row.onclick = () => {
+      const found = _agentAllSp.find(p => String(p.id) === row.dataset.id);
+      agentSelectProduct(found || null);
+    };
+  });
+  agentHighlightSp();
+}
+function agentSelectProduct(p) {
+  agentProduct = p;
+  const sel = $("agentSpSelected"), nm = $("agentSpName"), pr = $("agentSpPrice");
+  if (p) {
+    sel.style.display = ""; nm.textContent = p.name; pr.textContent = Number(p.price).toLocaleString("vi") + "₫" + (p.link ? " · " + p.link : "");
+  } else {
+    sel.style.display = "none"; nm.textContent = ""; pr.textContent = "";
+  }
+  agentHighlightSp();
+}
+function agentHighlightSp() {
+  document.querySelectorAll(".agent-sp-item").forEach(row => {
+    const active = agentProduct && String(agentProduct.id) === row.dataset.id;
+    row.style.border = active ? "1px solid var(--accent)" : "1px solid transparent";
+    row.style.background = active ? "var(--bg2)" : "";
+    row.classList.toggle("selected", !!active);
+  });
+}
+
 async function agentPlan() {
   const note = $("agentNote"), cmd = ($("agentCmd").value || "").trim();
   if (!cmd) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập lệnh."; return; }
-  note.className = "gen-note"; note.textContent = "🧠 AI đang lập kế hoạch…"; $("agentPlan").innerHTML = "";
+  note.className = "gen-note"; note.textContent = "🧠 Claude đang lập kế hoạch…"; $("agentPlan").innerHTML = "";
+  const badge = $("agentPlannerBadge"); if (badge) badge.textContent = "";
   try {
-    const d = await (await fetch("/api/agent-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) })).json();
+    const body = { command: cmd };
+    if (agentProduct) body.product = agentProduct;
+    const d = await (await fetch("/api/agent-plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
     if (d.error) throw new Error(d.error);
     agentSteps = d.steps || [];
     if (!agentSteps.length) { note.className = "gen-note err"; note.textContent = "AI chưa lập được kế hoạch — thử lệnh rõ hơn."; return; }
+    if (badge && d.planner) badge.textContent = "🤖 " + d.planner;
     note.className = "gen-note ok"; note.textContent = "📋 " + (d.summary || "Kế hoạch:");
-    let h = '<div style="border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:6px">';
-    agentSteps.forEach((s, i) => { h += '<div style="padding:4px 0;font-size:13px">' + (i + 1) + '. <b>' + (s.label || s.action) + '</b> <span class="hint">[' + s.action + ']</span></div>'; });
-    h += '<button class="btn-primary sm" id="agentRunBtn" style="margin-top:8px">✓ Duyệt &amp; chạy</button> <button class="btn-ghost sm" id="agentCancelBtn">✕ Huỷ</button></div>';
+    let h = '<div style="border:1px solid var(--accent);border-radius:12px;padding:12px;margin-top:6px">';
+    if (agentProduct) h += '<div style="font-size:11px;color:var(--accent);margin-bottom:8px">📦 Sản phẩm: <b>' + agentProduct.name + '</b></div>';
+    agentSteps.forEach((s, i) => {
+      const icons = { gen_design:"🎨", gen_ads:"📣", push_fb_ads:"🚀", gen_fbpost:"📸", post_fbig:"📤", analyze_fb:"📊", scale_ads:"📈", ads_optimize:"⚙️", write_content:"✍️" };
+      h += '<div style="padding:5px 0;font-size:13px;display:flex;align-items:center;gap:6px">' +
+           '<span style="width:22px;text-align:center">' + (icons[s.action] || "▶") + '</span>' +
+           '<span>' + (i + 1) + '. <b>' + (s.label || s.action) + '</b></span>' +
+           '<span class="hint" style="font-size:10px">[' + s.action + ']</span></div>';
+    });
+    h += '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-primary sm" id="agentRunBtn">✓ Duyệt &amp; chạy</button><button class="btn-ghost sm" id="agentCancelBtn">✕ Huỷ</button></div></div>';
     $("agentPlan").innerHTML = h;
     $("agentRunBtn").onclick = agentRun;
     $("agentCancelBtn").onclick = () => { agentSteps = []; $("agentPlan").innerHTML = ""; $("agentNote").textContent = ""; };
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
+
 async function agentRun() {
   if (!agentSteps.length) return;
   const danger = agentSteps.some(s => s.action === "push_fb_ads" || s.action === "post_fbig");
-  if (danger && !confirm("Kế hoạch có bước ĐĂNG/ĐẨY ADS thật (có thể tiêu tiền/đăng công khai). Duyệt chạy?")) return;
+  if (danger && !confirm("Kế hoạch có bước ĐĂNG/ĐẨY ADS thật (có thể tiêu tiền/đăng công khai). Xác nhận chạy?")) return;
   $("agentPlan").innerHTML = "";
+  const lw = $("agentLogWrap"); if (lw) lw.style.display = "";
+  $("agentLog").textContent = "";
   try {
-    const r = await fetch("/api/agent-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ steps: agentSteps }) });
+    const body = { steps: agentSteps };
+    if (agentProduct) body.product = agentProduct;
+    const r = await fetch("/api/agent-run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     $("agentNote").className = "gen-note"; $("agentNote").textContent = "⏳ Đang chạy kế hoạch…";
     agentPoll();
   } catch (e) { $("agentNote").className = "gen-note err"; $("agentNote").textContent = "✗ " + e.message; }
 }
+
 async function agentPoll() {
   try {
     const d = await (await fetch("/api/agent-status")).json();
-    $("agentLog").textContent = (d.log || []).join("\n");
+    const logEl = $("agentLog");
+    if (logEl && (d.log || []).length) {
+      logEl.textContent = d.log.join("\n");
+      const lw = $("agentLogWrap"); if (lw) lw.style.display = "";
+    }
     if (d.running) {
-      $("agentNote").className = "gen-note"; $("agentNote").textContent = "⏳ Đang chạy bước " + d.cur + "/" + d.total + "…";
-      if (!agentTimer) agentTimer = setInterval(agentPoll, 3000);
+      $("agentNote").className = "gen-note";
+      $("agentNote").textContent = "⏳ Bước " + d.cur + "/" + d.total + "…";
+      if (!agentTimer) agentTimer = setInterval(agentPoll, 2500);
     } else {
       if (agentTimer) { clearInterval(agentTimer); agentTimer = null; }
-      if (d.done && (d.log || []).length) { $("agentNote").className = "gen-note ok"; $("agentNote").textContent = "✓ Xong kế hoạch (" + d.total + " bước). Ảnh đã lưu trong Lịch sử/các tab tương ứng."; }
+      if (d.done && (d.log || []).length) {
+        $("agentNote").className = "gen-note ok";
+        $("agentNote").textContent = "✅ Xong " + d.total + " bước! Kết quả hiện trong log bên dưới.";
+      }
     }
   } catch (e) {}
 }
