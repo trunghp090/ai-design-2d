@@ -44,6 +44,8 @@
     <button class="app-group" data-group="product">📸 Sản phẩm</button>
     <button class="app-group" data-group="marketing">📣 Marketing</button>
     <button class="app-group" data-group="shopify">🛍️ Shopify</button>
+    <span style="flex:1"></span>
+    <button class="app-group" id="tabEditBtn" title="Kéo-thả để đổi vị trí tab" style="background:#fff">✎ Sửa vị trí tab</button>
   </nav>
   <nav class="app-tabs">
     <button class="app-tab active" data-app="clone" data-group="design">🎨 Clone Design</button>
@@ -56,8 +58,8 @@
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
-    <button class="app-tab" data-app="ads" data-group="marketing">📣 FB Ads</button>
-    <button class="app-tab" data-app="fbpost" data-group="marketing">📘 FB Post</button>
+    <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
+    <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
     <button class="app-tab" data-app="admgr" data-group="marketing">📊 Quản lý Ads</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
@@ -989,7 +991,8 @@
       <h3 style="margin:0 0 8px">🖱️ Tách nền thủ công — click vào vùng cần xoá</h3>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="hint" style="margin:0">Độ nhạy màu <input type="range" id="cutTol" min="5" max="140" value="35" style="vertical-align:middle"> <b id="cutTolVal">35</b></label>
-        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="cutGlobal"> Xoá MỌI chỗ cùng màu (không chỉ vùng liền)</label>
+        <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="cutGlobal"> Xoá MỌI chỗ cùng màu</label>
+        <label class="switch-row" style="margin:0;font-size:13px;color:var(--violet)"><input type="checkbox" id="cutRect"> 🔲 Kéo vùng (xoá hình chữ nhật)</label>
         <span style="flex:1"></span>
         <button class="btn-ghost sm" id="cutUndo">↶ Hoàn tác</button>
         <button class="btn-ghost sm" id="cutResetBtn">⟲ Đặt lại</button>

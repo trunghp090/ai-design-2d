@@ -647,7 +647,36 @@ function showGroup(g, keepApp) {
   }
 }
 document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.dataset.app));
-document.querySelectorAll(".app-group").forEach(b => b.onclick = () => showGroup(b.dataset.group));
+document.querySelectorAll(".app-group").forEach(b => { if (b.id !== "tabEditBtn") b.onclick = () => showGroup(b.dataset.group); });
+
+/* ---- Sửa vị trí tab: kéo-thả, lưu localStorage ---- */
+function applyTabOrder() {
+  let order = [];
+  try { order = JSON.parse(localStorage.getItem("tabOrder") || "[]"); } catch (e) {}
+  if (!order.length) return;
+  const nav = document.querySelector(".app-tabs"); if (!nav) return;
+  order.forEach(app => { const el = nav.querySelector('.app-tab[data-app="' + app + '"]'); if (el) nav.appendChild(el); });
+}
+function saveTabOrder() {
+  const order = [...document.querySelectorAll(".app-tabs .app-tab")].map(t => t.dataset.app);
+  try { localStorage.setItem("tabOrder", JSON.stringify(order)); } catch (e) {}
+}
+let tabEditOn = false, tabDragEl = null;
+function setTabEdit(on) {
+  tabEditOn = on;
+  const btn = $("tabEditBtn"); if (btn) { btn.classList.toggle("active", on); btn.textContent = on ? "✓ Xong (kéo để đổi)" : "✎ Sửa vị trí tab"; }
+  document.querySelectorAll(".app-tabs .app-tab").forEach(t => {
+    t.draggable = on;
+    t.style.cursor = on ? "grab" : "";
+    if (on) {
+      t.ondragstart = (e) => { tabDragEl = t; t.style.opacity = ".4"; e.dataTransfer.effectAllowed = "move"; };
+      t.ondragend = () => { t.style.opacity = ""; tabDragEl = null; saveTabOrder(); };
+      t.ondragover = (e) => { e.preventDefault(); if (!tabDragEl || tabDragEl === t || tabDragEl.dataset.group !== t.dataset.group) return; const r = t.getBoundingClientRect(); const after = e.clientX > r.left + r.width / 2; t.parentNode.insertBefore(tabDragEl, after ? t.nextSibling : t); };
+    } else { t.ondragstart = t.ondragend = t.ondragover = null; }
+  });
+}
+if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
+applyTabOrder();
 showGroup("design", true);
 
 /* =====================================================================
@@ -5011,15 +5040,40 @@ function cutManualWire() {
     else cutItems.unshift({ image: b64 });
     cutoutRender(); close();
   };
-  $("cutCanvas").onclick = (e) => {
-    const cv = $("cutCanvas"), ctx = cv.getContext("2d");
-    const rect = cv.getBoundingClientRect();
-    const x = Math.round((e.clientX - rect.left) * cv.width / rect.width);
-    const y = Math.round((e.clientY - rect.top) * cv.height / rect.height);
-    if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return;
-    cutUndo.push(ctx.getImageData(0, 0, cv.width, cv.height));
-    if (cutUndo.length > 25) cutUndo.shift();
-    cutMagicErase(cv, ctx, x, y, +$("cutTol").value, $("cutGlobal").checked);
+  const cv = $("cutCanvas");
+  const xy = (e) => { const r = cv.getBoundingClientRect(); return { x: Math.round((e.clientX - r.left) * cv.width / r.width), y: Math.round((e.clientY - r.top) * cv.height / r.height) }; };
+  const pushUndo = (ctx) => { cutUndo.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (cutUndo.length > 25) cutUndo.shift(); };
+  let dragStart = null, dragSnap = null;
+  cv.onmousedown = (e) => {
+    if (!$("cutRect").checked) return;
+    const ctx = cv.getContext("2d");
+    dragStart = xy(e); dragSnap = ctx.getImageData(0, 0, cv.width, cv.height);
+  };
+  cv.onmousemove = (e) => {
+    if (!dragStart) return;
+    const ctx = cv.getContext("2d"); ctx.putImageData(dragSnap, 0, 0);
+    const p = xy(e);
+    ctx.strokeStyle = "#9a2a3a"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.strokeRect(dragStart.x, dragStart.y, p.x - dragStart.x, p.y - dragStart.y); ctx.setLineDash([]);
+  };
+  const endDrag = (e) => {
+    if (!dragStart) return;
+    const ctx = cv.getContext("2d"); ctx.putImageData(dragSnap, 0, 0);
+    pushUndo(ctx);
+    const p = xy(e), im = ctx.getImageData(0, 0, cv.width, cv.height), d = im.data;
+    const x0 = Math.max(0, Math.min(dragStart.x, p.x)), x1 = Math.min(cv.width, Math.max(dragStart.x, p.x));
+    const y0 = Math.max(0, Math.min(dragStart.y, p.y)), y1 = Math.min(cv.height, Math.max(dragStart.y, p.y));
+    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) d[(yy * cv.width + xx) * 4 + 3] = 0;
+    ctx.putImageData(im, 0, 0); dragStart = null; dragSnap = null;
+  };
+  cv.onmouseup = endDrag;
+  cv.onmouseleave = endDrag;
+  cv.onclick = (e) => {
+    if ($("cutRect").checked) return;
+    const ctx = cv.getContext("2d"); const p = xy(e);
+    if (p.x < 0 || p.y < 0 || p.x >= cv.width || p.y >= cv.height) return;
+    pushUndo(ctx);
+    cutMagicErase(cv, ctx, p.x, p.y, +$("cutTol").value, $("cutGlobal").checked);
   };
 }
 function cutOpenManual(srcB64, idx) {
