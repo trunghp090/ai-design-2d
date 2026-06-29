@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-nick-pool"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ads-subvary"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1724,11 +1724,11 @@ ADS_CONCEPT_N = {"couple": 2, "group": 3, "family": 4, "flatlay2": 2, "flatlay3"
 
 _ADS_KEEP = (
     "Reference image #1 is the t-shirt design. On EVERY shirt reproduce this design faithfully: same "
-    "layout, same fonts, same emblem/icons, stars, lines, banners and ALL the secondary text (taglines, "
-    "club words like 'CITY CREW' / 'Athletic', any date or small words) — keep them all, do NOT remove, "
-    "redraw, restyle, simplify or re-center anything. The ONLY thing that changes between shirts is the "
-    "single MAIN large NAME text: replace it with a different name on each shirt, in the same font, "
-    "style, weight and position (correct Vietnamese diacritics). "
+    "layout, same fonts, same emblem/icons, stars, lines, banners and the NON-NAME secondary text "
+    "(taglines/series words like 'CUSTOM NAME SERIES' / 'Athletic', and any EST/date) — keep those "
+    "identical, do NOT remove, redraw, restyle, simplify or re-center anything. What CHANGES per shirt is "
+    "the single MAIN large NAME text (replace with a different name on each shirt, same font/style/weight/"
+    "position, correct Vietnamese diacritics). "
     "PRINT COLOUR: keep the design's OWN original colours, but render them CLEAN, crisp and EXACTLY the "
     "SAME on every shirt — the print colour and text must NOT drift, shift, fade, recolor or look "
     "misaligned/mismatched between the shirts; all prints look perfectly aligned and sharp. ")
@@ -1751,7 +1751,21 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     txt = _ads_text_part(prod_name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     n = len(names)
-    perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
+    # tên nhỏ phụ ĐA DẠNG: mỗi áo 1 tên nhỏ khác (nếu design có dòng tên nhỏ dưới)
+    subs = random.sample(VN_NICKS, min(n, len(VN_NICKS))) if "VN_NICKS" in globals() else []
+    perslot = " ".join(
+        ('Shirt #%d shows the main name "%s"%s.' % (
+            i + 1, names[i],
+            (' and the small secondary name "%s" beneath it' % subs[i]) if i < len(subs) else ""))
+        for i in range(n))
+    sub_clause = ""
+    if subs:
+        sub_clause = ("ALSO: IF the design has a SMALL secondary PERSON/pet name line beneath the main "
+                      "name (a human-style name, NOT a tagline/date/series word), replace THAT small "
+                      "secondary name with a DIFFERENT one on each shirt too (keep its small size, "
+                      "position and style): " +
+                      "; ".join('shirt #%d → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
+                      ". If the design has no such small personal name, do NOT add one. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
     if concept_key == "group":
@@ -1774,7 +1788,7 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
                  "wide short sleeves, drop shoulders, roomy relaxed cut (size L–XXL look), longer hem; "
                  "NOT slim, NOT small, NOT kids' shirts. Natural, realistic product photo. " % (n, on_bg))
     return ("Create a polished FACEBOOK AD creative for PERSONALISED name t-shirts. " + scene +
-            _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE +
+            _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
             ("There are %d shirts with %d DIFFERENT names: %s. %s Every name is DIFFERENT — do NOT repeat "
              "the same name. " % (n, n, namelist, perslot)) +
             style +
