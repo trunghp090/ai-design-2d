@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-nick-vary-regen"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-nick-pool"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4534,6 +4534,12 @@ VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm",
             "Đăng Khoa", "Phương Anh", "Ngọc Diệp", "Hữu Phước", "Tường Vy", "Quốc Bảo", "Diễm My",
             "Nhật Minh", "Cẩm Tú", "Gia Hân", "Đình Phong", "Thảo Nguyên", "Hoàng Yến", "Trí Dũng"]
 
+# Tên nhỏ / tên thân mật phụ (đa dạng) — chèn nhỏ dưới tên chính, mỗi bản 1 cái khác
+VN_NICKS = ["Honey", "Bé Na", "Cục Cưng", "Gấu Yêu", "Mèo Con", "Bồ Câu", "Nắng", "Sunny",
+            "Bí Ngô", "Cherry", "Bông", "Su Su", "Ốc", "Bơ", "Kẹo", "Annie", "Bunny", "Mochi",
+            "Hùng Lan", "Minh Anh", "Tú Lan", "Hải My", "Bảo Vy", "Khánh Linh", "Thu Trang",
+            "Ngọc Mai", "Phương Thảo", "Đức Huy", "Quỳnh Anh", "Lan Hương"]
+
 
 def name_suggest():
     y = random.randint(2000, 2025)
@@ -6153,6 +6159,12 @@ class Handler(BaseHTTPRequestHandler):
         for sep in ("·", "/", "&", ",", "|", ";"):
             nick_raw = nick_raw.replace(sep, "\n")
         nicks = [x.strip() for x in nick_raw.split("\n") if x.strip()]
+        # 🎲 AUTO ĐA DẠNG: chưa gõ đủ nhiều tên -> tự lấy từ pool, MỖI BẢN 1 tên nhỏ KHÁC
+        if bool(body.get("nick_vary")) and len(nicks) < count:
+            pool = VN_NICKS[:]
+            random.shuffle(pool)
+            need = count - len(nicks)
+            nicks = nicks + [p for p in pool if p not in nicks][:need]
 
         def text_block(nk):
             """Khối chỉ thị (per-variant): thêm nick nk + ràng buộc CHỈ giữ tên/ngày/nick."""

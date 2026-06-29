@@ -799,7 +799,7 @@ function autoLaunchPersonalize(image, name, date, count, nick, req) {
   const note = $("autoNote"); note.className = "gen-note"; note.textContent = "⏳ Đang vẽ \"" + name + "\"… (up design khác để chạy tiếp luồng mới)";
   fetch("/api/personalize", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: image, name: name, date: date, nick: nick || "", note: req || "", count: count, transparent: true }),
+    body: JSON.stringify({ image: image, name: name, date: date, nick: nick || "", note: req || "", count: count, transparent: true, nick_vary: true }),
   }).then(r => r.json().then(d => ({ ok: r.ok, d: d })))
     .then(({ ok, d }) => {
       autoItems = autoItems.filter(c => !(c.loading && c.job === job));
@@ -2441,7 +2441,8 @@ $("pnGo").onclick = async () => {
   try {
     const r = await fetch("/api/personalize", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: pnImage, name, date, nick, note, count, transparent: true }),
+      body: JSON.stringify({ image: pnImage, name, date, nick, note, count, transparent: true,
+        nick_vary: !!($("pnNickVary") && $("pnNickVary").checked) }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi cá nhân hoá");
