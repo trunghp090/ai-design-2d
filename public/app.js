@@ -5045,24 +5045,37 @@ async function cutToShirt(b64) {
   if (typeof lenaoApplyAll === "function") await lenaoApplyAll(durl);
 }
 
-// AI đổi màu design cho hợp nền màu áo -> thêm bản mới vào kết quả (ĐA LUỒNG)
+// AI đổi màu design hợp nền áo -> sinh 4 BẢN KHÁC NHAU (4 luồng song song) để chọn
+const CUT_RECOLOR_VARIANTS = [
+  "Variation 1: minimal, high-contrast palette, clean and bold.",
+  "Variation 2: add one or two tasteful bright accent colours that pop.",
+  "Variation 3: muted, premium, sophisticated tones.",
+  "Variation 4: bright, vibrant, energetic tones.",
+];
 async function cutDoRecolor(idx, colorKey, colorVi) {
   const c = cutItems[idx]; if (!c) return;
-  const snap = c.image;   // chốt ảnh nguồn (idx có thể đổi khi unshift bản mới)
-  const tid = loadTaskAdd("🎨 Đổi màu design hợp áo " + colorVi + "…");
-  try {
-    const r = await fetch("/api/recolor", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: "data:image/png;base64," + snap, colors: [colorKey], size: "portrait" }),
-    });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    const it = (d.items || [])[0];
-    if (!it || !it.image) throw new Error("AI không trả kết quả.");
-    cutItems.unshift({ image: it.image }); cutoutRender();
-    loadTaskDone(tid, true, "✓ Xong bản hợp áo " + colorVi);
-  } catch (e) {
-    loadTaskDone(tid, false, "✕ Đổi màu lỗi: " + e.message);
+  const snap = c.image;   // chốt ảnh nguồn (idx đổi khi unshift bản mới)
+  const N = CUT_RECOLOR_VARIANTS.length;   // 4 option
+  for (let k = 0; k < N; k++) {
+    (async (vi) => {
+      const tid = loadTaskAdd("🎨 " + colorVi + " — bản " + (vi + 1) + "/" + N + "…");
+      try {
+        const r = await fetch("/api/recolor", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: "data:image/png;base64," + snap, colors: [colorKey], size: "portrait", note: CUT_RECOLOR_VARIANTS[vi] }),
+        });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+        const it = (d.items || [])[0];
+        if (!it || !it.image) throw new Error("AI không trả kết quả.");
+        cutItems.unshift({ image: it.image }); cutoutRender();
+        loadTaskDone(tid, true, "✓ " + colorVi + " bản " + (vi + 1));
+      } catch (e) {
+        loadTaskDone(tid, false, "✕ Bản " + (vi + 1) + ": " + e.message);
+      }
+    })(k);
   }
+  const note = $("cutNote");
+  if (note) { note.className = "gen-note"; note.textContent = "🎨 Đang tạo 4 bản đổi màu hợp áo " + colorVi + " (song song) — giữ bản đẹp nhất, xoá bản khác."; }
 }
 
 /* ---- Tách nền THỦ CÔNG (magic wand, client-side) ---- */
