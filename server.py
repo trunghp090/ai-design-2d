@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-ads-cursive"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-ads-caption"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3235,14 +3235,18 @@ def run_render_job(job_id, img, picks, engine="openai"):
 
 
 CONTENT_SYSTEM = (
-    "Bạn là chuyên viết content bán hàng cho shop áo thun couple / quà tặng GenZ Việt Nam "
-    "(brand rieng.vn). Nhìn ảnh sản phẩm để hiểu áo (màu, phong cách, cảm xúc) — KHÔNG bịa "
-    "chi tiết không có. Viết tiếng Việt, giọng trẻ trung tự nhiên như bạn bè, KHÔNG sáo rỗng "
-    "(tránh 'chất lượng cao', 'giá tốt nhất', 'uy tín').\n"
+    "Bạn là chuyên viết content bán hàng cho thương hiệu ÁO THUN IN TÊN cá nhân hoá rieng.vn "
+    "(Việt Nam). Sản phẩm: áo thun in TÊN RIÊNG theo yêu cầu — HỢP cho cặp đôi (couple), nhóm "
+    "bạn / đội nhóm, và GIA ĐÌNH; CÓ cả SIZE TRẺ EM nên cả nhà mặc đồng bộ được. NHÌN ảnh để "
+    "biết bài này đang hướng tới ai (1 áo / couple 2 áo / nhóm 3 áo / gia đình) và viết cho "
+    "ĐÚNG đối tượng đó — KHÔNG mặc định là cặp đôi nếu ảnh là nhóm/gia đình. KHÔNG bịa chi tiết. "
+    "Viết tiếng Việt, giọng trẻ trung tự nhiên như bạn bè, KHÔNG sáo rỗng (tránh 'chất lượng "
+    "cao', 'giá tốt nhất', 'uy tín').\n"
     "Trả về JSON đúng dạng: {\"facebook\":\"...\",\"tiktok_script\":\"...\",\"tiktok_caption\":\"...\"}.\n\n"
-    "1) facebook — 1 bài Facebook Ads: dòng HOOK gây chú ý (cảm xúc/câu hỏi/pain point cặp đôi "
-    "GenZ) → BODY 2–4 dòng ngắn mô tả sản phẩm tự nhiên → CTA rõ ràng (chèn link/giá nếu có) → "
-    "5–8 hashtag tiếng Việt. Emoji vừa phải, có thể chơi chữ nhẹ.\n\n"
+    "1) facebook — 1 bài Facebook Ads cho áo thun IN TÊN: dòng HOOK gây chú ý (cảm xúc/câu hỏi) → "
+    "BODY 2–4 dòng ngắn: in tên riêng theo yêu cầu, hợp couple / nhóm bạn / GIA ĐÌNH, CÓ SIZE TRẺ "
+    "EM (cả nhà mặc đồng bộ) → CTA rõ ràng (chèn link/giá nếu có) → 5–8 hashtag tiếng Việt "
+    "(gồm #áothunintên #riengvn và hashtag hợp đối tượng: couple/nhóm/giađình). Emoji vừa phải.\n\n"
     "2) tiktok_script — kịch bản TikTok ẢNH CUỘN 7 slide. ZERO nhắc sản phẩm (không 'áo/quà/"
     "tặng/mua/shop/couple/in tên'). Tối đa 1–2 slide có text overlay (câu ngắn ≤20 chữ, giọng "
     "nhẹ hơi thơ hiện đại, kiểu 'Gặp đúng người, mọi thứ tự nhiên trở nên dịu dàng...'). Còn lại "

@@ -4777,7 +4777,10 @@ async function adpostAddFromAd(c, btn) {
   let caption = "🔥 " + (product || title) + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
   try {
     const src = c.image ? "data:image/png;base64," + c.image : url;
-    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
+    const AUD = { couple: "Bài cho CẶP ĐÔI (couple, 2 áo).", group: "Bài cho NHÓM BẠN / ĐỘI NHÓM (nhiều áo, KHÔNG phải couple).", flatlay2: "Bài couple/đôi (2 áo).", flatlay3: "Bài cho NHÓM (3 áo, KHÔNG phải couple).", family: "Bài cho GIA ĐÌNH (có cả size trẻ em, KHÔNG phải couple)." };
+    const aud = AUD[c.concept] || "";
+    const info = "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. " + aud + " Nhớ: hợp couple/đội nhóm/gia đình, CÓ size trẻ em.";
+    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: info }) });
     const d = await r.json(); if (r.ok && (d.facebook || "").trim()) caption = d.facebook.trim();
   } catch (e) {}
   try {
