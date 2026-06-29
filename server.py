@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-brain-info"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-recolor-alpha"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -205,6 +205,29 @@ def recolor_plan(design_bytes, color_key):
         return (json.loads(out).get("instruction") or "").strip()[:600]
     except Exception:
         return ""
+
+
+def preserve_alpha(orig_bytes, colored_b64):
+    """Giữ NGUYÊN vùng trong suốt của ảnh GỐC cho ảnh đã đổi màu.
+    Recolor giữ bố cục y hệt -> áp lại đúng kênh alpha gốc => chỉ đổi MÀU bên trong,
+    KHÔNG thêm nền (nền gốc trong suốt thì kết quả cũng trong suốt)."""
+    if not HAS_PIL:
+        return colored_b64
+    try:
+        orig = Image.open(io.BytesIO(orig_bytes)).convert("RGBA")
+        a = orig.split()[3]
+        # Ảnh gốc gần như đặc (không có nền trong suốt) -> không có gì để giữ
+        if a.getextrema()[0] >= 250:
+            return colored_b64
+        col = Image.open(io.BytesIO(base64.b64decode(colored_b64))).convert("RGBA")
+        if col.size != orig.size:
+            col = col.resize(orig.size, Image.LANCZOS)
+        col.putalpha(a)   # ép đúng silhouette gốc -> nền trong suốt như gốc
+        out = io.BytesIO()
+        col.save(out, "PNG")
+        return base64.b64encode(out.getvalue()).decode()
+    except Exception:
+        return colored_b64
 
 
 def flatten_on_color(b64_png, hexv):
@@ -5831,6 +5854,8 @@ class Handler(BaseHTTPRequestHandler):
                 if note:
                     instr += " ADDITIONAL USER REQUEST (follow it): " + note
                 b64, _ = gen_design(img, "cloner", instr, size, True)
+                # Giữ ĐÚNG vùng trong suốt của design gốc -> chỉ đổi màu, KHÔNG thêm nền
+                b64 = preserve_alpha(d, b64)
                 g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
                 items.append({"image": b64, "title": "Áo %s" % vi,
                               "color": key, "hex": hexv, "gallery": g})
