@@ -5008,19 +5008,78 @@ function cutoutRender() {
     const card = document.createElement("div"); card.className = "fp-card";
     card.innerHTML =
       '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-edit">🖱️ Sửa</button><button class="b-zoom">🔍</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải PNG</button><button class="b-del">🗑️</button></div>';
+      '<div class="fp-card-acts"><button class="b-edit">🖱️ Sửa</button><button class="b-shirt">👕 Lên áo</button><button class="b-recolor">🎨 Đổi màu</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>' +
+      '<div class="cut-recolor-bar" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 8px;border-top:1px solid var(--line)"></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
     card.querySelector(".b-edit").onclick = () => cutOpenManual(c.image, idx);
-    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-shirt").onclick = () => cutToShirt(c.image);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => autoDownload(c.image, "tach-nen");
     card.querySelector(".b-del").onclick = () => { cutItems.splice(idx, 1); cutoutRender(); };
+    // đổi màu theo nền áo (AI) — hiện bảng màu inline
+    const bar = card.querySelector(".cut-recolor-bar");
+    RECOLOR_LIST.forEach(col => {
+      const chip = document.createElement("button");
+      chip.className = "btn-ghost sm";
+      chip.style.cssText = "display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 7px";
+      chip.innerHTML = '<span style="width:13px;height:13px;border-radius:3px;border:1px solid #0002;background:' + col.sw + '"></span>' + col.vi;
+      chip.onclick = () => cutDoRecolor(idx, col.key, col.vi);
+      bar.appendChild(chip);
+    });
+    card.querySelector(".b-recolor").onclick = () => { bar.style.display = bar.style.display === "none" ? "flex" : "none"; };
     grid.appendChild(card);
   });
 }
 
+// đưa ảnh đã tách nền sang tab Lên áo (áp lên tất cả áo)
+async function cutToShirt(b64) {
+  const durl = String(b64).startsWith("data:") ? b64 : ("data:image/png;base64," + b64);
+  showApp("lenao");
+  await lenaoInit();
+  // chờ danh sách áo nạp xong (fetch mockups async) trước khi áp design
+  for (let i = 0; i < 50 && (typeof lenaoSlots === "undefined" || !lenaoSlots.length); i++) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  if (typeof lenaoApplyAll === "function") await lenaoApplyAll(durl);
+}
+
+// AI đổi màu design cho hợp nền màu áo -> thêm bản mới vào kết quả
+let cutRecoloring = false;
+async function cutDoRecolor(idx, colorKey, colorVi) {
+  if (cutRecoloring) return;
+  const c = cutItems[idx]; if (!c) return;
+  const note = $("cutNote"); cutRecoloring = true;
+  note.className = "gen-note"; note.textContent = "🎨 AI đang đổi màu design hợp áo " + colorVi + "… (≈30–60s)";
+  try {
+    const durl = "data:image/png;base64," + c.image;
+    const r = await fetch("/api/recolor", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: durl, colors: [colorKey], size: "portrait" }),
+    });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const it = (d.items || [])[0];
+    if (!it || !it.image) throw new Error("AI không trả kết quả.");
+    cutItems.unshift({ image: it.image }); cutoutRender();
+    note.className = "gen-note ok"; note.textContent = "✓ Đã thêm bản đổi màu (hợp áo " + colorVi + ") vào đầu danh sách.";
+  } catch (e) {
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  } finally { cutRecoloring = false; }
+}
+
 /* ---- Tách nền THỦ CÔNG (magic wand, client-side) ---- */
 let cutBase = null, cutUndo = [], cutEditIdx = -1, cutManualWired = false;
+let cutScale = 1, cutFitW = 0;
+function cutApplyZoom(s) {
+  cutScale = Math.max(0.4, Math.min(s, 6));
+  const cv = $("cutCanvas"); if (!cv) return;
+  if (!cutFitW) cutFitW = cv.clientWidth || cv.width;
+  if (Math.abs(cutScale - 1) < 0.01) {
+    cutScale = 1; cv.style.maxWidth = "100%"; cv.style.width = "";
+  } else {
+    cv.style.maxWidth = "none"; cv.style.width = Math.round(cutFitW * cutScale) + "px";
+  }
+  if ($("cutZoomVal")) $("cutZoomVal").textContent = Math.round(cutScale * 100) + "%";
+}
 function cutManualWire() {
   if (cutManualWired) return; cutManualWired = true;
   const close = () => $("cutManualModal").classList.add("hidden");
@@ -5042,6 +5101,10 @@ function cutManualWire() {
     else cutItems.unshift({ image: b64 });
     cutoutRender(); close();
   };
+  // ---- Zoom design trong editor ----
+  if ($("cutZoomIn")) $("cutZoomIn").onclick = () => cutApplyZoom(cutScale * 1.25);
+  if ($("cutZoomOut")) $("cutZoomOut").onclick = () => cutApplyZoom(cutScale / 1.25);
+  if ($("cutZoomReset")) $("cutZoomReset").onclick = () => cutApplyZoom(1);
   const cv = $("cutCanvas");
   const xy = (e) => { const r = cv.getBoundingClientRect(); return { x: Math.round((e.clientX - r.left) * cv.width / r.width), y: Math.round((e.clientY - r.top) * cv.height / r.height) }; };
   const pushUndo = (ctx) => { cutUndo.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (cutUndo.length > 25) cutUndo.shift(); };
@@ -5088,7 +5151,12 @@ function cutOpenManual(srcB64, idx) {
     cv.width = w; cv.height = h;
     ctx.clearRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
     cutBase = ctx.getImageData(0, 0, w, h); cutUndo = [];
+    // reset zoom về vừa khung
+    cutScale = 1; cutFitW = 0;
+    cv.style.maxWidth = "100%"; cv.style.width = "";
+    if ($("cutZoomVal")) $("cutZoomVal").textContent = "100%";
     $("cutManualModal").classList.remove("hidden");
+    setTimeout(() => { cutFitW = cv.clientWidth || w; }, 50);
   };
   img.src = String(srcB64).startsWith("data:") ? srcB64 : ("data:image/png;base64," + srcB64);
 }

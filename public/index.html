@@ -994,6 +994,12 @@
         <label class="hint" style="margin:0">Độ nhạy màu <input type="range" id="cutTol" min="5" max="140" value="35" style="vertical-align:middle"> <b id="cutTolVal">35</b></label>
         <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="cutGlobal"> Xoá MỌI chỗ cùng màu</label>
         <label class="switch-row" style="margin:0;font-size:13px;color:var(--violet)"><input type="checkbox" id="cutRect"> 🔲 Kéo vùng (xoá hình chữ nhật)</label>
+        <span style="display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:2px 4px">
+          <button class="btn-ghost sm" id="cutZoomOut" title="Thu nhỏ" style="padding:2px 8px">🔍−</button>
+          <b id="cutZoomVal" style="font-size:12px;min-width:42px;text-align:center;display:inline-block">100%</b>
+          <button class="btn-ghost sm" id="cutZoomIn" title="Phóng to" style="padding:2px 8px">🔍+</button>
+          <button class="btn-ghost sm" id="cutZoomReset" title="Vừa khung" style="padding:2px 8px">⛶</button>
+        </span>
         <span style="flex:1"></span>
         <button class="btn-ghost sm" id="cutUndo">↶ Hoàn tác</button>
         <button class="btn-ghost sm" id="cutResetBtn">⟲ Đặt lại</button>
