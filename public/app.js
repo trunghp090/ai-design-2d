@@ -5065,15 +5065,36 @@ function cutoutInit() {
     $("cutRun").onclick = cutoutRun;
     // 📋 Dán (nút riêng hiện thumbnail ngay); chuột phải do universal paste lo
     if ($("cutPaste")) $("cutPaste").onclick = async () => { const durl = await clipboardImageDataURL(); if (durl) { cutInputs.push(durl); cutRenderThumbs(); toast("✓ Đã dán ảnh"); } else toast("Clipboard chưa có ảnh — copy 1 ảnh rồi thử lại.", false); };
-    if ($("cutManualBtn")) $("cutManualBtn").onclick = () => {
-      const src = cutInputs[cutInputs.length - 1] || (cutItems[0] && cutItems[0].image);
+    if ($("cutManualBtn")) $("cutManualBtn").onclick = async () => {
+      let src = cutInputs[cutInputs.length - 1];
+      if (!src && cutItems[0]) src = "data:image/png;base64," + await cutB64(cutItems[0]);
       if (!src) { const n = $("cutNote"); n.className = "gen-note err"; n.textContent = "⚠️ Tải/dán 1 ảnh trước đã."; return; }
       cutOpenManual(src, -1);   // -1 = thêm mới vào kết quả
     };
     cutManualWire();
+    cutLoadHistory();   // nạp lại kết quả tách nền cũ (lưu trong gallery)
   }
   cutRenderThumbs();
   cutoutRender();
+}
+// lấy b64 cho 1 kết quả (đã có sẵn, hoặc tải từ url gallery)
+async function cutB64(c) {
+  if (c.image) return c.image;
+  const b = await (await fetch(c.url)).blob();
+  c.image = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
+  return c.image;
+}
+// nạp các kết quả tách nền đã lưu (mode "cutout") -> hiện lại
+async function cutLoadHistory() {
+  try {
+    const d = await (await fetch("/api/gallery")).json();
+    const hist = (d.items || []).filter(it => it.mode === "cutout")
+      .map(it => ({ url: it.url, id: it.id }));
+    // chỉ thêm bản chưa có (theo id) -> giữ kết quả phiên hiện tại lên trước
+    const haveIds = new Set(cutItems.map(c => c.id).filter(Boolean));
+    hist.forEach(h => { if (!haveIds.has(h.id)) cutItems.push(h); });
+    cutoutRender();
+  } catch (e) {}
 }
 function cutRenderThumbs() {
   const box = $("cutThumbs"); if (box) {
@@ -5102,7 +5123,7 @@ async function cutoutRun() {
     try {
       const r = await fetch("/api/remove-bg", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: img, method: method, matting: matting }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-      cutItems.unshift({ image: d.image }); cutoutRender();
+      cutItems.unshift({ image: d.image, url: (d.gallery || {}).url, id: (d.gallery || {}).id }); cutoutRender();
       loadTaskDone(tid, true, "✓ Tách nền ảnh " + (i + 1));
     } catch (e) { loadTaskDone(tid, false, "✕ Ảnh " + (i + 1) + ": " + e.message); }
   }));
@@ -5114,18 +5135,18 @@ function cutoutRender() {
   $("cutEmpty").classList.toggle("hidden", cutItems.length > 0);
   grid.innerHTML = "";
   cutItems.forEach((c, idx) => {
-    const src = "data:image/png;base64," + c.image;
+    const src = c.image ? ("data:image/png;base64," + c.image) : c.url;
     const card = document.createElement("div"); card.className = "fp-card";
     card.innerHTML =
       '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-edit">🖱️ Sửa</button><button class="b-shirt">👕 Lên áo</button><button class="b-recolor">🎨 Đổi màu</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>' +
       '<div class="cut-recolor-bar" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 8px;border-top:1px solid var(--line)"></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
-    card.querySelector(".b-edit").onclick = () => cutOpenManual(c.image, idx);
-    card.querySelector(".b-shirt").onclick = () => cutToShirt(c.image);
+    card.querySelector(".b-edit").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; cutOpenManual(await cutB64(c), idx); b.disabled = false; };
+    card.querySelector(".b-shirt").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; await cutToShirt(await cutB64(c)); b.disabled = false; };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = () => autoDownload(c.image, "tach-nen");
-    card.querySelector(".b-del").onclick = () => { cutItems.splice(idx, 1); cutoutRender(); };
+    card.querySelector(".b-dl").onclick = async () => autoDownload(await cutB64(c), "tach-nen");
+    card.querySelector(".b-del").onclick = () => { if (c.id) fetch("/api/gallery?id=" + encodeURIComponent(c.id), { method: "DELETE" }).catch(() => {}); cutItems.splice(idx, 1); cutoutRender(); };
     // đổi màu theo nền áo (AI) — hiện bảng màu inline
     const bar = card.querySelector(".cut-recolor-bar");
     RECOLOR_LIST.forEach(col => {
@@ -5173,7 +5194,7 @@ function recolorVariantNotes(n) {
 }
 async function cutDoRecolor(idx, colorKey, colorVi) {
   const c = cutItems[idx]; if (!c) return;
-  const snap = c.image;   // chốt ảnh nguồn (idx đổi khi unshift bản mới)
+  const snap = await cutB64(c);   // chốt ảnh nguồn (idx đổi khi unshift bản mới)
   const cc = $("cutRecolorCount");
   const N = Math.max(1, Math.min(parseInt(cc && cc.value, 10) || 4, 6));   // số bản chọn được
   const VNOTES = recolorVariantNotes(N);

@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-shopify-tag-q1"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-cutout-save"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5713,7 +5713,9 @@ class Handler(BaseHTTPRequestHandler):
             out = strip_background(data, method, matting)
         except Exception as e:
             return self.json(500, {"error": "Xoá nền lỗi: %s" % e})
-        return self.json(200, {"image": base64.b64encode(out).decode(),
+        out_b64 = base64.b64encode(out).decode()
+        g = gallery_add(out_b64, {"mode": "cutout", "prompt": "Tách nền"})   # lưu lại để xem sau
+        return self.json(200, {"image": out_b64, "gallery": g,
                                "method": method if (method != "ai" or HAS_REMBG) else "white"})
 
     # ---------- handlers ----------
