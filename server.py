@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-strong-cutout"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-recolor-hq"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4468,21 +4468,22 @@ def strip_background(raw, method, matting=True):
     return remove_flat_bg(raw)
 
 
-def gen_design(images, mode, user_prompt, size, transparent, override=None):
+def gen_design(images, mode, user_prompt, size, transparent, override=None, quality=""):
     """Tạo design. override = prompt người dùng tự sửa (nếu có) -> dùng thẳng.
+    quality: '' (mặc định) | 'high' | 'medium' | 'low' -> độ nét gpt-image.
     Trả về (b64, prompt_đã_dùng).
     """
     override = (override or "").strip()
     if transparent and NATIVE_TRANSPARENT:
         p = override or build_prompt(mode, user_prompt, "transparent")
         try:
-            return openai_edit(images, p, size, native_transparent=True), p
+            return openai_edit(images, p, size, native_transparent=True, quality=quality), p
         except urllib.error.HTTPError as e:
             msg = e.read().decode("utf-8", "ignore")
             if not (e.code == 400 and "background" in msg):
                 raise urllib.error.HTTPError(e.url, e.code, msg, e.headers, None)
     p = override or build_prompt(mode, user_prompt, "chroma" if transparent else "solid")
-    b64 = openai_edit(images, p, size, native_transparent=False)
+    b64 = openai_edit(images, p, size, native_transparent=False, quality=quality)
     # TÍCH HỢP: clone xong tự tách nền luôn -> trả design trong suốt sẵn.
     # Ưu tiên rembg AI (U2Net + alpha matting: viền mịn, giữ phần trắng của design); fallback flat.
     if transparent and HAS_PIL:
@@ -5884,7 +5885,7 @@ class Handler(BaseHTTPRequestHandler):
                     instr += " SPECIFIC COLOUR PLAN for THIS exact design (follow it precisely): " + plan
                 if note:
                     instr += " ADDITIONAL USER REQUEST (follow it): " + note
-                b64, _ = gen_design(img, "cloner", instr, size, True)
+                b64, _ = gen_design(img, "cloner", instr, size, True, quality="high")  # nét cao như ChatGPT
                 # Giữ ĐÚNG vùng trong suốt của design gốc -> chỉ đổi màu, KHÔNG thêm nền
                 b64 = preserve_alpha(d, b64)
                 g = gallery_add(b64, {"mode": "recolor", "prompt": "Áo %s" % vi})
