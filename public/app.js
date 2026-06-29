@@ -4266,7 +4266,9 @@ async function adsItemB64(c) {
 // Tạo lại 1 ad: mở modal cho sửa prompt + tỉ lệ
 let adsRegenItem = null;
 function adsRegen(c) {
-  if (!adsDesignImg) { alert("Cần ảnh DESIGN ở panel trái để tạo lại (kéo/dán lại design vào ô DESIGN)."); return; }
+  // tự dùng ĐÚNG design của ảnh ads này (đã lưu khi tạo) — không cần design ở panel
+  const design = c._design || adsDesignImg;
+  if (!design) { alert("Ảnh ads này (tải từ lịch sử) chưa lưu design nguồn. Kéo/dán design vào ô DESIGN rồi tạo lại."); return; }
   if (!c.concept) { alert("Ad cũ này không có thông tin concept để tạo lại."); return; }
   adsRegenItem = c;
   $("adsRegenAspect").value = c.aspect || ($("adsAspect") && $("adsAspect").value) || "1:1";
@@ -4278,9 +4280,11 @@ function adsRegenGo() {
   const key = c.concept, engine = ($("adsEngine") && $("adsEngine").value) || "";
   const aspect = $("adsRegenAspect").value;
   const customPrompt = ($("adsRegenPrompt").value || "").trim();
+  // ctx mang theo design nguồn + link/tên SP của chính ảnh đó
+  const ctx = { image: c._design || adsDesignImg, link: c._link || "", title: c._ptitle || "" };
   adsLaunchOne({ key: key, ref: adsStyle[key] || "", bg: c.bg || adsBg[key] || "" },
     c.name || ($("adsName").value || "").trim(), c.hook || ($("adsHook").value || "").trim(),
-    engine, false, null, { aspect: aspect, customPrompt: customPrompt });
+    engine, false, ctx, { aspect: aspect, customPrompt: customPrompt });
   $("adsRegenModal").classList.add("hidden");
   const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "⏳ Đang tạo lại 1 ảnh ads (" + aspect + ")…"; }
 }
@@ -4318,7 +4322,7 @@ async function adsLaunchOne(con, name, hook, engine, autopush, ctx, opts) {
   try {
     const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: aspect, quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [conSend] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || adsProductLink || "", _ptitle: (ctx && ctx.title) || adsAutoName2 || "" });
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: (ctx && ctx.link) || adsProductLink || "", _ptitle: (ctx && ctx.title) || adsAutoName2 || "", _design: designImg });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4339,7 +4343,8 @@ function adsPoll(job) {
         const real = { image: it.image, title: it.title, gallery: it.gallery, url: it.gallery && it.gallery.url,
                        concept: it.concept || "", name: it.name || "", hook: it.hook || "",
                        aspect: it.aspect || "", bg: it.bg || "", model: it.model || "", prompt: it.prompt || "",
-                       _link: (idx >= 0 && adsItems[idx]._link) || "", _ptitle: (idx >= 0 && adsItems[idx]._ptitle) || "" };
+                       _link: (idx >= 0 && adsItems[idx]._link) || "", _ptitle: (idx >= 0 && adsItems[idx]._ptitle) || "",
+                       _design: (idx >= 0 && adsItems[idx]._design) || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
         if (autopush) fbAutoPush(real);   // tự đẩy lên FB Ads
