@@ -2323,7 +2323,7 @@ function dsMakeCard(key, it) {
       '<img src="' + dsSrc(it) + '" loading="lazy" alt="">' + badge +
       '<div class="gmeta">' + (it.title || "Design") + '</div>' +
       '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>' +
-      '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Nhập nội dung chỉnh sửa…"><button class="ds-fixbtn">Sửa</button></div>';
+      '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Prompt sửa/làm lại (dùng cho Sửa & 🔄 Bản khác)…"><button class="ds-fixbtn">Sửa</button></div>';
     card._cur = it.image; card._it = it; card._name = it.title || "design";
     card.querySelector("img").onclick = () => openZoom(dsSrc(it));
     card.querySelector(".b-name").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; openPersonalize(await dsB64(it)); b.disabled = false; };
@@ -2333,7 +2333,10 @@ function dsMakeCard(key, it) {
       showApp("recolor");
       if (typeof recolorRenderThumb === "function") recolorRenderThumb();
     };
-    card.querySelector(".b-var").onclick = async (e) => dsMakeVariations(await dsB64(it), e.currentTarget);
+    card.querySelector(".b-var").onclick = async (e) => {
+      const p = (card.querySelector(".ds-fixin") && card.querySelector(".ds-fixin").value || "").trim();
+      dsMakeVariations(await dsB64(it), e.currentTarget, p);   // dùng design có sẵn + prompt (nếu nhập)
+    };
     card.querySelector(".b-cut").onclick = async (e) => {
       const b = e.currentTarget; b.disabled = true;
       const im = await dsB64(it); b.disabled = false;
@@ -2380,14 +2383,14 @@ function dsMakeCard(key, it) {
     return card;
 }
 /* ===== Tạo thêm phiên bản khác của 1 design ===== */
-async function dsMakeVariations(image, btn) {
+async function dsMakeVariations(image, btn, prompt) {
   const old = btn.textContent;
   btn.disabled = true; btn.textContent = "⏳…";
-  const note = $("dsNote"); note.className = "gen-note"; note.textContent = "Đang tạo 4 phiên bản khác…";
+  const note = $("dsNote"); note.className = "gen-note"; note.textContent = (prompt ? "Đang làm lại theo yêu cầu…" : "Đang tạo 4 phiên bản khác…");
   try {
     const r = await fetch("/api/variations", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image, count: 4, transparent: true }),
+      body: JSON.stringify({ image, count: 4, transparent: true, prompt: prompt || "" }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi tạo phiên bản");

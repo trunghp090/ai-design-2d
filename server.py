@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-cutout-save"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-nick-vary-regen"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6148,20 +6148,29 @@ class Handler(BaseHTTPRequestHandler):
                      "never split them, never place one above the other.")
         if date:
             base += " Include a small secondary line \"%s\"." % date
-        if nick:
-            base += (" Also add the affectionate nickname/pet-name \"%s\" as a small SECONDARY text "
-                     "element, in a warm, cute, friendly style (e.g. a little above or below the "
-                     "name) — keep the main NAME as the biggest focal text." % nick)
-        # CHỈ giữ TÊN (+ ngày + biệt danh) — xoá MỌI chữ thừa/placeholder của mẫu gốc
-        allowed = ('the name "%s"' % name
-                   + ((' and the small secondary line "%s"' % date) if date else "")
-                   + ((' and the affectionate nickname "%s"' % nick) if nick else ""))
-        base += (" CRITICAL — TEXT CONTENT: the ONLY readable text anywhere on the whole design must be "
-                 + allowed + ". COMPLETELY REMOVE every other word, letter, slogan, tagline, label, year, "
-                 "club/brand name and placeholder text from the reference (e.g. '@yourtext', 'your text', "
-                 "'DEAR', 'EST', 'SINCE', 'CLUB', 'CHAMPION', lorem) — do NOT keep, repeat or invent any "
-                 "extra text. Keep only NON-TEXT decorative graphic elements (stars, lines, shapes, "
-                 "motifs) for the style.")
+        # Tên thân mật ĐA DẠNG: tách nhiều giá trị (Annie · Bé Na · Mèo) -> mỗi bản 1 nick khác.
+        nick_raw = nick
+        for sep in ("·", "/", "&", ",", "|", ";"):
+            nick_raw = nick_raw.replace(sep, "\n")
+        nicks = [x.strip() for x in nick_raw.split("\n") if x.strip()]
+
+        def text_block(nk):
+            """Khối chỉ thị (per-variant): thêm nick nk + ràng buộc CHỈ giữ tên/ngày/nick."""
+            s = ""
+            if nk:
+                s += (" Also add the affectionate nickname/pet-name \"%s\" as a small SECONDARY text "
+                      "element, in a warm, cute, friendly style (a little above or below the name) — "
+                      "keep the main NAME as the biggest focal text." % nk)
+            allowed = ('the name "%s"' % name
+                       + ((' and the small secondary line "%s"' % date) if date else "")
+                       + ((' and the affectionate nickname "%s"' % nk) if nk else ""))
+            s += (" CRITICAL — TEXT CONTENT: the ONLY readable text anywhere on the whole design must be "
+                  + allowed + ". COMPLETELY REMOVE every other word, letter, slogan, tagline, label, year, "
+                  "club/brand name and placeholder text from the reference (e.g. '@yourtext', 'your text', "
+                  "'DEAR', 'EST', 'SINCE', 'CLUB', 'CHAMPION', lorem) — do NOT keep, repeat or invent any "
+                  "extra text. Keep only NON-TEXT decorative graphic elements (stars, lines, shapes, "
+                  "motifs) for the style.")
+            return s
         if req:
             base += " ADDITIONAL USER REQUEST (follow it carefully): " + req
         # mỗi bản 1 KIỂU BỐ CỤC KHÁC HẲN (vẫn cùng phong cách) -> 4-6 lựa chọn đa dạng
@@ -6190,8 +6199,10 @@ class Handler(BaseHTTPRequestHandler):
 
         def one(i):
             try:
+                nk = nicks[i % len(nicks)] if nicks else ""   # mỗi bản 1 tên thân mật khác
+                prompt = base + text_block(nk) + variants[i % len(variants)]
                 b64, _ = gen_design([(img_bytes, mime or "image/png")], "variation",
-                                    base + variants[i % len(variants)], size, transparent)
+                                    prompt, size, transparent)
                 g = gallery_add(b64, {"mode": "personalize", "prompt": label})
                 return {"image": b64, "title": label + " #%d" % (i + 1), "gallery": g}
             except Exception:
@@ -6204,7 +6215,8 @@ class Handler(BaseHTTPRequestHandler):
                     items.append(r)
         if not items:
             try:
-                gen_design([(img_bytes, mime or "image/png")], "variation", base, size, transparent)
+                gen_design([(img_bytes, mime or "image/png")], "variation",
+                           base + text_block(nicks[0] if nicks else ""), size, transparent)
             except urllib.error.HTTPError as e:
                 err = openai_error_message(e)
             except Exception as e:
@@ -6230,9 +6242,12 @@ class Handler(BaseHTTPRequestHandler):
                 size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
             except Exception:
                 pass
+        req = (body.get("prompt") or body.get("note") or "").strip()[:400]   # yêu cầu làm lại của user
         base = ("Create a fresh creative VARIATION of this t-shirt artwork — KEEP the same core "
                 "theme/subject and overall art style, but make it clearly DIFFERENT from the original. "
                 "Keep any text correct (Vietnamese diacritics intact). Output only the artwork.")
+        if req:
+            base += " IMPORTANT — apply this user request when remaking it: " + req
         variants = [
             " Variation: a fresh alternate COMPOSITION of the same idea.",
             " Variation: same theme & style but a DIFFERENT color palette.",
