@@ -966,7 +966,7 @@
     <div class="layout">
       <aside class="panel">
         <h2 class="panel-title">✂️ Tách nền ảnh</h2>
-        <p class="panel-desc">Xoá nền bằng AI (rembg) — viền mịn, giữ chi tiết. Tải / kéo-thả / dán nhiều ảnh.</p>
+        <p class="panel-desc">Xoá nền phẳng — mép sạch, giữ đúng chi tiết design (hợp ảnh nền trắng/trơn). Tải / kéo-thả / dán nhiều ảnh.</p>
 
         <label class="dropzone" id="cutDrop">
           <input type="file" id="cutFile" accept="image/*" multiple hidden />
@@ -975,14 +975,6 @@
         </label>
         <button type="button" class="btn-ghost sm paste-btn" id="cutPaste" style="margin-top:8px;width:100%">📋 Dán ảnh từ clipboard</button>
         <div id="cutThumbs" class="thumb-row" style="margin-top:8px"></div>
-
-        <label class="field-label" style="margin-top:14px">Phương pháp</label>
-        <select id="cutMethod" class="input">
-          <option value="u2net" selected>🤖 AI rembg (u2net) — chuẩn, nhanh</option>
-          <option value="isnet-general-use">✨ AI chất lượng cao (isnet) — chi tiết hơn</option>
-          <option value="flat">⚡ Nền phẳng (tức thì, nền trơn 1 màu)</option>
-        </select>
-        <label class="switch-row" style="margin-top:10px;font-size:13px"><input type="checkbox" id="cutMatting" checked> Viền mịn (alpha matting)</label>
 
         <label class="field-label" style="margin-top:12px">🎨 Số bản khi đổi màu</label>
         <select id="cutRecolorCount" class="input">
