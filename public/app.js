@@ -1376,9 +1376,15 @@ async function lenaoInit() {
 }
 
 // đặt design cho 1 slot
+// Căn design vào GIỮA áo (ngang giữa + chính giữa vùng ngực). keepSize: giữ cỡ hiện tại.
+function lenaoCenter(slot, keepSize) {
+  const w = (keepSize && slot.state && slot.state.wPct) ? slot.state.wPct : 42;
+  slot.state = { xPct: 50, yPct: 44, wPct: w };
+}
 async function lenaoSetSlotDesign(slot, durl) {
   slot.design = durl;
   try { slot.designImg = await loadImg(durl); } catch (e) { slot.designImg = null; }
+  lenaoCenter(slot, true);   // tự căn giữa khi vừa lên áo
   lenaoRenderSlots();
 }
 
@@ -1518,6 +1524,7 @@ function lenaoRenderSlots() {
       '</div>' +
       '<div class="lacts"><label>📁 ' + (has ? "Đổi" : "Design") + '<input type="file" accept="image/*" hidden></label>' +
         '<button class="b-paste">📋 Dán ảnh</button>' +
+        (has ? '<button class="b-center">🎯 Căn giữa</button>' : "") +
         (has ? '<button class="b-del">🗑️ Xoá</button>' : "") +
         '<button class="b-dl">⬇ Tải</button></div>';
     const stage = card.querySelector(".le-stage");
@@ -1542,6 +1549,11 @@ function lenaoRenderSlots() {
       }
     };
     card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
+    const centerBtn = card.querySelector(".b-center");
+    if (centerBtn) centerBtn.onclick = () => {
+      lenaoCenter(slot, true);   // căn giữa, giữ nguyên cỡ
+      lenaoApplyLayer(layer, slot.state);
+    };
     const delBtn = card.querySelector(".b-del");
     if (delBtn) delBtn.onclick = () => {
       slot.design = null; slot.designImg = null;
@@ -1578,7 +1590,7 @@ async function lenaoComposeSlot(slot) {
 // design dùng chung -> áp cho tất cả áo
 async function lenaoApplyAll(durl) {
   const img = await loadImg(durl).catch(() => null);
-  lenaoSlots.forEach(s => { s.design = durl; s.designImg = img; });
+  lenaoSlots.forEach(s => { s.design = durl; s.designImg = img; lenaoCenter(s, true); });
   lenaoRenderSlots();
 }
 $("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); e.target.value = ""; };
@@ -1591,6 +1603,11 @@ $("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f &
 $("lenaoUseCurrentAll").onclick = () => {
   if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
   lenaoApplyAll("data:image/png;base64," + currentDesign);
+};
+if ($("lenaoCenterAll")) $("lenaoCenterAll").onclick = () => {
+  if (!lenaoSlots.some(s => s.design)) { alert("Chưa có áo nào có design."); return; }
+  lenaoSlots.forEach(s => { if (s.design) lenaoCenter(s, true); });   // căn giữa, giữ cỡ
+  lenaoRenderSlots();
 };
 $("lenaoClearAll").onclick = () => {
   if (!lenaoSlots.some(s => s.design)) return;
