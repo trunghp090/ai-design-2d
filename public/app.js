@@ -1361,18 +1361,35 @@ function loadImg(src) {
 let lenaoSlots = [];             // [{url,name,design,designImg,state:{xPct,yPct,wPct}}]
 let lenaoInited = false;
 
+let lenaoBaseShirts = [];   // áo mẫu (template) -> nhân cho mỗi design
 async function lenaoInit() {
   if (lenaoInited) return; lenaoInited = true;
   try {
     const data = await (await fetch("/api/mockups")).json();
-    lenaoSlots = (data.items || []).filter(it => it.side !== "back" && /trang|trắng|white|_den|đen|black/i.test((it.file || "") + " " + (it.name || ""))).map(it => ({
-      url: it.url, name: it.name || "Áo",
-      design: null, designImg: null,
+    lenaoBaseShirts = (data.items || []).filter(it => it.side !== "back" && /trang|trắng|white|_den|đen|black/i.test((it.file || "") + " " + (it.name || ""))).map(it => ({ url: it.url, name: it.name || "Áo" }));
+    lenaoSlots = lenaoBaseShirts.map(s => ({
+      url: s.url, name: s.name, design: null, designImg: null,
       state: { xPct: 50, yPct: 40, wPct: 42 },
     }));
-  } catch (e) { lenaoSlots = []; }
+  } catch (e) { lenaoBaseShirts = []; lenaoSlots = []; }
   lenaoBindPaste();
   lenaoRenderSlots();
+}
+
+// TẢI NHIỀU DESIGN: mỗi design tạo 1 bộ áo (trắng+đen) riêng, đã căn giữa
+let _lenaoDesignSeq = 0;
+async function lenaoAddDesigns(durls) {
+  if (!lenaoBaseShirts.length) { alert("Chưa có áo mockup."); return; }
+  for (const durl of durls) {
+    _lenaoDesignSeq++;
+    const img = await loadImg(durl).catch(() => null);
+    lenaoBaseShirts.forEach(s => {
+      lenaoSlots.push({ url: s.url, name: s.name + " · DS" + _lenaoDesignSeq,
+        design: durl, designImg: img, state: { xPct: 50, yPct: 44, wPct: 42 } });
+    });
+  }
+  lenaoRenderSlots();
+  const n = $("lenaoNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã thêm " + durls.length + " design × " + lenaoBaseShirts.length + " áo."; }
 }
 
 // đặt design cho 1 slot
@@ -1594,11 +1611,24 @@ async function lenaoApplyAll(durl) {
   lenaoRenderSlots();
 }
 $("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); e.target.value = ""; };
+// tải NHIỀU design -> mỗi design 1 bộ áo
+async function _lenaoFilesToDesigns(files) {
+  const durls = [];
+  for (const f of files) { if (f && f.type.startsWith("image/")) durls.push(await fileToDataURL(f)); }
+  if (durls.length) await lenaoAddDesigns(durls);
+}
+if ($("lenaoMultiFile")) $("lenaoMultiFile").onchange = async (e) => { await _lenaoFilesToDesigns(e.target.files); e.target.value = ""; };
 (() => {
   const dz = $("lenaoAllDrop");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
   dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
   dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); });
+  const md = $("lenaoMultiDrop");
+  if (md) {
+    md.addEventListener("dragover", e => { e.preventDefault(); md.classList.add("drag"); });
+    md.addEventListener("dragleave", () => md.classList.remove("drag"));
+    md.addEventListener("drop", async e => { e.preventDefault(); md.classList.remove("drag"); await _lenaoFilesToDesigns(e.dataTransfer.files); });
+  }
 })();
 $("lenaoUseCurrentAll").onclick = () => {
   if (!currentDesign) { alert("Chưa có design nào đang mở ở tab Clone Design."); return; }
