@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-recolor-faithful"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.29-recolor-simple"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -173,16 +173,45 @@ RECOLOR = {
 }
 
 
-def recolor_instruction(key):
-    """Chỉ thị TIẾNG ANH: giữ nguyên design, CHỈ phối lại màu cho hợp màu áo."""
-    vi, hexv, guide = RECOLOR[key]
-    return ("Reproduce this EXACT design with PERFECT fidelity: identical letters, fonts, layout, "
-            "decorative elements (snow, stars, lines), proportions and texture — do NOT redraw, "
-            "restyle, move or simplify anything. Make the MINIMUM colour changes possible: KEEP every "
-            "colour that already stands out well on a %s shirt, and only recolour the specific "
-            "elements that would be hard to see on a %s (%s) shirt. %s Preserve the design's main "
-            "colour identity and character. Output ONLY the artwork on a plain pure-white EMPTY "
-            "background (no shirt, no tint of any colour) so it cuts out cleanly." % (vi, vi, hexv, guide))
+RECOLOR_EN = {"black": "black", "white": "white", "brown": "brown", "sand": "beige",
+              "forest": "olive green", "red": "red", "maroon": "burgundy"}
+
+
+def detect_bg_desc(raw):
+    """Mô tả nền HIỆN TẠI của design (đọc 4 góc) -> 'transparent' / 'white' / 'black' / 'a ... '."""
+    if not HAS_PIL:
+        return "a plain"
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        w, h = im.size
+        px = im.load()
+        corners = [px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1]]
+        if sum(c[3] for c in corners) / 4 < 30:
+            return "transparent"
+        avg = tuple(sum(c[i] for c in corners) // 4 for i in range(3))
+        lum = 0.299 * avg[0] + 0.587 * avg[1] + 0.114 * avg[2]
+        sat = max(avg) - min(avg)
+        if sat < 28:
+            if lum > 210:
+                return "white"
+            if lum < 50:
+                return "black"
+            return "a light grey" if lum > 128 else "a dark grey"
+        return "a coloured (RGB %d,%d,%d)" % avg
+    except Exception:
+        return "a plain"
+
+
+def recolor_instruction(key, bg="white"):
+    """Prompt ĐƠN GIẢN: 'đây là design trên nền X, phối lại cho hợp áo nền Y'."""
+    en = RECOLOR_EN.get(key, key)
+    hexv = RECOLOR[key][1]
+    return ("This is my t-shirt print design, currently shown on a %s background. Re-colour the "
+            "DESIGN so it looks great and is clearly visible when printed on a %s (%s) shirt. "
+            "Keep the design IDENTICAL — same text, fonts, layout, decorations and proportions — "
+            "only adapt the COLOURS to suit a %s background (good contrast, nothing disappears). "
+            "Output ONLY the artwork on a plain pure-white empty background (no shirt) so it cuts "
+            "out cleanly." % (bg, en, hexv, en))
 
 
 def recolor_plan(design_bytes, color_key):
@@ -5857,17 +5886,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": "Không đọc được ảnh design."})
         img = [(d, m)]
 
+        bg = detect_bg_desc(d)   # nền hiện tại của design (đọc góc ảnh)
         items, errors = [], []
         for key in colors:
             vi, hexv = RECOLOR[key][0], RECOLOR[key][1]
             try:
-                # vẽ bản TÁCH NỀN (để client ghép nền tuỳ ý), lưu bản này vào lịch sử
-                instr = recolor_instruction(key)
-                plan = recolor_plan(d, key)   # AI nhìn design -> phối màu cụ thể hợp áo
-                if plan:
-                    instr += " SPECIFIC COLOUR PLAN for THIS exact design (follow it precisely): " + plan
+                # Prompt đơn giản: "design trên nền <bg>, phối lại cho hợp áo <key>"
+                instr = recolor_instruction(key, bg)
                 if note:
-                    instr += " ADDITIONAL USER REQUEST (follow it): " + note
+                    instr += " Also: " + note
                 b64, _ = gen_design(img, "cloner", instr, size, True, quality="high")  # nét cao như ChatGPT
                 # Giữ ĐÚNG vùng trong suốt của design gốc -> chỉ đổi màu, KHÔNG thêm nền
                 b64 = preserve_alpha(d, b64)
