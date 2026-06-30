@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-ads-prompt-agent"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-ads-keeplayout"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1746,14 +1746,13 @@ _ADS_ONE = ("Each shirt's MAIN big name is exactly ONE (the new one) — never k
             "main name anywhere. (A separate small secondary person-name line, if the design has one, is "
             "allowed and is handled below.) ")
 
-_ADS_ALLNAMES = ("CRITICAL RULE FOR NAMES: treat EVERY human/personal NAME on the design as personalised "
-                 "text that MUST be DIFFERENT on every shirt. This includes ALL of: (a) the big MAIN name, "
-                 "(b) any CURSIVE / handwritten / SIGNATURE-style script name overlapping or under the main "
-                 "name (for example a cursive 'Annie' — this is a NAME, NOT a logo, so it MUST change too), "
-                 "and (c) any small printed secondary name line. NONE of these names may be identical on two "
-                 "shirts, and the original names from the reference (e.g. 'Annie') must NOT be kept. Keep "
-                 "IDENTICAL only the NON-name text (taglines/series words like 'CUSTOM MADE SERIES' / "
-                 "'LIMITED MEMBERS EDITION', 'EST', dates and numbers like '12.08.2003'). ")
+_ADS_ALLNAMES = ("NAMES & LAYOUT RULE (very important): reproduce the reference design's EXACT layout and "
+                 "set of elements — do NOT ADD, remove, move or invent anything. The big MAIN name is the "
+                 "only text that always changes (a different name on each shirt). For any OTHER name, only "
+                 "change it IF it already exists in the reference; NEVER add a new cursive signature, extra "
+                 "name line or any element that is not already in the reference design. If the reference "
+                 "shows just a main name + a year/EST/tagline (no secondary name), keep it exactly that way. "
+                 "Keep all non-name text (taglines, 'EST', dates) identical. ")
 
 
 def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style_n, text_style, old_name="", bg="", text_color=""):
@@ -1761,22 +1760,19 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     txt = _ads_text_part(prod_name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     n = len(names)
-    # tên nhỏ phụ ĐA DẠNG: mỗi áo 1 tên nhỏ khác (nếu design có dòng tên nhỏ dưới)
+    # tên nhỏ phụ: CHỈ đổi nếu mẫu vốn CÓ; KHÔNG tự thêm
     subs = random.sample(VN_NICKS, min(n, len(VN_NICKS))) if "VN_NICKS" in globals() else []
-    perslot = " ".join(
-        ('Shirt #%d: main name "%s"%s.' % (
-            i + 1, names[i],
-            (', and ALL secondary name elements (the cursive signature script AND any small name line) say "%s"' % subs[i]) if i < len(subs) else ""))
-        for i in range(n))
+    perslot = " ".join(('Shirt #%d: main name "%s".' % (i + 1, names[i])) for i in range(n))
     sub_clause = ""
     if subs:
-        sub_clause = ("SECONDARY NAME(S) — VERY IMPORTANT: the design may carry a secondary personal name "
-                      "shown as a CURSIVE / handwritten SIGNATURE script (e.g. a cursive 'Annie') and/or a "
-                      "small printed name line. Treat ALL of these as ONE secondary name and REPLACE it per "
-                      "shirt with the value below — NEVER keep the reference's 'Annie' or repeat any value; "
-                      "keep the original cursive/script style, size and position: " +
-                      "; ".join('shirt #%d secondary name → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
-                      ". Only if the design truly has no secondary personal name at all, do not add one. ")
+        sub_clause = ("SECONDARY NAME — conditional: ONLY IF the reference design ALREADY shows a small "
+                      "secondary personal name (a cursive/handwritten signature OR a small printed name "
+                      "under the main name), then make that secondary name DIFFERENT on each shirt (do not "
+                      "keep it the same), using these values and KEEPING its original style/size/position: " +
+                      "; ".join('shirt #%d → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
+                      ". BUT if the reference has just the main name + year/EST/tagline and NO secondary "
+                      "personal name, keep the layout EXACTLY as the reference and DO NOT add any cursive "
+                      "signature or extra name. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
     if concept_key == "group":
@@ -1814,9 +1810,10 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     bg = (bg or "").strip()
     bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
     subs = random.sample(VN_NICKS, 2) if "VN_NICKS" in globals() else []
-    sub_clause = (("SMALL SECONDARY NAME: if the design has a small secondary person-name line, make it "
-                   "DIFFERENT on each shirt — man's shirt → \"%s\", woman's shirt → \"%s\" (keep small "
-                   "size/position/font); do NOT keep it the same. " % (subs[0], subs[1])) if subs else "")
+    sub_clause = (("SECONDARY NAME — conditional: ONLY IF the reference ALREADY has a small secondary "
+                   "person-name line, make it different per shirt — man's shirt → \"%s\", woman's → \"%s\" "
+                   "(keep small size/position/font). If the reference has NO secondary name, keep the layout "
+                   "exactly and do NOT add one. " % (subs[0], subs[1])) if subs else "")
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ADS_ALLNAMES +
             _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
