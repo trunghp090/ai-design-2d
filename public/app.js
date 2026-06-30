@@ -5518,7 +5518,8 @@ function agentInit() {
     agentInited = true;
     $("agentPlanBtn").onclick = agentSend;
     $("agentCmd").addEventListener("keydown", e => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); agentSend(); }
+      // bỏ qua Enter khi đang gõ tiếng Việt (IME composing) -> tránh gửi trùng
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); agentSend(); }
     });
     if ($("agentImgBtn")) $("agentImgBtn").onclick = () => $("agentImgFile").click();
     if ($("agentImgFile")) $("agentImgFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { agentPendingImg = await fileToDataURL(f); agentRenderImgPrev(); } e.target.value = ""; };
@@ -5608,10 +5609,13 @@ function agentBubble(who, html, raw) {
 }
 const RUN_RE = /^(ch[aạ]y|ch[aạ]y\s*đi|l[aà]m\s*đi|l[aà]m\s*lu[oô]n|ok\s*ch[aạ]y|duy[eệ]t|th[uự]c\s*thi|đ[oồ]ng\s*ý\s*ch[aạ]y|go|run)\b/i;
 
+let agentSending = false;
 async function agentSend() {
+  if (agentSending) return;   // đang gửi -> bỏ qua lần gọi trùng (Enter+click / IME)
   const inp = $("agentCmd"), msg = (inp.value || "").trim();
   const img = agentPendingImg;
   if (!msg && !img) return;
+  agentSending = true;
   inp.value = "";
   // bong bóng người dùng: ảnh (nếu có) + chữ
   agentBubble("me", (img ? '<img src="' + img + '" style="max-width:160px;border-radius:8px;display:block;margin-bottom:' + (msg ? "6px" : "0") + '">' : "") + agentEsc(msg), true);
@@ -5619,7 +5623,7 @@ async function agentSend() {
   agentPendingImg = null; agentRenderImgPrev();
 
   // "chạy đi" + đang có kế hoạch chờ → chạy luôn (chỉ khi không kèm ảnh)
-  if (!img && agentPendingPlan && RUN_RE.test(msg)) { return agentExecute(agentPendingPlan); }
+  if (!img && agentPendingPlan && RUN_RE.test(msg)) { agentSending = false; return agentExecute(agentPendingPlan); }
 
   const thinking = agentBubble("ai", img ? "👀 Đang xem ảnh…" : "💭 Đang xử lý…");
   try {
@@ -5641,6 +5645,7 @@ async function agentSend() {
       agentHistory.push({ role: "ai", text: txt });
     }
   } catch (e) { if (thinking) thinking.remove(); agentBubble("ai", "⚠️ Lỗi: " + e.message); }
+  finally { agentSending = false; }
 }
 
 function agentRenderPlan(summary, steps) {
