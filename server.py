@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-style-only-subname"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fbpost-crossname"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1961,8 +1961,11 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
     if concept_key == "couple":
         body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt as a "
                 "LARGE full-front chest print. " + _ADS_REAL)
-        names_clause = ("The MAN's shirt shows the name \"" + nm["female"] + "\"; the WOMAN's shirt shows "
-                        "the name \"" + nm["male"] + "\" (cross-named couple, on purpose). ")
+        names_clause = ("There are TWO shirts. The MAN's shirt shows the FEMALE name \"" + nm["female"] +
+                        "\"; the WOMAN's shirt shows the MALE name \"" + nm["male"] + "\". This swap is ON "
+                        "PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt "
+                        "MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the female "
+                        "name on the woman; do NOT correct or normalise it. ")
     elif concept_key == "group":
         body = ("Show a group of %d young Vietnamese friends standing together, each wearing one of these "
                 "shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
