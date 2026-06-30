@@ -1666,6 +1666,16 @@
   </section>
 
   <!-- ===== MODAL: TẠO ADS TỪ BÀI FANPAGE ===== -->
+  <!-- ===== MODAL: CHỌN SP (có ảnh) cho bài FB Ads ===== -->
+  <div class="zoom-modal hidden" id="adpostSpModal">
+    <div style="background:#fff;border-radius:14px;padding:18px;max-width:720px;width:94vw;max-height:90vh;overflow:auto;position:relative" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="adpostSpClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">📦 Chọn sản phẩm cho bài này</h3>
+      <input type="text" id="adpostSpSearch2" class="input" placeholder="🔍 Tìm sản phẩm…" style="margin:6px 0 10px">
+      <div id="adpostSpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>
+    </div>
+  </div>
+
   <div class="zoom-modal hidden" id="fbPostAdsModal">
     <div style="background:#fff;border-radius:14px;padding:18px;max-width:760px;width:94vw;max-height:90vh;overflow:auto;position:relative" onclick="event.stopPropagation()">
       <button class="zoom-close" id="fbPostAdsClose" style="position:absolute;top:8px;right:8px">✕</button>

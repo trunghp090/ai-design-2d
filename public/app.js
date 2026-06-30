@@ -4894,10 +4894,7 @@ function adpostRender(items) {
       '<td style="min-width:140px"><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' +
         (it.product_img ? '<img class="adpost-pimg" src="' + it.product_img + '" title="Ảnh sản phẩm gắn với bài này" style="width:40px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--violet);margin:2px 0 0 4px;vertical-align:top">' : '') +
         '<div class="hint" style="font-size:10px;line-height:1.2;margin-top:2px;' + (it.product ? '' : 'color:#c0392b') + '">' + (it.product ? '📦 ' + (it.product || "").replace(/</g, "&lt;").slice(0, 36) : '⚠️ chưa gắn SP') + '</div>' +
-        '<select class="input adpost-prod" style="width:130px;font-size:11px;padding:3px 5px;margin-top:3px">' +
-          '<option value="">— Chọn SP —</option>' +
-          (adpostProds || []).map(p => '<option value="' + p.id + '"' + ((it.product && p.title === it.product) ? ' selected' : '') + '>' + (p.title || "").replace(/</g, "&lt;").slice(0, 40) + '</option>').join("") +
-        '</select></td>' +
+        '<button class="btn-ghost sm adpost-prodbtn" style="font-size:11px;margin-top:3px;padding:3px 8px">📦 ' + (it.product ? "Đổi SP" : "Chọn SP") + '</button></td>' +
       '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
       '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea>' +
         '<button class="btn-ghost sm adpost-recap" style="margin-top:4px;font-size:11px">🔄 Đổi mô tả khác</button></td>' +
@@ -4911,18 +4908,9 @@ function adpostRender(items) {
   box.querySelectorAll(".adpost-img").forEach(im => im.onclick = () => { if (typeof openZoom === "function") openZoom(im.dataset.full); });
   box.querySelectorAll("tr[data-id]").forEach(tr => {
     const id = tr.dataset.id;
-    // chọn SP cho bài này -> set product + link đúng
-    const psel = tr.querySelector(".adpost-prod");
-    if (psel) psel.onchange = async () => {
-      const p = (adpostProds || []).find(x => String(x.id) === psel.value);
-      const product = p ? (p.title || "") : "";
-      const link = p ? (p.store_url || "") : "";
-      const pimg = p ? (p.image || "") : "";
-      await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: product, link: link, product_img: pimg }) });
-      const it = items.find(x => x.id === id); if (it) { it.product = product; it.link = link; it.product_img = pimg; }
-      const linkInput = tr.querySelector('input[data-f="link"]'); if (linkInput) linkInput.value = link;
-      adpostRender(items);   // vẽ lại để hiện ảnh SP
-    };
+    // chọn SP cho bài này -> mở bộ chọn SP CÓ ẢNH
+    const pbtn = tr.querySelector(".adpost-prodbtn");
+    if (pbtn) pbtn.onclick = () => adpostOpenSpPicker(id, items);
     tr.querySelectorAll(".adpost-f").forEach(f => f.onchange = () => {
       fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, [f.dataset.f]: f.value }) });
     });
@@ -4969,6 +4957,42 @@ async function adpostBatchPush() {
     adpostLoad();
   } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }
+}
+// Bộ chọn SP CÓ ẢNH cho 1 bài
+let _adpostSpTarget = null, _adpostSpItems = null, _adpostSpWired = false;
+function adpostOpenSpPicker(id, items) {
+  _adpostSpTarget = id; _adpostSpItems = items;
+  if (!_adpostSpWired) {
+    _adpostSpWired = true;
+    if ($("adpostSpClose")) $("adpostSpClose").onclick = () => $("adpostSpModal").classList.add("hidden");
+    if ($("adpostSpModal")) $("adpostSpModal").onclick = () => $("adpostSpModal").classList.add("hidden");
+    if ($("adpostSpSearch2")) $("adpostSpSearch2").oninput = (e) => adpostRenderSpGrid(e.target.value);
+  }
+  $("adpostSpSearch2").value = "";
+  adpostRenderSpGrid("");
+  $("adpostSpModal").classList.remove("hidden");
+}
+function adpostRenderSpGrid(q) {
+  const grid = $("adpostSpGrid"); if (!grid) return;
+  const ql = (q || "").toLowerCase();
+  const list = (adpostProds || []).filter(p => !ql || (p.title || "").toLowerCase().includes(ql));
+  if (!list.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Không có sản phẩm (hoặc chưa cấu hình Shopify).</p>'; return; }
+  grid.innerHTML = list.map((p, i) =>
+    '<div class="adpost-sp-card" data-i="' + (adpostProds.indexOf(p)) + '" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff">' +
+      (p.image ? '<img src="' + p.image + '" style="width:100%;height:130px;object-fit:cover;display:block">' : '<div style="height:130px;background:#eee"></div>') +
+      '<div style="padding:6px 8px;font-size:11px;line-height:1.3">' + (p.title || "").replace(/</g, "&lt;").slice(0, 50) + '</div>' +
+    '</div>'
+  ).join("");
+  grid.querySelectorAll(".adpost-sp-card").forEach(c => c.onclick = () => adpostPickSp(+c.dataset.i));
+}
+async function adpostPickSp(idx) {
+  const p = (adpostProds || [])[idx]; if (!p) return;
+  const id = _adpostSpTarget;
+  await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: p.title || "", link: p.store_url || "", product_img: p.image || "" }) }).catch(() => {});
+  const it = (_adpostSpItems || []).find(x => x.id === id);
+  if (it) { it.product = p.title || ""; it.link = p.store_url || ""; it.product_img = p.image || ""; }
+  $("adpostSpModal").classList.add("hidden");
+  adpostLoad();
 }
 async function adpostApplyDefLink() {
   const n = $("adpostNote");
