@@ -4437,7 +4437,51 @@ function fbpInit() {
   $("fbpRunBtn").onclick = fbpGenerate;
   const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "fbpStyleFile"; document.body.appendChild(sf);
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && fbpPickKey) { fbpStyle[fbpPickKey] = await fileToDataURL(f); fbpSel.add(fbpPickKey); fbpRenderConcepts(); } e.target.value = ""; };
+  if ($("fbpSavePreset")) $("fbpSavePreset").onclick = fbpSavePreset;
+  if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
+  fbpLoadPreset();   // tự nạp style mặc định đã lưu
   fbpRenderDesign(); fbpRenderConcepts(); fbpRenderAll();
+}
+const FBP_PRESET_KEY = "fbpost_preset_v1";
+function fbpSavePreset() {
+  const note = $("fbpPresetNote");
+  const preset = {
+    sel: Array.from(fbpSel),
+    style: fbpStyle,                 // {key: dataURL}
+    bg: fbpBg,                       // {key: text}
+    aspect: $("fbpAspect") && $("fbpAspect").value,
+    quality: $("fbpQuality") && $("fbpQuality").value,
+    perSet: $("fbpPerSet") && $("fbpPerSet").value,
+    engine: $("fbpEngine") && $("fbpEngine").value
+  };
+  try {
+    localStorage.setItem(FBP_PRESET_KEY, JSON.stringify(preset));
+    if (note) { note.style.color = "var(--violet)"; note.textContent = "✓ Đã lưu style mặc định (" + preset.sel.length + " concept). Lần sau tự nạp."; }
+  } catch (e) {
+    // ảnh style quá lớn -> lưu không kèm ảnh
+    try {
+      const slim = Object.assign({}, preset, { style: {} });
+      localStorage.setItem(FBP_PRESET_KEY, JSON.stringify(slim));
+      if (note) { note.style.color = "#c0392b"; note.textContent = "✓ Đã lưu (concept + background + cài đặt) nhưng ẢNH STYLE quá lớn nên không lưu được — lần sau tải lại ảnh style."; }
+    } catch (e2) { if (note) { note.style.color = "#c0392b"; note.textContent = "✗ Không lưu được: " + e2.message; } }
+  }
+}
+function fbpLoadPreset() {
+  let preset; try { preset = JSON.parse(localStorage.getItem(FBP_PRESET_KEY) || "null"); } catch (e) { preset = null; }
+  if (!preset) return;
+  const note = $("fbpPresetNote");
+  if (preset.style) fbpStyle = preset.style;
+  if (preset.bg) fbpBg = preset.bg;
+  if (Array.isArray(preset.sel)) fbpSel = new Set(preset.sel);
+  if (preset.aspect && $("fbpAspect")) $("fbpAspect").value = preset.aspect;
+  if (preset.quality && $("fbpQuality")) $("fbpQuality").value = preset.quality;
+  if (preset.perSet && $("fbpPerSet")) $("fbpPerSet").value = preset.perSet;
+  if (preset.engine && $("fbpEngine")) { try { $("fbpEngine").value = preset.engine; } catch (e) {} }
+  if (note) { note.style.color = "var(--violet)"; note.textContent = "♻️ Đã nạp style mặc định đã lưu (" + (preset.sel ? preset.sel.length : 0) + " concept)."; }
+}
+function fbpClearPreset() {
+  localStorage.removeItem(FBP_PRESET_KEY);
+  const note = $("fbpPresetNote"); if (note) { note.style.color = "#c0392b"; note.textContent = "🗑️ Đã xoá style mặc định."; }
 }
 async function fbpCheckEngine() {
   try {
