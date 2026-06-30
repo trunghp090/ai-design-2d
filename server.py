@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-agent-usegallery"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-agent-multisrc"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2421,7 +2421,7 @@ def autopost_tick():
 # Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
 AGENT_ACTIONS = {
     "gen_design":    "Tạo design áo mới từ theme/chủ đề. params: {theme, n, text, extra}",
-    "gen_ads":       "Tạo ảnh quảng cáo FB. TỰ DÙNG design gần nhất trong kho của user nếu chưa gen_design/chưa chọn SP (KHÔNG cần gen_design trước). params: {concept: couple|group|family|flatlay2|flatlay3, prompt: mô tả bối cảnh ảnh, aspect: 1:1|4:5|3:4, bg}. Tự chọn concept + viết prompt creative hợp lý nhất.",
+    "gen_ads":       "Tạo ảnh quảng cáo FB (TOÀN NĂNG). Nguồn ảnh tự chọn: nhiều SẢN PHẨM Shopify (params.products = số SP hoặc 'all', mỗi ảnh nhớ đúng link/tên SP), HOẶC nhiều design trong kho (params.count), HOẶC SP/design đang có. KHÔNG cần gen_design trước. params: {concept: couple|group|family|flatlay2|flatlay3, prompt: bối cảnh ảnh, aspect: 1:1|4:5|3:4, bg, products, count}. Tự chọn concept + viết prompt creative hợp lý nhất.",
     "push_fb_ads":   "Đẩy ads lên FB Ads (tạo campaign+nhóm+ad). params: {daily_budget, active, link, campaign_name}",
     "gen_fbpost":    "Tạo bộ ảnh FB Post từ design/sản phẩm. params: {per_set}",
     "post_fbig":     "Đăng ảnh lên Fanpage/Instagram. params: {channels, caption}",
@@ -2615,32 +2615,46 @@ def _ag_gen_design(p, ctx):
 
 
 def _ag_gen_ads(p, ctx):
-    # ảnh nguồn: design vừa tạo -> ảnh SP đang chọn -> DESIGN GẦN NHẤT trong kho của user
-    src = None
-    if ctx.get("designs"):
-        src = base64.b64decode(ctx["designs"][0]["b64"])
-    elif ctx.get("product") and ctx["product"].get("image"):
-        src, _ = fetch_image_bytes(ctx["product"]["image"])
-    else:
-        recent = recent_design_bytes(1)
-        if recent:
-            src = recent[0]
-    if not src:
-        return "Chưa có design/sản phẩm và kho design cũng trống — hãy tạo design trước."
+    # NGUỒN: nhiều SP (products) -> SP đang chọn -> design vừa tạo -> design kho.
+    # Mỗi nguồn = (bytes, link, title) để ảnh ads nhớ đúng link/tên SP.
+    sources = []
+    pr_param = p.get("products")
+    if pr_param:   # gen cho NHIỀU sản phẩm cùng lúc
+        lim = 20 if str(pr_param).lower() in ("all", "tất cả", "het", "hết") else max(1, min(int(pr_param or 3), 20))
+        for pr in recent_products(lim):
+            sources.append((pr["img"], pr["link"], pr["title"]))
+    if not sources and ctx.get("product") and ctx["product"].get("image"):
+        ib, _ = fetch_image_bytes(ctx["product"]["image"])
+        if ib:
+            sources.append((ib, ctx.get("product_link", ""), ctx["product"].get("name", "")))
+    if not sources and ctx.get("designs"):
+        for d in ctx["designs"]:
+            sources.append((base64.b64decode(d["b64"]), "", ""))
+    if not sources:   # design gần nhất trong kho (lấy nhiều nếu count>1)
+        cnt = max(1, min(int(p.get("count", 1) or 1), 6))
+        for b in recent_design_bytes(cnt):
+            sources.append((b, "", ""))
+    if not sources:
+        return "Chưa có sản phẩm/design nào — hãy tạo design hoặc thêm SP trước."
+
     key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
     ref = _load_style_bytes(key)
-    cp = (p.get("prompt") or "").strip()   # PROMPT do AI điều khiển (tuỳ chọn)
-    cons = [{"key": key, "ref": ref, "bg": (p.get("bg") or "").strip(), "custom_prompt": cp[:4000]}]
+    cp = (p.get("prompt") or "").strip()
     aspect = p.get("aspect") if p.get("aspect") in ("1:1", "4:5", "3:4", "9:16") else "1:1"
-    with _batch_lock:
-        _batch_seq[0] += 1
-        sj = "agads_%d" % _batch_seq[0]
-        BATCH_JOBS[sj] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
-    run_ads_job(sj, (src, "image/png"), cons, "Áo Thun In Tên", "Cá nhân hoá theo tên riêng",
-                "openai", aspect, quality="high")
-    items = BATCH_JOBS.get(sj, {}).get("items", [])
-    ctx["ad_images"] = [{"b64": it.get("image"), "url": (it.get("gallery") or {}).get("url")} for it in items]
-    return "Đã tạo %d ảnh ads (concept %s%s)." % (len(ctx["ad_images"]), key, ", có prompt riêng" if cp else "")
+    ad_images = []
+    for (img, link, title) in sources:
+        cons = [{"key": key, "ref": ref, "bg": (p.get("bg") or "").strip(), "custom_prompt": cp[:4000]}]
+        with _batch_lock:
+            _batch_seq[0] += 1
+            sj = "agads_%d" % _batch_seq[0]
+            BATCH_JOBS[sj] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+        run_ads_job(sj, (img, "image/png"), cons, title or "Áo Thun In Tên",
+                    "Cá nhân hoá theo tên riêng", "openai", aspect, quality="high")
+        for it in BATCH_JOBS.get(sj, {}).get("items", []):
+            ad_images.append({"b64": it.get("image"), "url": (it.get("gallery") or {}).get("url"),
+                              "link": link, "title": title})
+    ctx["ad_images"] = ad_images
+    return "Đã tạo %d ảnh ads (concept %s, %d nguồn%s)." % (len(ad_images), key, len(sources), ", có prompt riêng" if cp else "")
 
 
 def _ag_push_fb_ads(p, ctx):
@@ -2648,12 +2662,14 @@ def _ag_push_fb_ads(p, ctx):
         return "Chưa có ảnh ads — bỏ qua."
     status = "ACTIVE" if p.get("active") else "PAUSED"
     budget = p.get("daily_budget") or 50000
-    link = p.get("link") or ctx.get("product_link") or "https://rieng.vn"
+    deflink = p.get("link") or ctx.get("product_link") or "https://rieng.vn"
     ok = 0
     for it in ctx["ad_images"]:
         img = base64.b64decode(it["b64"]) if it.get("b64") else None
-        r = fb_ads_push_core(img, link, "Áo thun in tên cá nhân hoá.", "Áo Thun In Tên",
-                             "Áo Thun In Tên", budget, 18, 55, [], ["VN"], "SHOP_NOW", status=status)
+        link = it.get("link") or deflink   # mỗi ảnh dùng ĐÚNG link SP của nó
+        headline = it.get("title") or "Áo Thun In Tên"
+        r = fb_ads_push_core(img, link, "Áo thun in tên cá nhân hoá.", headline,
+                             headline, budget, 18, 55, [], ["VN"], "SHOP_NOW", status=status)
         if r.get("ok"):
             ok += 1
     return "Đã đẩy %d ad lên FB Ads (%s)." % (ok, "CHẠY" if status == "ACTIVE" else "TẠM DỪNG")
@@ -5011,6 +5027,27 @@ def recent_design_bytes(n=1):
                 continue
             if len(out) >= n:
                 break
+    return out
+
+
+def recent_products(n=5):
+    """Lấy n SẢN PHẨM gần nhất từ Shopify -> [{img(bytes), link, title}] (Trợ lý AI gen ads nhiều SP)."""
+    out = []
+    if not shopify_configured():
+        return out
+    try:
+        st, d = shopify_api("GET", "products.json?limit=%d&order=created_at+desc" % max(5, min(50, n)))
+        for pr in (d.get("products") or [])[:n]:
+            img = (pr.get("image") or {}).get("src") or ((pr.get("images") or [{}])[0].get("src") if pr.get("images") else "")
+            if not img:
+                continue
+            ib, _ = fetch_image_bytes(img)
+            if not ib:
+                continue
+            link = ("https://rieng.vn/products/%s" % pr.get("handle", "")) if pr.get("handle") else ""
+            out.append({"img": ib, "link": link, "title": pr.get("title", "")})
+    except Exception:
+        pass
     return out
 
 
