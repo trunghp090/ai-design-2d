@@ -4599,18 +4599,39 @@ function fbpRenderAll() {
       '<div class="fp-card-prompt">' + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
       '<textarea class="input fbp-cap" rows="3" placeholder="Caption bài đăng (AI tự viết)…"></textarea>' +
-      '<div class="fp-card-acts"><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button></div>' +
+      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
     card.querySelector(".fbp-cap").value = it.caption || (it.caption === "" ? "" : "⏳ AI đang viết caption…");
     card.querySelector(".fbp-cap").oninput = (e) => { it.caption = e.target.value; };
     card.querySelectorAll(".fbp-card img, div img[data-i]").forEach(() => {});
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
+    card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
     card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
     card.querySelector(".b-cap").onclick = () => fbpWriteCaption(it, true);
     card.querySelector(".b-post").onclick = (e) => fbpPostToPage(it, card);
     card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
     grid.appendChild(card);
   });
+}
+// Lấy 1 ảnh trong bộ làm STYLE mẫu cho concept (đồng bộ cả FB post + FB ADS)
+let _fbpStylePickIdx = {};
+function fbpSetAsStyle(it, card) {
+  const note = card.querySelector(".fbp-postnote");
+  const pics = it.pics || [];
+  if (!pics.length) return;
+  // cho user chọn ảnh nào trong bộ (mặc định ảnh 1); bấm lại đổi sang ảnh kế tiếp
+  const key = it.concept;
+  const i = (_fbpStylePickIdx[it.title] || 0) % pics.length;
+  _fbpStylePickIdx[it.title] = i + 1;
+  const p = pics[i];
+  const durl = p.image ? ("data:image/png;base64," + p.image) : p.url;
+  fbpStyle[key] = durl; fbpSel.add(key);
+  if (typeof adsStyle !== "undefined") { adsStyle[key] = durl; if (typeof adsSel !== "undefined") adsSel.add(key); }
+  fbpRenderConcepts();
+  if (typeof adsRenderConcepts === "function") { try { adsRenderConcepts(); } catch (e) {} }
+  // lưu lên server làm style của concept (autopilot/khôi phục dùng được)
+  if (typeof adsSaveConceptStyle === "function") { try { adsSaveConceptStyle(key, durl); } catch (e) {} }
+  if (note) { note.className = "gen-note ok"; note.textContent = "⭐ Đã đặt ảnh #" + (i + 1) + " làm style mẫu cho '" + (it.title || key) + "' (dùng chung FB ADS). Bấm lại để chọn ảnh khác trong bộ. Nhớ '💾 Lưu mặc định'."; }
 }
 async function fbpWriteCaption(it, force) {
   if (it.caption && !force) return;
