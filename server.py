@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fbpost-history"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fbpost-3pose"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1939,6 +1939,17 @@ _FBPOST_CLEAN = (
     "of the shirt(s) themselves. ")
 _FBPOST_SHOTS = ["wide full shot", "closer waist-up shot", "a slightly different relaxed standing pose",
                  "a candid natural moment", "a gently different camera angle"]
+# Concept CÓ NGƯỜI -> mỗi shot 1 tư thế KHÁC nhau (design + tên vẫn giữ y hệt)
+_FBPOST_PEOPLE_POSES = [
+    "standing close together smiling warmly at the camera, relaxed natural pose",
+    "a candid laughing moment, looking at each other happily",
+    "walking together side by side outdoors, relaxed and in motion",
+    "leaning in close, one with an arm gently around the other, cozy and happy",
+    "a fun playful pose with a light hand gesture, cheerful mood",
+    "sitting together relaxed on a bench/step, leaning in close",
+    "a calm candid moment looking slightly away, soft natural expression",
+    "side-by-side confident pose, smiling at the camera",
+]
 # Ép GIỮ NGUYÊN design + tên qua mọi shot trong bộ (chỉ pose/góc/ánh sáng đổi)
 _FBPOST_KEEPSET = (
     "CONSISTENCY ACROSS THE SET: this is one of several photos of the SAME shirts on the SAME people. "
@@ -2011,11 +2022,11 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
             style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
 
 
-def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="medium", per_set=4):
+def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="medium", per_set=3):
     """Mỗi concept -> 1 BỘ per_set ảnh sạch (không text). concepts=[{key,ref,bg}]."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect or "4:5"
-    per_set = max(1, min(6, int(per_set or 4)))
+    per_set = max(1, min(6, int(per_set or 3)))
     old_name = ads_read_name(design_img[0])
 
     def work(c):
@@ -2032,11 +2043,22 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             imgs = [design_img]; img_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = 2
-            hints = _FBPOST_FLAT_SHOTS if key.startswith("flatlay") else _FBPOST_SHOTS
+            is_people = key in ("couple", "group", "family")   # các concept CÓ NGƯỜI (loại flatlay)
+            if key.startswith("flatlay"):
+                hints = _FBPOST_FLAT_SHOTS
+            elif is_people:
+                # mỗi shot 1 tư thế KHÁC nhau (chọn ngẫu nhiên, không trùng trong bộ)
+                pool = _FBPOST_PEOPLE_POSES[:]
+                random.shuffle(pool)
+                hints = (pool * 2)[:max(per_set, 1)]
+            else:
+                hints = _FBPOST_SHOTS
             label = "FB Post · %s" % ADS_CONCEPTS[key][0]
             pics = []
             for i in range(per_set):
-                v = "Shot %d of a matching set — %s. " % (i + 1, hints[i % len(hints)])
+                pose = hints[i % len(hints)]
+                v = ("Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)) if is_people \
+                    else ("Shot %d of a matching set — %s. " % (i + 1, pose))
                 prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v)
                 b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
@@ -7162,7 +7184,7 @@ class Handler(BaseHTTPRequestHandler):
         if quality not in ("low", "medium", "high"):
             quality = "high"
         try:
-            per_set = max(1, min(6, int(body.get("per_set") or 4)))
+            per_set = max(1, min(6, int(body.get("per_set") or 3)))
         except Exception:
             per_set = 4
         with _batch_lock:
