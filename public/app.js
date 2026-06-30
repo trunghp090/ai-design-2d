@@ -4805,6 +4805,7 @@ function adpostInit() {
     $("adpostPushBtn").onclick = adpostBatchPush;
     if ($("adpostDelSel")) $("adpostDelSel").onclick = adpostDelSelected;
     if ($("adpostFixLinks")) $("adpostFixLinks").onclick = adpostFixLinks;
+    if ($("adpostApplyDefLink")) $("adpostApplyDefLink").onclick = adpostApplyDefLink;
     fbPostAdsWire();
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
@@ -4859,6 +4860,10 @@ let adpostProds = null;   // cache danh sách SP Shopify (để gán cho từng 
 async function adpostLoad() {
   try {
     if (!adpostProds) { try { adpostProds = (await (await fetch("/api/shopify-products")).json()).products || []; } catch (e) { adpostProds = []; } }
+    // gợi ý link mặc định (bạn sửa lại link đúng nếu muốn) — KHÔNG tự gắn, chỉ điền sẵn ô
+    if ($("adpostDefLink") && !$("adpostDefLink").value.trim() && adpostProds[0] && adpostProds[0].store_url) {
+      $("adpostDefLink").value = adpostProds[0].store_url;
+    }
     const d = await (await fetch("/api/adpost-list")).json();
     const items = d.items || [];
     $("adpostEmpty").classList.toggle("hidden", items.length > 0);
@@ -4964,6 +4969,21 @@ async function adpostBatchPush() {
     adpostLoad();
   } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }
+}
+async function adpostApplyDefLink() {
+  const n = $("adpostNote");
+  const link = ($("adpostDefLink") && $("adpostDefLink").value || "").trim();
+  if (!link) { if (n) { n.className = "gen-note err"; n.textContent = "⚠️ Nhập link mặc định trước (link đúng bạn muốn)."; } return; }
+  // lấy danh sách bài hiện tại
+  const d = await (await fetch("/api/adpost-list")).json();
+  const empties = (d.items || []).filter(it => !(it.link || "").trim());
+  if (!empties.length) { if (n) { n.className = "gen-note ok"; n.textContent = "✓ Mọi bài đã có link rồi."; } return; }
+  if (!confirm("Gắn link này cho " + empties.length + " bài CHƯA có link?\n" + link)) return;
+  for (const it of empties) {
+    await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it.id, link: link }) }).catch(() => {});
+  }
+  if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã gắn link cho " + empties.length + " bài chưa có link."; }
+  adpostLoad();
 }
 async function adpostFixLinks() {
   const n = $("adpostNote"), btn = $("adpostFixLinks");
