@@ -4229,10 +4229,15 @@ function adsRenderAll() {
     if (c._pushing) pushLine = '<br><span class="hint">⏳ Đang đẩy lên FB Ads…</span>';
     else if (c._pushed !== undefined) pushLine = '<br><span class="hint" style="color:var(--violet)">✓ Đã đẩy FB Ads (PAUSED) · <a href="' + (c._pushed || "#") + '" target="_blank">Ads Manager →</a></span>';
     else if (c._pusherr) pushLine = '<br><span class="hint" style="color:#c00">✗ Đẩy lỗi: ' + c._pusherr.slice(0, 50) + '</span>';
+    const spLine = (c._link || c._ptitle)
+      ? ('<div style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 6px;background:var(--violet-soft);border-radius:8px">' +
+          (c._pimg ? '<img src="' + c._pimg + '" title="Sản phẩm gốc" style="width:30px;height:38px;object-fit:cover;border-radius:5px;border:1px solid var(--line);flex:none">' : '') +
+          '<div style="font-size:10.5px;line-height:1.35;min-width:0">📦 <b>' + (c._ptitle || "Sản phẩm").replace(/</g, "&lt;").slice(0, 30) + '</b>' +
+          (c._link ? '<br>🔗 <a href="' + c._link + '" target="_blank" style="color:var(--violet)">' + c._link.replace(/^https?:\/\//, "").slice(0, 34) + '…</a>' : '<br><span style="color:#c0392b">chưa có link</span>') +
+          '</div></div>')
+      : '<div class="hint" style="margin-top:4px;color:#c0392b;font-size:10.5px">⚠️ Chưa gắn SP/link — tạo bằng "📦 Tạo ảnh cho nhiều SP" để có link sẵn.</div>';
     card.innerHTML =
-      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") +
-        (c._ptitle ? ' <span class="hint" style="color:var(--violet)">· 📦 ' + c._ptitle.replace(/</g, "&lt;").slice(0, 24) + (c._link ? ' 🔗' : '') + '</span>' : '') +
-        (c._pimg ? '<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><img src="' + c._pimg + '" title="Ảnh sản phẩm gốc" style="width:34px;height:42px;object-fit:cover;border-radius:6px;border:1px solid var(--line)"><span class="hint" style="font-size:10px">⬅ SP gốc của ảnh ads này</span></div>' : '') +
+      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + spLine +
         (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
