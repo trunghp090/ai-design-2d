@@ -4437,10 +4437,30 @@ function fbpInit() {
   $("fbpRunBtn").onclick = fbpGenerate;
   const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "fbpStyleFile"; document.body.appendChild(sf);
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && fbpPickKey) { fbpStyle[fbpPickKey] = await fileToDataURL(f); fbpSel.add(fbpPickKey); fbpRenderConcepts(); } e.target.value = ""; };
+  if ($("fbpUseAdsStyle")) $("fbpUseAdsStyle").onclick = fbpUseAdsStyle;
   if ($("fbpSavePreset")) $("fbpSavePreset").onclick = fbpSavePreset;
   if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
   fbpLoadPreset();   // tự nạp style mặc định đã lưu
   fbpRenderDesign(); fbpRenderConcepts(); fbpRenderAll();
+}
+// Lấy Y HỆT style đã setup bên FB ADS (concept + ảnh style + background)
+async function fbpUseAdsStyle() {
+  const note = $("fbpPresetNote");
+  // đảm bảo style ads đã nạp (builtin + đã lưu trên server) nếu user chưa mở tab ads
+  if (Object.keys(adsStyle || {}).length === 0 && typeof adsLoadStyleBank === "function") {
+    if (note) { note.style.color = "var(--violet)"; note.textContent = "⏳ Đang lấy style từ FB ADS…"; }
+    try { if (typeof adsInit === "function") adsInit(); await adsLoadStyleBank(); } catch (e) {}
+  }
+  const styleKeys = Object.keys(adsStyle || {});
+  if (!styleKeys.length && (!adsSel || adsSel.size === 0)) {
+    if (note) { note.style.color = "#c0392b"; note.textContent = "⚠️ Chưa có style nào bên FB ADS — vào tab 📣 Tạo Ảnh FB ADS tải ảnh style cho concept trước."; }
+    return;
+  }
+  fbpStyle = Object.assign({}, adsStyle);     // copy ảnh style/concept
+  fbpBg = Object.assign({}, adsBg);           // copy background/concept
+  fbpSel = new Set((adsSel && adsSel.size) ? Array.from(adsSel) : styleKeys);  // concept đã tick bên ads
+  fbpRenderConcepts();
+  if (note) { note.style.color = "var(--violet)"; note.textContent = "✓ Đã lấy style giống FB ADS (" + fbpSel.size + " concept). Bấm '💾 Lưu mặc định' để giữ cho lần sau."; }
 }
 const FBP_PRESET_KEY = "fbpost_preset_v1";
 function fbpSavePreset() {
