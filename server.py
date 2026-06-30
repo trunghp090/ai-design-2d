@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.29-agent-vision"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fix-adpost-links"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2921,6 +2921,87 @@ def _adpost_set(pid, **fields):
         adpost_save(items)
 
 
+def _norm_title(t):
+    return " ".join((t or "").lower().split())
+
+
+def _shopify_title_link_map():
+    """Trả [(title, store_url), ...] từ Shopify (để khớp tên SP -> đúng link)."""
+    out = []
+    if not shopify_configured():
+        return out
+    try:
+        st, d = shopify_api("GET", "products.json?limit=250&fields=id,title,handle")
+        if st != 200:
+            return out
+        for p in (d.get("products") or []):
+            h = p.get("handle")
+            if h:
+                out.append((p.get("title", ""), "https://rieng.vn/products/%s" % h))
+    except Exception:
+        pass
+    return out
+
+
+import re as _re_links
+
+
+def _best_product_link(prod_title, prods):
+    """Khớp tên SP của bài với SP Shopify -> store_url. None nếu không khớp."""
+    pt = _norm_title(prod_title)
+    if not pt or not prods:
+        return None
+    norm = [(_norm_title(t), u, t) for (t, u) in prods if u]
+    # 1) khớp chính xác
+    for nt, u, _ in norm:
+        if nt and nt == pt:
+            return u
+    # 2) khớp theo mã MS (vd MS88945) — chắc chắn nhất
+    m = _re_links.search(r"ms\s?\d{3,}", pt)
+    if m:
+        code = m.group(0).replace(" ", "")
+        for nt, u, _ in norm:
+            if code in nt.replace(" ", ""):
+                return u
+    # 3) chứa nhau
+    for nt, u, _ in norm:
+        if nt and (nt in pt or pt in nt):
+            return u
+    # 4) trùng token nhiều nhất (>=60%)
+    pts = set(pt.split())
+    best, bestu = 0.0, None
+    for nt, u, _ in norm:
+        ts = set(nt.split())
+        if not ts:
+            continue
+        ov = len(pts & ts) / max(1, len(pts | ts))
+        if ov > best:
+            best, bestu = ov, u
+    return bestu if best >= 0.6 else None
+
+
+def adpost_fix_links(only_ids=None):
+    """Sửa link từng bài về ĐÚNG SP (khớp theo tên SP đã lưu). Trả {fixed, unmatched, total}."""
+    prods = _shopify_title_link_map()
+    if not prods:
+        return {"error": "Không tải được sản phẩm Shopify (hoặc chưa cấu hình)."}
+    with _adpost_lock:
+        items = adpost_load()
+        fixed, unmatched = 0, []
+        for it in items:
+            if only_ids and it.get("id") not in only_ids:
+                continue
+            link = _best_product_link(it.get("product", ""), prods)
+            if link:
+                if it.get("link") != link:
+                    it["link"] = link
+                    fixed += 1
+            else:
+                unmatched.append({"id": it.get("id"), "product": it.get("product", "")})
+        adpost_save(items)
+    return {"fixed": fixed, "unmatched": unmatched, "total": len(items)}
+
+
 def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta, fb_status="PAUSED",
                         campaign_id="", adset_id=""):
     ADPOST_PUSH.update(running=True, done=0, total=len(ids), gap=gap, next_in=0, log=[])
@@ -5579,6 +5660,9 @@ class Handler(BaseHTTPRequestHandler):
             with _adpost_lock:
                 adpost_save([x for x in adpost_load() if x.get("id") != pid])
             return self.json(200, {"ok": True})
+        if path == "/api/adpost-fix-links":
+            only = body.get("ids") or None
+            return self.json(200, adpost_fix_links(only))
         if path == "/api/adpost-push-batch":
             if not fb_configured():
                 return self.json(400, {"error": "Chưa cấu hình Facebook Ads."})

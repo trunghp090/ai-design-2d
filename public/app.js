@@ -4797,6 +4797,7 @@ function adpostInit() {
     adpostInited = true;
     $("adpostPushBtn").onclick = adpostBatchPush;
     if ($("adpostDelSel")) $("adpostDelSel").onclick = adpostDelSelected;
+    if ($("adpostFixLinks")) $("adpostFixLinks").onclick = adpostFixLinks;
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
     if ($("adpostReload")) $("adpostReload").onclick = async () => {
@@ -4927,6 +4928,28 @@ async function adpostBatchPush() {
     adpostLoad();
   } catch (e) { const n = $("adpostNote"); n.className = "gen-note err"; n.textContent = "✗ " + e.message; }
   finally { btn.disabled = false; }
+}
+async function adpostFixLinks() {
+  const n = $("adpostNote"), btn = $("adpostFixLinks");
+  // chỉ sửa các bài đã tick; không tick nào -> sửa tất cả
+  const ticked = [...document.querySelectorAll(".adpost-tick:checked")].map(t => t.value);
+  const scope = ticked.length ? ("đã chọn (" + ticked.length + ")") : "TẤT CẢ bài";
+  if (!confirm("Sửa link theo đúng SP cho " + scope + "?\n(Khớp tên SP đã lưu của từng bài với sản phẩm Shopify.)")) return;
+  if (n) { n.className = "gen-note"; n.textContent = "🔗 Đang khớp link với sản phẩm Shopify…"; }
+  if (btn) btn.disabled = true;
+  try {
+    const body = ticked.length ? { ids: ticked } : {};
+    const r = await fetch("/api/adpost-fix-links", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const um = (d.unmatched || []).length;
+    if (n) {
+      n.className = um ? "gen-note" : "gen-note ok";
+      n.textContent = "✅ Đã sửa link đúng SP cho " + d.fixed + " bài." +
+        (um ? " ⚠️ " + um + " bài không khớp được SP (tên SP khác/đã đổi) — sửa tay ở ô link: " + (d.unmatched || []).map(x => x.product || "?").slice(0, 4).join(", ") + (um > 4 ? "…" : "") : "");
+    }
+    adpostLoad();
+  } catch (e) { if (n) { n.className = "gen-note err"; n.textContent = "✗ " + e.message; } }
+  finally { if (btn) btn.disabled = false; }
 }
 async function adpostDelSelected() {
   const ids = [...document.querySelectorAll(".adpost-tick:checked")].map(t => t.value);
