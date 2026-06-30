@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-nick-fromname"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-agent-usegallery"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2421,7 +2421,7 @@ def autopost_tick():
 # Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
 AGENT_ACTIONS = {
     "gen_design":    "Tạo design áo mới từ theme/chủ đề. params: {theme, n, text, extra}",
-    "gen_ads":       "Tạo ảnh quảng cáo FB từ design/sản phẩm. params: {concept: couple|group|family|flatlay2|flatlay3, prompt: mô tả bối cảnh/yêu cầu ảnh tự do, aspect: 1:1|4:5|3:4, bg}. Tự chọn concept + viết prompt creative hợp lý nhất theo mục tiêu.",
+    "gen_ads":       "Tạo ảnh quảng cáo FB. TỰ DÙNG design gần nhất trong kho của user nếu chưa gen_design/chưa chọn SP (KHÔNG cần gen_design trước). params: {concept: couple|group|family|flatlay2|flatlay3, prompt: mô tả bối cảnh ảnh, aspect: 1:1|4:5|3:4, bg}. Tự chọn concept + viết prompt creative hợp lý nhất.",
     "push_fb_ads":   "Đẩy ads lên FB Ads (tạo campaign+nhóm+ad). params: {daily_budget, active, link, campaign_name}",
     "gen_fbpost":    "Tạo bộ ảnh FB Post từ design/sản phẩm. params: {per_set}",
     "post_fbig":     "Đăng ảnh lên Fanpage/Instagram. params: {channels, caption}",
@@ -2615,14 +2615,18 @@ def _ag_gen_design(p, ctx):
 
 
 def _ag_gen_ads(p, ctx):
-    # ảnh nguồn: design vừa tạo, hoặc ảnh SP đang chọn
+    # ảnh nguồn: design vừa tạo -> ảnh SP đang chọn -> DESIGN GẦN NHẤT trong kho của user
     src = None
     if ctx.get("designs"):
         src = base64.b64decode(ctx["designs"][0]["b64"])
     elif ctx.get("product") and ctx["product"].get("image"):
         src, _ = fetch_image_bytes(ctx["product"]["image"])
+    else:
+        recent = recent_design_bytes(1)
+        if recent:
+            src = recent[0]
     if not src:
-        return "Chưa có design/sản phẩm — bỏ qua."
+        return "Chưa có design/sản phẩm và kho design cũng trống — hãy tạo design trước."
     key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
     ref = _load_style_bytes(key)
     cp = (p.get("prompt") or "").strip()   # PROMPT do AI điều khiển (tuỳ chọn)
@@ -2656,9 +2660,15 @@ def _ag_push_fb_ads(p, ctx):
 
 
 def _ag_gen_fbpost(p, ctx):
-    if not ctx.get("designs"):
-        return "Chưa có design — bỏ qua."
-    dd = base64.b64decode(ctx["designs"][0]["b64"])
+    if ctx.get("designs"):
+        dd = base64.b64decode(ctx["designs"][0]["b64"])
+    elif ctx.get("product") and ctx["product"].get("image"):
+        dd, _ = fetch_image_bytes(ctx["product"]["image"])
+    else:
+        recent = recent_design_bytes(1)
+        dd = recent[0] if recent else None
+    if not dd:
+        return "Chưa có design và kho cũng trống — hãy tạo design trước."
     per_set = max(1, min(int(p.get("per_set", 4) or 4), 5))
     cons = [{"key": "flatlay3", "ref": _load_style_bytes("flatlay3"), "bg": ""}]
     with _batch_lock:
@@ -4983,6 +4993,25 @@ def gallery_save_index(items):
     os.makedirs(GALLERY_DIR, exist_ok=True)
     json.dump(items, open(GALLERY_INDEX, "w", encoding="utf-8"),
               ensure_ascii=False, indent=2)
+
+
+_DESIGN_MODES = ("design", "personalize", "recolor", "auto", "namedesign", "cutout")
+
+
+def recent_design_bytes(n=1):
+    """Lấy n DESIGN gần nhất của user từ kho (để Trợ lý AI tự dùng làm nguồn ảnh ads/post)."""
+    out = []
+    for it in gallery_load():
+        if it.get("mode") in _DESIGN_MODES:
+            p = os.path.join(GALLERY_DIR, "%s.png" % it.get("id"))
+            try:
+                with open(p, "rb") as f:
+                    out.append(f.read())
+            except Exception:
+                continue
+            if len(out) >= n:
+                break
+    return out
 
 
 def gallery_add(b64, meta):
