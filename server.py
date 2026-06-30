@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-crop-keeptop"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-ads-per-product"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2430,7 +2430,7 @@ def autopost_tick():
 # Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
 AGENT_ACTIONS = {
     "gen_design":    "Tạo design áo mới từ theme/chủ đề. params: {theme, n, text, extra}",
-    "gen_ads":       "Tạo ảnh quảng cáo FB từ DESIGN SẠCH của user. MẶC ĐỊNH dùng design sạch gần nhất trong kho (params.count = số design). Chỉ khi user nói RÕ 'dùng sản phẩm' thì mới dùng ảnh SP Shopify (params.products = số SP hoặc 'all'). KHÔNG cần gen_design trước. params: {concept: couple|group|family|flatlay2|flatlay3, prompt, aspect: 1:1|4:5|3:4, bg, count, products}. Tự chọn concept + prompt creative.",
+    "gen_ads":       "Tạo ảnh quảng cáo FB cho TỪNG SẢN PHẨM Shopify — mỗi SP ra 1 ảnh từ ảnh SP đó + nhớ ĐÚNG link/tên SP đó (link luôn khớp). params.products = số SP (mặc định 5) hoặc 'all'. params: {concept: couple|group|family|flatlay2|flatlay3, prompt, aspect: 1:1|4:5|3:4, bg, products}. Tự chọn concept + prompt creative.",
     "push_fb_ads":   "Đẩy ads lên FB Ads (tạo campaign+nhóm+ad). params: {daily_budget, active, link, campaign_name}",
     "gen_fbpost":    "Tạo bộ ảnh FB Post từ design/sản phẩm. params: {per_set}",
     "post_fbig":     "Đăng ảnh lên Fanpage/Instagram. params: {channels, caption}",
@@ -2624,27 +2624,24 @@ def _ag_gen_design(p, ctx):
 
 
 def _ag_gen_ads(p, ctx):
-    # NGUỒN ưu tiên DESIGN SẠCH (artwork) của user — KHÔNG dùng ảnh SP mockup làm nguồn
-    # (mockup ra design trơn linh tinh). Mỗi nguồn = (bytes, link, title).
+    # NGUỒN = TỪNG SẢN PHẨM Shopify (mỗi ảnh ads nhớ ĐÚNG link + tên SP của nó).
+    # Mỗi nguồn = (bytes, link, title).
     sources = []
-    pr_param = p.get("products")
-    if pr_param:   # CHỈ khi user nói RÕ "dùng sản phẩm" -> ảnh SP làm nguồn
-        lim = 20 if str(pr_param).lower() in ("all", "tất cả", "het", "hết") else max(1, min(int(pr_param or 3), 20))
-        for pr in recent_products(lim):
-            sources.append((pr["img"], pr["link"], pr["title"]))
-    if not sources and ctx.get("designs"):   # design vừa tạo trong phiên
-        for d in ctx["designs"]:
-            sources.append((base64.b64decode(d["b64"]), "", ""))
-    if not sources and ctx.get("product") and ctx["product"].get("image"):   # SP user CHỌN
+    if ctx.get("product") and ctx["product"].get("image"):   # SP user đã chọn ở tab Trợ lý
         ib, _ = fetch_image_bytes(ctx["product"]["image"])
         if ib:
             sources.append((ib, ctx.get("product_link", ""), ctx["product"].get("name", "")))
-    if not sources:   # MẶC ĐỊNH: DESIGN SẠCH gần nhất trong kho (đúng design của user)
-        cnt = max(1, min(int(p.get("count", 1) or 1), 6))
-        for b in recent_design_bytes(cnt):
-            sources.append((b, "", ""))
+    if not sources:   # MẶC ĐỊNH: tạo ads cho TỪNG SP Shopify -> link luôn đúng
+        pr_param = p.get("products")
+        lim = (20 if str(pr_param).lower() in ("all", "tất cả", "het", "hết")
+               else max(1, min(int(pr_param or p.get("count") or 5), 20)))
+        for pr in recent_products(lim):
+            sources.append((pr["img"], pr["link"], pr["title"]))
+    if not sources and ctx.get("designs"):   # không có SP -> design vừa tạo
+        for d in ctx["designs"]:
+            sources.append((base64.b64decode(d["b64"]), "", ""))
     if not sources:
-        return "Chưa có sản phẩm/design nào — hãy thêm SP Shopify hoặc tạo design trước."
+        return "Chưa có sản phẩm Shopify nào — hãy đẩy SP lên Shopify trước."
 
     key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
     ref = _load_style_bytes(key)
