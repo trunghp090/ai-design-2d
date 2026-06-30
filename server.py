@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-ads-per-product"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-style-only-subname"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1616,18 +1616,19 @@ def _ads_replace_clause(old_name):
 def _ads_style_clauses(img_style_n, txt_style_n):
     s = ""
     if img_style_n:
-        s += ("Reference image #%d is the STYLE reference — MATCH ITS STYLE CLOSELY so the final ad "
-              "clearly looks like it belongs to the same set: the same color palette, lighting, "
-              "background look and surface, framing, props arrangement vibe, finishing/retouch and "
-              "overall aesthetic. Follow it tightly. BUT two things must NOT come from it: "
-              "(a) the SCENE TYPE / SUBJECT is fixed by the concept described ABOVE — if the concept "
-              "calls for PEOPLE wearing the shirts, the result MUST show those people even if the "
-              "reference is a flatlay; if the concept is a flatlay, keep it a flatlay even if the "
-              "reference shows people. Do NOT switch a people scene into a flat lay-down of shirts or "
-              "vice-versa. (b) do NOT copy the literal CONTENT of the reference: not its specific "
-              "people or faces, not its shirts, and not any printed name or text on it. Every shirt and "
-              "printed name in the final ad comes ONLY from the design reference(s) above (each with its "
-              "own DIFFERENT name); never reuse a name from this style board. " % img_style_n)
+        s += ("Reference image #%d is a STYLE-ONLY reference. Copy ONLY its abstract visual STYLE — the "
+              "colour palette / colour grading, the lighting mood and direction, the overall tone, the "
+              "framing feel and the finishing/retouch aesthetic — so the result feels like the same set. "
+              "Do NOT copy any of its CONCRETE CONTENT. In particular, do NOT take from it: any objects, "
+              "props, accessories, furniture, drinks, cups, plants, decorations, signage, text, logos or "
+              "background items; any specific scene, location or backdrop; any people, faces or bodies; "
+              "and any shirts or printed names. Think of it as a mood/colour palette, not a thing to "
+              "reproduce. Two more rules: (a) the SCENE TYPE / SUBJECT is fixed by the concept described "
+              "ABOVE — if the concept calls for PEOPLE wearing the shirts, the result MUST show those "
+              "people even if the reference is a flatlay; if the concept is a flatlay, keep it a flatlay "
+              "even if the reference shows people. (b) every shirt and printed name comes ONLY from the "
+              "design reference(s) above (each with its own DIFFERENT name); never reuse a name, object "
+              "or person from this style reference. " % img_style_n)
     if txt_style_n:
         s += ("Reference image #%d is a TYPOGRAPHY / LETTERING-STYLE sample ONLY. Use it solely to copy "
               "the LETTERING STYLE of the ad text — the font shape, weight, effects and treatment. "
@@ -1786,13 +1787,14 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     # biệt danh phụ = TÊN RÚT GỌN của tên chính (Hoàng Nam -> Nam); CHỈ đổi nếu mẫu vốn CÓ
     subs = [_short_name(names[i]) for i in range(n)]
     perslot = " ".join(('Shirt #%d: main name "%s".' % (i + 1, names[i])) for i in range(n))
-    sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference design ALREADY shows a small "
-                  "secondary name (a cursive/handwritten signature OR a small printed name under the main "
-                  "name), then on EACH shirt make that secondary name the SHORT given-name taken from that "
-                  "shirt's OWN main name (the last word) — it is a person NICKNAME, NEVER an endearment "
-                  "word like 'Cục Cưng' / 'Honey' / 'Bé'. Keep its original style/size/position: " +
-                  "; ".join('shirt #%d main "%s" -> nickname "%s"' % (i + 1, names[i], subs[i]) for i in range(n)) +
-                  ". BUT if the reference has just the main name + year/EST/tagline and NO secondary name, "
+    sub_clause = ("SECONDARY SMALL NAME LINE — ONLY IF the design ALREADY shows a small secondary name "
+                  "(a cursive/handwritten signature OR a small printed name under the main name): on EACH "
+                  "shirt you MUST REPLACE its words with the SHORT given-name taken from THAT shirt's OWN "
+                  "new main name (the last word). NEVER keep the design's original secondary words, and "
+                  "each shirt's secondary line is DIFFERENT — it is a person NICKNAME, NEVER an endearment "
+                  "like 'Cục Cưng' / 'Honey' / 'Bé'. Keep its original style/size/position: " +
+                  "; ".join('shirt #%d main "%s" -> small line "%s"' % (i + 1, names[i], subs[i]) for i in range(n)) +
+                  ". BUT if the design has just the main name + year/EST/tagline and NO secondary name, "
                   "keep the layout EXACTLY and DO NOT add any cursive signature or extra name. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
@@ -1833,11 +1835,12 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     bg = (bg or "").strip()
     bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
     # biệt danh = tên rút gọn của tên IN TRÊN áo đó (cross-named: áo nam in tên nữ...)
-    sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference ALREADY has a small secondary "
-                  "name line, set it as the SHORT given-name (last word) of the main name printed on THAT "
-                  "shirt — a person nickname, NEVER an endearment like 'Cục Cưng'/'Honey'. Man's shirt main "
-                  "\"%s\" -> nickname \"%s\"; woman's shirt main \"%s\" -> nickname \"%s\" (keep small "
-                  "size/position/font). If the reference has NO secondary name, keep the layout exactly and "
+    sub_clause = ("SECONDARY SMALL NAME LINE — ONLY IF the design ALREADY has a small secondary name line: "
+                  "you MUST REPLACE its words with the SHORT given-name (last word) of the main name printed "
+                  "on THAT shirt — never keep the design's original secondary words, each shirt's secondary "
+                  "is DIFFERENT, a person nickname, NEVER an endearment like 'Cục Cưng'/'Honey'. Man's shirt "
+                  "main \"%s\" -> small line \"%s\"; woman's shirt main \"%s\" -> small line \"%s\" (keep small "
+                  "size/position/font). If the design has NO secondary name line, keep the layout exactly and "
                   "do NOT add one. " % (nm["female"], _short_name(nm["female"]), nm["male"], _short_name(nm["male"])))
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ADS_ALLNAMES +
@@ -1986,12 +1989,14 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
         nick_pairs = []
     sub_clause = ""
     if nick_pairs:
-        sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference ALREADY shows a small "
-                      "secondary name (cursive signature or small line), set it as the SHORT given-name "
-                      "(last word) of that shirt's main name — a person nickname, NEVER an endearment "
-                      "like 'Cục Cưng'/'Honey': " +
-                      "; ".join('"%s" -> "%s"' % (a, b) for (a, b) in nick_pairs) +
-                      ". If there is NO secondary name, keep layout exactly and add nothing. ")
+        sub_clause = ("SECONDARY SMALL NAME LINE — ONLY IF the design ALREADY has a small secondary name "
+                      "line (cursive signature or small line under the main name): you MUST REPLACE its "
+                      "words with the SHORT given-name (last word) of THAT shirt's NEW main name. NEVER "
+                      "keep the design's original secondary words, and each shirt's secondary line is "
+                      "DIFFERENT (it follows its own shirt's main name) — a person nickname, NEVER an "
+                      "endearment like 'Cục Cưng'/'Honey': " +
+                      "; ".join('main "%s" -> small line "%s"' % (a, b) for (a, b) in nick_pairs) +
+                      ". If the design has NO secondary name line, keep the layout exactly and add nothing. ")
     return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_CLEAN +
             style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
 
