@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fbpost-family"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-nick-fromname"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1742,6 +1742,12 @@ _ADS_REAL = (
     "longer hem; NOT slim-fit, NOT tight, NOT small. ")
 
 
+def _short_name(name):
+    """Biệt danh = TỪ CUỐI của tên chính (vd 'Hoàng Nam' -> 'Nam', 'Ngọc Anh' -> 'Anh')."""
+    parts = [w for w in (name or "").strip().split() if w]
+    return parts[-1] if parts else (name or "")
+
+
 _FAMILY_POSES = [
     "standing close together, the kid(s) in front between the parents, all smiling at the camera",
     "the parents crouching down beside the kid(s), a warm candid hug moment",
@@ -1769,19 +1775,17 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     txt = _ads_text_part(prod_name, hook, text_style, text_color)
     style = _ads_style_clauses(img_style_n, txt_style_n)
     n = len(names)
-    # tên nhỏ phụ: CHỈ đổi nếu mẫu vốn CÓ; KHÔNG tự thêm
-    subs = random.sample(VN_NICKS, min(n, len(VN_NICKS))) if "VN_NICKS" in globals() else []
+    # biệt danh phụ = TÊN RÚT GỌN của tên chính (Hoàng Nam -> Nam); CHỈ đổi nếu mẫu vốn CÓ
+    subs = [_short_name(names[i]) for i in range(n)]
     perslot = " ".join(('Shirt #%d: main name "%s".' % (i + 1, names[i])) for i in range(n))
-    sub_clause = ""
-    if subs:
-        sub_clause = ("SECONDARY NAME — conditional: ONLY IF the reference design ALREADY shows a small "
-                      "secondary personal name (a cursive/handwritten signature OR a small printed name "
-                      "under the main name), then make that secondary name DIFFERENT on each shirt (do not "
-                      "keep it the same), using these values and KEEPING its original style/size/position: " +
-                      "; ".join('shirt #%d → "%s"' % (i + 1, subs[i]) for i in range(len(subs))) +
-                      ". BUT if the reference has just the main name + year/EST/tagline and NO secondary "
-                      "personal name, keep the layout EXACTLY as the reference and DO NOT add any cursive "
-                      "signature or extra name. ")
+    sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference design ALREADY shows a small "
+                  "secondary name (a cursive/handwritten signature OR a small printed name under the main "
+                  "name), then on EACH shirt make that secondary name the SHORT given-name taken from that "
+                  "shirt's OWN main name (the last word) — it is a person NICKNAME, NEVER an endearment "
+                  "word like 'Cục Cưng' / 'Honey' / 'Bé'. Keep its original style/size/position: " +
+                  "; ".join('shirt #%d main "%s" -> nickname "%s"' % (i + 1, names[i], subs[i]) for i in range(n)) +
+                  ". BUT if the reference has just the main name + year/EST/tagline and NO secondary name, "
+                  "keep the layout EXACTLY and DO NOT add any cursive signature or extra name. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
     if concept_key == "group":
@@ -1820,11 +1824,13 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
     style = _ads_style_clauses(img_style_n, txt_style_n)
     bg = (bg or "").strip()
     bg_clause = ("Set the scene with this background: " + bg + ". ") if bg else ""
-    subs = random.sample(VN_NICKS, 2) if "VN_NICKS" in globals() else []
-    sub_clause = (("SECONDARY NAME — conditional: ONLY IF the reference ALREADY has a small secondary "
-                   "person-name line, make it different per shirt — man's shirt → \"%s\", woman's → \"%s\" "
-                   "(keep small size/position/font). If the reference has NO secondary name, keep the layout "
-                   "exactly and do NOT add one. " % (subs[0], subs[1])) if subs else "")
+    # biệt danh = tên rút gọn của tên IN TRÊN áo đó (cross-named: áo nam in tên nữ...)
+    sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference ALREADY has a small secondary "
+                  "name line, set it as the SHORT given-name (last word) of the main name printed on THAT "
+                  "shirt — a person nickname, NEVER an endearment like 'Cục Cưng'/'Honey'. Man's shirt main "
+                  "\"%s\" -> nickname \"%s\"; woman's shirt main \"%s\" -> nickname \"%s\" (keep small "
+                  "size/position/font). If the reference has NO secondary name, keep the layout exactly and "
+                  "do NOT add one. " % (nm["female"], _short_name(nm["female"]), nm["male"], _short_name(nm["male"])))
     return ("Create a polished FACEBOOK AD creative for a COUPLE t-shirt set with INTENTIONAL "
             "CROSS-NAMING (a popular couple-tee idea). " + _ADS_KEEP + _ADS_ALLNAMES +
             _ads_replace_clause(old_name) + _ADS_ONE + sub_clause +
@@ -1962,7 +1968,22 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                 "people. Natural realistic product photo. " % (n, on_bg))
         names_clause = _fbpost_names_clause(names)
     bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat) else ""
-    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + names_clause + _FBPOST_CLEAN +
+    # biệt danh phụ = tên rút gọn của tên chính (nếu mẫu vốn có)
+    if concept_key == "couple":
+        nick_pairs = [(nm["female"], _short_name(nm["female"])), (nm["male"], _short_name(nm["male"]))]
+    elif is_flat or concept_key in ("group", "family"):
+        nick_pairs = [(names[i], _short_name(names[i])) for i in range(n)]
+    else:
+        nick_pairs = []
+    sub_clause = ""
+    if nick_pairs:
+        sub_clause = ("SECONDARY NICKNAME — conditional: ONLY IF the reference ALREADY shows a small "
+                      "secondary name (cursive signature or small line), set it as the SHORT given-name "
+                      "(last word) of that shirt's main name — a person nickname, NEVER an endearment "
+                      "like 'Cục Cưng'/'Honey': " +
+                      "; ".join('"%s" -> "%s"' % (a, b) for (a, b) in nick_pairs) +
+                      ". If there is NO secondary name, keep layout exactly and add nothing. ")
+    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_CLEAN +
             style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
 
 
@@ -4685,10 +4706,10 @@ VN_NAMES = ["Hoàng Long", "Kim Anh", "Đức Minh", "Ngọc Hân", "Văn Tâm",
             "Nhật Minh", "Cẩm Tú", "Gia Hân", "Đình Phong", "Thảo Nguyên", "Hoàng Yến", "Trí Dũng"]
 
 # Tên nhỏ / tên thân mật phụ (đa dạng) — chèn nhỏ dưới tên chính, mỗi bản 1 cái khác
-VN_NICKS = ["Honey", "Bé Na", "Cục Cưng", "Gấu Yêu", "Mèo Con", "Bồ Câu", "Nắng", "Sunny",
-            "Bí Ngô", "Cherry", "Bông", "Su Su", "Ốc", "Bơ", "Kẹo", "Annie", "Bunny", "Mochi",
-            "Hùng Lan", "Minh Anh", "Tú Lan", "Hải My", "Bảo Vy", "Khánh Linh", "Thu Trang",
-            "Ngọc Mai", "Phương Thảo", "Đức Huy", "Quỳnh Anh", "Lan Hương"]
+# Biệt danh phụ = TÊN NGƯỜI (bỏ kiểu 'Cục Cưng/Honey'); ưu tiên tên gọi 1 chữ
+VN_NICKS = ["Nam", "Anh", "My", "Vy", "Linh", "Trang", "Mai", "Huy", "Lan", "Hân",
+            "Khôi", "Ngọc", "Thảo", "Hương", "Quân", "Bảo", "Trâm", "Tú", "Hà", "Minh",
+            "Minh Anh", "Khánh Linh", "Ngọc Mai", "Phương Thảo", "Đức Huy", "Quỳnh Anh", "Lan Hương"]
 
 
 def name_suggest():
