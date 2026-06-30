@@ -4128,7 +4128,27 @@ async function adsCheckEngine() {
   } catch (e) {}
 }
 
+function adsRenderSpInfo() {
+  const box = $("adsSpInfo"); if (!box) return;
+  const multi = (typeof adsMultiSel !== "undefined" && adsMultiSel.size)
+    ? adsMultiProducts.filter(p => adsMultiSel.has(p.id || p.store_url || p.title)) : [];
+  if (multi.length) {
+    box.innerHTML = '<div style="padding:8px 10px;background:var(--violet-soft);border-radius:10px;font-size:12px">' +
+      '📦 <b>Đang chọn ' + multi.length + ' SP</b> — mỗi ảnh ads sẽ có ĐÚNG link SP của nó:<br>' +
+      multi.slice(0, 5).map(p => '• ' + (p.title || "").replace(/</g, "&lt;").slice(0, 34)).join("<br>") +
+      (multi.length > 5 ? "<br>…" : "") + '</div>';
+  } else if (typeof adsProductLink !== "undefined" && adsProductLink) {
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--violet-soft);border-radius:10px;font-size:12px">' +
+      (adsProductImg ? '<img src="' + adsProductImg + '" style="width:32px;height:40px;object-fit:cover;border-radius:6px;flex:none">' : '') +
+      '<div>📦 <b>' + (adsAutoName2 || "Sản phẩm").replace(/</g, "&lt;").slice(0, 30) + '</b><br>🔗 <a href="' + adsProductLink + '" target="_blank" style="color:var(--violet)">' + adsProductLink.replace(/^https?:\/\//, "").slice(0, 34) + '…</a></div></div>';
+  } else if (adsDesignImg) {
+    box.innerHTML = '<div class="hint" style="color:#c0392b;font-size:11px">⚠️ Design này CHƯA gắn SP → ảnh ads sẽ KHÔNG có link. Dùng "🛍️ Chọn design từ SP" hoặc "📦 Tạo ảnh cho nhiều SP" để có link.</div>';
+  } else {
+    box.innerHTML = "";
+  }
+}
 function adsRenderDesign() {
+  adsRenderSpInfo();
   const box = $("adsDesign"); box.innerHTML = "";
   box.onclick = () => { adsPasteTo = "design"; };   // bấm vùng design -> dán vào design
   if (adsDesignImg) {
@@ -5074,7 +5094,7 @@ function adsRenderMulti(q) {
     cell.innerHTML = '<img src="' + p.image + '" loading="lazy" alt="">' +
       (on ? '<span class="ads-style-badge" style="background:var(--violet)">✓</span>' : '') +
       '<span class="cover-tag" style="background:rgba(0,0,0,.6);max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.title || "").replace(/</g, "&lt;").slice(0, 22) + '</span>';
-    cell.querySelector("img").onclick = () => { if (adsMultiSel.has(id)) adsMultiSel.delete(id); else adsMultiSel.add(id); adsRenderMulti(q); updateMultiNote(); };
+    cell.querySelector("img").onclick = () => { if (adsMultiSel.has(id)) adsMultiSel.delete(id); else adsMultiSel.add(id); adsRenderMulti(q); updateMultiNote(); adsRenderSpInfo(); };
     grid.appendChild(cell);
   });
 }
