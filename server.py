@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-regen-safeframe"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-crop-keeptop"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -587,11 +587,11 @@ def crop_to_aspect(raw, aspect):
         w, h = im.size
         if abs((w / float(h)) - r) < 0.012:
             return raw
-        if (w / float(h)) > r:            # quá rộng -> cắt bớt chiều ngang
+        if (w / float(h)) > r:            # quá rộng -> cắt bớt chiều ngang (giữa)
             nw = int(round(h * r)); x = (w - nw) // 2
             im = im.crop((x, 0, x + nw, h))
-        else:                             # quá cao -> cắt bớt chiều dọc
-            nh = int(round(w / r)); y = (h - nh) // 2
+        else:                             # quá cao -> cắt dọc, GIỮ PHẦN TRÊN (headline) nhiều hơn
+            nh = int(round(w / r)); y = int((h - nh) * 0.15)   # 15% từ trên, 85% từ dưới (giữ headline)
             im = im.crop((0, y, w, y + nh))
         buf = io.BytesIO(); im.save(buf, "PNG")
         return buf.getvalue()
