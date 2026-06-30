@@ -4255,15 +4255,16 @@ function adsRenderAll() {
           '<div style="font-size:10.5px;line-height:1.35;min-width:0">📦 <b>' + (c._ptitle || "Sản phẩm").replace(/</g, "&lt;").slice(0, 30) + '</b>' +
           (c._link ? '<br>🔗 <a href="' + c._link + '" target="_blank" style="color:var(--violet)">' + c._link.replace(/^https?:\/\//, "").slice(0, 34) + '…</a>' : '<br><span style="color:#c0392b">chưa có link</span>') +
           '</div></div>')
-      : '<div class="hint" style="margin-top:4px;color:#c0392b;font-size:10.5px">⚠️ Chưa gắn SP/link — tạo bằng "📦 Tạo ảnh cho nhiều SP" để có link sẵn.</div>';
+      : '<div style="margin-top:4px;color:#c0392b;font-size:10.5px">⚠️ Chưa gắn SP/link — <b>bấm "📦 Gắn SP" dưới đây</b> để chọn sản phẩm (có link) trước khi đẩy FB Ads.</div>';
     card.innerHTML =
       '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + spLine +
         (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
+      '<div class="fp-card-acts"><button class="b-attachsp" style="' + ((c._link || c._ptitle) ? '' : 'background:var(--violet);color:#fff') + '">📦 ' + ((c._link || c._ptitle) ? "Đổi SP" : "Gắn SP") + '</button><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     const pick = card.querySelector(".ads-pick"); pick.checked = !!c._sel;
     pick.onchange = (e) => { c._sel = e.target.checked; adsUpdateSel(); };
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-attachsp").onclick = () => adsAttachSp(adsItems.indexOf(c));
     card.querySelector(".b-board").onclick = (e) => adpostAddFromAd(c, e.currentTarget);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
@@ -4984,40 +4985,60 @@ async function adpostBatchPush() {
   finally { btn.disabled = false; }
 }
 // Bộ chọn SP CÓ ẢNH cho 1 bài
-let _adpostSpTarget = null, _adpostSpItems = null, _adpostSpWired = false;
-function adpostOpenSpPicker(id, items) {
-  _adpostSpTarget = id; _adpostSpItems = items;
-  if (!_adpostSpWired) {
-    _adpostSpWired = true;
+// ===== Bộ chọn SP CÓ ẢNH dùng chung (board + card ads) =====
+let _spPickerCb = null, _spPickerList = [], _spPickerWired = false;
+async function openSpPicker(onPick) {
+  _spPickerCb = onPick;
+  if (!_spPickerWired) {
+    _spPickerWired = true;
     if ($("adpostSpClose")) $("adpostSpClose").onclick = () => $("adpostSpModal").classList.add("hidden");
     if ($("adpostSpModal")) $("adpostSpModal").onclick = () => $("adpostSpModal").classList.add("hidden");
-    if ($("adpostSpSearch2")) $("adpostSpSearch2").oninput = (e) => adpostRenderSpGrid(e.target.value);
+    if ($("adpostSpSearch2")) $("adpostSpSearch2").oninput = (e) => spPickerRender(e.target.value);
   }
+  // nguồn SP: ưu tiên cache adpostProds, rồi adsMultiProducts, nếu chưa có thì tự tải
+  _spPickerList = (adpostProds && adpostProds.length) ? adpostProds
+                : (typeof adsMultiProducts !== "undefined" && adsMultiProducts.length) ? adsMultiProducts : [];
   $("adpostSpSearch2").value = "";
-  adpostRenderSpGrid("");
   $("adpostSpModal").classList.remove("hidden");
+  if (!_spPickerList.length) {
+    $("adpostSpGrid").innerHTML = '<p class="hint" style="grid-column:1/-1">⏳ Đang tải sản phẩm…</p>';
+    try { _spPickerList = (await (await fetch("/api/shopify-products")).json()).products || []; adpostProds = adpostProds || _spPickerList; } catch (e) { _spPickerList = []; }
+  }
+  spPickerRender("");
 }
-function adpostRenderSpGrid(q) {
+function spPickerRender(q) {
   const grid = $("adpostSpGrid"); if (!grid) return;
   const ql = (q || "").toLowerCase();
-  const list = (adpostProds || []).filter(p => !ql || (p.title || "").toLowerCase().includes(ql));
+  const list = (_spPickerList || []).filter(p => !ql || (p.title || "").toLowerCase().includes(ql));
   if (!list.length) { grid.innerHTML = '<p class="hint" style="grid-column:1/-1">Không có sản phẩm (hoặc chưa cấu hình Shopify).</p>'; return; }
-  grid.innerHTML = list.map((p, i) =>
-    '<div class="adpost-sp-card" data-i="' + (adpostProds.indexOf(p)) + '" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff">' +
+  grid.innerHTML = list.map(p =>
+    '<div class="adpost-sp-card" data-i="' + (_spPickerList.indexOf(p)) + '" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:#fff">' +
       (p.image ? '<img src="' + p.image + '" style="width:100%;height:130px;object-fit:cover;display:block">' : '<div style="height:130px;background:#eee"></div>') +
       '<div style="padding:6px 8px;font-size:11px;line-height:1.3">' + (p.title || "").replace(/</g, "&lt;").slice(0, 50) + '</div>' +
     '</div>'
   ).join("");
-  grid.querySelectorAll(".adpost-sp-card").forEach(c => c.onclick = () => adpostPickSp(+c.dataset.i));
+  grid.querySelectorAll(".adpost-sp-card").forEach(c => c.onclick = () => {
+    const p = _spPickerList[+c.dataset.i]; if (!p) return;
+    $("adpostSpModal").classList.add("hidden");
+    if (_spPickerCb) _spPickerCb(p);
+  });
 }
-async function adpostPickSp(idx) {
-  const p = (adpostProds || [])[idx]; if (!p) return;
-  const id = _adpostSpTarget;
-  await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: p.title || "", link: p.store_url || "", product_img: p.image || "" }) }).catch(() => {});
-  const it = (_adpostSpItems || []).find(x => x.id === id);
-  if (it) { it.product = p.title || ""; it.link = p.store_url || ""; it.product_img = p.image || ""; }
-  $("adpostSpModal").classList.add("hidden");
-  adpostLoad();
+// Board: gắn SP cho 1 bài
+function adpostOpenSpPicker(id, items) {
+  openSpPicker(async (p) => {
+    await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: p.title || "", link: p.store_url || "", product_img: p.image || "" }) }).catch(() => {});
+    const it = (items || []).find(x => x.id === id);
+    if (it) { it.product = p.title || ""; it.link = p.store_url || ""; it.product_img = p.image || ""; }
+    adpostLoad();
+  });
+}
+// Card ảnh ads: gắn SP trực tiếp (set link/tên/ảnh SP cho ảnh ads)
+function adsAttachSp(idx) {
+  openSpPicker((p) => {
+    const c = adsItems[idx]; if (!c) return;
+    c._ptitle = p.title || ""; c._link = p.store_url || ""; c._pimg = p.image || "";
+    adsRenderAll();
+  });
 }
 async function adpostApplyDefLink() {
   const n = $("adpostNote");
