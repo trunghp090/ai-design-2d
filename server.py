@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-agent-multisrc"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-agent-shopfirst"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2630,12 +2630,15 @@ def _ag_gen_ads(p, ctx):
     if not sources and ctx.get("designs"):
         for d in ctx["designs"]:
             sources.append((base64.b64decode(d["b64"]), "", ""))
-    if not sources:   # design gần nhất trong kho (lấy nhiều nếu count>1)
-        cnt = max(1, min(int(p.get("count", 1) or 1), 6))
-        for b in recent_design_bytes(cnt):
+    if not sources:   # MẶC ĐỊNH: ưu tiên lấy SẢN PHẨM từ shop (đúng ý "AI tự lấy ở shop")
+        cnt = max(1, min(int(p.get("count", 3) or 3), 20))
+        for pr in recent_products(cnt):
+            sources.append((pr["img"], pr["link"], pr["title"]))
+    if not sources:   # shop trống -> design gần nhất trong kho
+        for b in recent_design_bytes(max(1, min(int(p.get("count", 1) or 1), 6))):
             sources.append((b, "", ""))
     if not sources:
-        return "Chưa có sản phẩm/design nào — hãy tạo design hoặc thêm SP trước."
+        return "Chưa có sản phẩm/design nào — hãy thêm SP Shopify hoặc tạo design trước."
 
     key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
     ref = _load_style_bytes(key)
