@@ -4442,6 +4442,31 @@ function fbpInit() {
   if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
   fbpLoadPreset();   // tự nạp style mặc định đã lưu
   fbpRenderDesign(); fbpRenderConcepts(); fbpRenderAll();
+  fbpLoadHistory();  // nạp lịch sử các bộ ảnh post đã tạo
+}
+async function fbpLoadHistory() {
+  try {
+    const d = await (await fetch("/api/fbpost-hist")).json();
+    const hist = (d.items || []).map(e => ({
+      _hist: true, _histSaved: true, _hid: e.id, concept: e.concept, title: e.title,
+      caption: e.caption || "", pics: (e.pics || []).map(p => ({ url: p.url, id: p.id }))
+    }));
+    // giữ các bộ mới (chưa lưu) đang có trên đầu, nối lịch sử phía dưới
+    const fresh = fbpItems.filter(x => !x._hist);
+    fbpItems = fresh.concat(hist);
+    fbpRenderAll();
+  } catch (e) {}
+}
+async function fbpSaveToHistory(it) {
+  if (!it || it._hist || it._histSaved) return;
+  const pics = (it.pics || []).filter(p => p.url).map(p => ({ url: p.url, id: p.id || "" }));
+  if (!pics.length) return;
+  it._histSaved = true;
+  try {
+    const r = await fetch("/api/fbpost-hist-add", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: it.title || "Bộ ảnh Post", concept: it.concept || "", caption: it.caption || "", pics: pics }) });
+    const d = await r.json(); if (d && d.id) it._hid = d.id;
+  } catch (e) { it._histSaved = false; }
 }
 // Lấy Y HỆT style đã setup bên FB ADS (concept + ảnh style + background)
 async function fbpUseAdsStyle() {
@@ -4596,10 +4621,11 @@ function fbpRenderAll() {
     const card = document.createElement("div"); card.className = "fp-card";
     const thumbs = (it.pics || []).map((p, i) => { const s = p.image ? "data:image/png;base64," + p.image : p.url; return '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer">'; }).join("");
     card.innerHTML =
-      '<div class="fp-card-prompt">' + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh</div>' +
+      '<div class="fp-card-prompt">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
+        (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
       '<textarea class="input fbp-cap" rows="3" placeholder="Caption bài đăng (AI tự viết)…"></textarea>' +
-      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button></div>' +
+      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
     card.querySelector(".fbp-cap").value = it.caption || (it.caption === "" ? "" : "⏳ AI đang viết caption…");
     card.querySelector(".fbp-cap").oninput = (e) => { it.caption = e.target.value; };
@@ -4610,6 +4636,11 @@ function fbpRenderAll() {
     card.querySelector(".b-cap").onclick = () => fbpWriteCaption(it, true);
     card.querySelector(".b-post").onclick = (e) => fbpPostToPage(it, card);
     card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
+    card.querySelector(".b-delhist").onclick = async () => {
+      if (!confirm("Xoá bộ ảnh này khỏi danh sách?")) return;
+      if (it._hid) { try { await fetch("/api/fbpost-hist-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it._hid }) }); } catch (e) {} }
+      fbpItems = fbpItems.filter(x => x !== it); fbpRenderAll();
+    };
     grid.appendChild(card);
   });
 }
@@ -4648,6 +4679,7 @@ async function fbpWriteCaption(it, force) {
   const lk = fbpProductLink || "";
   if (lk && !it.caption.includes(lk)) it.caption += "\n\n🛒 MUA NGAY: " + lk;
   fbpRenderAll();
+  fbpSaveToHistory(it);   // lưu bộ vào lịch sử (kèm caption)
 }
 async function fbpPostToPage(it, card) {
   const note = card.querySelector(".fbp-postnote"), btn = card.querySelector(".b-post");

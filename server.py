@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fbpost-keepset"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fbpost-history"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3087,6 +3087,42 @@ def _adpost_set(pid, **fields):
         adpost_save(items)
 
 
+# ===== Lịch sử các BỘ ảnh FB Post (lưu URL ảnh gallery, không lưu base64) =====
+FBPOST_HIST_FILE = os.path.join(GALLERY_DIR, "fbpost_history.json")
+_fbpost_hist_lock = threading.Lock()
+
+
+def fbpost_hist_load():
+    try:
+        with open(FBPOST_HIST_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def fbpost_hist_save(items):
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        with open(FBPOST_HIST_FILE, "w", encoding="utf-8") as f:
+            json.dump(items[:200], f, ensure_ascii=False)   # giữ tối đa 200 bộ gần nhất
+    except Exception:
+        pass
+
+
+def fbpost_hist_add(entry):
+    with _fbpost_hist_lock:
+        items = fbpost_hist_load()
+        items.insert(0, entry)
+        fbpost_hist_save(items)
+    return entry
+
+
+def fbpost_hist_delete(hid):
+    with _fbpost_hist_lock:
+        items = [x for x in fbpost_hist_load() if x.get("id") != hid]
+        fbpost_hist_save(items)
+
+
 def _norm_title(t):
     return " ".join((t or "").lower().split())
 
@@ -5438,6 +5474,8 @@ class Handler(BaseHTTPRequestHandler):
                 "running": PGPOST_PUSH["running"], "done": PGPOST_PUSH["done"],
                 "total": PGPOST_PUSH["total"], "gap": PGPOST_PUSH["gap"],
                 "next_in": PGPOST_PUSH["next_in"], "log": PGPOST_PUSH["log"][-8:]}})
+        if path == "/api/fbpost-hist":
+            return self.json(200, {"items": fbpost_hist_load()})
         if path == "/api/adpost-list":
             with _adpost_lock:
                 items = adpost_load()
@@ -5846,6 +5884,27 @@ class Handler(BaseHTTPRequestHandler):
             gap = body.get("gap") or 45
             ok = pgpost_push_start(ids, gap, chans)
             return self.json(200, {"ok": ok, "count": len(ids), "gap": max(20, min(600, int(gap)))})
+        if path == "/api/fbpost-hist-add":
+            pics = body.get("pics") or []
+            clean = []
+            for p in pics[:8]:
+                u = (p.get("url") or "").strip()
+                if u:
+                    clean.append({"url": u, "id": (p.get("id") or "").strip()})
+            if not clean:
+                return self.json(400, {"error": "Thiếu ảnh."})
+            entry = {
+                "id": hashlib.md5(("%s%s" % (time.time(), clean[0]["url"])).encode()).hexdigest()[:12],
+                "title": (body.get("title") or "Bộ ảnh Post").strip()[:100],
+                "concept": (body.get("concept") or "").strip()[:40],
+                "caption": (body.get("caption") or "").strip(),
+                "pics": clean,
+                "created": time.time(),
+            }
+            return self.json(200, fbpost_hist_add(entry))
+        if path == "/api/fbpost-hist-del":
+            fbpost_hist_delete((body.get("id") or "").strip())
+            return self.json(200, {"ok": True})
         if path == "/api/adpost-add":
             host = self.headers.get("Host") or ""
 
