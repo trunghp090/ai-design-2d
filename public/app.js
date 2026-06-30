@@ -4839,8 +4839,10 @@ async function adpostOnCampaignChange() {
   }
 }
 const ADPOST_ST = { draft: ["⚪ Nháp", ""], pushing: ["⏳ Đang đẩy", ""], pushed: ["✓ Đã đẩy", "ok"], error: ["✗ Lỗi", "err"] };
+let adpostProds = null;   // cache danh sách SP Shopify (để gán cho từng bài)
 async function adpostLoad() {
   try {
+    if (!adpostProds) { try { adpostProds = (await (await fetch("/api/shopify-products")).json()).products || []; } catch (e) { adpostProds = []; } }
     const d = await (await fetch("/api/adpost-list")).json();
     const items = d.items || [];
     $("adpostEmpty").classList.toggle("hidden", items.length > 0);
@@ -4868,7 +4870,12 @@ function adpostRender(items) {
       : (it.status === "error" ? '<span class="gen-note err" style="margin:0;font-size:11px">✗ ' + (res.error || "").slice(0, 50) + '</span>' : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>');
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
-      '<td><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' + (it.product ? '<div class="hint" style="max-width:64px;font-size:10px;line-height:1.2;margin-top:2px">📦 ' + (it.product || "").slice(0, 30) + '</div>' : '') + '</td>' +
+      '<td style="min-width:140px"><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' +
+        '<div class="hint" style="font-size:10px;line-height:1.2;margin-top:2px;' + (it.product ? '' : 'color:#c0392b') + '">' + (it.product ? '📦 ' + (it.product || "").replace(/</g, "&lt;").slice(0, 36) : '⚠️ chưa gắn SP') + '</div>' +
+        '<select class="input adpost-prod" style="width:130px;font-size:11px;padding:3px 5px;margin-top:3px">' +
+          '<option value="">— Chọn SP —</option>' +
+          (adpostProds || []).map(p => '<option value="' + p.id + '"' + ((it.product && p.title === it.product) ? ' selected' : '') + '>' + (p.title || "").replace(/</g, "&lt;").slice(0, 40) + '</option>').join("") +
+        '</select></td>' +
       '<td><input class="input adpost-f" data-f="title" value="' + (it.title || "").replace(/"/g, "&quot;") + '" style="width:150px;padding:6px 8px"></td>' +
       '<td><textarea class="input adpost-f" data-f="caption" rows="3" style="width:230px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea>' +
         '<button class="btn-ghost sm adpost-recap" style="margin-top:4px;font-size:11px">🔄 Đổi mô tả khác</button></td>' +
@@ -4882,6 +4889,17 @@ function adpostRender(items) {
   box.querySelectorAll(".adpost-img").forEach(im => im.onclick = () => { if (typeof openZoom === "function") openZoom(im.dataset.full); });
   box.querySelectorAll("tr[data-id]").forEach(tr => {
     const id = tr.dataset.id;
+    // chọn SP cho bài này -> set product + link đúng
+    const psel = tr.querySelector(".adpost-prod");
+    if (psel) psel.onchange = async () => {
+      const p = (adpostProds || []).find(x => String(x.id) === psel.value);
+      const product = p ? (p.title || "") : "";
+      const link = p ? (p.store_url || "") : "";
+      await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: product, link: link }) });
+      const it = items.find(x => x.id === id); if (it) { it.product = product; it.link = link; }
+      const linkInput = tr.querySelector('input[data-f="link"]'); if (linkInput) linkInput.value = link;
+      const lbl = tr.querySelector("td .hint"); if (lbl) { lbl.innerHTML = product ? "📦 " + product.replace(/</g, "&lt;").slice(0, 36) : "⚠️ chưa gắn SP"; lbl.style.color = product ? "" : "#c0392b"; }
+    };
     tr.querySelectorAll(".adpost-f").forEach(f => f.onchange = () => {
       fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, [f.dataset.f]: f.value }) });
     });
