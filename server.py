@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-ads-45-safeframe"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-regen-safeframe"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1735,6 +1735,13 @@ _ADS_KEEP = (
     "misaligned/mismatched between the shirts; all prints look perfectly aligned and sharp. ")
 
 
+_ADS_SAFE_FRAME = (
+    " CRITICAL LAYOUT: the image may be cropped to a narrower VERTICAL ratio — the TOP ~14% and BOTTOM "
+    "~14% can be CUT OFF. Keep ALL text (headline, sub-line, brand) and the product within the CENTRAL "
+    "~70% of the height; pull the headline well DOWN from the top edge; put NOTHING important in the top "
+    "or bottom band; all text must stay 100% visible after a top/bottom crop.")
+
+
 _ADS_REAL = (
     "Make it a NATURAL, candid, TRUE-TO-LIFE lifestyle PHOTOGRAPH — real Vietnamese people with real "
     "skin and hair, soft natural light, realistic fabric and folds; NOT 3D, NOT CGI, NOT a cartoon, NOT "
@@ -1873,7 +1880,8 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 imgs.append((text_style_img, "image/png")); txt_n = nxt; nxt += 1
             cp = (c.get("custom_prompt") or "").strip()
             if cp:
-                prompt = cp   # user tự sửa prompt -> dùng nguyên văn
+                # user tự sửa prompt -> dùng + LUÔN nối safe-frame (tránh mất chữ khi crop 4:5)
+                prompt = cp if "CENTRAL ~70%" in cp else (cp + _ADS_SAFE_FRAME)
             else:
                 if key == "couple":
                     prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
