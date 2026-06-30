@@ -3733,6 +3733,7 @@ let adsDefaultStyleId = null;   // id style mặc định (localStorage)
 let adsShopProducts = [];       // SP Shopify để pick design
 let adsDesignPickTarget = "ads"; // "ads" | "fbpost"
 let adsProductLink = "";        // link SP đang dùng (để đẩy FB Ads)
+let adsProductImg = "";         // ảnh SP đang dùng (để hiện kiểm soát)
 let fbPushItem = null;          // ad đang đẩy lên FB
 
 function adsInit() {
@@ -3920,6 +3921,7 @@ function adsFromProduct(p, autopush) {
   if (!p.image) { alert("Sản phẩm này chưa có ảnh để tạo ads."); return; }
   showApp("ads");                       // tự gọi adsInit
   adsProductLink = p.store_url || p.url || "";   // nhớ link SP để đẩy FB
+  adsProductImg = p.image || "";
   if ($("adsLink")) $("adsLink").value = adsProductLink;   // hiện link vào ô
   adsAutoName2 = (p.title || "Áo Thun In Tên");
   setTimeout(() => {
@@ -4080,7 +4082,7 @@ async function adsShowProductImages(p) {
         $("adsDesignPickModal").classList.add("hidden");
         const n = $("fbpNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design."; }
       } else {
-        adsDesignImg = im.src; adsRenderDesign(); adsProductLink = link; adsAutoName2 = (p.title || "Áo Thun In Tên");
+        adsDesignImg = im.src; adsRenderDesign(); adsProductLink = link; adsProductImg = p.image || ""; adsAutoName2 = (p.title || "Áo Thun In Tên");
         if ($("adsLink")) $("adsLink").value = link;   // hiện link vào ô
         $("adsDesignPickModal").classList.add("hidden");
         const n = $("adsNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã lấy ảnh từ \"" + (p.title || "SP") + "\" làm design (đã nhớ link SP)."; }
@@ -4228,7 +4230,10 @@ function adsRenderAll() {
     else if (c._pushed !== undefined) pushLine = '<br><span class="hint" style="color:var(--violet)">✓ Đã đẩy FB Ads (PAUSED) · <a href="' + (c._pushed || "#") + '" target="_blank">Ads Manager →</a></span>';
     else if (c._pusherr) pushLine = '<br><span class="hint" style="color:#c00">✗ Đẩy lỗi: ' + c._pusherr.slice(0, 50) + '</span>';
     card.innerHTML =
-      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") + (c._ptitle ? ' <span class="hint" style="color:var(--violet)">· 📦 ' + c._ptitle.replace(/</g, "&lt;").slice(0, 24) + (c._link ? ' 🔗' : '') + '</span>' : '') + (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
+      '<div class="fp-card-prompt"><label style="float:left;margin-right:8px;cursor:pointer"><input type="checkbox" class="ads-pick"></label>' + (c.title || "Ads") +
+        (c._ptitle ? ' <span class="hint" style="color:var(--violet)">· 📦 ' + c._ptitle.replace(/</g, "&lt;").slice(0, 24) + (c._link ? ' 🔗' : '') + '</span>' : '') +
+        (c._pimg ? '<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><img src="' + c._pimg + '" title="Ảnh sản phẩm gốc" style="width:34px;height:42px;object-fit:cover;border-radius:6px;border:1px solid var(--line)"><span class="hint" style="font-size:10px">⬅ SP gốc của ảnh ads này</span></div>' : '') +
+        (meta ? '<br><span class="hint">' + meta.replace(/</g, "&lt;") + '</span>' : '') + pushLine + '</div>' +
       '<div class="fp-card-img"><img src="' + src + '" loading="lazy" alt=""></div>' +
       '<div class="fp-card-acts"><button class="b-board">➕ Bài Ads</button><button class="b-fb">📤 FB Ads</button><button class="b-regen">🔄 Tạo lại</button><button class="b-zoom">🔍</button><button class="b-copy">📋</button><button class="b-dl">⬇</button><button class="b-del">🗑️</button></div>';
     const pick = card.querySelector(".ads-pick"); pick.checked = !!c._sel;
@@ -4316,7 +4321,7 @@ async function adsGenerate(autopush) {
   if (chosen.length) {
     let n = 0;
     chosen.forEach(p => {
-      const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên" };
+      const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên", pimg: p.image };
       cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, autopush, ctx); n++; });
     });
     $("adsProgress") && $("adsProgress").classList.remove("hidden");
@@ -4338,7 +4343,7 @@ async function adsLaunchOne(con, name, hook, engine, autopush, ctx, opts) {
     const r = await fetch("/api/ads-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: designImg, name: name, hook: hook, engine: engine, aspect: aspect, quality: ($("adsQuality") && $("adsQuality").value) || "medium", text_style: ($("adsTextStyle") && $("adsTextStyle").value || "").trim(), text_color: ($("adsTextColor") && $("adsTextColor").value || "").trim(), brand: ($("adsBrand") && $("adsBrand").value || "").trim(), text_style_img: adsTextStyleImg || "", concepts: [conSend] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     const linkVal = (ctx && ctx.link) || ($("adsLink") && $("adsLink").value.trim()) || adsProductLink || "";
-    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: linkVal, _ptitle: (ctx && ctx.title) || adsAutoName2 || "", _design: designImg });
+    adsItems.unshift({ loading: true, job: d.job_id, label: lbl, autopush: !!autopush, _link: linkVal, _ptitle: (ctx && ctx.title) || adsAutoName2 || "", _design: designImg, _pimg: (ctx && ctx.pimg) || adsProductImg || "" });
     adsRenderAll();
     adsPoll(d.job_id);
   } catch (e) { const note = $("adsNote"); note.className = "gen-note err"; note.textContent = "✗ " + lbl + ": " + e.message; }
@@ -4360,7 +4365,7 @@ function adsPoll(job) {
                        concept: it.concept || "", name: it.name || "", hook: it.hook || "",
                        aspect: it.aspect || "", bg: it.bg || "", model: it.model || "", prompt: it.prompt || "",
                        _link: (idx >= 0 && adsItems[idx]._link) || "", _ptitle: (idx >= 0 && adsItems[idx]._ptitle) || "",
-                       _design: (idx >= 0 && adsItems[idx]._design) || "" };
+                       _design: (idx >= 0 && adsItems[idx]._design) || "", _pimg: (idx >= 0 && adsItems[idx]._pimg) || "" };
         if (idx >= 0) adsItems[idx] = real; else adsItems.unshift(real);
         placed++;
         if (autopush) fbAutoPush(real);   // tự đẩy lên FB Ads
@@ -4784,7 +4789,7 @@ async function adpostAddFromAd(c, btn) {
     const d = await r.json(); if (r.ok && (d.facebook || "").trim()) caption = d.facebook.trim();
   } catch (e) {}
   try {
-    const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, product: product, image_url: url }) });
+    const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, product: product, product_img: c._pimg || "", image_url: url }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài Ads"; }, 1500); }
     return true;
@@ -4871,6 +4876,7 @@ function adpostRender(items) {
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
       '<td style="min-width:140px"><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' +
+        (it.product_img ? '<img class="adpost-pimg" src="' + it.product_img + '" title="Ảnh sản phẩm gắn với bài này" style="width:40px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--violet);margin:2px 0 0 4px;vertical-align:top">' : '') +
         '<div class="hint" style="font-size:10px;line-height:1.2;margin-top:2px;' + (it.product ? '' : 'color:#c0392b') + '">' + (it.product ? '📦 ' + (it.product || "").replace(/</g, "&lt;").slice(0, 36) : '⚠️ chưa gắn SP') + '</div>' +
         '<select class="input adpost-prod" style="width:130px;font-size:11px;padding:3px 5px;margin-top:3px">' +
           '<option value="">— Chọn SP —</option>' +
@@ -4895,10 +4901,11 @@ function adpostRender(items) {
       const p = (adpostProds || []).find(x => String(x.id) === psel.value);
       const product = p ? (p.title || "") : "";
       const link = p ? (p.store_url || "") : "";
-      await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: product, link: link }) });
-      const it = items.find(x => x.id === id); if (it) { it.product = product; it.link = link; }
+      const pimg = p ? (p.image || "") : "";
+      await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, product: product, link: link, product_img: pimg }) });
+      const it = items.find(x => x.id === id); if (it) { it.product = product; it.link = link; it.product_img = pimg; }
       const linkInput = tr.querySelector('input[data-f="link"]'); if (linkInput) linkInput.value = link;
-      const lbl = tr.querySelector("td .hint"); if (lbl) { lbl.innerHTML = product ? "📦 " + product.replace(/</g, "&lt;").slice(0, 36) : "⚠️ chưa gắn SP"; lbl.style.color = product ? "" : "#c0392b"; }
+      adpostRender(items);   // vẽ lại để hiện ảnh SP
     };
     tr.querySelectorAll(".adpost-f").forEach(f => f.onchange = () => {
       fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, [f.dataset.f]: f.value }) });

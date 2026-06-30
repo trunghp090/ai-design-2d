@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fix-adpost-links"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-product-thumbs"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5638,6 +5638,7 @@ class Handler(BaseHTTPRequestHandler):
                 "caption": (body.get("caption") or "").strip(),
                 "link": (body.get("link") or "").strip(),
                 "product": (body.get("product") or "").strip()[:120],
+                "product_img": (body.get("product_img") or "").strip()[:500],
                 "image_url": iu,
                 "status": "draft",
                 "created": time.time(),
@@ -5650,7 +5651,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/adpost-update":
             pid = (body.get("id") or "").strip()
             fields = {}
-            for k in ("title", "caption", "link"):
+            for k in ("title", "caption", "link", "product", "product_img"):
                 if k in body:
                     fields[k] = (body.get(k) or "").strip()
             _adpost_set(pid, **fields)
