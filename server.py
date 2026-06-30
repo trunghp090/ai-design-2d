@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-agent-cleandesign"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-ads-from-post"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2952,6 +2952,87 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
     return {"ok": True, "campaign_id": cid, "adset_id": aid, "ad_id": ad["id"], "manager_url": mgr}
 
 
+# ===================== TẠO ADS TỪ BÀI VIẾT FANPAGE CÓ SẴN (boost post) =====================
+def fb_page_posts(limit=12):
+    """Liệt kê bài đã đăng trên Fanpage (để tạo ads từ bài có sẵn)."""
+    if not fb_configured():
+        return {"error": "Chưa cấu hình Facebook (token + page + ad account)."}
+    fields = "id,message,full_picture,created_time,permalink_url"
+    st, d = fb_graph("GET", "%s/published_posts" % FB_PAGE_ID, {"fields": fields, "limit": str(min(50, max(1, limit)))})
+    if st != 200:
+        st, d = fb_graph("GET", "%s/posts" % FB_PAGE_ID, {"fields": fields, "limit": str(min(50, max(1, limit)))})
+    if st != 200:
+        return {"error": fb_err(d)}
+    posts = []
+    for p in (d.get("data") or []):
+        posts.append({"id": p.get("id"), "message": (p.get("message") or "")[:300],
+                      "image": p.get("full_picture", ""), "created": p.get("created_time", ""),
+                      "permalink": p.get("permalink_url", "")})
+    return {"posts": posts}
+
+
+def fb_ads_push_post(post_id, daily_budget=50000, age_min=18, age_max=55, genders=None,
+                     countries=None, campaign_id="", adset_id="", status="PAUSED", name=""):
+    """Tạo Campaign/AdSet/Creative/Ad từ 1 BÀI VIẾT Fanpage có sẵn (object_story_id)."""
+    status = "ACTIVE" if str(status).upper() == "ACTIVE" else "PAUSED"
+    if not fb_configured():
+        return {"ok": False, "error": "Chưa cấu hình Facebook Ads."}
+    post_id = (post_id or "").strip()
+    if not post_id:
+        return {"ok": False, "error": "Thiếu ID bài viết."}
+    try:
+        budget = max(1, int(float(daily_budget or 50000)))
+    except Exception:
+        budget = 50000
+    try:
+        age_min = min(65, max(13, int(age_min or 18)))
+        age_max = min(65, max(age_min, int(age_max or 55)))
+    except Exception:
+        age_min, age_max = 18, 55
+    countries = countries or ["VN"]
+    adname = "[AI-Post] " + ((name or "").strip() or post_id)[:55]
+    campaign_id, adset_id = (campaign_id or "").strip(), (adset_id or "").strip()
+    try:
+        if not campaign_id:
+            st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
+                             {"name": adname, "objective": "OUTCOME_ENGAGEMENT",
+                              "special_ad_categories": "[]",
+                              "is_adset_budget_sharing_enabled": "false", "status": status})
+            if st != 200:
+                raise RuntimeError("Tạo campaign lỗi: " + fb_err(c))
+            campaign_id = c["id"]
+        cid = campaign_id
+        if not adset_id:
+            targeting = {"geo_locations": {"countries": countries}, "age_min": age_min,
+                         "age_max": age_max, "targeting_automation": {"advantage_audience": 0}}
+            if genders:
+                targeting["genders"] = genders
+            st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
+                             {"name": adname, "campaign_id": cid, "daily_budget": budget,
+                              "billing_event": "IMPRESSIONS", "optimization_goal": "POST_ENGAGEMENT",
+                              "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+                              "targeting": json.dumps(targeting), "status": status})
+            if st != 200:
+                raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
+            adset_id = a["id"]
+        aid = adset_id
+        # creative dùng BÀI CÓ SẴN
+        st, cr = fb_graph("POST", "act_%s/adcreatives" % FB_AD_ACCOUNT_ID,
+                          {"name": adname, "object_story_id": post_id})
+        if st != 200:
+            raise RuntimeError("Tạo creative từ bài lỗi: " + fb_err(cr))
+        st, ad = fb_graph("POST", "act_%s/ads" % FB_AD_ACCOUNT_ID,
+                          {"name": adname, "adset_id": aid,
+                           "creative": json.dumps({"creative_id": cr["id"]}), "status": status})
+        if st != 200:
+            raise RuntimeError("Tạo ad lỗi: " + fb_err(ad))
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    mgr = ("https://www.facebook.com/adsmanager/manage/campaigns?act=%s&selected_campaign_ids=%s"
+           % (FB_AD_ACCOUNT_ID, cid))
+    return {"ok": True, "campaign_id": cid, "adset_id": aid, "ad_id": ad["id"], "manager_url": mgr}
+
+
 # ===================== BẢNG BÀI FB ADS + ĐẨY HÀNG LOẠT GIÃN CÁCH AN TOÀN =====================
 ADPOST_FILE = os.path.join(GALLERY_DIR, "adposts.json")
 _adpost_lock = threading.Lock()
@@ -5301,6 +5382,8 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200:
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"campaigns": d.get("data") or []})
+        if path == "/api/fb-page-posts":
+            return self.json(200, fb_page_posts(14))
         if path == "/api/sched-list":
             with _sched_lock:
                 items = sched_load()
@@ -5620,6 +5703,18 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200 or d.get("error"):
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"ok": True})
+        if path == "/api/fb-ads-from-post":
+            ids = [str(x).strip() for x in (body.get("post_ids") or []) if str(x).strip()]
+            if not ids:
+                return self.json(400, {"error": "Chưa chọn bài viết nào."})
+            budget = body.get("daily_budget") or 50000
+            status = "ACTIVE" if body.get("active") else "PAUSED"
+            cid = (body.get("campaign_id") or "").strip()
+            results = []
+            for pid in ids:
+                results.append(fb_ads_push_post(pid, budget, status=status, campaign_id=cid))
+            ok = sum(1 for r in results if r.get("ok"))
+            return self.json(200, {"results": results, "ok": ok, "total": len(ids)})
         if path == "/api/autopost-config":
             cfg = autopost_load()
             if "enabled" in body:

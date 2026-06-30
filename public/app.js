@@ -4805,6 +4805,7 @@ function adpostInit() {
     $("adpostPushBtn").onclick = adpostBatchPush;
     if ($("adpostDelSel")) $("adpostDelSel").onclick = adpostDelSelected;
     if ($("adpostFixLinks")) $("adpostFixLinks").onclick = adpostFixLinks;
+    fbPostAdsWire();
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
     if ($("adpostReload")) $("adpostReload").onclick = async () => {
@@ -5740,3 +5741,56 @@ function loadTaskDone(id, ok, msg) {
 
 // Kích hoạt dán (chuột phải + nút) cho mọi dropzone khi tải xong
 try { attachUniversalPaste(); } catch (e) {}
+
+/* =====================================================================
+   TẠO ADS TỪ BÀI VIẾT FANPAGE CÓ SẴN (boost post)
+   ===================================================================== */
+let fbPostAdsWired = false, fbPostAdsItems = [];
+function fbPostAdsWire() {
+  if (fbPostAdsWired) return; fbPostAdsWired = true;
+  if ($("fbPostAdsBtn")) $("fbPostAdsBtn").onclick = () => { $("fbPostAdsModal").classList.remove("hidden"); if (!fbPostAdsItems.length) fbPostAdsLoad(); };
+  if ($("fbPostAdsClose")) $("fbPostAdsClose").onclick = () => $("fbPostAdsModal").classList.add("hidden");
+  if ($("fbPostAdsModal")) $("fbPostAdsModal").onclick = () => $("fbPostAdsModal").classList.add("hidden");
+  if ($("fbPostAdsLoad")) $("fbPostAdsLoad").onclick = fbPostAdsLoad;
+  if ($("fbPostAdsPush")) $("fbPostAdsPush").onclick = fbPostAdsPush;
+}
+async function fbPostAdsLoad() {
+  const box = $("fbPostAdsList"), note = $("fbPostAdsNote");
+  box.innerHTML = '<p class="hint">⏳ Đang tải bài Fanpage…</p>';
+  try {
+    const d = await (await fetch("/api/fb-page-posts")).json();
+    if (d.error) throw new Error(d.error);
+    fbPostAdsItems = d.posts || [];
+    if (!fbPostAdsItems.length) { box.innerHTML = '<p class="hint">Chưa có bài nào trên Fanpage (hoặc token thiếu quyền đọc bài).</p>'; return; }
+    box.innerHTML = fbPostAdsItems.map((p, i) =>
+      '<label style="display:flex;gap:10px;align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">' +
+        '<input type="checkbox" class="fbpa-tick" value="' + p.id + '" style="margin-top:4px">' +
+        (p.image ? '<img src="' + p.image + '" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none">' : '<div style="width:64px;height:64px;border-radius:8px;background:#eee;flex:none"></div>') +
+        '<div style="font-size:12px;line-height:1.4"><div>' + ((p.message || "(không có chữ)").replace(/</g, "&lt;").slice(0, 160)) + '</div>' +
+        '<div class="hint" style="font-size:10px;margin-top:2px">' + (p.created || "").slice(0, 10) + (p.permalink ? ' · <a href="' + p.permalink + '" target="_blank">xem bài →</a>' : '') + '</div></div>' +
+      '</label>'
+    ).join("");
+    if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã tải " + fbPostAdsItems.length + " bài Fanpage."; }
+  } catch (e) { box.innerHTML = ""; if (note) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; } }
+}
+async function fbPostAdsPush() {
+  const ids = [...document.querySelectorAll(".fbpa-tick:checked")].map(t => t.value);
+  const note = $("fbPostAdsNote");
+  if (!ids.length) { if (note) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 bài."; } return; }
+  const budget = parseInt($("fbPostAdsBudget").value) || 50000;
+  const active = $("fbPostAdsActive").checked;
+  const warn = active
+    ? "⚠️ CHẠY NGAY: " + ids.length + " quảng cáo từ bài Fanpage sẽ LÊN SÓNG + TIÊU TIỀN (" + budget.toLocaleString("vi-VN") + "đ/ngày mỗi cái). Chắc chứ?"
+    : "Tạo " + ids.length + " quảng cáo từ bài (trạng thái TẠM DỪNG, chưa tiêu tiền). OK?";
+  if (!confirm(warn)) return;
+  const cid = ($("adpostCampaign") && $("adpostCampaign").value) || "";
+  const btn = $("fbPostAdsPush"); btn.disabled = true;
+  if (note) { note.className = "gen-note"; note.textContent = "⏳ Đang tạo ads từ " + ids.length + " bài…"; }
+  try {
+    const r = await fetch("/api/fb-ads-from-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ post_ids: ids, daily_budget: budget, active: active, campaign_id: cid }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const errs = (d.results || []).filter(x => !x.ok).map(x => x.error).slice(0, 2);
+    if (note) { note.className = d.ok ? "gen-note ok" : "gen-note err"; note.textContent = "✓ Đã tạo " + d.ok + "/" + d.total + " ads từ bài (" + (active ? "CHẠY NGAY" : "Tạm dừng") + ")." + (errs.length ? " Lỗi: " + errs.join("; ") : ""); }
+  } catch (e) { if (note) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; } }
+  finally { btn.disabled = false; }
+}

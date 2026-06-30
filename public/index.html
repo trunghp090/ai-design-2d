@@ -1503,7 +1503,10 @@
 
   <section class="auto-view app-view hidden" id="view-adpost">
     <div class="panel" style="max-width:1150px;margin:0 auto">
-      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📋 Bảng bài Facebook Ads</h2>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📋 Bảng bài Facebook Ads</h2>
+        <button class="btn-ghost sm" id="fbPostAdsBtn">📣 Tạo ads từ bài Fanpage có sẵn</button>
+      </div>
       <p class="panel-desc" style="margin:0 0 12px">Mỗi dòng = 1 bài ads hoàn chỉnh (ảnh + tiêu đề + mô tả + link). Tick chọn → đẩy hàng loạt lên FB Ads, <b>giãn cách an toàn</b> tránh checkpoint tài khoản.</p>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="hint" style="margin:0">Chiến dịch
@@ -1656,6 +1659,24 @@
 
     </div>
   </section>
+
+  <!-- ===== MODAL: TẠO ADS TỪ BÀI FANPAGE ===== -->
+  <div class="zoom-modal hidden" id="fbPostAdsModal">
+    <div style="background:#fff;border-radius:14px;padding:18px;max-width:760px;width:94vw;max-height:90vh;overflow:auto;position:relative" onclick="event.stopPropagation()">
+      <button class="zoom-close" id="fbPostAdsClose" style="position:absolute;top:8px;right:8px">✕</button>
+      <h3 style="margin:0 0 4px">📣 Tạo ads từ bài viết Fanpage có sẵn</h3>
+      <p class="hint" style="margin:0 0 10px">Tick các bài đã đăng trên Fanpage → tạo quảng cáo từ chính bài đó (boost post). Quảng cáo dùng nguyên nội dung bài.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn-ghost sm" id="fbPostAdsLoad">🔄 Tải bài Fanpage</button>
+        <label class="hint" style="margin:0">Ngân sách <input type="number" id="fbPostAdsBudget" value="50000" step="1000" style="width:90px;padding:5px 7px" class="input"> đ/ngày</label>
+        <label class="switch-row" style="margin:0;font-size:13px;color:var(--violet)"><input type="checkbox" id="fbPostAdsActive"> ▶ Chạy ngay (tiêu tiền)</label>
+        <span style="flex:1"></span>
+        <button class="btn-primary sm" id="fbPostAdsPush">📤 Tạo ads từ bài đã chọn</button>
+      </div>
+      <p class="gen-note" id="fbPostAdsNote" style="margin:0 0 8px"></p>
+      <div id="fbPostAdsList" class="gallery-empty">Bấm “Tải bài Fanpage” để xem các bài đã đăng.</div>
+    </div>
+  </div>
 
   <footer class="site-footer">
     © 2026 AI Design 2D · Clone &amp; redesign artwork áo · chạy local bằng Python + gpt-image
