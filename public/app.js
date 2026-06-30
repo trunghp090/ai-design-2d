@@ -4861,6 +4861,17 @@ async function adpostLoad() {
     if (!adpostProds) { try { adpostProds = (await (await fetch("/api/shopify-products")).json()).products || []; } catch (e) { adpostProds = []; } }
     const d = await (await fetch("/api/adpost-list")).json();
     const items = d.items || [];
+    // TỰ GẮN link SP mặc định (SP gần nhất) cho bài CHƯA có link -> khỏi điền tay
+    const def = (adpostProds || [])[0];
+    if (def && def.store_url) {
+      for (const it of items) {
+        if (!(it.link || "").trim()) {
+          it.link = def.store_url;
+          if (!(it.product || "").trim()) { it.product = def.title || ""; it.product_img = it.product_img || def.image || ""; }
+          fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it.id, link: it.link, product: it.product, product_img: it.product_img }) }).catch(() => {});
+        }
+      }
+    }
     $("adpostEmpty").classList.toggle("hidden", items.length > 0);
     adpostRender(items);
     const p = d.pushing || {};
