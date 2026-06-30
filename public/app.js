@@ -4315,6 +4315,8 @@ async function adsGenerate(autopush) {
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept để tạo."; return; }
   const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
   const engine = ($("adsEngine") && $("adsEngine").value) || "";
+  const cprompt = ($("adsPrompt") && $("adsPrompt").value || "").trim();   // prompt riêng (tuỳ chọn)
+  const opts = cprompt ? { customPrompt: cprompt } : undefined;
   // Nếu đang tick NHIỀU SP -> gen cho từng SP × concept (mỗi ảnh nhớ link/tên SP)
   const chosen = (typeof adsMultiSel !== "undefined" && adsMultiSel.size)
     ? adsMultiProducts.filter(p => adsMultiSel.has(p.id || p.store_url || p.title)) : [];
@@ -4322,7 +4324,7 @@ async function adsGenerate(autopush) {
     let n = 0;
     chosen.forEach(p => {
       const ctx = { image: p.image, link: p.store_url || p.url || "", title: p.title || "Áo Thun In Tên", pimg: p.image };
-      cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, autopush, ctx); n++; });
+      cons.forEach(c => { adsLaunchOne({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }, name, hook, engine, autopush, ctx, opts); n++; });
     });
     $("adsProgress") && $("adsProgress").classList.remove("hidden");
     note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + n + " ảnh cho " + chosen.length + " SP × " + cons.length + " concept…";
@@ -4330,7 +4332,7 @@ async function adsGenerate(autopush) {
   }
   // Design đơn
   if (!adsDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa ảnh design (hoặc tick SP) trước."; return; }
-  cons.forEach(c => adsLaunchOne(c, name, hook, engine, autopush));
+  cons.forEach(c => adsLaunchOne(c, name, hook, engine, autopush, undefined, opts));
   note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " ảnh ads" + (autopush ? " + tự đẩy lên FB Ads…" : " (nhiều luồng — bấm tiếp để chạy thêm).");
 }
 
@@ -4834,14 +4836,22 @@ async function adpostLoadCampaigns() {
   adpostOnCampaignChange();
 }
 async function adpostOnCampaignChange() {
-  const cid = $("adpostCampaign").value, sel = $("adpostAdset");
+  const cid = $("adpostCampaign").value, sel = $("adpostAdset"), n = $("adpostNote");
   sel.innerHTML = '<option value="">➕ Tạo nhóm mới</option>';
-  if (cid) {
-    try {
-      const d = await (await fetch("/api/fb-adsets?campaign_id=" + encodeURIComponent(cid))).json();
-      (d.adsets || []).forEach(a => { const o = document.createElement("option"); o.value = a.id; o.textContent = (a.name || a.id).slice(0, 36); sel.appendChild(o); });
-    } catch (e) {}
-  }
+  if (!cid) return;
+  sel.innerHTML = '<option value="">⏳ đang tải nhóm…</option>';
+  try {
+    const r = await fetch("/api/fb-adsets?campaign_id=" + encodeURIComponent(cid) + "&ts=" + Date.now());
+    const d = await r.json();
+    sel.innerHTML = '<option value="">➕ Tạo nhóm mới</option>';
+    if (!r.ok) { if (n) { n.className = "gen-note err"; n.textContent = "✗ Tải nhóm (ad set) lỗi: " + (d.error || ""); } return; }
+    const as = d.adsets || [];
+    as.forEach(a => { const o = document.createElement("option"); o.value = a.id; o.textContent = (a.name || a.id).slice(0, 36); sel.appendChild(o); });
+    if (n) {
+      if (as.length) { n.className = "gen-note ok"; n.textContent = "✓ Đã tải " + as.length + " nhóm (ad set) của chiến dịch."; }
+      else { n.className = "gen-note"; n.textContent = "ℹ️ Chiến dịch này CHƯA có nhóm (ad set) nào — cứ để '➕ Tạo nhóm mới', tool sẽ tự tạo nhóm khi đẩy."; }
+    }
+  } catch (e) { sel.innerHTML = '<option value="">➕ Tạo nhóm mới</option>'; if (n) { n.className = "gen-note err"; n.textContent = "✗ Lỗi tải nhóm: " + e.message; } }
 }
 const ADPOST_ST = { draft: ["⚪ Nháp", ""], pushing: ["⏳ Đang đẩy", ""], pushed: ["✓ Đã đẩy", "ok"], error: ["✗ Lỗi", "err"] };
 let adpostProds = null;   // cache danh sách SP Shopify (để gán cho từng bài)

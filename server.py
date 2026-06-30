@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-product-thumbs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-ads-prompt-agent"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2390,7 +2390,7 @@ def autopost_tick():
 # Plan -> user duyệt -> executor chạy từng action (gọi các hàm có sẵn).
 AGENT_ACTIONS = {
     "gen_design":    "Tạo design áo mới từ theme/chủ đề. params: {theme, n, text, extra}",
-    "gen_ads":       "Tạo ảnh quảng cáo FB từ design/sản phẩm đã chọn. params: {n, concept}",
+    "gen_ads":       "Tạo ảnh quảng cáo FB từ design/sản phẩm. params: {concept: couple|group|family|flatlay2|flatlay3, prompt: mô tả bối cảnh/yêu cầu ảnh tự do, aspect: 1:1|4:5|3:4, bg}. Tự chọn concept + viết prompt creative hợp lý nhất theo mục tiêu.",
     "push_fb_ads":   "Đẩy ads lên FB Ads (tạo campaign+nhóm+ad). params: {daily_budget, active, link, campaign_name}",
     "gen_fbpost":    "Tạo bộ ảnh FB Post từ design/sản phẩm. params: {per_set}",
     "post_fbig":     "Đăng ảnh lên Fanpage/Instagram. params: {channels, caption}",
@@ -2584,21 +2584,28 @@ def _ag_gen_design(p, ctx):
 
 
 def _ag_gen_ads(p, ctx):
-    if not ctx.get("designs"):
-        return "Chưa có design — bỏ qua."
-    dd = base64.b64decode(ctx["designs"][0]["b64"])
+    # ảnh nguồn: design vừa tạo, hoặc ảnh SP đang chọn
+    src = None
+    if ctx.get("designs"):
+        src = base64.b64decode(ctx["designs"][0]["b64"])
+    elif ctx.get("product") and ctx["product"].get("image"):
+        src, _ = fetch_image_bytes(ctx["product"]["image"])
+    if not src:
+        return "Chưa có design/sản phẩm — bỏ qua."
     key = p.get("concept") if p.get("concept") in ADS_CONCEPTS else "flatlay3"
     ref = _load_style_bytes(key)
-    cons = [{"key": key, "ref": ref, "bg": ""}]
+    cp = (p.get("prompt") or "").strip()   # PROMPT do AI điều khiển (tuỳ chọn)
+    cons = [{"key": key, "ref": ref, "bg": (p.get("bg") or "").strip(), "custom_prompt": cp[:4000]}]
+    aspect = p.get("aspect") if p.get("aspect") in ("1:1", "4:5", "3:4", "9:16") else "1:1"
     with _batch_lock:
         _batch_seq[0] += 1
         sj = "agads_%d" % _batch_seq[0]
         BATCH_JOBS[sj] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
-    run_ads_job(sj, (dd, "image/png"), cons, "Áo Thun In Tên", "Cá nhân hoá theo tên riêng",
-                "openai", "1:1", quality="medium")
+    run_ads_job(sj, (src, "image/png"), cons, "Áo Thun In Tên", "Cá nhân hoá theo tên riêng",
+                "openai", aspect, quality="high")
     items = BATCH_JOBS.get(sj, {}).get("items", [])
     ctx["ad_images"] = [{"b64": it.get("image"), "url": (it.get("gallery") or {}).get("url")} for it in items]
-    return "Đã tạo %d ảnh ads." % len(ctx["ad_images"])
+    return "Đã tạo %d ảnh ads (concept %s%s)." % (len(ctx["ad_images"]), key, ", có prompt riêng" if cp else "")
 
 
 def _ag_push_fb_ads(p, ctx):
