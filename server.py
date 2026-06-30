@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-ads-keeplayout"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fbpost-family"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1742,6 +1742,15 @@ _ADS_REAL = (
     "longer hem; NOT slim-fit, NOT tight, NOT small. ")
 
 
+_FAMILY_POSES = [
+    "standing close together, the kid(s) in front between the parents, all smiling at the camera",
+    "the parents crouching down beside the kid(s), a warm candid hug moment",
+    "walking together side by side outdoors, relaxed and laughing",
+    "sitting together on a cozy sofa/bench, leaning in close",
+    "the dad lifting/piggy-backing the kid while mom laughs beside them",
+    "all holding hands in a row, looking at each other happily",
+]
+
 _ADS_ONE = ("Each shirt's MAIN big name is exactly ONE (the new one) — never keep the design's original "
             "main name anywhere. (A separate small secondary person-name line, if the design has one, is "
             "allowed and is handled below.) ")
@@ -1781,11 +1790,13 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     elif concept_key == "family":
-        scene = ("Show a happy real Vietnamese FAMILY of %d REAL PEOPLE — a father, a mother and their "
-                 "children — standing together in a natural lifestyle photo, EACH person WEARING one of "
-                 "these matching shirts as a LARGE full-front chest print (kids wear smaller kid-sized "
-                 "versions of the same design). This MUST be a photo of %d people wearing the shirts — "
-                 "it is NOT a flatlay, NOT shirts laid flat, NOT a product-only shot. " % (n, n)) + _ADS_REAL
+        pose = random.choice(_FAMILY_POSES)
+        scene = ("Show ONE single happy Vietnamese FAMILY — EXACTLY %d people: a father, a mother and "
+                 "their child(ren) — and NO extra people, NO crowd, NO other adults. The whole family is "
+                 "%s, in a natural lifestyle photo, EACH person WEARING one of these matching shirts as a "
+                 "LARGE full-front chest print (kids wear smaller kid-sized versions of the same design). "
+                 "A photo of exactly %d people wearing the shirts — NOT a flatlay, NOT a product-only shot. "
+                 % (n, pose, n)) + _ADS_REAL
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     else:  # flatlay2 / flatlay3
@@ -1939,9 +1950,11 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                 "shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
         names_clause = _fbpost_names_clause(names)
     elif concept_key == "family":
-        body = ("Show a happy real Vietnamese FAMILY of %d real people — father, mother and children — "
-                "standing together, EACH wearing one of these matching shirts (kids in kid-sized "
-                "versions). A photo of %d real people, NOT a flatlay. " % (n, n)) + _ADS_REAL
+        body = ("Show ONE single happy Vietnamese FAMILY — EXACTLY %d people: father, mother and "
+                "child(ren), NO extra people / NO crowd — EACH wearing one of these matching shirts (kids "
+                "in kid-sized versions). It is the SAME family throughout the whole photo set; only the "
+                "pose/angle changes between shots. A photo of exactly %d people, NOT a flatlay. "
+                % (n, n)) + _ADS_REAL
         names_clause = _fbpost_names_clause(names)
     else:  # flatlay
         on_bg = (" on " + bg) if bg else ""
@@ -1949,7 +1962,7 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                 "people. Natural realistic product photo. " % (n, on_bg))
         names_clause = _fbpost_names_clause(names)
     bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat) else ""
-    return (body + _ADS_KEEP + _ads_replace_clause(old_name) + _ADS_ONE + names_clause + _FBPOST_CLEAN +
+    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + names_clause + _FBPOST_CLEAN +
             style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
 
 
