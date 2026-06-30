@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fbpost-crossname"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.06.30-fbpost-keepset"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1937,8 +1937,15 @@ _FBPOST_CLEAN = (
     "text, NO headline, NO marketing copy, NO price, NO call-to-action, NO logo, NO watermark and NO "
     "brand name overlaid anywhere on the image. Just a beautiful, natural lifestyle/product photograph "
     "of the shirt(s) themselves. ")
-_FBPOST_SHOTS = ["wide full shot", "closer waist-up shot", "a slightly different relaxed pose and angle",
-                 "a candid natural moment", "a different framing / lighting angle"]
+_FBPOST_SHOTS = ["wide full shot", "closer waist-up shot", "a slightly different relaxed standing pose",
+                 "a candid natural moment", "a gently different camera angle"]
+# Ép GIỮ NGUYÊN design + tên qua mọi shot trong bộ (chỉ pose/góc/ánh sáng đổi)
+_FBPOST_KEEPSET = (
+    "CONSISTENCY ACROSS THE SET: this is one of several photos of the SAME shirts on the SAME people. "
+    "The printed design on each shirt (graphic, emblem, icons, fonts, layout) AND each shirt's printed "
+    "names are EXACTLY THE SAME in every photo of the set — do NOT redraw, restyle, re-letter, recolor, "
+    "resize, re-center or alter the print or the names from shot to shot. ONLY the body pose, the camera "
+    "angle/framing and the lighting change between photos; the artwork itself stays locked and identical. ")
 _FBPOST_FLAT_SHOTS = ["clean top-down flatlay", "angled flatlay arrangement",
                       "close-up detail of the printed name", "shirts neatly folded flatlay",
                       "shirts spread out flatlay"]
@@ -2000,7 +2007,7 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                       "endearment like 'Cục Cưng'/'Honey': " +
                       "; ".join('main "%s" -> small line "%s"' % (a, b) for (a, b) in nick_pairs) +
                       ". If the design has NO secondary name line, keep the layout exactly and add nothing. ")
-    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_CLEAN +
+    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_KEEPSET + _FBPOST_CLEAN +
             style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
 
 
@@ -7092,9 +7099,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": "Chọn ít nhất 1 concept."})
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
-        quality = (body.get("quality") or "medium").strip()
+        quality = (body.get("quality") or "high").strip()   # cao như FB ads -> giữ design nét, ít vẽ lại
         if quality not in ("low", "medium", "high"):
-            quality = "medium"
+            quality = "high"
         try:
             per_set = max(1, min(6, int(body.get("per_set") or 4)))
         except Exception:
