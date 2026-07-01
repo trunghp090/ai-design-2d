@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-cutout-smooth"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-design-chroma"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3878,7 +3878,7 @@ DESIGN_REF_SYSTEM = (
     "(theo chủ đề người dùng nhập; nếu không có thì tự nghĩ chủ đề mới), nhưng áp ĐÚNG phong cách "
     "(màu + kỹ thuật + kiểu chữ + texture) đã học. Nội dung phải khác ảnh ref rõ rệt. Màu dễ in.\n"
     "Danh sách phong cách gợi ý: %s.\n"
-    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
+    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key background (removable backdrop, ONE uniform colour, keep the artwork's own colours unchanged, NO magenta inside the artwork),"
     "print-ready, no t-shirt, no mockup, no person'. "
     "Trả JSON {\"style\":\"tên phong cách nhận diện\",\"designs\":[{\"title\":\"tên ngắn\","
     "\"prompt\":\"...\"}]}."
@@ -3937,7 +3937,7 @@ DESIGN_AUTO_SYSTEM = (
     "sẵn chữ tiếng Việt (giữ nguyên ĐÚNG DẤU). Tên địa danh giữ tên riêng (vd Hà Nội / Hanoi).\n"
     "MÀU SẮC: ưu tiên bảng màu GỌN (2–4 màu) sạch, tinh tế, dễ in & dễ mặc — TRÁNH sặc sỡ/rối "
     "(trừ phong cách vốn rực rỡ như Y2K, Vaporwave, Graffiti).\n"
-    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid white background, "
+    "Mỗi prompt KẾT THÚC bằng: 'isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key background (removable backdrop, ONE uniform colour, keep the artwork's own colours unchanged, NO magenta inside the artwork),"
     "print-ready, no t-shirt, no mockup, no person'. Trả JSON đúng dạng "
     "{\"designs\":[{\"title\":\"tên ngắn tiếng Việt\",\"style\":\"phong cách đã chọn (nếu trộn thì ghi vd 'Typography × Graffiti')\",\"prompt\":\"...\"}]}."
 )
@@ -4012,7 +4012,7 @@ REFINE_SYSTEM = (
     "một AI khác đề xuất. NHIỆM VỤ: ĐÁNH GIÁ rồi VIẾT LẠI image_prompt cho ĐẸP NHẤT có thể — bố "
     "cục cân đối, typography nổi bật & sắc nét, phối màu đẹp dễ bán, và QUAN TRỌNG: chừa bố cục/để "
     "TÊN người làm điểm nhấn (chữ chính to ở trung tâm, dễ đọc). Giữ NGUYÊN 'style' & 'title'. Mỗi "
-    "prompt KẾT THÚC bằng 'isolated t-shirt print graphic on a plain solid white background, "
+    "prompt KẾT THÚC bằng 'isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key background (removable backdrop, ONE uniform colour, keep the artwork's own colours unchanged, NO magenta inside the artwork),"
     "print-ready, no t-shirt, no mockup, no person'. Trả JSON "
     "{\"designs\":[{\"title\":..,\"style\":..,\"prompt\":..}]} đúng số lượng & đúng thứ tự."
 )
@@ -4151,7 +4151,8 @@ def design_concepts_segment(segment, styles, theme, text, year="", same_line=Fal
         parts.append("Tên/chữ 2 từ thì đặt trên 1 hàng ngang (single-line lockup).")
     parts.append("NGÔN NGỮ chữ MẶC ĐỊNH tiếng Anh (chỉ tiếng Việt nếu user nhập sẵn). Màu GỌN 2–4 màu, dễ in.")
     parts.append("Mỗi prompt TIẾNG ANH, KẾT THÚC bằng 'isolated t-shirt print graphic on a plain solid "
-                 "white background, print-ready, no t-shirt, no mockup, no person'.")
+                 "BRIGHT MAGENTA #FF00FF chroma-key background (removable backdrop, keep the artwork's own "
+                 "colours, NO magenta inside the artwork), print-ready, no t-shirt, no mockup, no person'.")
     parts.append("title = vai trò ngắn của mẫu. Trả JSON {\"designs\":[{\"title\":\"...\",\"prompt\":\"...\"}]} đúng %d mục." % n)
     sys = ("Bạn là designer áo thun chuyên thiết kế BỘ ĐỒNG BỘ (couple / gia đình / hội nhóm) cho thị "
            "trường Việt Nam — các mẫu trong bộ phải ăn khớp như một set khi mặc chung.")
@@ -4980,7 +4981,9 @@ def name_concepts(name, stamp, n):
             "HERO element is the Vietnamese name \"%s\".%s Use your expert knowledge of the niche — pick "
             "whatever styles you judge will sell best right now, make them genuinely DIFFERENT from each "
             "other, and let the name's vibe guide you. For EACH, write a detailed English "
-            "IMAGE-GENERATION prompt for a flat vector print artwork on a pure white background "
+            "IMAGE-GENERATION prompt for a flat vector print artwork on a plain solid BRIGHT MAGENTA "
+            "#FF00FF chroma-key background (removable backdrop, keep the artwork's own colours, NO "
+            "magenta inside the artwork) "
             "(typography style, exact colours, decorative elements, layout). Return strict JSON: "
             "{\"concepts\":[{\"title\":\"<short style label>\",\"prompt\":\"<the detailed prompt>\"}]} "
             "with EXACTLY %d items." % (n, name, acc, n))
@@ -6590,7 +6593,9 @@ class Handler(BaseHTTPRequestHandler):
                 pass
         prompt = ("Edit this t-shirt PRINT design as requested while keeping the same overall art "
                   "style, vibe and any name text correct: " + instr + ". Keep it a clean print-ready "
-                  "graphic on a plain solid background, no mockup, no t-shirt, no person.")
+                  "graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key background (removable "
+                  "backdrop, keep the artwork's own colours, NO magenta inside the artwork), no mockup, "
+                  "no t-shirt, no person.")
         try:
             b64, _ = gen_design([(d, m or "image/png")], "cloner", prompt, size, True)
         except urllib.error.HTTPError as e:
