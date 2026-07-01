@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-design-chroma"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-kids-percount"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1597,6 +1597,7 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
 # ===== FACEBOOK ADS: AI đặt tên + gen concept ad theo ảnh style + chèn text =====
 ADS_CONCEPTS = {
     "couple":   ("Couple (2 áo)", "a young Vietnamese couple — a man and a woman — BOTH wearing the SAME matching t-shirt"),
+    "kids":     ("Trẻ con (2 bé)", "TWO cute young Vietnamese children — two little kids (siblings) — BOTH wearing the SAME matching KID-SIZED t-shirt"),
     "group":    ("Đội nhóm (3 áo)", "a group of THREE young Vietnamese friends, ALL wearing the SAME matching t-shirt"),
     "family":   ("Gia đình (4 áo)", "a happy Vietnamese family — father, mother and two children — ALL wearing the SAME matching t-shirt"),
     "flatlay2": ("Flatlay 2 áo", "TWO t-shirts of the SAME design laid out flat side by side in a clean tidy flatlay arrangement, NO people"),
@@ -1754,7 +1755,7 @@ def ads_n_names(n):
 
 
 # số áo (tên khác nhau) mỗi concept
-ADS_CONCEPT_N = {"couple": 2, "group": 3, "family": 4, "flatlay2": 2, "flatlay3": 3}
+ADS_CONCEPT_N = {"couple": 2, "kids": 2, "group": 3, "family": 4, "flatlay2": 2, "flatlay3": 3}
 
 
 _ADS_KEEP = (
@@ -1831,7 +1832,13 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
                   "keep the layout EXACTLY and DO NOT add any cursive signature or extra name. ")
     namelist = ", ".join('"' + x + '"' for x in names)
     bg = (bg or "").strip()
-    if concept_key == "group":
+    if concept_key == "kids":
+        scene = ("Show TWO cute young Vietnamese CHILDREN (little kids/siblings, roughly 3–8 years old) "
+                 "standing together, EACH wearing one of these matching KID-SIZED t-shirts as a LARGE "
+                 "full-front chest print. Adorable, natural, NO adults. " + _ADS_REAL)
+        if bg:
+            scene += ("Set the scene with this background: " + bg + ". ")
+    elif concept_key == "group":
         scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
                  "these shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
         if bg:
@@ -2017,6 +2024,11 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                         "PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt "
                         "MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the female "
                         "name on the woman; do NOT correct or normalise it. ")
+    elif concept_key == "kids":
+        body = ("Show TWO cute young Vietnamese CHILDREN (little kids/siblings, ~3–8 years old) together, "
+                "each wearing one of these matching KID-SIZED shirts as a LARGE full-front chest print. "
+                "Adorable and natural, NO adults. " + _ADS_REAL)
+        names_clause = _fbpost_names_clause(names)
     elif concept_key == "group":
         body = ("Show a group of %d young Vietnamese friends standing together, each wearing one of these "
                 "shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
@@ -2037,7 +2049,7 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
     # biệt danh phụ = tên rút gọn của tên chính (nếu mẫu vốn có)
     if concept_key == "couple":
         nick_pairs = [(nm["female"], _short_name(nm["female"])), (nm["male"], _short_name(nm["male"]))]
-    elif is_flat or concept_key in ("group", "family"):
+    elif is_flat or concept_key in ("kids", "group", "family"):
         nick_pairs = [(names[i], _short_name(names[i])) for i in range(n)]
     else:
         nick_pairs = []
@@ -2076,19 +2088,20 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             imgs = [design_img]; img_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = 2
-            is_people = key in ("couple", "group", "family")   # các concept CÓ NGƯỜI (loại flatlay)
+            cn = max(1, min(6, int(c.get("n") or per_set)))   # SỐ ẢNH riêng concept này (fallback per_set)
+            is_people = key in ("couple", "kids", "group", "family")   # concept CÓ NGƯỜI (loại flatlay)
             if key.startswith("flatlay"):
                 hints = _FBPOST_FLAT_SHOTS
             elif is_people:
                 # mỗi shot 1 tư thế KHÁC nhau (chọn ngẫu nhiên, không trùng trong bộ)
                 pool = _FBPOST_PEOPLE_POSES[:]
                 random.shuffle(pool)
-                hints = (pool * 2)[:max(per_set, 1)]
+                hints = (pool * 2)[:max(cn, 1)]
             else:
                 hints = _FBPOST_SHOTS
             label = "FB Post · %s" % ADS_CONCEPTS[key][0]
             pics = []
-            for i in range(per_set):
+            for i in range(cn):
                 pose = hints[i % len(hints)]
                 v = ("Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)) if is_people \
                     else ("Shot %d of a matching set — %s. " % (i + 1, pose))
@@ -7265,7 +7278,12 @@ class Handler(BaseHTTPRequestHandler):
             ref = None
             if c.get("ref"):
                 rb, _ = fetch_image_bytes(c["ref"]); ref = rb
-            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200]})
+            try:
+                cn = int(c.get("n") or 0)
+            except Exception:
+                cn = 0
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
+                         "n": max(0, min(6, cn))})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept."})
         engine = resolve_engine_id(body)
