@@ -692,3 +692,10 @@ textarea.input{resize:vertical;line-height:1.5}
 @media(min-width:901px){
   #view-design .fp-layout{max-width:1580px;grid-template-columns:360px 1fr;gap:20px}
 }
+
+/* Tạo design: nới section rộng ra (không bị chặn 1180px -> hết lọt thỏm 2 bên) */
+#view-design.auto-view{max-width:1600px}
+@media(min-width:901px){
+  #view-design .fp-creations.list .gcard{max-width:820px}
+  #view-design .fp-creations.list .gcard img{max-height:640px}
+}
