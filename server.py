@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-clone-async"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-cutout-smooth"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4772,9 +4772,19 @@ def remove_flat_bg(raw, thresh=45):
         mr = rb.point(lambda v: 255 if v == SENT[0] else 0)
         mg = gb.point(lambda v: 255 if v == SENT[1] else 0)
         mb = bb.point(lambda v: 255 if v == SENT[2] else 0)
-        bgmask = ImageChops.multiply(ImageChops.multiply(mr, mg), mb)
-        out = im.convert("RGBA")
-        out.putalpha(ImageChops.invert(bgmask))
+        bgmask = ImageChops.multiply(ImageChops.multiply(mr, mg), mb)   # 255 = nền (nối từ mép)
+        # ALPHA MỀM (anti-alias) — hết răng cưa + viền trắng:
+        # rìa design là pixel sáng dần về trắng -> tạo dốc alpha theo độ sáng ảnh GỐC,
+        # CHỈ áp trong vùng NỀN (bgmask); phần design giữ alpha 255 (kể cả trắng trong bụng chữ).
+        from PIL import ImageFilter
+        orig = Image.open(io.BytesIO(raw)).convert("RGB")
+        gray = orig.convert("L")
+        soft = gray.point(lambda v: 0 if v >= 246 else (255 if v <= 214 else int((246 - v) * 255 / 32)))
+        alpha = Image.composite(soft, Image.new("L", (w, h), 255), bgmask)
+        # feather nhẹ rìa floodfill cứng -> anti-alias, hết răng cưa
+        alpha = alpha.filter(ImageFilter.GaussianBlur(0.7))
+        out = orig.convert("RGBA")
+        out.putalpha(alpha)
 
     buf = io.BytesIO()
     out.save(buf, "PNG")
@@ -4887,18 +4897,11 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None, qual
     p = override or build_prompt(mode, user_prompt, "chroma" if transparent else "solid")
     b64 = openai_edit(images, p, size, native_transparent=False, quality=quality)
     # TÍCH HỢP: clone xong tự tách nền luôn -> trả design trong suốt sẵn.
-    # Ưu tiên rembg AI (U2Net + alpha matting: viền mịn, giữ phần trắng của design); fallback flat.
+    # Design là chữ/logo trên nền phẳng -> TÁCH PHẲNG (floodfill từ mép, alpha mềm) sạch hơn
+    # rembg U2Net (rembg tưởng cả khối là vật thể -> cắt nham nhở/răng cưa). Giữ trắng trong bụng chữ.
     if transparent and HAS_PIL:
         try:
-            raw = base64.b64decode(b64)
-            out = None
-            if HAS_REMBG:
-                try:
-                    out = remove_bg_ai(raw, "u2net", True)
-                except Exception:
-                    out = None
-            raw = out if out else remove_flat_bg(raw)
-            b64 = base64.b64encode(raw).decode()
+            b64 = base64.b64encode(remove_flat_bg(base64.b64decode(b64))).decode()
         except Exception:
             pass  # nếu lỗi vẫn trả design có nền
     return b64, p
