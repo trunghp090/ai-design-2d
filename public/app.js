@@ -2524,7 +2524,10 @@ async function dsPollAll() {
   await Promise.all(active.map(async j => {
     try {
       const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
-      j.total = d.total; j.done = d.done; j.finished = d.finished;
+      // KHÔNG để total tụt về 0 khi job chưa đăng ký kịp -> tránh placeholder loading biến mất
+      j.total = Math.max(j.total || 0, d.total || 0);
+      j.done = Math.max(j.done || 0, d.done || 0);
+      j.finished = !!d.finished;
       (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
       (d.errors || []).forEach(e => errs.push(e));
     } catch (e) { /* thử lại lần sau */ }
