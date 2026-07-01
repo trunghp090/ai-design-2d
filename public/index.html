@@ -876,7 +876,19 @@
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">✨ Tạo design</h2>
         <p class="panel-desc" style="margin:0 0 14px">Chọn phong cách → AI vẽ <b>mẫu đẹp để in áo</b> (nền trắng, tách nền sẵn).</p>
 
-        <label class="fp-label">✏️ Mô tả / Prompt (tuỳ chọn)</label>
+        <!-- Nội dung áo lên đầu -->
+        <label class="fp-label">Chủ đề / ngách (tuỳ chọn)</label>
+        <input type="text" id="dsTheme" class="input" value="Custom name T-shirt niche" placeholder="VD: tình yêu, mèo, gym, Đà Lạt…" />
+        <label class="fp-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn) <button type="button" id="dsSuggestName" class="btn-ghost sm" style="padding:2px 8px;font-size:12px">🎲 AI gợi ý tên + năm</button></label>
+        <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
+        <label class="fp-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
+        <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995…" />
+        <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng
+        </label>
+
+        <!-- Prompt yêu cầu ngay dưới -->
+        <label class="fp-label" style="margin-top:12px">✏️ Prompt yêu cầu (tuỳ chọn)</label>
         <textarea id="dsExtra" class="input" rows="2" placeholder="Mô tả design bạn muốn… (trống + chọn style = AI tự vẽ theo style; điền prompt + bỏ hết style = vẽ theo prompt của bạn)"></textarea>
 
         <button type="button" id="dsAutoStyle" class="btn-auto-style" style="margin-top:10px">🎯 Để AI tự chọn style đẹp nhất</button>
@@ -918,16 +930,6 @@
             <div class="color-chips" id="dsNameStyles"></div>
             <label class="fp-label" style="margin-top:8px">🎁 Mix combo cho TÊN (2 style)</label>
             <div class="color-chips" id="dsNameCombos"></div>
-
-            <label class="fp-label" style="margin-top:10px">Chủ đề / ngách (tuỳ chọn)</label>
-            <input type="text" id="dsTheme" class="input" value="Custom name T-shirt niche" placeholder="VD: tình yêu, mèo, gym, Đà Lạt…" />
-            <label class="fp-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn) <button type="button" id="dsSuggestName" class="btn-ghost sm" style="padding:2px 8px;font-size:12px">🎲 AI gợi ý tên + năm</button></label>
-            <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
-            <label class="fp-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
-            <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995…" />
-            <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
-              <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng
-            </label>
           </div>
         </details>
 
