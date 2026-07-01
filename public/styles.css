@@ -683,3 +683,12 @@ textarea.input{resize:vertical;line-height:1.5}
   #view-design .fp-side::-webkit-scrollbar,#view-design .fp-main::-webkit-scrollbar{width:8px}
   #view-design .fp-side::-webkit-scrollbar-thumb,#view-design .fp-main::-webkit-scrollbar-thumb{background:#e0d3d9;border-radius:8px}
 }
+
+/* Tạo design: ô trống đang load + panel to/rộng hơn */
+.gcard-loading{border:1px dashed var(--line);background:repeating-linear-gradient(45deg,#faf7f8,#faf7f8 10px,#f3eef0 10px,#f3eef0 20px);min-height:230px;display:flex;align-items:center;justify-content:center}
+.gcard-loading .ds-loading{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--violet);font-size:13px;font-weight:600}
+.ds-spin{width:30px;height:30px;border:3px solid #e6d6dc;border-top-color:var(--violet);border-radius:50%;animation:dsspin .8s linear infinite}
+@keyframes dsspin{to{transform:rotate(360deg)}}
+@media(min-width:901px){
+  #view-design .fp-layout{max-width:1580px;grid-template-columns:360px 1fr;gap:20px}
+}

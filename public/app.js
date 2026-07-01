@@ -685,7 +685,7 @@ function showApp(app) {
   if (app === "sched") schedInit();
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
-  if (app === "design") dsInit();
+  if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
   if (app === "namedes") namedesInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
@@ -2312,16 +2312,37 @@ async function dsLoadSaved() {
   } catch (e) { /* im lặng */ }
 }
 
+// Canh chiều cao 2 cột lấp đầy màn hình (thích ứng header co giãn) -> panel dài ra
+function dsFitHeight() {
+  const lay = document.querySelector("#view-design .fp-layout");
+  if (!lay) return;
+  if (window.innerWidth < 901) { lay.style.height = ""; return; }   // mobile: xếp dọc, để tự nhiên
+  const top = lay.getBoundingClientRect().top + window.scrollY;
+  let h = window.innerHeight - top - 14;   // chừa 14px đáy
+  lay.style.height = Math.max(440, h) + "px";
+  // pass 2: nếu còn tràn (do footer/margin dưới) -> trừ bớt để lấp vừa, không cuộn trang
+  const over = document.documentElement.scrollHeight - window.innerHeight;
+  if (over > 0) lay.style.height = Math.max(440, h - over) + "px";
+}
+if (!window._dsFitWired) { window._dsFitWired = true; window.addEventListener("resize", () => { if (!document.getElementById("view-design").classList.contains("hidden")) dsFitHeight(); }); }
+function dsLoadingCard() {
+  const c = document.createElement("div"); c.className = "gcard gcard-loading";
+  c.innerHTML = '<div class="ds-loading"><span class="ds-spin"></span><span>Đang tạo…</span></div>';
+  return c;
+}
 function dsRender() {
   const grid = $("dsResults");
+  // số mẫu đang chờ (đợt chưa xong) -> hiện ô trống đang load
+  const pending = (typeof dsJobs !== "undefined" ? dsJobs : []).reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
   let entries = Object.entries(dsItems);   // [key, item]
-  if (!entries.length) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
+  if (!entries.length && !pending) { $("dsEmpty").classList.remove("hidden"); grid.innerHTML = ""; $("dsDownloadAll").textContent = "⬇ Tải tất cả (0)"; return; }
   $("dsEmpty").classList.add("hidden");
   // nếu đã chấm điểm -> sắp xếp điểm cao lên trước; chưa chấm -> MỚI NHẤT lên đầu
   const anyRated = entries.some(([, it]) => typeof it.score === "number");
   if (anyRated) entries = entries.sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
   else entries = entries.sort((a, b) => dsTime(b[1]) - dsTime(a[1]));   // MỚI NHẤT lên đầu (theo thời gian tạo)
   grid.innerHTML = "";
+  for (let i = 0; i < pending; i++) grid.appendChild(dsLoadingCard());   // ô trống đang load lên đầu
   entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it)); });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
 }
@@ -2539,6 +2560,7 @@ $("dsRunBtn").onclick = async () => {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi không xác định");
     dsJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    dsRender();   // hiện NGAY ô trống đang load (trước khi poll)
     note.className = "gen-note ok";
     note.textContent = "✓ Đã thêm đợt mới (" + d.total + " mẫu) — bấm tiếp để chạy thêm song song!";
     if (!dsPollTimer) dsPollTimer = setInterval(dsPollAll, 2500);
