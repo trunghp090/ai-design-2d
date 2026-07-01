@@ -657,3 +657,10 @@ textarea.input{resize:vertical;line-height:1.5}
   .fpk-generate{width:100%;padding:13px}
   .fpk-advanced,.fpk-promptbar{margin-left:6px;margin-right:6px}
 }
+
+/* Tạo design: hiện kiểu FB Ads (gcard trong fp-creations) */
+.fp-creations.grid .gcard .gacts{padding:5px 6px;gap:5px}
+.fp-creations.grid .gcard .gacts button{flex:1 1 calc(33.33% - 4px);font-size:10.5px;padding:4px 3px}
+.fp-creations.list .gcard{max-width:640px}
+.fp-creations.list .gcard img{aspect-ratio:auto;max-height:560px;object-fit:contain;background:#faf7f8}
+.fp-creations.list .gcard .gacts button{flex:0 1 auto;padding:6px 12px;font-size:12px}

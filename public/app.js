@@ -2140,12 +2140,14 @@ let dsCanvaLink = "";
 try { dsCanvaLink = localStorage.getItem("canvaLink") || ""; } catch (e) {}
 function dsInit() {
   if (dsInited) return; dsInited = true;
-  if ($("dsAdvToggle")) $("dsAdvToggle").onclick = () => {
-    const adv = $("dsAdvanced"); if (!adv) return;
-    const open = adv.classList.toggle("hidden") === false;
-    $("dsAdvToggle").classList.toggle("fpk-pill-accent", open);
-    $("dsAdvToggle").textContent = open ? "⚙️ Ẩn tuỳ chọn nâng cao" : "⚙️ Tuỳ chọn nâng cao";
+  // Toggle Lưới / Danh sách (giống FB Ads)
+  const dsSetView = (v) => {
+    const box = $("dsResults"); if (box) box.className = "fp-creations " + v;
+    if ($("dsViewGrid")) $("dsViewGrid").classList.toggle("active", v === "grid");
+    if ($("dsViewList")) $("dsViewList").classList.toggle("active", v === "list");
   };
+  if ($("dsViewGrid")) $("dsViewGrid").onclick = () => dsSetView("grid");
+  if ($("dsViewList")) $("dsViewList").onclick = () => dsSetView("list");
   if ($("dsSuggestName")) $("dsSuggestName").onclick = async () => {
     try {
       const d = await (await fetch("/api/name-suggest")).json();

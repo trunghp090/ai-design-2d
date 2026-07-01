@@ -870,96 +870,93 @@
 
   <!-- ===== VIEW: TẠO DESIGN (text-to-image theo phong cách) ===== -->
   <section class="auto-view app-view hidden" id="view-design">
-    <div class="fpk-wrap">
-      <!-- ===== HERO: thanh prompt kiểu Freepik ===== -->
-      <div class="fpk-hero">
-        <h1 class="fpk-h1">Tạo design áo bằng AI</h1>
-        <p class="fpk-sub">Mô tả ý tưởng → AI vẽ ra mẫu đẹp để in áo (nền trắng, tách nền sẵn).</p>
+    <div class="fp-layout">
+      <!-- ===== CỘT TRÁI: nhập (giống FB Ads) ===== -->
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">✨ Tạo design</h2>
+        <p class="panel-desc" style="margin:0 0 14px">Chọn phong cách → AI vẽ <b>mẫu đẹp để in áo</b> (nền trắng, tách nền sẵn).</p>
 
-        <div class="fpk-promptbar">
-          <textarea id="dsExtra" class="fpk-prompt" rows="1" placeholder="Mô tả design bạn muốn… (vd: mèo phi hành gia phong cách vintage, tông pastel) — hoặc chọn phong cách bên dưới"></textarea>
-          <button class="fpk-generate" id="dsRunBtn">✨ Tạo</button>
-        </div>
+        <label class="fp-label">✏️ Mô tả / Prompt (tuỳ chọn)</label>
+        <textarea id="dsExtra" class="input" rows="2" placeholder="Mô tả design bạn muốn… (trống + chọn style = AI tự vẽ theo style; điền prompt + bỏ hết style = vẽ theo prompt của bạn)"></textarea>
 
-        <!-- hàng điều khiển nhanh -->
-        <div class="fpk-quickrow">
-          <button type="button" id="dsAutoStyle" class="fpk-pill fpk-pill-accent">🎯 AI tự chọn style</button>
-          <label class="fpk-pill fpk-select">🖼️ Số mẫu
-            <select id="dsCount">
-              <option value="3">3</option><option value="1">1</option><option value="2">2</option>
-              <option value="4">4</option><option value="6">6</option><option value="8">8</option>
-            </select>
-          </label>
-          <label class="fpk-pill fpk-select">📐 Tỉ lệ
-            <select id="dsSize"><option value="portrait">Dọc (in áo)</option><option value="square">Vuông</option></select>
-          </label>
-          <button type="button" id="dsSuggestName" class="fpk-pill">🎲 Gợi ý tên + năm</button>
-          <button type="button" class="fpk-pill fpk-advtoggle" id="dsAdvToggle">⚙️ Tuỳ chọn nâng cao</button>
-        </div>
-        <p class="hint" id="dsAutoHint" style="margin:8px 0 0;text-align:center">AI sẽ tự chọn phong cách hợp &amp; dễ bán nhất — chỉ cần nhập chủ đề/chữ (hoặc để trống).</p>
-
-        <!-- lưới phong cách (chọn nhiều = trộn) -->
-        <div class="color-chips fpk-styles" id="dsStyles"></div>
-        <p class="hint" id="dsStyleHint" style="text-align:center"></p>
-
-        <div class="batch-progress hidden" id="dsProgress" style="max-width:520px;margin:10px auto 0">
-          <div class="bp-bar"><div class="bp-fill" id="dsBar"></div></div>
-          <span id="dsProgText" class="hint"></span>
-        </div>
-        <p class="gen-note" id="dsNote" style="text-align:center"></p>
-        <div id="dsErrors" class="batch-errors"></div>
-      </div>
-
-      <!-- ===== TUỲ CHỌN NÂNG CAO (thu gọn) ===== -->
-      <div class="fpk-advanced hidden" id="dsAdvanced">
-        <label class="field-label">🖼️ Ảnh tham chiếu (tuỳ chọn) — AI tự nhận style &amp; gen theo</label>
-        <label class="dropzone sm" id="dsRefDrop">
-          <input type="file" id="dsRefFile" accept="image/*" hidden />
-          <span id="dsRefName">⬆️ Tải / kéo-thả / dán (Ctrl+V) ảnh mẫu để AI bắt chước phong cách</span>
-        </label>
-        <div class="thumb-row" id="dsRefThumbs"></div>
-
-        <label class="field-label" style="margin-top:10px">👥 Tệp khách — tạo nguyên 1 BỘ đồng bộ (tuỳ chọn)</label>
-        <div class="color-chips" id="dsSegments"></div>
-        <p class="hint" id="dsSegHint" style="margin-top:4px"></p>
-
-        <label class="field-label" style="margin-top:10px">🎁 Style tốt cho cá nhân hoá TÊN (bấm chọn)</label>
-        <div class="color-chips" id="dsNameStyles"></div>
-        <label class="field-label" style="margin-top:8px">🎁 Mix combo cho TÊN (bấm = trộn sẵn 2 style)</label>
-        <div class="color-chips" id="dsNameCombos"></div>
+        <button type="button" id="dsAutoStyle" class="btn-auto-style" style="margin-top:10px">🎯 Để AI tự chọn style đẹp nhất</button>
+        <p class="hint" id="dsAutoHint" style="margin-top:4px">AI tự chọn phong cách hợp &amp; dễ bán nhất — chỉ cần nhập chủ đề/chữ (hoặc để trống).</p>
 
         <div class="auto-row" style="margin-top:12px">
           <div>
-            <label class="field-label">Chủ đề / ngách (tuỳ chọn)</label>
-            <input type="text" id="dsTheme" class="input" value="Custom name T-shirt niche" placeholder="VD: tình yêu, mèo, gym, Đà Lạt…" />
+            <label class="fp-label">🖼️ Số mẫu</label>
+            <select id="dsCount" class="input">
+              <option value="3">3 mẫu</option><option value="1">1 mẫu</option><option value="2">2 mẫu</option>
+              <option value="4">4 mẫu</option><option value="6">6 mẫu</option><option value="8">8 mẫu</option>
+            </select>
           </div>
           <div>
-            <label class="field-label">Chữ trên áo (tuỳ chọn)</label>
-            <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
+            <label class="fp-label">📐 Tỉ lệ</label>
+            <select id="dsSize" class="input"><option value="portrait">Dọc (in áo)</option><option value="square">Vuông</option></select>
           </div>
         </div>
-        <label class="field-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
-        <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995 · SINCE 2024…" />
-        <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng (không xuống dòng)
-        </label>
-        <p class="hint" style="margin:8px 0 0">💡 Bỏ chọn hết style + điền prompt ở ô mô tả trên = AI vẽ theo prompt của bạn.</p>
-      </div>
 
-      <!-- ===== KẾT QUẢ: lưới ảnh ===== -->
-      <div class="fpk-results">
-        <div class="fpk-results-head">
-          <h3 style="margin:0">Mẫu đã tạo</h3>
+        <label class="fp-label" style="margin-top:12px">🎨 Phong cách — chọn NHIỀU = TRỘN vào 1 design</label>
+        <div class="color-chips" id="dsStyles"></div>
+        <p class="hint" id="dsStyleHint" style="margin-top:6px"></p>
+
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--violet)">⚙️ Tuỳ chọn nâng cao</summary>
+          <div style="margin-top:10px">
+            <label class="fp-label">🖼️ Ảnh tham chiếu (tuỳ chọn) — AI bắt chước phong cách</label>
+            <label class="dropzone sm" id="dsRefDrop">
+              <input type="file" id="dsRefFile" accept="image/*" hidden />
+              <span id="dsRefName">⬆️ Tải / kéo-thả / dán (Ctrl+V) ảnh mẫu</span>
+            </label>
+            <div class="thumb-row" id="dsRefThumbs"></div>
+
+            <label class="fp-label" style="margin-top:10px">👥 Tệp khách — tạo nguyên 1 BỘ đồng bộ</label>
+            <div class="color-chips" id="dsSegments"></div>
+            <p class="hint" id="dsSegHint" style="margin-top:4px"></p>
+
+            <label class="fp-label" style="margin-top:10px">🎁 Style tốt cho cá nhân hoá TÊN</label>
+            <div class="color-chips" id="dsNameStyles"></div>
+            <label class="fp-label" style="margin-top:8px">🎁 Mix combo cho TÊN (2 style)</label>
+            <div class="color-chips" id="dsNameCombos"></div>
+
+            <label class="fp-label" style="margin-top:10px">Chủ đề / ngách (tuỳ chọn)</label>
+            <input type="text" id="dsTheme" class="input" value="Custom name T-shirt niche" placeholder="VD: tình yêu, mèo, gym, Đà Lạt…" />
+            <label class="fp-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn) <button type="button" id="dsSuggestName" class="btn-ghost sm" style="padding:2px 8px;font-size:12px">🎲 AI gợi ý tên + năm</button></label>
+            <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
+            <label class="fp-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
+            <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995…" />
+            <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
+              <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng
+            </label>
+          </div>
+        </details>
+
+        <button class="btn-primary" id="dsRunBtn" style="margin-top:14px">✨ Tạo mẫu đẹp</button>
+        <div class="batch-progress hidden" id="dsProgress" style="margin-top:8px">
+          <div class="bp-bar"><div class="bp-fill" id="dsBar"></div></div>
+          <span id="dsProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="dsNote"></p>
+        <div id="dsErrors" class="batch-errors"></div>
+      </aside>
+
+      <!-- ===== CỘT PHẢI: kết quả (giống FB Ads) ===== -->
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">🎨 Mẫu đã tạo <span id="dsCountBadge" class="fp-count"></span></h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="url" id="dsCanvaLink" class="input" style="width:220px;margin:0;padding:6px 10px" placeholder="🔗 Link Canva (tuỳ chọn)" />
-            <button class="btn-ghost sm" id="dsCanvaSave" style="white-space:nowrap">💾 Lưu link</button>
+            <div class="fp-viewtoggle"><button id="dsViewGrid" class="active" title="Lưới">▦</button><button id="dsViewList" title="Danh sách">☰</button></div>
             <button class="btn-ghost sm" id="dsRate">🏆 Chấm điểm</button>
             <button class="btn-ghost sm" id="dsDownloadAll">⬇ Tải tất cả (0)</button>
           </div>
         </div>
-        <div class="auto-grid fpk-grid" id="dsResults"></div>
-        <div class="gallery-empty" id="dsEmpty">Nhập mô tả hoặc chọn phong cách rồi bấm Tạo.</div>
-      </div>
+        <div class="canva-bar" style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <input type="url" id="dsCanvaLink" class="input" style="flex:1;margin:0" placeholder="🔗 Dán link Canva (mỗi design có nút 🖌️ Canva mở link này)" />
+          <button class="btn-ghost sm" id="dsCanvaSave" style="white-space:nowrap">💾 Lưu link</button>
+        </div>
+        <div id="dsResults" class="fp-creations grid"></div>
+        <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
     </div>
   </section>
 
