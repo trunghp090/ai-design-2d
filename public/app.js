@@ -3773,6 +3773,7 @@ let adsInited = false;
 let adsDesignImg = null;        // dataURL design
 let adsStyle = {};              // key -> dataURL ảnh style
 let adsBg = {};                 // key -> background tuỳ chọn (text)
+let adsNames = {};              // key -> "tên áo 1, tên áo 2…" (tuỳ chọn)
 let adsSel = new Set();         // concept đã tick để gen
 let adsItems = [];              // {loading,job} | item
 let adsView = "list";
@@ -4263,10 +4264,12 @@ function adsRenderConcepts() {
       '<input type="checkbox" class="ads-con-tick"' + (adsSel.has(c.key) ? " checked" : "") + '>' +
       '<div class="ads-con-ref">' + (has ? '<img src="' + adsStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
       '<div class="ads-con-lbl">' + c.label + '<br><span class="hint">' + (has ? '✅ có ảnh style' : 'tick + tải ảnh style') + '</span>' +
-        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (adsBg[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
+        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (adsBg[c.key] || "").replace(/"/g, "&quot;") + '">' +
+        '<input type="text" class="ads-con-names" placeholder="🏷️ Tên ' + (CONCEPT_SHIRTS[c.key] || 1) + ' áo (cách nhau dấu phẩy, trống = AI tự đặt)" value="' + (adsNames[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) adsSel.add(c.key); else adsSel.delete(c.key); adsUpdateRunBtn(); };
     row.querySelector(".ads-con-ref").onclick = (e) => { adsPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete adsStyle[c.key]; adsRenderConcepts(); return; } adsPickKey = c.key; adsOpenStylePicker(c.key); };
     row.querySelector(".ads-con-bg").oninput = (e) => { adsBg[c.key] = e.target.value; };
+    row.querySelector(".ads-con-names").oninput = (e) => { adsNames[c.key] = e.target.value; };
     box.appendChild(row);
   });
   adsUpdateRunBtn();
@@ -4399,7 +4402,7 @@ function adsRegenGo() {
 
 async function adsGenerate(autopush) {
   const note = $("adsNote"); note.className = "gen-note"; note.textContent = "";
-  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim() }));
+  const cons = ADS_CONCEPTS.filter(c => adsSel.has(c.key)).map(c => ({ key: c.key, ref: adsStyle[c.key] || "", bg: (adsBg[c.key] || "").trim(), names: (adsNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) }));
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept để tạo."; return; }
   const name = ($("adsName").value || "").trim(), hook = ($("adsHook").value || "").trim();
   const engine = ($("adsEngine") && $("adsEngine").value) || "";
@@ -4476,7 +4479,8 @@ function adsPoll(job) {
 /* =====================================================================
    FACEBOOK POST: mỗi concept 1 BỘ ảnh sạch (không text) + đăng Fanpage
    ===================================================================== */
-let fbpInited = false, fbpDesignImg = null, fbpStyle = {}, fbpBg = {}, fbpSel = new Set(), fbpCount = {};
+const CONCEPT_SHIRTS = { couple: 2, kids: 2, group: 3, family: 4, flatlay2: 2, flatlay3: 3 };
+let fbpInited = false, fbpDesignImg = null, fbpStyle = {}, fbpBg = {}, fbpSel = new Set(), fbpCount = {}, fbpNames = {};
 let fbpItems = [], fbpProductLink = "", fbpPickKey = null, fbpPasteTo = "design";
 
 function fbpFromProduct(p) {
@@ -4555,6 +4559,7 @@ function fbpSavePreset() {
   const preset = {
     sel: Array.from(fbpSel),
     count: fbpCount,
+    names: fbpNames,
     style: fbpStyle,                 // {key: dataURL}
     bg: fbpBg,                       // {key: text}
     aspect: $("fbpAspect") && $("fbpAspect").value,
@@ -4581,6 +4586,7 @@ function fbpLoadPreset() {
   if (preset.style) fbpStyle = preset.style;
   if (preset.bg) fbpBg = preset.bg;
   if (preset.count) fbpCount = preset.count;
+  if (preset.names) fbpNames = preset.names;
   if (Array.isArray(preset.sel)) fbpSel = new Set(preset.sel);
   if (preset.aspect && $("fbpAspect")) $("fbpAspect").value = preset.aspect;
   if (preset.quality && $("fbpQuality")) $("fbpQuality").value = preset.quality;
@@ -4621,17 +4627,20 @@ function fbpRenderConcepts() {
     const ph = (c.key.indexOf("flatlay") === 0) ? "Background (sàn gỗ, nền trắng…)" : "Background/bối cảnh (tuỳ chọn)";
     const cnt = fbpCount[c.key] || parseInt(($("fbpPerSet") && $("fbpPerSet").value) || "3", 10) || 3;
     const cntOpts = [1, 2, 3, 4, 5, 6].map(v => '<option value="' + v + '"' + (v === cnt ? " selected" : "") + '>' + v + ' ảnh</option>').join("");
+    const nsh = CONCEPT_SHIRTS[c.key] || 1;
     row.innerHTML =
       '<input type="checkbox" class="ads-con-tick"' + (fbpSel.has(c.key) ? " checked" : "") + '>' +
       '<div class="ads-con-ref">' + (has ? '<img src="' + fbpStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
       '<div class="ads-con-lbl">' + c.label +
         ' <select class="ads-con-cnt" title="Số ảnh của concept này" style="font-size:11px;padding:1px 3px;border-radius:6px">' + cntOpts + '</select>' +
         '<br><span class="hint">' + (has ? '✅ có style' : 'tick + tải style') + '</span>' +
-        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (fbpBg[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
+        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (fbpBg[c.key] || "").replace(/"/g, "&quot;") + '">' +
+        '<input type="text" class="ads-con-names" placeholder="🏷️ Tên ' + nsh + ' áo (cách nhau dấu phẩy, trống = AI tự đặt)" value="' + (fbpNames[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) fbpSel.add(c.key); else fbpSel.delete(c.key); };
     row.querySelector(".ads-con-ref").onclick = (e) => { fbpPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete fbpStyle[c.key]; fbpRenderConcepts(); return; } fbpPickKey = c.key; $("fbpStyleFile").click(); };
     row.querySelector(".ads-con-bg").oninput = (e) => { fbpBg[c.key] = e.target.value; };
     row.querySelector(".ads-con-cnt").onchange = (e) => { fbpCount[c.key] = parseInt(e.target.value, 10) || 3; };
+    row.querySelector(".ads-con-names").oninput = (e) => { fbpNames[c.key] = e.target.value; };
     box.appendChild(row);
   });
 }
@@ -4643,7 +4652,7 @@ function fbpHandlePaste(durl) {
 async function fbpGenerate() {
   const note = $("fbpNote"); note.className = "gen-note"; note.textContent = "";
   if (!fbpDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa design trước."; return; }
-  const cons = ADS_CONCEPTS.filter(c => fbpSel.has(c.key)).map(c => ({ key: c.key, ref: fbpStyle[c.key] || "", bg: (fbpBg[c.key] || "").trim(), n: fbpCount[c.key] || 0 }));
+  const cons = ADS_CONCEPTS.filter(c => fbpSel.has(c.key)).map(c => ({ key: c.key, ref: fbpStyle[c.key] || "", bg: (fbpBg[c.key] || "").trim(), n: fbpCount[c.key] || 0, names: (fbpNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) }));
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept."; return; }
   const engine = ($("fbpEngine") && $("fbpEngine").value) || "";
   try {

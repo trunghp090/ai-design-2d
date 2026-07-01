@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-upload-media-ads"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-concept-names"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1910,12 +1910,15 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
             key = c["key"]
             nm = None
             bg = (c.get("bg") or "").strip()
+            given = [str(x).strip() for x in (c.get("names") or []) if str(x).strip()]   # tên user nhập
             # GIỮ NGUYÊN design gốc: đưa design 1 lần làm ref #1, model chỉ đổi TÊN trên từng áo
             # (KHÔNG personalize/vẽ lại -> giữ đúng mẫu + nhanh hơn nhiều, đúng kiểu ChatGPT)
             imgs = [design_img]
             nxt = 2
             if key == "couple":
-                nm = ads_couple_names()
+                auto = ads_couple_names()
+                nm = {"female": given[0] if len(given) > 0 else auto["female"],
+                      "male": given[1] if len(given) > 1 else auto["male"]}
             img_n = txt_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = nxt; nxt += 1
@@ -1929,7 +1932,8 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                 if key == "couple":
                     prompt = ads_couple_prompt(nm, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
                 elif key in ADS_CONCEPT_N:
-                    names = ads_n_names(ADS_CONCEPT_N[key])
+                    cnt = ADS_CONCEPT_N[key]; auto = ads_n_names(cnt)
+                    names = [given[i] if i < len(given) else auto[i] for i in range(cnt)]
                     prompt = ads_multi_prompt(key, names, name, hook, img_n, txt_n, text_style, old_name, bg, text_color)
                 else:
                     prompt = ads_ad_prompt(ADS_CONCEPTS[key][1], name, hook, img_n, txt_n, text_style, text_color)
@@ -2078,13 +2082,18 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
         try:
             key = c["key"]
             bg = (c.get("bg") or "").strip()
+            given = [str(x).strip() for x in (c.get("names") or []) if str(x).strip()]   # tên user nhập
             nm = None
             if key == "couple":
-                nm = ads_couple_names(); names = [nm["female"], nm["male"]]
+                auto = ads_couple_names()
+                nm = {"female": given[0] if len(given) > 0 else auto["female"],
+                      "male": given[1] if len(given) > 1 else auto["male"]}
+                names = [nm["female"], nm["male"]]
             elif key in ADS_CONCEPT_N:
-                names = ads_n_names(ADS_CONCEPT_N[key])
+                cnt = ADS_CONCEPT_N[key]; auto = ads_n_names(cnt)
+                names = [given[i] if i < len(given) else auto[i] for i in range(cnt)]
             else:
-                names = ads_n_names(1)
+                names = [given[0]] if given else ads_n_names(1)
             imgs = [design_img]; img_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = 2
@@ -7330,8 +7339,9 @@ class Handler(BaseHTTPRequestHandler):
             if c.get("ref"):
                 rb, _ = fetch_image_bytes(c["ref"])
                 ref = rb
+            given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
-                         "custom_prompt": (c.get("custom_prompt") or "").strip()[:4000]})
+                         "custom_prompt": (c.get("custom_prompt") or "").strip()[:4000], "names": given})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
         engine = resolve_engine_id(body)
@@ -7388,8 +7398,9 @@ class Handler(BaseHTTPRequestHandler):
                 cn = int(c.get("n") or 0)
             except Exception:
                 cn = 0
+            given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
-                         "n": max(0, min(6, cn))})
+                         "n": max(0, min(6, cn)), "names": given})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept."})
         engine = resolve_engine_id(body)
