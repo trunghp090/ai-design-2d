@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.06.30-fbpost-3pose"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-fbdebug"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5432,6 +5432,22 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fb-status":
             return self.json(200, {"configured": fb_configured(),
                                    "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID})
+        if path == "/api/fb-debug":
+            # chẩn đoán token/kết nối FB: trả status + JSON lỗi đầy đủ
+            out = {"api_ver": FB_API_VER, "token_len": len(FB_ACCESS_TOKEN or ""),
+                   "ad_account": FB_AD_ACCOUNT_ID, "page": FB_PAGE_ID}
+            st1, d1 = fb_graph("GET", "me", {"fields": "id,name"})
+            out["me_status"] = st1
+            out["me"] = d1
+            st2, d2 = fb_graph("GET", "debug_token",
+                               {"input_token": FB_ACCESS_TOKEN or "", "access_token": FB_ACCESS_TOKEN or ""})
+            out["debug_token_status"] = st2
+            dd = (d2 or {}).get("data") or {}
+            out["token_valid"] = dd.get("is_valid")
+            out["token_expires"] = dd.get("expires_at")
+            out["token_scopes"] = dd.get("scopes")
+            out["debug_token_err"] = (d2 or {}).get("error")
+            return self.json(200, out)
         if path == "/api/fb-perms":
             if not fb_configured():
                 return self.json(200, {"configured": False})
