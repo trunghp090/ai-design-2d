@@ -666,7 +666,7 @@ textarea.input{resize:vertical;line-height:1.5}
 .fp-creations.list .gcard .gacts button{flex:0 1 auto;padding:6px 12px;font-size:12px}
 
 /* Tạo design: cột trái gọn — nhóm chip cuộn trong khung nhỏ, đỡ kéo dài */
-#view-design .fp-side .color-chips{max-height:176px;overflow-y:auto;gap:6px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fcfbfc}
+#view-design .fp-side .color-chips{gap:6px}
 #view-design .fp-side .color-chips::-webkit-scrollbar{width:7px}
 #view-design .fp-side .color-chips::-webkit-scrollbar-thumb{background:#d9cdd4;border-radius:8px}
 #view-design .fp-side .color-chips .cchip,#view-design .fp-side .color-chips button{font-size:12px;padding:5px 9px}
