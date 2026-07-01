@@ -2281,6 +2281,15 @@ function dsRenderNameCombos() {
 let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
 let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
 function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Math.random(); }
+// Mốc thời gian tạo (để MỚI NHẤT lên đầu): id gallery dạng "d<ms>" -> lấy ms; fallback ts / _seq
+let _dsSeq = 0;
+function dsTime(it) {
+  const gid = it && ((it.gallery && it.gallery.id) || it.id);
+  if (gid && /^d\d+$/.test(gid)) return parseInt(gid.slice(1), 10);
+  if (it && it.ts) return it.ts * 1000;
+  if (it && it._seq) return it._seq;
+  return (it && (it._seq = ++_dsSeq + 1e18)) || 0;   // item không có mốc -> coi như mới nhất, ổn định
+}
 // nguồn ảnh: ưu tiên b64 (it.image), nếu chỉ có url (nạp từ gallery) thì dùng url
 const dsSrc = (it) => it.image ? "data:image/png;base64," + it.image : it.url;
 // lấy b64 (fetch + cache từ url nếu cần) — cho các thao tác cần base64
@@ -2311,7 +2320,7 @@ function dsRender() {
   // nếu đã chấm điểm -> sắp xếp điểm cao lên trước; chưa chấm -> MỚI NHẤT lên đầu
   const anyRated = entries.some(([, it]) => typeof it.score === "number");
   if (anyRated) entries = entries.sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-  else entries = entries.reverse();
+  else entries = entries.sort((a, b) => dsTime(b[1]) - dsTime(a[1]));   // MỚI NHẤT lên đầu (theo thời gian tạo)
   grid.innerHTML = "";
   entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it)); });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
