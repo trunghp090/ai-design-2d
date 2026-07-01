@@ -2318,7 +2318,7 @@ function dsFitHeight() {
   if (!lay) return;
   if (window.innerWidth < 901) { lay.style.height = ""; return; }   // mobile: xếp dọc, để tự nhiên
   const top = lay.getBoundingClientRect().top + window.scrollY;
-  const h = window.innerHeight - top - 8;   // CỘT CAO HẾT CỠ: lấp tới sát đáy màn (footer xuống dưới)
+  const h = window.innerHeight - top - 4;   // CỘT CAO HẾT CỠ: lấp tới sát đáy màn (footer xuống dưới)
   lay.style.height = Math.max(480, h) + "px";
 }
 if (!window._dsFitWired) { window._dsFitWired = true; window.addEventListener("resize", () => { if (!document.getElementById("view-design").classList.contains("hidden")) dsFitHeight(); }); }

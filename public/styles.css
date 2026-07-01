@@ -699,3 +699,12 @@ textarea.input{resize:vertical;line-height:1.5}
   #view-design .fp-creations.list .gcard{max-width:820px}
   #view-design .fp-creations.list .gcard img{max-height:640px}
 }
+
+/* Tạo design: giành thêm chiều cao cho 2 cột (thu gọn header phía trên) */
+#view-design.auto-view{padding-top:2px;padding-bottom:0}
+#view-design .fp-side,#view-design .fp-main{padding-top:14px}
+@media(min-width:901px){
+  body:has(#view-design:not(.hidden)) .topbar{display:none}          /* ẩn dòng chạy quảng cáo khi ở tab design */
+  body:has(#view-design:not(.hidden)) .app-groups{margin-top:8px}
+  body:has(#view-design:not(.hidden)) .app-tabs{margin-top:6px}
+}
