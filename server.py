@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-fbdebug-auth"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-clone-async"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1222,6 +1222,39 @@ def run_batch_job(job_id, rows, size, transparent):
     with _batch_lock:
         if BATCH_JOBS.get(job_id):
             BATCH_JOBS[job_id]["finished"] = True
+
+
+def run_generate_job(job_id, images, mode, user_prompt, size, transparent, override):
+    """Clone/tạo 1 design chạy NỀN -> lưu vào BATCH_JOBS (tránh giữ kết nối lâu -> 502 proxy)."""
+    def _fin(**fields):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j:
+                j.update(fields); j["done"] = 1; j["finished"] = True
+    try:
+        b64, used_prompt = gen_design(images, mode, user_prompt, size, transparent, override)
+        item = gallery_add(b64, {"mode": mode, "prompt": user_prompt})
+        _fin(items=[{"image": b64, "prompt": used_prompt, "gallery": item, "mock": False}])
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode("utf-8", "ignore")
+        except Exception:
+            detail = str(e)
+        low = detail.lower()
+        if "moderation_blocked" in low or "safety system" in low:
+            msg = ("⚠️ OpenAI chặn nội dung này (bộ lọc an toàn — đôi khi chặn nhầm). "
+                   "Thử: đổi ảnh áo khác · sửa/bớt chi tiết trong prompt · hoặc bấm Tạo lại 1–2 lần.")
+        elif e.code in (500, 502, 503, 520):
+            msg = "OpenAI đang quá tải (lỗi %s). Bấm Tạo design lại sau giây lát." % e.code
+        elif e.code == 401:
+            msg = "Key OpenAI sai hoặc hết số dư. Kiểm tra lại API key + tài khoản OpenAI."
+        elif e.code == 429:
+            msg = "Gọi quá nhanh / hết hạn mức (429). Đợi chút rồi thử lại."
+        else:
+            msg = "OpenAI %s: %s" % (e.code, detail[:300])
+        _fin(errors=[msg])
+    except Exception as e:
+        _fin(errors=["Lỗi: %s" % e])
 
 
 # --------------------------------------------------------------------------- #
@@ -5732,6 +5765,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/generate":
             return self.handle_generate(body)
+        if path == "/api/generate-async":
+            return self.handle_generate_async(body)
         if path == "/api/clone-check":
             return self.handle_clone_check(body)
         if path == "/api/auto-gen":
@@ -6206,6 +6241,39 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": openai_error_message(e)})
         except Exception as e:
             return self.json(500, {"error": str(e)})
+
+    def handle_generate_async(self, body):
+        """Như /api/generate nhưng gen AI chạy NỀN (trả job_id, frontend poll) -> KHÔNG bị
+        proxy cắt kết nối (502 Bad Gateway) khi ảnh lâu. extract/mock nhanh -> làm luôn."""
+        sources = body.get("images") or []
+        if isinstance(sources, str):
+            sources = [s for s in sources.splitlines() if s.strip()]
+        sources = [s for s in sources if s and s.strip()][:4]
+        if not sources:
+            return self.json(400, {"error": "Chưa có ảnh áo đầu vào."})
+        mode = body.get("mode", "cloner")
+        # extract (chỉ tách nền) & mock (chưa có key) rất nhanh -> giữ đồng bộ
+        if mode == "extract" or not API_KEY:
+            return self.handle_generate(body)
+        transparent = bool(body.get("transparent", True))
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        user_prompt = body.get("prompt", "")
+        images = []
+        for s in sources:
+            d, m = fetch_image_bytes(s)
+            if d:
+                images.append((d, m))
+        if not images:
+            return self.json(400, {"error": "Không tải được ảnh đầu vào."})
+        override = body.get("override_prompt", "")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "c%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_generate_job,
+                         args=(job_id, images, mode, user_prompt, size, transparent, override),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": 1})
 
     def handle_generate(self, body):
         sources = body.get("images") or []

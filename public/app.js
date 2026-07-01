@@ -225,8 +225,15 @@ $("generateBtn").onclick = async () => {
   $("resultActions").classList.add("hidden");
   $("spinner").classList.remove("hidden");
 
+  const applyResult = (data) => {
+    showDesign(data.image);
+    if (data.prompt) $("promptPreview").value = data.prompt;
+    note.className = "gen-note ok";
+    note.textContent = data.mock ? "✓ Đã tạo (MOCK). Cắm key để dùng AI thật." : "✓ Tạo design thành công!";
+    loadGallery();
+  };
   try {
-    const r = await fetch("/api/generate", {
+    const r = await fetch("/api/generate-async", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         images, mode: $("mode").value, prompt: $("promptInput").value,
@@ -236,11 +243,11 @@ $("generateBtn").onclick = async () => {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || "Lỗi không xác định");
-    showDesign(data.image);
-    if (data.prompt) $("promptPreview").value = data.prompt;
-    note.className = "gen-note ok";
-    note.textContent = data.mock ? "✓ Đã tạo (MOCK). Cắm key để dùng AI thật." : "✓ Tạo design thành công!";
-    loadGallery();
+    if (data.image) { applyResult(data); }         // extract/mock: có ngay
+    else if (data.job_id) {                         // gen AI: chạy nền -> poll (không lo 502)
+      const res = await clonePollJob(data.job_id);
+      applyResult(res);
+    } else throw new Error("Phản hồi không hợp lệ");
   } catch (err) {
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
     $("emptyState").classList.remove("hidden");
@@ -248,6 +255,21 @@ $("generateBtn").onclick = async () => {
     $("spinner").classList.add("hidden"); btn.disabled = false;
   }
 };
+// Poll job clone tới khi xong -> trả {image,prompt,gallery} hoặc throw lỗi
+function clonePollJob(jobId) {
+  return new Promise((resolve, reject) => {
+    const timer = setInterval(async () => {
+      try {
+        const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(jobId))).json();
+        if (d.finished) {
+          clearInterval(timer);
+          if ((d.items || []).length) resolve(d.items[0]);
+          else reject(new Error((d.errors && d.errors[0]) || "Tạo design lỗi."));
+        }
+      } catch (e) { /* thử lại lần sau */ }
+    }, 2500);
+  });
+}
 
 function showDesign(b64) {
   currentDesign = b64;
