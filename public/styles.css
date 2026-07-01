@@ -664,3 +664,13 @@ textarea.input{resize:vertical;line-height:1.5}
 .fp-creations.list .gcard{max-width:640px}
 .fp-creations.list .gcard img{aspect-ratio:auto;max-height:560px;object-fit:contain;background:#faf7f8}
 .fp-creations.list .gcard .gacts button{flex:0 1 auto;padding:6px 12px;font-size:12px}
+
+/* Tạo design: cột trái gọn — nhóm chip cuộn trong khung nhỏ, đỡ kéo dài */
+#view-design .fp-side .color-chips{max-height:176px;overflow-y:auto;gap:6px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fcfbfc}
+#view-design .fp-side .color-chips::-webkit-scrollbar{width:7px}
+#view-design .fp-side .color-chips::-webkit-scrollbar-thumb{background:#d9cdd4;border-radius:8px}
+#view-design .fp-side .color-chips .cchip,#view-design .fp-side .color-chips button{font-size:12px;padding:5px 9px}
+#view-design .fp-side .panel-desc{font-size:12px;margin-bottom:10px!important}
+#view-design .fp-side .fp-label{margin-top:10px}
+#view-design .fp-side .hint{font-size:11px}
+#view-design .fp-side details summary{padding:8px 10px;background:var(--violet-soft);border-radius:10px}
