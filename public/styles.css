@@ -628,3 +628,32 @@ textarea.input{resize:vertical;line-height:1.5}
   /* tab con (kết quả) cuộn ngang nếu chật */
   .result-tabs{flex-wrap:nowrap;overflow-x:auto}
 }
+
+/* ================= Freepik-style tab "Tạo design" ================= */
+.fpk-wrap{max-width:1180px;margin:0 auto;padding:8px 16px 48px}
+.fpk-hero{text-align:center;padding:16px 0 6px}
+.fpk-h1{font-size:30px;font-weight:800;letter-spacing:-.5px;margin:0 0 4px}
+.fpk-sub{color:var(--muted);margin:0 0 18px}
+.fpk-promptbar{display:flex;align-items:center;gap:8px;max-width:720px;margin:0 auto;background:var(--card,#fff);border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 18px;box-shadow:0 10px 34px rgba(0,0,0,.09)}
+.fpk-prompt{flex:1;border:none;outline:none;resize:none;font-size:15px;line-height:1.45;background:transparent;max-height:120px;font-family:inherit;padding:7px 0;color:var(--ink)}
+.fpk-generate{border:none;cursor:pointer;white-space:nowrap;background:linear-gradient(135deg,var(--violet),#7c3aed);color:#fff;font-weight:700;font-size:15px;padding:12px 24px;border-radius:13px;transition:transform .1s,box-shadow .2s}
+.fpk-generate:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(124,58,237,.42)}
+.fpk-quickrow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.fpk-pill{display:inline-flex;align-items:center;gap:6px;background:var(--card,#fff);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--ink);transition:border-color .15s,background .15s}
+.fpk-pill:hover{border-color:var(--violet)}
+.fpk-pill-accent{border-color:var(--violet);color:var(--violet);font-weight:600;background:var(--violet-soft)}
+.fpk-select{cursor:default}
+.fpk-select select{border:none;background:transparent;font-size:13px;cursor:pointer;outline:none;font-weight:700;color:var(--violet)}
+.fpk-styles{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:920px;margin:16px auto 0}
+.fpk-advanced{max-width:720px;margin:14px auto 0;background:var(--card,#fff);border:1px solid var(--line);border-radius:16px;padding:16px 18px;text-align:left}
+.fpk-results{margin-top:30px}
+.fpk-results-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.fpk-grid{gap:16px}
+.fpk-grid > *{border-radius:14px;overflow:hidden;transition:transform .12s,box-shadow .2s}
+.fpk-grid > *:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.13)}
+@media(max-width:640px){
+  .fpk-h1{font-size:23px}
+  .fpk-promptbar{flex-direction:column;align-items:stretch;padding:12px;border-radius:16px}
+  .fpk-generate{width:100%;padding:13px}
+  .fpk-advanced,.fpk-promptbar{margin-left:6px;margin-right:6px}
+}

@@ -2140,6 +2140,12 @@ let dsCanvaLink = "";
 try { dsCanvaLink = localStorage.getItem("canvaLink") || ""; } catch (e) {}
 function dsInit() {
   if (dsInited) return; dsInited = true;
+  if ($("dsAdvToggle")) $("dsAdvToggle").onclick = () => {
+    const adv = $("dsAdvanced"); if (!adv) return;
+    const open = adv.classList.toggle("hidden") === false;
+    $("dsAdvToggle").classList.toggle("fpk-pill-accent", open);
+    $("dsAdvToggle").textContent = open ? "⚙️ Ẩn tuỳ chọn nâng cao" : "⚙️ Tuỳ chọn nâng cao";
+  };
   if ($("dsSuggestName")) $("dsSuggestName").onclick = async () => {
     try {
       const d = await (await fetch("/api/name-suggest")).json();
