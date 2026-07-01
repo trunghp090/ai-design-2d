@@ -1512,9 +1512,34 @@
     <div class="panel" style="max-width:1150px;margin:0 auto">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📋 Bảng bài Facebook Ads</h2>
-        <button class="btn-ghost sm" id="fbPostAdsBtn">📣 Tạo ads từ bài Fanpage có sẵn</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-primary sm" id="adpostUpBtn">⬆️ Up ảnh/video ngoài</button>
+          <button class="btn-ghost sm" id="fbPostAdsBtn">📣 Tạo ads từ bài Fanpage có sẵn</button>
+        </div>
       </div>
-      <p class="panel-desc" style="margin:0 0 12px">Mỗi dòng = 1 bài ads hoàn chỉnh (ảnh + tiêu đề + mô tả + link). Tick chọn → đẩy hàng loạt lên FB Ads, <b>giãn cách an toàn</b> tránh checkpoint tài khoản.</p>
+      <p class="panel-desc" style="margin:0 0 12px">Mỗi dòng = 1 bài ads hoàn chỉnh (ảnh/video + tiêu đề + mô tả + link). Tick chọn → đẩy hàng loạt lên FB Ads, <b>giãn cách an toàn</b> tránh checkpoint tài khoản.</p>
+
+      <!-- Panel upload ảnh/video ngoài -->
+      <div id="adpostUpPanel" class="hidden" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:#fdf8f9">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b style="font-size:14px">⬆️ Up ảnh/video từ ngoài → gắn sản phẩm → tự tạo bài đẩy Ads</b>
+          <button class="btn-ghost sm" id="adpostUpClose">✕</button>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
+          <label class="dropzone sm" id="adpostUpDrop" style="flex:1;min-width:220px;min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center">
+            <input type="file" id="adpostUpFile" accept="image/*,video/*" hidden>
+            <span id="adpostUpName">📁 Bấm / kéo-thả ảnh hoặc VIDEO vào đây</span>
+          </label>
+          <div id="adpostUpPrev" style="flex:1;min-width:220px"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">
+          <button class="btn-ghost sm" id="adpostUpPick">📦 Chọn sản phẩm (gắn link)</button>
+          <span class="hint" id="adpostUpProd" style="margin:0">Chưa chọn SP</span>
+        </div>
+        <textarea id="adpostUpCaption" class="input" rows="2" style="margin-top:8px" placeholder="Nội dung bài (để trống = AI tự viết theo sản phẩm)"></textarea>
+        <button class="btn-primary" id="adpostUpAdd" style="margin-top:8px">✨ Tạo bài & thêm vào bảng</button>
+        <p class="gen-note" id="adpostUpNote" style="margin:6px 0 0"></p>
+      </div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
         <label class="hint" style="margin:0">Chiến dịch
           <select id="adpostCampaign" class="input" style="width:auto;min-width:180px;padding:5px 8px"><option value="">➕ Tạo chiến dịch mới</option></select>

@@ -5019,6 +5019,7 @@ function adpostInit() {
     if ($("adpostFixLinks")) $("adpostFixLinks").onclick = adpostFixLinks;
     if ($("adpostApplyDefLink")) $("adpostApplyDefLink").onclick = adpostApplyDefLink;
     fbPostAdsWire();
+    adpostUpWire();
     $("adpostAll").onchange = (e) => { document.querySelectorAll(".adpost-tick").forEach(t => t.checked = e.target.checked); };
     if ($("adpostCampaign")) $("adpostCampaign").onchange = adpostOnCampaignChange;
     if ($("adpostReload")) $("adpostReload").onclick = async () => {
@@ -5091,6 +5092,49 @@ async function adpostLoad() {
     }
   } catch (e) {}
 }
+// ===== Upload ảnh/video ngoài -> gắn SP -> tự gen bài -> thêm vào bảng =====
+let adpostUpMedia = null, adpostUpType = null, adpostUpProduct = null;
+function adpostUpWire() {
+  const btn = $("adpostUpBtn"); if (!btn) return;
+  btn.onclick = () => $("adpostUpPanel").classList.toggle("hidden");
+  if ($("adpostUpClose")) $("adpostUpClose").onclick = () => $("adpostUpPanel").classList.add("hidden");
+  const setMedia = async (f) => {
+    if (!f) return;
+    adpostUpType = f.type.startsWith("video") ? "video" : "image";
+    adpostUpMedia = await fileToDataURL(f);
+    $("adpostUpName").textContent = (adpostUpType === "video" ? "🎬 " : "🖼️ ") + f.name;
+    $("adpostUpPrev").innerHTML = adpostUpType === "video"
+      ? '<video src="' + adpostUpMedia + '" controls style="max-width:100%;max-height:180px;border-radius:8px"></video>'
+      : '<img src="' + adpostUpMedia + '" style="max-width:100%;max-height:180px;border-radius:8px">';
+  };
+  if ($("adpostUpFile")) $("adpostUpFile").onchange = (e) => { setMedia(e.target.files[0]); e.target.value = ""; };
+  if ($("adpostUpDrop")) {
+    $("adpostUpDrop").ondragover = (e) => e.preventDefault();
+    $("adpostUpDrop").ondrop = (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) setMedia(e.dataTransfer.files[0]); };
+  }
+  if ($("adpostUpPick")) $("adpostUpPick").onclick = () => openSpPicker((p) => {
+    adpostUpProduct = { title: p.title || "", link: p.store_url || "", image: p.image || "" };
+    $("adpostUpProd").innerHTML = "📦 <b>" + (p.title || "SP").replace(/</g, "&lt;").slice(0, 40) + "</b>" +
+      (p.store_url ? ' · 🔗 <span style="color:var(--violet)">' + p.store_url.replace(/^https?:\/\//, "").slice(0, 30) + '…</span>' : "");
+  });
+  if ($("adpostUpAdd")) $("adpostUpAdd").onclick = async () => {
+    const note = $("adpostUpNote");
+    if (!adpostUpMedia) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ảnh hoặc video trước."; return; }
+    if (!adpostUpProduct || !adpostUpProduct.link) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn sản phẩm (để có link) trước."; return; }
+    const b = $("adpostUpAdd"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo bài…";
+    note.className = "gen-note"; note.textContent = "⏳ Đang up media + AI viết bài…";
+    try {
+      const r = await fetch("/api/adpost-upload-media", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ media: adpostUpMedia, product: adpostUpProduct, caption: ($("adpostUpCaption").value || "").trim() }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      note.className = "gen-note ok"; note.textContent = "✓ Đã tạo bài (" + adpostUpType + ") + thêm vào bảng. Tick chọn rồi đẩy lên Ads.";
+      adpostUpMedia = null; adpostUpType = null; $("adpostUpName").textContent = "📁 Bấm / kéo-thả ảnh hoặc VIDEO vào đây";
+      $("adpostUpPrev").innerHTML = ""; $("adpostUpCaption").value = "";
+      adpostLoad();
+    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+    b.disabled = false; b.textContent = o;
+  };
+}
 function adpostRender(items) {
   const box = $("adpostList");
   if (!items.length) { box.innerHTML = ""; return; }
@@ -5103,7 +5147,10 @@ function adpostRender(items) {
       : (it.status === "error" ? '<span class="gen-note err" style="margin:0;font-size:11px">✗ ' + (res.error || "").slice(0, 50) + '</span>' : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>');
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="adpost-tick" value="' + it.id + '"></td>' +
-      '<td style="min-width:140px"><img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">' +
+      '<td style="min-width:140px">' +
+        (it.media_type === "video" && it.video_url
+          ? '<video src="' + it.video_url + '" controls style="width:64px;height:80px;object-fit:cover;border-radius:8px;background:#000" title="Video ads"></video><div class="hint" style="font-size:9px;color:var(--violet)">🎬 video</div>'
+          : '<img class="adpost-img" src="' + it.image_url + '" data-full="' + it.image_url + '" title="Bấm để phóng to" style="width:56px;height:70px;object-fit:cover;border-radius:8px;cursor:zoom-in" loading="lazy">') +
         (it.product_img ? '<img class="adpost-pimg" src="' + it.product_img + '" title="Ảnh sản phẩm gắn với bài này" style="width:40px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--violet);margin:2px 0 0 4px;vertical-align:top">' : '') +
         '<div class="hint" style="font-size:10px;line-height:1.2;margin-top:2px;' + (it.product ? '' : 'color:#c0392b') + '">' + (it.product ? '📦 ' + (it.product || "").replace(/</g, "&lt;").slice(0, 36) : '⚠️ chưa gắn SP') + '</div>' +
         '<button class="btn-ghost sm adpost-prodbtn" style="font-size:11px;margin-top:3px;padding:3px 8px">📦 ' + (it.product ? "Đổi SP" : "Chọn SP") + '</button></td>' +

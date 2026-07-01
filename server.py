@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-kids-percount"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-upload-media-ads"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2963,16 +2963,37 @@ def agent_run_start(steps, product=None):
 
 
 # ===================== ĐẨY 1 ẢNH -> FB ADS (core dùng lại cho batch) =====================
+def fb_upload_advideo(video_url):
+    """Upload video lên ad account qua file_url (FB tự tải về) -> trả video_id."""
+    st, d = fb_graph("POST", "act_%s/advideos" % FB_AD_ACCOUNT_ID, {"file_url": video_url})
+    if st != 200 or not d.get("id"):
+        raise RuntimeError("Upload video lên FB lỗi: " + fb_err(d))
+    return d["id"]
+
+
+def _wait_video_ready(video_id, tries=40, gap=4):
+    """Chờ FB xử lý xong video trước khi tạo creative."""
+    for _ in range(tries):
+        st, d = fb_graph("GET", "%s" % video_id, {"fields": "status"})
+        vs = ((d.get("status") or {}).get("video_status")) or ""
+        if vs == "ready":
+            return True
+        if vs == "error":
+            return False
+        time.sleep(gap)
+    return True   # timeout -> vẫn thử tạo (thường FB đã xong)
+
+
 def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, age_max,
                      genders, countries, cta, campaign_id="", adset_id="",
-                     campaign_name="", adset_name="", status="PAUSED"):
+                     campaign_name="", adset_name="", status="PAUSED", video_url=""):
     """Tạo Campaign/AdSet/Creative/Ad. status=ACTIVE để CHẠY NGAY (tiêu tiền) hoặc PAUSED.
     Trả {ok, ad_id, campaign_id, adset_id, manager_url|error}."""
     status = "ACTIVE" if str(status).upper() == "ACTIVE" else "PAUSED"
     if not fb_configured():
         return {"ok": False, "error": "Chưa cấu hình Facebook Ads."}
-    if not img:
-        return {"ok": False, "error": "Thiếu ảnh ads."}
+    if not img and not video_url:
+        return {"ok": False, "error": "Thiếu ảnh/video ads."}
     link = (link or "").strip()
     if not link:
         return {"ok": False, "error": "Thiếu link đích."}
@@ -2998,7 +3019,11 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
     campaign_name = (campaign_name or "").strip() or adname
     adset_name = (adset_name or "").strip() or adname
     try:
-        image_hash = fb_upload_adimage(img)
+        image_hash = fb_upload_adimage(img) if img else None
+        video_id = None
+        if video_url:
+            video_id = fb_upload_advideo(video_url)
+            _wait_video_ready(video_id)
         if not campaign_id:
             st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
                              {"name": campaign_name, "objective": "OUTCOME_TRAFFIC",
@@ -3022,9 +3047,16 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
                 raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
             adset_id = a["id"]
         aid = adset_id
-        story = {"page_id": FB_PAGE_ID, "link_data": {
-            "image_hash": image_hash, "link": link, "message": message, "name": headline,
-            "call_to_action": {"type": cta, "value": {"link": link}}}}
+        if video_id:
+            vdata = {"video_id": video_id, "message": message, "title": headline,
+                     "call_to_action": {"type": cta, "value": {"link": link}}}
+            if image_hash:
+                vdata["image_hash"] = image_hash    # thumbnail (ảnh SP)
+            story = {"page_id": FB_PAGE_ID, "video_data": vdata}
+        else:
+            story = {"page_id": FB_PAGE_ID, "link_data": {
+                "image_hash": image_hash, "link": link, "message": message, "name": headline,
+                "call_to_action": {"type": cta, "value": {"link": link}}}}
         st, cr = fb_graph("POST", "act_%s/adcreatives" % FB_AD_ACCOUNT_ID,
                           {"name": adname, "object_story_spec": json.dumps(story)})
         if st != 200:
@@ -3282,10 +3314,11 @@ def _adpost_push_worker(ids, gap, budget, age_min, age_max, genders, cta, fb_sta
         if not it:
             continue
         _adpost_set(pid, status="pushing")
-        img, _ = fetch_image_bytes(it.get("image_url", ""))
+        img, _ = fetch_image_bytes(it.get("image_url", ""))   # ảnh (hoặc thumbnail cho video)
+        vurl = (it.get("video_url") or "").strip()             # video ad nếu có
         r = fb_ads_push_core(img, it.get("link"), it.get("caption"), it.get("title"),
                              it.get("title"), budget, age_min, age_max, genders, ["VN"], cta,
-                             campaign_id=cur_camp, adset_id=cur_aset, status=fb_status)
+                             campaign_id=cur_camp, adset_id=cur_aset, status=fb_status, video_url=vurl)
         if r.get("ok"):
             # ad sau dồn vào CÙNG chiến dịch + nhóm vừa tạo (nếu ban đầu chưa chọn)
             cur_camp = cur_camp or r.get("campaign_id") or ""
@@ -5282,6 +5315,29 @@ def gallery_add(b64, meta):
     return item
 
 
+_MEDIA_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg", "image/webp": "webp",
+              "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov"}
+
+
+def save_media_file(data_url):
+    """Lưu ảnh/video (dataURL) vào gallery -> (rel_url, media_type, bytes). None nếu lỗi."""
+    m = re.match(r"data:([^;]+);base64,(.*)$", data_url or "", re.S)
+    if not m:
+        return None, None, None
+    mime, b64 = m.group(1).lower(), m.group(2)
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        return None, None, None
+    ext = _MEDIA_EXT.get(mime) or (mime.split("/")[-1][:4] if "/" in mime else "bin")
+    mtype = "video" if mime.startswith("video") else "image"
+    os.makedirs(GALLERY_DIR, exist_ok=True)
+    fn = "u%d.%s" % (int(time.time() * 1000), ext)
+    with open(os.path.join(GALLERY_DIR, fn), "wb") as f:
+        f.write(raw)
+    return "/gallery/%s" % fn, mtype, raw
+
+
 # --------------------------------------------------------------------------- #
 #  Tài khoản (đăng ký / đăng nhập) — SQLite + PBKDF2
 # --------------------------------------------------------------------------- #
@@ -5995,6 +6051,56 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fbpost-hist-del":
             fbpost_hist_delete((body.get("id") or "").strip())
             return self.json(200, {"ok": True})
+        if path == "/api/adpost-upload-media":
+            host = self.headers.get("Host") or ""
+
+            def absu3(u):
+                if not u:
+                    return ""
+                return u if str(u).startswith("http") else "https://%s%s" % (host, u if u.startswith("/") else "/" + u)
+            rel, mtype, raw = save_media_file(body.get("media") or "")
+            if not rel:
+                return self.json(400, {"error": "Media không hợp lệ — cần ảnh hoặc video."})
+            media_abs = absu3(rel)
+            prod = body.get("product") or {}
+            link = (prod.get("link") or body.get("link") or "").strip()
+            title = ((prod.get("title") or body.get("title") or "Áo Thun In Tên").strip())[:100]
+            prod_img = (prod.get("image") or "").strip()
+            caption = (body.get("caption") or "").strip()
+            if not caption:   # TỰ GEN bài post bằng AI
+                try:
+                    pib = None
+                    if prod_img:
+                        pib, _ = fetch_image_bytes(prod_img)
+                    if not pib and mtype == "image":
+                        pib = raw
+                    info = "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. Tên SP: %s. Link: %s" % (title, link)
+                    d = product_content(pib, info)
+                    caption = (d.get("facebook") or "").strip()
+                except Exception:
+                    caption = ""
+                if not caption:
+                    caption = "🔥 %s — áo thun in tên cá nhân hoá, chất vải đẹp, in sắc nét.\n👉 Đặt ngay!" % title
+                if link and link not in caption:
+                    caption += "\n\n🛒 MUA NGAY: " + link
+            if mtype == "video":
+                image_url = absu3(prod_img)   # thumbnail = ảnh SP
+                video_url = media_abs
+            else:
+                image_url = media_abs
+                video_url = ""
+            item = {
+                "id": hashlib.md5(("%s%s" % (time.time(), media_abs)).encode()).hexdigest()[:12],
+                "title": title, "caption": caption, "link": link,
+                "product": title, "product_img": absu3(prod_img),
+                "image_url": image_url, "video_url": video_url, "media_type": mtype,
+                "status": "draft", "created": time.time(),
+            }
+            with _adpost_lock:
+                items = adpost_load()
+                items.insert(0, item)
+                adpost_save(items)
+            return self.json(200, {"ok": True, "id": item["id"], "item": item})
         if path == "/api/adpost-add":
             host = self.headers.get("Host") or ""
 
