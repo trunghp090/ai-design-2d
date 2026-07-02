@@ -53,6 +53,7 @@
     <button class="app-tab" data-app="recolor" data-group="design">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao" data-group="design">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="design">✨ Tạo design</button>
+    <button class="app-tab" data-app="psn" data-group="design">🎁 Personalized</button>
     <button class="app-tab" data-app="namedes" data-group="design">✍️ Design tên</button>
     <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
@@ -958,6 +959,81 @@
         </div>
         <div id="dsResults" class="fp-creations grid"></div>
         <div class="gallery-empty" id="dsEmpty">Chọn phong cách rồi bấm Tạo mẫu đẹp.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: 🎁 PERSONALIZED (mọi dạng cá nhân hoá) ===== -->
+  <section class="auto-view app-view hidden" id="view-psn">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🎁 Personalized</h2>
+        <p class="panel-desc" style="margin:0 0 12px">Chuyên quà <b>cá nhân hoá</b>: nhập vai trò + tên + ngày → chọn dạng (hoặc để <b>3 AI</b> phân tích data shop &amp; tự chọn) → ra mẫu.</p>
+
+        <div class="auto-row">
+          <div>
+            <label class="fp-label">Tặng ai / vai trò</label>
+            <select id="psnRole" class="input">
+              <option value="DAD">👨 Bố (DAD / PAPA)</option>
+              <option value="MAMA">👩 Mẹ (MAMA / MOM)</option>
+              <option value="GRANDPA">👴 Ông</option>
+              <option value="GRANDMA">👵 Bà</option>
+              <option value="COUPLE">💑 Couple / vợ chồng</option>
+              <option value="FAMILY">👨‍👩‍👧‍👦 Gia đình</option>
+              <option value="BABY">👶 Em bé</option>
+              <option value="BESTIE">👯 Bạn thân</option>
+              <option value="DOG MOM">🐶 Chủ thú cưng</option>
+              <option value="TEACHER">👩‍🏫 Thầy cô</option>
+              <option value="">✏️ Khác (ghi ở ô ghi chú)</option>
+            </select>
+          </div>
+          <div>
+            <label class="fp-label">Dịp (tuỳ chọn)</label>
+            <input type="text" id="psnOccasion" class="input" placeholder="sinh nhật, Father's Day, kỷ niệm cưới…" />
+          </div>
+        </div>
+
+        <label class="fp-label" style="margin-top:10px">🏷️ Tên (cách nhau dấu phẩy)</label>
+        <input type="text" id="psnNames" class="input" placeholder="VD: Hữu Phước, Bé Na, Bé Bo" />
+
+        <div class="auto-row" style="margin-top:10px">
+          <div>
+            <label class="fp-label">Ngày / năm (tuỳ chọn)</label>
+            <input type="text" id="psnDate" class="input" placeholder="VD: 2026 · 12.08.2003" />
+          </div>
+          <div>
+            <label class="fp-label">Số mẫu</label>
+            <select id="psnCount" class="input">
+              <option value="3">3 mẫu</option><option value="1">1 mẫu</option><option value="2">2 mẫu</option>
+              <option value="4">4 mẫu</option><option value="6">6 mẫu</option><option value="8">8 mẫu</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="fp-label" style="margin-top:10px">✏️ Ghi chú thêm (tuỳ chọn)</label>
+        <input type="text" id="psnExtra" class="input" placeholder="VD: tông đỏ đô, có hoa, phong cách vintage…" />
+
+        <button type="button" id="psnAutoAi" class="btn-auto-style" style="margin-top:12px">🧠 3 AI phân tích &amp; tự chọn dạng</button>
+        <p class="hint" id="psnAiHint" style="margin-top:4px">Claude + ChatGPT + Gemini cùng đọc data shop (mẫu đã tạo + SP đang bán) rồi bỏ phiếu chọn dạng hợp nhất.</p>
+
+        <label class="fp-label" style="margin-top:12px">🎁 Các dạng personalized — chọn 1 hoặc nhiều</label>
+        <div class="color-chips" id="psnStyles"></div>
+
+        <button class="btn-primary" id="psnRunBtn" style="margin-top:14px">🎁 Tạo mẫu personalized</button>
+        <div class="batch-progress hidden" id="psnProgress" style="margin-top:8px">
+          <div class="bp-bar"><div class="bp-fill" id="psnBar"></div></div>
+          <span id="psnProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="psnNote"></p>
+      </aside>
+
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">🎁 Mẫu personalized <span id="psnCountBadge" class="fp-count"></span></h3>
+          <span class="hint" id="psnAiUsed" style="margin:0"></span>
+        </div>
+        <div id="psnResults" class="fp-creations grid"></div>
+        <div class="gallery-empty" id="psnEmpty">Nhập vai trò + tên → chọn dạng (hoặc bật 🧠 3 AI) → bấm Tạo.</div>
       </section>
     </div>
   </section>

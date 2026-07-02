@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-personalized-styles"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-tab"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5004,6 +5004,316 @@ def gen_design(images, mode, user_prompt, size, transparent, override=None, qual
     return b64, p
 
 
+# ===================== TAB 🎁 PERSONALIZED (tổng hợp MỌI dạng cá nhân hoá) =====================
+# Catalog đầy đủ các archetype personalized của thị trường (Etsy/Amazon best-seller research):
+# name-centric, photo-layout, date/stats, role, family, couple, pet, kỷ niệm...
+GEMINI_TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash").strip()
+
+
+def gemini_text(system, user, max_tokens=1500):
+    """Gemini text-only (generateContent) -> text. Lỗi nếu chưa có key."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Chưa cấu hình GEMINI_API_KEY")
+    payload = {"system_instruction": {"parts": [{"text": system}]},
+               "contents": [{"role": "user", "parts": [{"text": user}]}],
+               "generationConfig": {"maxOutputTokens": max_tokens}}
+    url = ("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
+           % GEMINI_TEXT_MODEL)
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("x-goog-api-key", GEMINI_API_KEY)
+    res = json.loads(_openai_call(req, timeout=120))
+    for cand in res.get("candidates", []):
+        txt = "".join(p.get("text", "") for p in ((cand.get("content") or {}).get("parts") or []))
+        if txt.strip():
+            return txt.strip()
+    raise RuntimeError("Gemini không trả text (%s)" % json.dumps(res)[:150])
+
+
+PSN_STYLES = {
+    # --- NHÓM QUAN HỆ / VAI TRÒ ---
+    "belongs_to": ("💞 Belongs to (vai trò + tên người thân)",
+        "personalized relationship-gift t-shirt: a BIG bold friendly role word '{role}' with a small "
+        "heart accent, an elegant small 'belongs to' script line under it, then the names {names} in a "
+        "row separated by tiny hearts; warm heartfelt family-gift vibe, clean 2 colours, generous space"),
+    "repeated_role": ("🔁 Vai trò lặp (GIRL DAD / BOY MOM)",
+        "modern statement t-shirt: the short phrase '{role}' REPEATED 4 times stacked left-aligned "
+        "filling the print, bold heavy condensed sans-serif, ONE line knocked-out/outlined for "
+        "contrast, a tiny hand-drawn arrow or smiley accent; strong monochrome, streetwear confident"),
+    "club_names": ("🏛️ Club + danh sách tên (COOL DADS CLUB)",
+        "minimal 'club' back-print t-shirt: big arched or stacked text '{role} CLUB', a 'PROUD MEMBER "
+        "OF THE' kicker line above, '{date}' line, then the member names {names} centered, and a small "
+        "'POWERED BY LOVE' tagline + tiny star emblem; tidy centered lockup, single cream colour, premium"),
+    "est_badge": ("🎖️ EST badge (BEST DAD EVER)",
+        "vintage badge gift t-shirt: bold retro serif text '{role}' with 'EST.' and '{date}', the names "
+        "{names} in a small row underneath, stars and thin decorative rules around; warm distressed "
+        "2-3 colour vintage americana badge, heartfelt gift vibe"),
+    "mama_script_kids": ("💐 Script + tên các bé (Mama/Papa)",
+        "soft modern gift t-shirt: a large flowing elegant script word '{role}', with the children's "
+        "names {names} in small delicate type underneath like little charms (tiny hearts between), one "
+        "small line icon accent; warm neutral palette (cream, sand, terracotta), calm heartfelt"),
+    "checklist_crew": ("☑️ Crew checklist (DAD'S CREW + tick tên)",
+        "playful crew-list t-shirt: heading '{role}'S CREW' in bold varsity type, below it a hand-drawn "
+        "CHECKLIST of the names {names}, each with a ticked checkbox; fun marker-pen style, 2 colours, "
+        "cute family humour"),
+    # --- NHÓM TÊN / TYPOGRAPHY LOCKUP ---
+    "varsity_name": ("🏈 Varsity tên + EST (kinh điển)",
+        "classic custom-name t-shirt: the name '{name1}' in bold arched varsity/collegiate lettering "
+        "with a layered outline, an 'EST. {date}' tab under it, small stars; sporty 2-colour palette, "
+        "clean commercial custom-name best-seller layout"),
+    "luxury_lockup": ("👑 Luxury serif + chữ ký (lockup sang)",
+        "upscale luxury back-print lockup: the name '{name1}' HUGE in high-contrast fashion serif "
+        "capitals, an elegant script signature version of a short nickname overlapping it, small "
+        "spaced-uppercase support lines 'CUSTOM SOCIETY PERSONAL SERIES' and 'LIMITED EDITION DESIGNED "
+        "WITH PURPOSE', the date '{date}' in fine italic, a tiny oval star emblem; ONE deep colour on "
+        "clean background, expensive editorial feel"),
+    "name_tiles": ("🔤 Chữ ghép ô Scrabble",
+        "cosy handmade-gift t-shirt: the name '{name1}' spelled in wooden SCRABBLE letter tiles (each "
+        "letter in its own square tile with a tiny point number), a small heart tile at the end and "
+        "'{date}' small underneath; warm cream/wood tones, homely family aesthetic"),
+    "definition_dict": ("📖 Định nghĩa từ điển (Name /noun/)",
+        "dictionary-definition t-shirt: the name '{name1}' as a dictionary entry — bold lowercase "
+        "headword, phonetic spelling, '(n.)' tag, then 2 short witty heartfelt definition lines "
+        "mentioning {names}; elegant editorial typography, monochrome, smart minimal"),
+    "graffiti_name": ("🎨 Tên graffiti / airbrush",
+        "bold graffiti custom-name t-shirt: the name '{name1}' in wildstyle airbrush graffiti "
+        "lettering with outline glow, drips and a couple of stars, '{date}' as a small tag; vivid but "
+        "controlled 3-colour palette, urban energetic"),
+    # --- NHÓM ẢNH (chừa khung ghép ảnh thật) ---
+    "photo_in_text": ("🖼️ Ảnh TRONG chữ (PAPA photo letters)",
+        "photo-personalised t-shirt LAYOUT: the word '{role}' in HUGE thick letters where each letter "
+        "is an EMPTY photo placeholder frame (clean white frame with a small camera icon inside, "
+        "clearly meant for real photos to be inserted later), the names {names} small underneath; "
+        "modern clean gift layout, leave every frame EMPTY, no faces"),
+    "photo_collage_grid": ("🖼️ Khung collage + chữ (BEST DAD)",
+        "photo-collage gift t-shirt LAYOUT: bold heading '{role}' at top, below it a neat GRID of 4 "
+        "empty photo placeholder frames (rounded rectangles with small camera icons, for real photos "
+        "later), the names {names} and '{date}' under the grid; clean heartfelt layout, frames EMPTY"),
+    "photo_frame_heart": ("💗 Khung ảnh trái tim + tên",
+        "romantic photo-gift t-shirt LAYOUT: one large EMPTY heart-shaped photo placeholder frame "
+        "(dashed outline + small camera icon), the names {names} in elegant script under it with "
+        "'{date}'; soft romantic palette, frame EMPTY for a real photo later"),
+    # --- NHÓM NGÀY / SỐ LIỆU ---
+    "birth_stats": ("👶 Số liệu em bé (birth stats)",
+        "newborn keepsake t-shirt: the baby name '{name1}' in cute rounded lettering, with a neat "
+        "stats block — birth date '{date}', weight, height, time placeholders in tidy small type — a "
+        "tiny moon/star/bear illustration; soft pastel baby palette, sweet keepsake layout"),
+    "anniversary_couple": ("💍 Kỷ niệm couple (names + EST date)",
+        "couple anniversary t-shirt: the two names {names} joined by an elegant '&', 'EST. {date}' "
+        "underneath with two interlocked rings or a small heart, a short romantic tagline line; "
+        "sophisticated serif + script mix, single deep colour, timeless wedding-gift feel"),
+    "zodiac_birth": ("♈ Cung hoàng đạo / hoa tháng sinh",
+        "celestial birth-gift t-shirt: the name '{name1}' with their zodiac constellation line-art, "
+        "moon phases arc, a birth-flower stem, and '{date}'; delicate thin-line mystical illustration, "
+        "1-2 colours, elegant boho aesthetic"),
+    "coordinates_place": ("📍 Toạ độ / bản đồ nơi đặc biệt",
+        "location-gift t-shirt: the name '{name1}' with a map-pin icon, GPS coordinates line, a "
+        "minimal city-skyline or road line-art and '{date}'; clean travel-memory layout, 2 colours"),
+    "sound_wave": ("🎵 Sóng âm 'I love you' + tên",
+        "soundwave gift t-shirt: an audio WAVEFORM graphic of a spoken phrase with a small play "
+        "button, caption text with the names {names} and '{date}' under it; modern minimal, one "
+        "accent colour, sentimental tech-gift vibe"),
+    # --- NHÓM GIA ĐÌNH / THÚ CƯNG / TƯỞNG NHỚ ---
+    "family_tree": ("🌳 Cây gia đình + tên",
+        "family-tree gift t-shirt: a hand-drawn tree with the family names {names} on its branches or "
+        "leaves, 'FAMILY {date}' in warm lettering under the roots; organic hand-illustrated style, "
+        "earthy 2-3 colours, heartfelt reunion vibe"),
+    "heartbeat_family": ("💓 Nhịp tim + tên",
+        "heartbeat gift t-shirt: an EKG heartbeat line that runs across the chest and forms a small "
+        "heart, the names {names} spaced along the line, '{date}' small; clean medical-minimal "
+        "romantic style, 1-2 colours"),
+    "pet_portrait": ("🐾 Thú cưng + tên (pet mom/dad)",
+        "pet-lover t-shirt: a cute illustrated PET portrait (dog or cat head, friendly cartoon style) "
+        "with the pet name '{name1}' in playful lettering, paw prints and a small '{role}' tagline "
+        "('DOG MOM' / 'CAT DAD' style); warm 2-3 colours, adorable and clean"),
+    "memorial": ("🕊️ Tưởng nhớ (In loving memory)",
+        "respectful memorial t-shirt: 'IN LOVING MEMORY' small caps arc, the name '{name1}' in "
+        "elegant script, '{date}' dates line, a gentle dove/wings/halo line-art and a short loving "
+        "line; dignified serif + script, single colour, calm and tasteful"),
+    "team_number": ("🎽 Số áo + tên (jersey back)",
+        "sports jersey back-print: the name '{name1}' arched across the shoulders in athletic block "
+        "letters above a HUGE jersey number from '{date}'; classic 2-colour team style, bold clean"),
+}
+
+_PSN_BG = (" Isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key "
+           "background (removable backdrop, ONE uniform colour, keep the artwork's own colours "
+           "unchanged, NO magenta inside the artwork), print-ready, no t-shirt, no mockup, no person, "
+           "no watermark.")
+
+
+def psn_build_prompt(key, role, names, date, extra=""):
+    label, tpl = PSN_STYLES[key]
+    names = [n.strip() for n in (names or []) if n and n.strip()] or ["Minh Anh"]
+    ctx = {"role": (role or "DAD").strip() or "DAD",
+           "names": ", ".join(names), "name1": names[0],
+           "date": (date or "2026").strip() or "2026"}
+    p = tpl.format(**ctx)
+    if extra:
+        p += ". Extra requirements: " + extra.strip()[:300]
+    p += (". Every name and word must be spelled EXACTLY as given, with correct Vietnamese "
+          "diacritics, crisp and clearly readable.")
+    return p + _PSN_BG
+
+
+def _psn_shop_data(limit=40):
+    """Nghiên cứu DATA của shop: nhãn design đã tạo (gallery) + tên SP Shopify."""
+    labels, titles = [], []
+    try:
+        for it in gallery_load()[:250]:
+            if it.get("mode") in ("design", "namedesign", "personalize", "auto", "batch") and it.get("prompt"):
+                labels.append(str(it["prompt"])[:60])
+            if len(labels) >= limit:
+                break
+    except Exception:
+        pass
+    try:
+        if shopify_configured():
+            st, d = shopify_api("GET", "products.json?limit=30&fields=title")
+            if st == 200:
+                titles = [str(p.get("title", ""))[:60] for p in (d or {}).get("products", [])]
+    except Exception:
+        pass
+    return labels, titles
+
+
+_PSN_AN_SYS = ("Bạn là chuyên gia thiết kế áo thun PERSONALIZED (quà tặng cá nhân hoá) bán trên "
+               "Etsy/Shopee. Nhiệm vụ: chọn các DẠNG thiết kế hợp nhất cho yêu cầu + dữ liệu shop, và "
+               "đề xuất tối đa 1 concept MỚI. Trả JSON THUẦN đúng schema, không markdown.")
+
+
+def _psn_analyze_one(engine, user_msg):
+    """Hỏi 1 AI -> {picks:[], custom:[{title,prompt}], reason}. Lỗi -> None."""
+    try:
+        if engine == "claude":
+            raw = claude_text(_PSN_AN_SYS, user_msg + " Chỉ trả JSON thuần.", 1200)
+        elif engine == "gemini":
+            raw = gemini_text(_PSN_AN_SYS, user_msg + " Chỉ trả JSON thuần, không markdown.", 1200)
+        else:  # gpt
+            raw = openai_chat([{"role": "system", "content": _PSN_AN_SYS},
+                               {"role": "user", "content": user_msg}],
+                              json_mode=True, max_tokens=1200, model=BEST_TEXT_MODEL)
+        d = json.loads(_strip_json_fence(raw))
+        picks = [k for k in (d.get("picks") or []) if k in PSN_STYLES][:6]
+        customs = []
+        for c in (d.get("custom") or [])[:1]:
+            t, p = str(c.get("title", "")).strip()[:60], str(c.get("prompt", "")).strip()[:800]
+            if p:
+                customs.append({"title": t or "Concept AI", "prompt": p})
+        return {"picks": picks, "custom": customs, "reason": str(d.get("reason", ""))[:200]}
+    except Exception:
+        return None
+
+
+def psn_analyze_multi(role, names, date, occasion, extra, n):
+    """3 AI (Claude + GPT + Gemini) cùng phân tích -> gộp phiếu chọn style + concept mới."""
+    catalog = "\n".join("- %s: %s" % (k, v[0]) for k, v in PSN_STYLES.items())
+    labels, titles = _psn_shop_data()
+    user_msg = (
+        "YÊU CẦU: quà personalized cho vai trò/quan hệ '%s', dịp '%s', tên: %s, ngày/năm: %s. %s\n"
+        "DANH SÁCH DẠNG (key: mô tả):\n%s\n"
+        "DỮ LIỆU SHOP (mẫu đã làm): %s\nSẢN PHẨM ĐANG BÁN: %s\n"
+        "Chọn %d dạng HỢP NHẤT (ưu tiên dễ bán, hợp dữ liệu shop) + tối đa 1 concept mới. Trả JSON: "
+        '{"picks":["key1","key2"...],"custom":[{"title":"...","prompt":"English image prompt"}],'
+        '"reason":"1 câu tiếng Việt"}'
+        % (role or "?", occasion or "?", ", ".join(names) or "?", date or "?",
+           ("Ghi chú: " + extra) if extra else "",
+           catalog, "; ".join(labels[:25]) or "(chưa có)", "; ".join(titles[:20]) or "(chưa có)", n))
+    engines = []
+    if ANTHROPIC_API_KEY:
+        engines.append("claude")
+    if API_KEY:
+        engines.append("gpt")
+    if GEMINI_API_KEY:
+        engines.append("gemini")
+    results = {}
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        futs = {e: ex.submit(_psn_analyze_one, e, user_msg) for e in engines}
+        for e, f in futs.items():
+            try:
+                results[e] = f.result(timeout=150)
+            except Exception:
+                results[e] = None
+    votes, customs, used, reasons = {}, [], [], []
+    for e in engines:
+        r = results.get(e)
+        if not r:
+            continue
+        used.append(e)
+        for i, k in enumerate(r["picks"]):
+            votes[k] = votes.get(k, 0) + (10 - i)   # phiếu có trọng số theo thứ hạng
+        customs.extend(r["custom"])
+        if r.get("reason"):
+            reasons.append("%s: %s" % (e, r["reason"]))
+    ordered = [k for k, _ in sorted(votes.items(), key=lambda kv: -kv[1])]
+    return ordered, customs[:2], used, reasons
+
+
+def run_psn_job(job_id, role, names, date, occasion, styles, auto_ai, n, size, extra):
+    """Job nền: (tuỳ chọn) 3 AI phân tích -> build concepts -> gen song song -> gallery."""
+    concepts, note = [], ""
+    try:
+        if auto_ai or not styles:
+            picks, customs, used, reasons = psn_analyze_multi(role, names, date, occasion, extra, n)
+            base = picks or list(PSN_STYLES.keys())[:n]
+            for k in base[:max(1, n - len(customs))]:
+                concepts.append({"title": PSN_STYLES[k][0],
+                                 "prompt": psn_build_prompt(k, role, names, date, extra)})
+            for c in customs:
+                concepts.append({"title": "🧠 " + c["title"],
+                                 "prompt": c["prompt"] + _PSN_BG})
+            concepts = concepts[:n]
+            note = "🧠 AI phân tích: " + (" + ".join(used) if used else "không AI nào trả lời") + \
+                   (" · " + " | ".join(reasons[:2]) if reasons else "")
+        else:
+            i = 0
+            while len(concepts) < n:
+                k = styles[i % len(styles)]
+                v = "" if i < len(styles) else (" Variation %d: a fresh different layout of the same idea." % (i // len(styles) + 1))
+                concepts.append({"title": PSN_STYLES[k][0],
+                                 "prompt": psn_build_prompt(k, role, names, date, extra) + v})
+                i += 1
+    except Exception as e:
+        with _batch_lock:
+            if BATCH_JOBS.get(job_id):
+                BATCH_JOBS[job_id]["errors"].append("Phân tích lỗi: %s" % e)
+                BATCH_JOBS[job_id]["finished"] = True
+        return
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(concepts) or 1
+        if note:
+            job["note"] = note
+
+    def work(c):
+        try:
+            b64 = openai_generate(c["prompt"], size)
+            if HAS_PIL:
+                b64 = strip_bg_strong_b64(b64)
+            g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
+            return {"image": b64, "title": c["title"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": c["title"]}
+        except Exception as e:
+            return {"error": str(e), "title": c["title"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 # ===================== TAB DESIGN TÊN CÁ NHÂN HOÁ (Custom-name T-shirt niche) =====================
 # Các style ĐẸP & PHỔ BIẾN của niche áo in tên (curated từ thị trường custom-name tee)
 NAMEDES_STYLES = {
@@ -5651,6 +5961,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"name": nm, "stamp": stamp})
         if path == "/api/name-styles":
             return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in NAMEDES_STYLES.items()]})
+        if path == "/api/psn-styles":
+            return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in PSN_STYLES.items()],
+                                   "ai": {"claude": bool(ANTHROPIC_API_KEY), "gpt": bool(API_KEY),
+                                          "gemini": bool(GEMINI_API_KEY)}})
         if path == "/api/autopost-status":
             cfg = autopost_load()
             nxt = float(cfg.get("next_at", 0))
@@ -5812,7 +6126,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(404, {"error": "Không thấy job"})
                 return self.json(200, {"total": job["total"], "done": job["done"],
                                        "finished": job["finished"], "items": job["items"],
-                                       "errors": job["errors"]})
+                                       "errors": job["errors"], "note": job.get("note", "")})
 
         # static: gallery, mockups, public
         if path.startswith("/gallery/"):
@@ -6288,6 +6602,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_pipe_edit(body)
         if path == "/api/design-gen":
             return self.handle_design_gen(body)
+        if path == "/api/psn-gen":
+            return self.handle_psn_gen(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -6639,6 +6955,30 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_psn_gen(self, body):
+        """Tab 🎁 Personalized: gen theo style đã chọn HOẶC 3 AI (Claude+GPT+Gemini) tự phân tích."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        role = (body.get("role") or "").strip()[:60]
+        occasion = (body.get("occasion") or "").strip()[:80]
+        date = (body.get("date") or "").strip()[:40]
+        extra = (body.get("extra") or "").strip()[:400]
+        names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:8]
+        styles = [k for k in (body.get("styles") or []) if k in PSN_STYLES][:12]
+        auto_ai = bool(body.get("auto_ai"))
+        n = max(1, min(int(body.get("n", 3) or 3), 8))
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        if not auto_ai and not styles:
+            return self.json(400, {"error": "Chọn ít nhất 1 dạng, hoặc bật 🧠 3 AI tự phân tích."})
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "p%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_psn_job,
+                         args=(job_id, role, names, date, occasion, styles, auto_ai, n, size, extra),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_design_gen(self, body):
         """Tạo design: theo phong cách đã chọn (trộn), HOẶC theo ẢNH THAM CHIẾU (AI tự nhận style)."""

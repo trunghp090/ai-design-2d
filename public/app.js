@@ -685,6 +685,7 @@ function showApp(app) {
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
+  document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
   document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
@@ -708,6 +709,7 @@ function showApp(app) {
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
+  if (app === "psn") psnInit();
   if (app === "namedes") namedesInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
@@ -2608,6 +2610,126 @@ $("dsDownloadAll").onclick = async () => {
     await new Promise(r => setTimeout(r, 350));
   }
 };
+
+/* =====================================================================
+   TAB 🎁 PERSONALIZED — mọi dạng cá nhân hoá, 3 AI (Claude+GPT+Gemini) phân tích
+   ===================================================================== */
+let psnInited = false, psnPicked = new Set(), psnAuto = false, psnItems = [], psnJobs = [], psnPollTimer = null;
+function psnInit() {
+  if (psnInited) return; psnInited = true;
+  psnLoadStyles();
+  $("psnAutoAi").onclick = () => {
+    psnAuto = !psnAuto;
+    $("psnAutoAi").textContent = psnAuto ? "🧠 3 AI phân tích: ĐANG BẬT (bấm để tắt)" : "🧠 3 AI phân tích & tự chọn dạng";
+    $("psnAutoAi").classList.toggle("on", psnAuto);
+  };
+  $("psnRunBtn").onclick = psnGenerate;
+}
+async function psnLoadStyles() {
+  try {
+    const d = await (await fetch("/api/psn-styles")).json();
+    const box = $("psnStyles"); box.innerHTML = "";
+    (d.styles || []).forEach(s => {
+      const el = document.createElement("div");
+      el.className = "cchip" + (psnPicked.has(s.key) ? " on" : "");
+      el.innerHTML = s.label + ' <span class="tick">✓</span>';
+      el.onclick = () => { if (psnPicked.has(s.key)) psnPicked.delete(s.key); else psnPicked.add(s.key); el.classList.toggle("on"); };
+      box.appendChild(el);
+    });
+    const ai = d.ai || {};
+    const on = ["claude", "gpt", "gemini"].filter(k => ai[k]);
+    $("psnAiHint").textContent = "AI sẵn sàng: " + (on.length ? on.map(k => ({ claude: "Claude", gpt: "ChatGPT", gemini: "Gemini" })[k]).join(" + ") : "chưa có key nào") + " — cùng đọc data shop rồi bỏ phiếu chọn dạng.";
+  } catch (e) {}
+}
+async function psnGenerate() {
+  const note = $("psnNote"); note.className = "gen-note"; note.textContent = "";
+  const names = ($("psnNames").value || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (!psnAuto && !psnPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 dạng, hoặc bật 🧠 3 AI tự phân tích."; return; }
+  const btn = $("psnRunBtn"); btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳ Đang tạo…";
+  $("psnProgress").classList.remove("hidden");
+  try {
+    const r = await fetch("/api/psn-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: $("psnRole").value, occasion: $("psnOccasion").value, names: names,
+        date: $("psnDate").value, extra: $("psnExtra").value, styles: [...psnPicked],
+        auto_ai: psnAuto, n: parseInt($("psnCount").value, 10) || 3, size: "portrait" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    psnJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    psnRender();
+    note.className = "gen-note ok";
+    note.textContent = psnAuto ? "⏳ 3 AI đang phân tích data + chọn dạng, rồi vẽ…" : "⏳ Đang vẽ " + d.total + " mẫu…";
+    if (!psnPollTimer) psnPollTimer = setInterval(psnPollAll, 2500);
+    psnPollAll();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = old;
+}
+async function psnPollAll() {
+  const active = psnJobs.filter(j => !j.finished);
+  let errs = [];
+  await Promise.all(active.map(async j => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      j.total = Math.max(j.total || 0, d.total || 0);
+      j.done = Math.max(j.done || 0, d.done || 0);
+      j.finished = !!d.finished;
+      if (d.note) $("psnAiUsed").textContent = d.note;
+      (d.items || []).forEach(it => {
+        const key = (it.gallery && it.gallery.id) || it.title;
+        if (!psnItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) psnItems.unshift(it);
+      });
+      (d.errors || []).forEach(e => errs.push(e));
+    } catch (e) {}
+  }));
+  psnRender();
+  const total = psnJobs.reduce((a, j) => a + (j.total || 0), 0);
+  const done = psnJobs.reduce((a, j) => a + (j.done || 0), 0);
+  const running = psnJobs.filter(j => !j.finished).length;
+  $("psnBar").style.width = (total ? Math.round(done / total * 100) : 0) + "%";
+  $("psnProgText").textContent = (running ? "⏳ đang chạy · " : "✓ xong · ") + done + "/" + total;
+  if (errs.length) { $("psnNote").className = "gen-note err"; $("psnNote").textContent = "⚠️ " + errs[0]; }
+  if (!running && psnPollTimer) {
+    clearInterval(psnPollTimer); psnPollTimer = null;
+    if (!errs.length) { $("psnNote").className = "gen-note ok"; $("psnNote").textContent = "✓ Xong! " + psnItems.length + " mẫu (đã lưu Lịch sử)."; }
+    if (typeof loadGallery === "function") loadGallery();
+  }
+}
+function psnRender() {
+  const grid = $("psnResults");
+  const pending = psnJobs.reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
+  $("psnCountBadge").textContent = psnItems.length ? "(" + psnItems.length + ")" : "";
+  if (!psnItems.length && !pending) { $("psnEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("psnEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  for (let i = 0; i < pending; i++) {
+    const c = document.createElement("div"); c.className = "gcard gcard-loading";
+    c.innerHTML = '<div class="ds-loading"><span class="ds-spin"></span><span>Đang tạo…</span></div>';
+    grid.appendChild(c);
+  }
+  psnItems.forEach(it => {
+    const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
+    const card = document.createElement("div"); card.className = "gcard";
+    card.innerHTML =
+      '<img src="' + src + '" loading="lazy" alt="">' +
+      '<div class="gmeta">' + (it.title || "Personalized") + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-use">👕 Lên áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+    const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
+    card.querySelector("img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "personalized");
+    card.querySelector(".b-use").onclick = async () => { const d = await b64(); showApp("lenao"); if (typeof lenaoAddDesigns === "function") lenaoAddDesigns(["data:image/png;base64," + d]); };
+    card.querySelector(".b-cut").onclick = async () => {
+      const d = await b64();
+      cutOpenManual(d, -1, (out) => { cutItems.unshift({ image: out }); showApp("cutout"); cutoutRender(); });
+    };
+    card.querySelector(".b-del").onclick = async () => {
+      if (!confirm("Xoá mẫu này?")) return;
+      try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
+      psnItems = psnItems.filter(x => x !== it); psnRender();
+      if (typeof loadGallery === "function") loadGallery();
+    };
+    grid.appendChild(card);
+  });
+}
 
 /* =====================================================================
    ĐẨY SHOPIFY: chọn ảnh đã setup -> AI viết tên/mô tả -> tạo sản phẩm
