@@ -2758,6 +2758,23 @@ function psnRender() {
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Personalized") + '</div>' +
       '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-use">👕 Lên áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+    // ✏️ PROMPT của mẫu (xem + copy)
+    if (it.prompt) {
+      const det = document.createElement("details");
+      det.style.cssText = "padding:5px 8px;border-top:1px solid var(--line);background:#fdfbfc";
+      const sum = document.createElement("summary");
+      sum.style.cssText = "cursor:pointer;font-size:11px;color:var(--violet);font-weight:600";
+      sum.textContent = "✏️ Prompt";
+      const pre = document.createElement("div");
+      pre.style.cssText = "font-size:10.5px;line-height:1.45;color:var(--muted);margin-top:4px;max-height:130px;overflow:auto;white-space:pre-wrap";
+      pre.textContent = it.prompt;
+      const cb = document.createElement("button");
+      cb.className = "btn-ghost sm"; cb.style.cssText = "margin-top:4px;font-size:11px;padding:3px 9px";
+      cb.textContent = "📋 Copy prompt";
+      cb.onclick = async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(it.prompt); cb.textContent = "✓ Đã copy"; setTimeout(() => cb.textContent = "📋 Copy prompt", 1200); } catch (err) {} };
+      det.appendChild(sum); det.appendChild(pre); det.appendChild(cb);
+      card.appendChild(det);
+    }
     const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
     card.querySelector("img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);

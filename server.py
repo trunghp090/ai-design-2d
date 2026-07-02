@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-photo-art"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-28art-prompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5185,6 +5185,48 @@ PSN_ART_STYLES = {
     "graffiti_art": ("🖌️ Graffiti/urban art",
         "an URBAN GRAFFITI street-art portrait — spray paint strokes, bold outline, drips, vivid "
         "controlled palette, energetic streetwear feel"),
+    "comic_manga": ("💥 Comic/Manga",
+        "a dynamic COMIC-BOOK / MANGA panel illustration — bold ink lines, screentone shading, "
+        "action-panel framing with a small speech bubble, high-energy graphic novel style"),
+    "tattoo_oldschool": ("⚓ Tattoo old-school",
+        "an AMERICAN TRADITIONAL old-school TATTOO flash design — bold black outlines, limited "
+        "red/gold/green palette, banner ribbon for the name, roses and classic tattoo ornaments"),
+    "ukiyoe": ("🌊 Tranh khắc gỗ Nhật (Ukiyo-e)",
+        "a Japanese UKIYO-E woodblock-print artwork — flat elegant colours, wave/cloud motifs, "
+        "traditional linework, vintage paper tone, Hokusai-inspired composition"),
+    "stained_glass": ("⛪ Kính màu (stained glass)",
+        "a STAINED-GLASS window artwork — bold black lead lines dividing luminous jewel-tone glass "
+        "pieces, radiant light effect, elegant sacred-art feel"),
+    "low_poly": ("🔷 Low-poly 3D",
+        "a modern LOW-POLY geometric portrait — the subject built from clean triangular facets, "
+        "smooth gradient palette, sharp contemporary digital-art style"),
+    "neon_synthwave": ("🌆 Neon Synthwave",
+        "an 80s SYNTHWAVE NEON portrait — glowing neon outline, pink-purple-cyan gradient, retro sun "
+        "and grid backdrop elements, chrome accents, retrofuturistic"),
+    "sticker_diecut": ("🏷️ Sticker die-cut",
+        "a glossy DIE-CUT STICKER style illustration — thick white sticker border around the "
+        "character, bold cel-shaded colours, playful sticker-bomb energy"),
+    "paper_cut": ("📄 Cắt giấy nhiều lớp",
+        "a LAYERED PAPER-CUT artwork — the subject built from stacked paper layers with soft drop "
+        "shadows between them, crafted handmade depth, harmonious palette"),
+    "cross_stitch": ("🧵 Thêu chữ thập (xu hướng Etsy)",
+        "a CROSS-STITCH EMBROIDERY pattern artwork — the subject rendered in tiny X stitches on a "
+        "fabric grid, cosy handmade craft look, warm homey palette"),
+    "crayon_kids": ("🖍️ Vẽ sáp màu trẻ thơ",
+        "an adorable CHILDREN'S CRAYON DRAWING — wobbly innocent lines, bright waxy crayon strokes, "
+        "sweet naive kid-art charm (like a drawing made by the child themself)"),
+    "silhouette_sunset": ("🌅 Bóng hoàng hôn",
+        "a SILHOUETTE artwork — the subject as a clean dark silhouette inside a circular warm SUNSET "
+        "gradient scene (sky bands, birds, landscape), emotional minimal poster style"),
+    "retro_poster": ("📢 Poster cổ động retro",
+        "a RETRO PROPAGANDA/TRAVEL POSTER artwork — bold flat shapes, dramatic heroic angle, "
+        "textured vintage print grain, limited 3-4 colour poster palette, big poster title lettering"),
+    "toy_figure": ("🧸 Mô hình đồ chơi vinyl",
+        "a cute collectible VINYL TOY FIGURE render — the subject as a chibi designer-toy figurine "
+        "with smooth glossy plastic surfaces, big head, standing in a display pose, studio lighting"),
+    "game_poster": ("🎮 Poster game bụi bặm",
+        "a gritty URBAN ACTION-GAME box-art poster — painterly comic realism, bold collage framing, "
+        "dramatic lighting, street-culture attitude, distressed texture"),
 }
 
 
@@ -5226,7 +5268,7 @@ def run_psn_art_job(job_id, photo, styles, name, date, extra, n, size):
             if HAS_PIL:
                 b64 = strip_bg_strong_b64(b64)
             g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
-            return {"image": b64, "title": c["title"], "gallery": g}
+            return {"image": b64, "title": c["title"], "gallery": g, "prompt": c["prompt"]}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": c["title"]}
         except Exception as e:
@@ -5399,7 +5441,7 @@ def run_psn_job(job_id, role, names, date, occasion, styles, auto_ai, n, size, e
             if HAS_PIL:
                 b64 = strip_bg_strong_b64(b64)
             g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
-            return {"image": b64, "title": c["title"], "gallery": g}
+            return {"image": b64, "title": c["title"], "gallery": g, "prompt": c["prompt"]}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": c["title"]}
         except Exception as e:
