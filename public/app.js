@@ -1971,6 +1971,14 @@ async function prodPushSel() {
    TÍNH NĂNG: TẠO DESIGN (text-to-image theo phong cách)
    ===================================================================== */
 const DS_STYLES = [
+  { key: "belongs_to", label: "💞 Belongs to (quan hệ+tên) 🔥", hint: "This awesome DAD/MAMA belongs to [tên con] — quà tặng best-seller Etsy" },
+  { key: "repeated_role", label: "🔁 Vai trò lặp (GIRL DAD) 🔥", hint: "Từ/tên lặp 3-5 lần xếp chồng, chữ đậm condensed, mono" },
+  { key: "doodle_collage", label: "✏️ Doodle collage 🔥", hint: "Tên giữa + viền doodle vẽ tay (couple/bestie), always & forever" },
+  { key: "club_backprint_names", label: "🏛️ Club back-print + tên", hint: "COOL DADS CLUB · EST · list tên · back-print tối giản" },
+  { key: "est_badge_names", label: "🎖️ EST badge + tên", hint: "Best Dad Ever · EST 20xx · khung ảnh + tên · badge vintage" },
+  { key: "photo_frame_layout", label: "🖼️ Bố cục KHUNG ẢNH", hint: "Chừa khung 'YOUR PHOTO HERE' + tên — điền ảnh thật sau" },
+  { key: "name_tiles", label: "🔤 Chữ ghép ô (Scrabble)", hint: "Tên ghép bằng ô chữ gỗ Scrabble, quà handmade" },
+  { key: "mama_script_kids", label: "💐 Mama/Papa + tên bé", hint: "Chữ script Mama/Papa + tên các bé nhỏ dưới, tông ấm" },
   { key: "vintage_americana", label: "🏞️ Vintage Americana 🔥", hint: "Hot Shopee · couple/quà · điền tên+năm+địa danh", ref: "vintage americana ringer tshirt" },
   { key: "varsity", label: "🎓 Varsity College", hint: "Áo lớp/CLB · tên trường+số+năm", ref: "varsity college tshirt typography" },
   { key: "minimal_clean", label: "⚪ Minimal Clean", hint: "Tối giản Hàn/Nhật · tên/slogan ngực trái", ref: "minimal typography tshirt" },

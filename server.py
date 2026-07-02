@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-concept-names"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-personalized-styles"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3695,6 +3695,47 @@ def product_content(img_bytes, info):
 # --------------------------------------------------------------------------- #
 # 19 phong cách typography hợp thị hiếu VN (từ file Pinterest+Shopee) + vài style graphic.
 DESIGN_STYLES = {
+    # ===== NGÁCH PERSONALIZED (name-centric, quà tặng) — best-seller Etsy =====
+    "belongs_to": ("💞 Belongs to (quan hệ + tên)",
+        "personalized RELATIONSHIP gift t-shirt (Etsy 'belongs to' best-seller): a BIG bold friendly "
+        "role word (DAD / MAMA / GRANDMA / PAPA — from the name/theme) with a small heart or tiny "
+        "photo-frame accent, an elegant 'belongs to' script line, then a row of the CHILDREN'S / "
+        "loved-ones NAMES separated by little hearts; warm heartfelt family-gift vibe, clean 1–2 "
+        "colours, lots of white space"),
+    "repeated_role": ("🔁 Vai trò lặp (GIRL DAD…)",
+        "modern statement t-shirt where a short ROLE/PHRASE (e.g. 'GIRL DAD', 'BOY MOM', a NAME) is "
+        "REPEATED 3–5 times, stacked left-aligned filling the print, bold heavy CONDENSED sans-serif, "
+        "one line highlighted or knocked-out; high-contrast monochrome, a tiny hand-drawn arrow/smile "
+        "accent, minimalist confident streetwear"),
+    "doodle_collage": ("✏️ Doodle collage (couple/bestie)",
+        "trendy Gen-Z DOODLE-COLLAGE t-shirt: a NAME or short phrase in the centre framed by a dense "
+        "border/grid of small black hand-drawn DOODLES (hearts, stars, coffee, pizza, cassette, "
+        "flowers, everyday objects), an 'always & forever' / infinity motif and a small date; cream + "
+        "ONE warm accent colour, cute hand-sketched aesthetic (matching couple/bestie sets)"),
+    "club_backprint_names": ("🏛️ Club back-print + tên",
+        "minimal 'club / crew' BACK-PRINT t-shirt: a big arched or stacked CLUB name (e.g. 'COOL DADS "
+        "CLUB', 'BEST FRIENDS CLUB', a family surname) + 'EST. 20xx' + a centered line of member NAMES "
+        "+ a short 'POWERED BY LOVE & ...' tagline + a tiny star/sparkle emblem; tidy centered layout, "
+        "monochrome cream/white on a dark shirt, premium understated"),
+    "est_badge_names": ("🎖️ EST badge + tên (Best Dad Ever)",
+        "vintage anniversary BADGE gift t-shirt: a bold word (e.g. 'BEST DAD EVER', 'FAMILY', a "
+        "surname) in retro serif/varsity type, an 'EST. 20xx' line, a small photo-frame placeholder "
+        "beside it, a row of NAMES, stars and thin decorative rules; warm distressed vintage badge, "
+        "heartfelt gift vibe, 2–3 muted colours"),
+    "photo_frame_layout": ("🖼️ Bố cục có KHUNG ẢNH (điền ảnh sau)",
+        "photo-personalised LAYOUT t-shirt built AROUND a picture: a big role word or NAME with a "
+        "clearly-marked empty PHOTO PLACEHOLDER frame (a neat outlined rectangle/heart labelled 'YOUR "
+        "PHOTO HERE') inside or beside the text, plus a NAME and a small tagline & date; clean "
+        "editorial magazine layout so a real photo can drop in later; leave the frame EMPTY"),
+    "name_tiles": ("🔤 Chữ ghép ô (Scrabble tiles)",
+        "cosy hand-made gift t-shirt: a short NAME or word spelled in wooden SCRABBLE-style LETTER "
+        "TILES (each letter in its own square tile with a small point number), arranged in a row or "
+        "little crossword with a small heart or date; warm cream/wood tones, homely family aesthetic"),
+    "mama_script_kids": ("💐 Mama/Papa script + tên bé",
+        "soft modern 'mom/dad life' t-shirt: a large flowing elegant SCRIPT word ('Mama', 'Papa', "
+        "'Grandma' — from theme) with the CHILDREN'S NAMES listed small underneath (or as little "
+        "hanging tag/heart charms), a tiny delicate line icon; warm neutral palette (cream, sand, "
+        "terracotta), calm heartfelt aesthetic"),
     "vintage_americana": ("Vintage Americana / Collegiate", "vintage americana collegiate ringer-tee typography design"),
     "varsity": ("Varsity / College Athletic", "varsity college athletic number t-shirt typography"),
     "minimal_clean": ("Minimal Clean Typography", "minimal clean typography t-shirt"),
