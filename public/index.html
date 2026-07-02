@@ -1020,6 +1020,21 @@
         <div class="color-chips" id="psnStyles"></div>
 
         <button class="btn-primary" id="psnRunBtn" style="margin-top:14px">🎁 Tạo mẫu personalized</button>
+
+        <!-- 📸 BIẾN ẢNH THẬT THÀNH ART -->
+        <div style="border-top:2px dashed var(--line);margin-top:16px;padding-top:12px">
+          <label class="fp-label">📸 BIẾN ẢNH THẬT THÀNH ART (chân dung / gia đình / thú cưng)</label>
+          <label class="dropzone sm" id="psnPhotoDrop" style="min-height:76px;display:flex;align-items:center;justify-content:center;text-align:center">
+            <input type="file" id="psnPhotoFile" accept="image/*" hidden>
+            <span id="psnPhotoName">⬆️ Tải / kéo-thả / dán ảnh THẬT vào đây</span>
+          </label>
+          <div class="thumb-row" id="psnPhotoPrev"></div>
+          <label class="fp-label" style="margin-top:8px">🎨 Art style — chọn 1 hoặc nhiều</label>
+          <div class="color-chips" id="psnArtStyles"></div>
+          <p class="hint" style="margin-top:4px">AI vẽ lại người/thú cưng trong ảnh theo style (GIỮ nét mặt nhận ra được) + thêm tên/ngày bạn đã nhập ở trên.</p>
+          <button class="btn-primary" id="psnArtRun" style="margin-top:10px">📸 Biến ảnh thành art</button>
+        </div>
+
         <div class="batch-progress hidden" id="psnProgress" style="margin-top:8px">
           <div class="bp-bar"><div class="bp-fill" id="psnBar"></div></div>
           <span id="psnProgText" class="hint"></span>

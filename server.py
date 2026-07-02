@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-tab"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-photo-art"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5140,6 +5140,113 @@ _PSN_BG = (" Isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF0
            "unchanged, NO magenta inside the artwork), print-ready, no t-shirt, no mockup, no person, "
            "no watermark.")
 
+# --- BIẾN ẢNH THẬT THÀNH ART (photo -> art portrait, ngách personalized lớn nhất) ---
+PSN_ART_STYLES = {
+    "chibi": ("🧸 Chibi cute (mẫu hot)",
+        "an adorable CHIBI cartoon character — big head, big sparkling eyes, small body, soft rounded "
+        "shapes, clean bold outlines, cute kawaii commercial style"),
+    "cartoon_family": ("👨‍👩‍👧 Cartoon gia đình",
+        "a warm friendly FAMILY CARTOON illustration — soft rounded modern cartoon style, cheerful "
+        "expressions, cozy colours, everyone standing together"),
+    "ghibli_anime": ("🌿 Anime hoạt hình mềm",
+        "a gentle 90s anime-film illustration — soft painterly colours, wholesome dreamy mood, clean "
+        "thin outlines, nostalgic animation aesthetic"),
+    "storybook3d": ("✨ Hoạt hình 3D storybook",
+        "a polished 3D animated-movie character render — soft studio lighting, big expressive eyes, "
+        "friendly smile, storybook charm"),
+    "watercolor": ("💧 Màu nước",
+        "a delicate WATERCOLOR painting — loose translucent washes, soft edges, gentle splashes, "
+        "artistic hand-painted feel"),
+    "line_art": ("✒️ Line-art 1 nét",
+        "a minimalist single-line / fine LINE-ART drawing — elegant continuous monoline, lots of "
+        "negative space, 1 colour, tattoo-flash minimal aesthetic"),
+    "pop_art": ("🎨 Pop-art Warhol",
+        "a bold POP-ART portrait — Warhol-style high-contrast posterised colours, ben-day halftone "
+        "dots, thick outlines, punchy retro palette"),
+    "vector_flat": ("🟣 Vector phẳng hiện đại",
+        "a clean FLAT VECTOR illustration — simple geometric shapes, smooth solid colours, subtle "
+        "shading, modern minimal poster style"),
+    "pencil_sketch": ("✏️ Chì phác hoạ",
+        "a hand-drawn PENCIL SKETCH portrait — expressive graphite strokes, cross-hatching shading, "
+        "artistic sketchbook feel, monochrome"),
+    "oil_paint": ("🖼️ Sơn dầu cổ điển",
+        "a classical OIL PAINTING portrait — rich brush strokes, dramatic soft lighting, museum "
+        "fine-art quality"),
+    "royal_portrait": ("👑 Chân dung hoàng gia (pet/người)",
+        "a funny REGAL RENAISSANCE royal portrait — the subject dressed in ornate king/queen royal "
+        "attire with crown and vintage costume, classical painting style (huge Etsy pet-portrait "
+        "best-seller)"),
+    "pixel_8bit": ("👾 Pixel 8-bit",
+        "a retro 8-BIT PIXEL-ART character — chunky pixels, limited retro game palette, cute video "
+        "game sprite style"),
+    "caricature": ("😆 Biếm hoạ đầu to",
+        "a playful CARICATURE — exaggerated big head, small body, cheerful cartoonish exaggeration, "
+        "fun gift style"),
+    "graffiti_art": ("🖌️ Graffiti/urban art",
+        "an URBAN GRAFFITI street-art portrait — spray paint strokes, bold outline, drips, vivid "
+        "controlled palette, energetic streetwear feel"),
+}
+
+
+def psn_art_prompt(style_key, name, date, extra=""):
+    label, desc = PSN_ART_STYLES[style_key]
+    p = ("Transform the person/people/pet in the reference photo into %s. KEEP a clear likeness of "
+         "the subject(s) — same face shape, hairstyle, glasses, outfit colours and pose vibe — so "
+         "they are recognisable, but fully redrawn in the art style (NOT a photo filter). Compose it "
+         "as a t-shirt print graphic." % desc)
+    if name:
+        p += (" Add the name \"%s\" in a matching stylish lettering under/near the artwork, spelled "
+              "EXACTLY with correct Vietnamese diacritics." % name)
+    if date:
+        p += " Add a small '%s' line in a subtle spot." % date
+    if extra:
+        p += " Extra requirements: " + extra.strip()[:300] + "."
+    return p + _PSN_BG
+
+
+def run_psn_art_job(job_id, photo, styles, name, date, extra, n, size):
+    """Job nền: ảnh thật -> art theo style (openai_edit giữ nét mặt) -> tách nền -> gallery."""
+    concepts = []
+    i = 0
+    while len(concepts) < n:
+        k = styles[i % len(styles)]
+        v = "" if i < len(styles) else (" Variation %d: a different pose/framing, same style." % (i // len(styles) + 1))
+        concepts.append({"title": "📸→" + PSN_ART_STYLES[k][0],
+                         "prompt": psn_art_prompt(k, name, date, extra) + v})
+        i += 1
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(concepts)
+
+    def work(c):
+        try:
+            b64 = openai_edit([photo], c["prompt"], size, native_transparent=False, quality="high")
+            if HAS_PIL:
+                b64 = strip_bg_strong_b64(b64)
+            g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
+            return {"image": b64, "title": c["title"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": c["title"]}
+        except Exception as e:
+            return {"error": str(e), "title": c["title"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
 
 def psn_build_prompt(key, role, names, date, extra=""):
     label, tpl = PSN_STYLES[key]
@@ -5963,6 +6070,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in NAMEDES_STYLES.items()]})
         if path == "/api/psn-styles":
             return self.json(200, {"styles": [{"key": k, "label": v[0]} for k, v in PSN_STYLES.items()],
+                                   "art": [{"key": k, "label": v[0]} for k, v in PSN_ART_STYLES.items()],
                                    "ai": {"claude": bool(ANTHROPIC_API_KEY), "gpt": bool(API_KEY),
                                           "gemini": bool(GEMINI_API_KEY)}})
         if path == "/api/autopost-status":
@@ -6604,6 +6712,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_design_gen(body)
         if path == "/api/psn-gen":
             return self.handle_psn_gen(body)
+        if path == "/api/psn-art":
+            return self.handle_psn_art(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -6955,6 +7065,30 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_psn_art(self, body):
+        """🎁 Personalized: BIẾN ẢNH THẬT thành art (chibi/watercolor/pop-art…) in áo."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        pd, pm = fetch_image_bytes(body.get("photo", ""))
+        if not pd:
+            return self.json(400, {"error": "Cần ẢNH THẬT (chân dung/gia đình/thú cưng)."})
+        styles = [k for k in (body.get("styles") or []) if k in PSN_ART_STYLES][:10]
+        if not styles:
+            return self.json(400, {"error": "Chọn ít nhất 1 art style."})
+        name = (body.get("name") or "").strip()[:60]
+        date = (body.get("date") or "").strip()[:40]
+        extra = (body.get("extra") or "").strip()[:400]
+        n = max(1, min(int(body.get("n", 0) or len(styles)), 8))
+        size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "pa%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_psn_art_job,
+                         args=(job_id, (pd, pm or "image/png"), styles, name, date, extra, n, size),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_psn_gen(self, body):
         """Tab 🎁 Personalized: gen theo style đã chọn HOẶC 3 AI (Claude+GPT+Gemini) tự phân tích."""

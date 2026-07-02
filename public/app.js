@@ -2615,6 +2615,7 @@ $("dsDownloadAll").onclick = async () => {
    TAB 🎁 PERSONALIZED — mọi dạng cá nhân hoá, 3 AI (Claude+GPT+Gemini) phân tích
    ===================================================================== */
 let psnInited = false, psnPicked = new Set(), psnAuto = false, psnItems = [], psnJobs = [], psnPollTimer = null;
+let psnPhoto = null, psnArtPicked = new Set();
 function psnInit() {
   if (psnInited) return; psnInited = true;
   psnLoadStyles();
@@ -2624,6 +2625,40 @@ function psnInit() {
     $("psnAutoAi").classList.toggle("on", psnAuto);
   };
   $("psnRunBtn").onclick = psnGenerate;
+  // 📸 Photo -> Art
+  const setPhoto = (durl) => {
+    psnPhoto = durl;
+    $("psnPhotoName").textContent = "✅ Đã có ảnh — chọn art style rồi bấm Biến ảnh";
+    $("psnPhotoPrev").innerHTML = '<img src="' + durl + '" style="max-width:110px;max-height:110px;border-radius:10px;border:1px solid var(--line)"><button class="btn-ghost sm" id="psnPhotoX" style="vertical-align:top;margin-left:6px">✕</button>';
+    $("psnPhotoX").onclick = () => { psnPhoto = null; $("psnPhotoPrev").innerHTML = ""; $("psnPhotoName").textContent = "⬆️ Tải / kéo-thả / dán ảnh THẬT vào đây"; };
+  };
+  if ($("psnPhotoFile")) $("psnPhotoFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) setPhoto(await fileToDataURL(f)); e.target.value = ""; };
+  if ($("psnPhotoDrop")) {
+    $("psnPhotoDrop").ondragover = (e) => e.preventDefault();
+    $("psnPhotoDrop").ondrop = async (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) setPhoto(await fileToDataURL(f)); };
+    if (typeof attachUniversalPaste === "function") attachUniversalPaste();   // quét dropzone mới (nút 📋 Dán)
+  }
+  if ($("psnArtRun")) $("psnArtRun").onclick = psnArtGenerate;
+}
+async function psnArtGenerate() {
+  const note = $("psnNote"); note.className = "gen-note"; note.textContent = "";
+  if (!psnPhoto) { note.className = "gen-note err"; note.textContent = "⚠️ Tải ảnh THẬT vào trước (khung 📸)."; return; }
+  if (!psnArtPicked.size) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 art style."; return; }
+  const names = ($("psnNames").value || "").split(",").map(s => s.trim()).filter(Boolean);
+  const btn = $("psnArtRun"); btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳ Đang biến ảnh…";
+  $("psnProgress").classList.remove("hidden");
+  try {
+    const r = await fetch("/api/psn-art", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photo: psnPhoto, styles: [...psnArtPicked], name: names[0] || "",
+        date: $("psnDate").value, extra: $("psnExtra").value, size: "portrait" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    psnJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    psnRender();
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang vẽ lại ảnh theo " + d.total + " style (giữ nét mặt)…";
+    if (!psnPollTimer) psnPollTimer = setInterval(psnPollAll, 2500);
+    psnPollAll();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = old;
 }
 async function psnLoadStyles() {
   try {
@@ -2636,6 +2671,18 @@ async function psnLoadStyles() {
       el.onclick = () => { if (psnPicked.has(s.key)) psnPicked.delete(s.key); else psnPicked.add(s.key); el.classList.toggle("on"); };
       box.appendChild(el);
     });
+    // art styles (📸 biến ảnh thật thành art)
+    const ab = $("psnArtStyles");
+    if (ab) {
+      ab.innerHTML = "";
+      (d.art || []).forEach(s => {
+        const el = document.createElement("div");
+        el.className = "cchip" + (psnArtPicked.has(s.key) ? " on" : "");
+        el.innerHTML = s.label + ' <span class="tick">✓</span>';
+        el.onclick = () => { if (psnArtPicked.has(s.key)) psnArtPicked.delete(s.key); else psnArtPicked.add(s.key); el.classList.toggle("on"); };
+        ab.appendChild(el);
+      });
+    }
     const ai = d.ai || {};
     const on = ["claude", "gpt", "gemini"].filter(k => ai[k]);
     $("psnAiHint").textContent = "AI sẵn sàng: " + (on.length ? on.map(k => ({ claude: "Claude", gpt: "ChatGPT", gemini: "Gemini" })[k]).join(" + ") : "chưa có key nào") + " — cùng đọc data shop rồi bỏ phiếu chọn dạng.";
