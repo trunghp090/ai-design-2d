@@ -716,3 +716,6 @@ textarea.input{resize:vertical;line-height:1.5}
 .mockup-toolbar.mk-editing .mk-thumb .mkdel{opacity:1}
 .mockup-toolbar.mk-editing .mk-thumb{box-shadow:0 0 0 1.5px #e6b8c2}
 #mkEditBtn.on{background:var(--violet);color:#fff;border-color:var(--violet)}
+
+/* ⌨️ Layer đang điều khiển bằng bàn phím */
+.kb-focus{outline:2px dashed var(--violet);outline-offset:3px}

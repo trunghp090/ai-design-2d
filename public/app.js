@@ -530,10 +530,39 @@ function applyState() {
   $("rotateSlider").value = Math.round(state.rot); $("rotateVal").textContent = Math.round(state.rot) + "°";
 }
 applyState();
+
+/* ---------- ⌨️ Điều chỉnh VỊ TRÍ layer bằng BÀN PHÍM (dùng chung mọi tab có layer) ----------
+   Bấm vào layer để chọn -> mũi tên ←↑→↓ di chuyển (Shift = bước lớn), +/- phóng to/thu nhỏ. */
+let kbTarget = null;
+function kbSetTarget(el, getState, apply) {
+  if (kbTarget && kbTarget.el !== el) kbTarget.el.classList.remove("kb-focus");
+  kbTarget = { el: el, getState: getState, apply: apply };
+  el.classList.add("kb-focus");
+}
+document.addEventListener("keydown", (e) => {
+  if (!kbTarget) return;
+  const t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+  if (!kbTarget.el.isConnected || kbTarget.el.offsetParent === null) return;   // layer đang ẩn
+  const st = kbTarget.getState();
+  const step = e.shiftKey ? 2.5 : 0.4;      // Shift = nhích nhanh
+  const zstep = e.shiftKey ? 2 : 0.6;
+  let ok = true;
+  if (e.key === "ArrowLeft") st.xPct = Math.max(0, st.xPct - step);
+  else if (e.key === "ArrowRight") st.xPct = Math.min(100, st.xPct + step);
+  else if (e.key === "ArrowUp") st.yPct = Math.max(0, st.yPct - step);
+  else if (e.key === "ArrowDown") st.yPct = Math.min(100, st.yPct + step);
+  else if (e.key === "+" || e.key === "=") st.wPct = Math.min(100, st.wPct + zstep);
+  else if (e.key === "-" || e.key === "_") st.wPct = Math.max(8, st.wPct - zstep);
+  else ok = false;
+  if (ok) { e.preventDefault(); kbTarget.apply(); }
+});
+
 let drag = null;
 layer.addEventListener("pointerdown", (e) => {
   if (e.target.id === "resizeHandle") return;
   e.preventDefault();
+  kbSetTarget(layer, () => state, applyState);
   drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: state.xPct, y0: state.yPct };
   layer.setPointerCapture(e.pointerId);
 });
@@ -565,6 +594,7 @@ $("designUpload").onchange = (e) => {
     $("mockupEmpty").classList.add("hidden");
     state = { xPct: 50, yPct: 42, wPct: 38, rot: 0 };
     applyState();
+    kbSetTarget(layer, () => state, applyState);   // phím mũi tên dùng được ngay
   });
   e.target.value = "";
 };
@@ -1091,6 +1121,7 @@ $("recolorDsize").addEventListener("input", () => {
   layer.addEventListener("pointerdown", (e) => {
     if (e.target.id === "recolorHandle") return;
     e.preventDefault();
+    kbSetTarget(layer, () => recolorState, () => { recolorApplyStage(); recolorRender(); });
     drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: recolorState.xPct, y0: recolorState.yPct };
     layer.setPointerCapture(e.pointerId);
   });
@@ -1488,6 +1519,7 @@ function lenaoAttachEditor(stage, layer, handle, slot) {
   layer.addEventListener("pointerdown", (e) => {
     if (e.target === handle) return;
     e.preventDefault();
+    kbSetTarget(layer, () => slot.state, () => lenaoApplyLayer(layer, slot.state));
     drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: slot.state.xPct, y0: slot.state.yPct };
     layer.setPointerCapture(e.pointerId);
   });
