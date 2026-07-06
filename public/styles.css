@@ -708,3 +708,11 @@ textarea.input{resize:vertical;line-height:1.5}
   body:has(#view-design:not(.hidden)) .app-groups{margin-top:8px}
   body:has(#view-design:not(.hidden)) .app-tabs{margin-top:6px}
 }
+
+/* Mockup: chế độ ✏️ Chỉnh sửa — bình thường ẨN nút xoá/tải, bấm Chỉnh sửa mới hiện */
+.mockup-toolbar:not(.mk-editing) .mkdel{display:none}
+.mockup-toolbar:not(.mk-editing) .mk-upload{display:none}
+.mockup-toolbar:not(.mk-editing) .mk-ai{display:none}
+.mockup-toolbar.mk-editing .mk-thumb .mkdel{opacity:1}
+.mockup-toolbar.mk-editing .mk-thumb{box-shadow:0 0 0 1.5px #e6b8c2}
+#mkEditBtn.on{background:var(--violet);color:#fff;border-color:var(--violet)}

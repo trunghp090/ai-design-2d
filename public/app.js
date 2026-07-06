@@ -440,6 +440,13 @@ function setMockupBg(url) {
   document.querySelectorAll(".mk-thumb").forEach(t => t.classList.toggle("active", t.dataset.url === url));
 }
 
+// ✏️ Chế độ chỉnh sửa mockup: bấm mới hiện nút xoá (×) + tải thêm + tạo bằng AI
+if ($("mkEditBtn")) $("mkEditBtn").onclick = () => {
+  const tb = document.querySelector(".mockup-toolbar"); if (!tb) return;
+  const on = tb.classList.toggle("mk-editing");
+  $("mkEditBtn").textContent = on ? "✅ Xong" : "✏️ Chỉnh sửa mockup";
+  $("mkEditBtn").classList.toggle("on", on);
+};
 async function loadMockups(selectFirst) {
   try {
     const r = await fetch("/api/mockups"); const data = await r.json();
@@ -458,8 +465,8 @@ async function loadMockups(selectFirst) {
       };
       (it.side === "back" ? back : front).appendChild(d);
     });
-    $("mkHint").textContent = front.children.length ? "Bấm vào áo để chọn. Hover để xoá." : "Chưa có — bấm “➕ Tải mặt trước”.";
-    $("mkHintBack").textContent = back.children.length ? "Bấm vào áo để chọn. Hover để xoá." : "Chưa có — bấm “➕ Tải mặt sau”.";
+    $("mkHint").textContent = front.children.length ? "Bấm vào áo để chọn. (✏️ Chỉnh sửa để thêm/xoá)" : "Chưa có — bấm ✏️ Chỉnh sửa rồi ➕ Tải mặt trước.";
+    $("mkHintBack").textContent = back.children.length ? "Bấm vào áo để chọn. (✏️ Chỉnh sửa để thêm/xoá)" : "Chưa có — bấm ✏️ Chỉnh sửa rồi ➕ Tải mặt sau.";
     mockupsLoaded = true;
     if (selectFirst && items.length && !mockupBgSrc) {
       const f = items.find(i => i.side !== "back") || items[0];
