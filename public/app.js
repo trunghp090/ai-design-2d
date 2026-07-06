@@ -560,11 +560,34 @@ document.addEventListener("keydown", (e) => {
 
 let drag = null;
 layer.addEventListener("pointerdown", (e) => {
-  if (e.target.id === "resizeHandle") return;
+  if (e.target.id === "resizeHandle" || e.target.classList.contains("rotate-handle")) return;
   e.preventDefault();
   kbSetTarget(layer, () => state, applyState);
   drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: state.xPct, y0: state.yPct };
   layer.setPointerCapture(e.pointerId);
+});
+/* 🔄 Kéo nút ở góc để XOAY layer quanh tâm */
+document.querySelectorAll("#designLayer .rotate-handle").forEach(rh => {
+  let rot = null;
+  const angTo = (e, c) => Math.atan2(e.clientY - c.cy, e.clientX - c.cx) * 180 / Math.PI;
+  rh.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const r = layer.getBoundingClientRect();
+    const c = { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    rot = { c: c, a0: angTo(e, c), r0: state.rot };
+    kbSetTarget(layer, () => state, applyState);
+    rh.setPointerCapture(e.pointerId);
+  });
+  rh.addEventListener("pointermove", (e) => {
+    if (!rot) return;
+    let d = rot.r0 + angTo(e, rot.c) - rot.a0;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    if (e.shiftKey) d = Math.round(d / 15) * 15;   // Shift = khớp bậc 15°
+    state.rot = Math.round(d * 10) / 10;
+    applyState();
+  });
+  rh.addEventListener("pointerup", () => { rot = null; });
 });
 layer.addEventListener("pointermove", (e) => {
   if (!drag) return;

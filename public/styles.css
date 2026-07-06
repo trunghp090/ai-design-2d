@@ -719,3 +719,11 @@ textarea.input{resize:vertical;line-height:1.5}
 
 /* ⌨️ Layer đang điều khiển bằng bàn phím */
 .kb-focus{outline:2px dashed var(--violet);outline-offset:3px}
+
+/* 🔄 Nút XOAY layer ở các góc (góc phải-dưới vẫn là resize) */
+.rotate-handle{position:absolute;width:18px;height:18px;background:#fff;border:2px solid var(--violet);border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:grab;display:grid;place-items:center;font-size:10px;color:var(--violet);line-height:1}
+.rotate-handle::after{content:"↻"}
+.rotate-handle:active{cursor:grabbing}
+.rh-tl{left:-9px;top:-9px}
+.rh-tr{right:-9px;top:-9px}
+.rh-bl{left:-9px;bottom:-9px}
