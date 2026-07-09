@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-53styles"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-92styles"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5133,6 +5133,56 @@ PSN_STYLES = {
     "team_number": ("🎽 Số áo + tên (jersey back)",
         "sports jersey back-print: the name '{name1}' arched across the shoulders in athletic block "
         "letters above a HUGE jersey number from '{date}'; classic 2-colour team style, bold clean"),
+    # --- ĐỢT BỔ SUNG CUỐI (các dạng chế/parody + couple/pair còn thiếu) ---
+    "nutrition_facts": ("🏷️ Nhãn Nutrition Facts chế",
+        "a NUTRITION FACTS label parody: classic black-and-white FDA label layout titled with "
+        "'{name1}', witty 'ingredient' lines about their lovable traits (100% Awesome, Made in "
+        "{date}...), serving-size and percentage rows, clean iconic label typography"),
+    "love_receipt": ("🧾 Hoá đơn tình yêu (receipt)",
+        "a RECEIPT-style print: a shop receipt titled '{role} STORE', listing the names {names} as "
+        "purchased items with funny prices, a 'TOTAL: PRICELESS' line, date '{date}', barcode at the "
+        "bottom, monospace receipt font on a subtle paper texture"),
+    "boarding_pass": ("✈️ Vé máy bay / boarding pass",
+        "an airline BOARDING PASS design: passenger names {names}, a route of two airport codes with "
+        "a plane icon between them, date '{date}', seat/gate details, a perforated stub edge and "
+        "barcode, clean modern airline-ticket layout"),
+    "neon_sign": ("💡 Bảng hiệu NEON tên",
+        "the name '{name1}' as a glowing NEON SIGN — bright neon tube lettering in cursive with "
+        "realistic glow and reflections, a small neon heart or lightning accent, and '{date}' in a "
+        "smaller neon line; vivid electric colours (pink/cyan) designed to pop on a dark shirt"),
+    "periodic_table": ("⚗️ Ô nguyên tố hoá học ghép tên",
+        "the name '{name1}' spelled using PERIODIC-TABLE ELEMENT tiles — each square tile with the "
+        "element symbol large, atomic number in the corner and tiny element name below, tiles in a "
+        "row; nerdy chemistry aesthetic, 2-3 flat colours"),
+    "player_couple": ("🎮 Player 1 / Player 2 (couple gamer)",
+        "a retro GAMER COUPLE design: 'PLAYER 1' and 'PLAYER 2' pixel-art tags with the names "
+        "{names}, two pixel hearts/health bars and a 'CO-OP MODE SINCE {date}' line, joystick "
+        "icons, 8-bit arcade style"),
+    "license_plate": ("🚗 Biển số xe tên",
+        "a US-style LICENSE PLATE design: the name '{name1}' as the plate number in embossed "
+        "stamped letters, a state-style header line, '{date}' registration stickers in the corners, "
+        "realistic metal plate with bolts, vintage road-trip vibe"),
+    "family_crest": ("🛡️ Gia huy (coat of arms)",
+        "a FAMILY CREST / COAT OF ARMS: an heraldic shield with elegant mantling and a banner "
+        "reading '{name1}', 'EST. {date}' below, lion/laurel supporters and a small crown, engraved "
+        "vintage heraldry linework, 2 colours, prestigious family heritage feel"),
+    "monogram_floral": ("🌸 Monogram hoa (chữ cái đầu)",
+        "a SPLIT-LETTER FLORAL MONOGRAM: the first initial of '{name1}' as a large ornate letter "
+        "split horizontally by a band containing the full name, surrounded by delicate botanical "
+        "flowers and leaves weaving through the letterform; elegant feminine gift style"),
+    "king_queen": ("👑 His King / Her Queen (cặp couple)",
+        "a matching COUPLE pair design shown as TWO prints side by side: one with a KING crown over "
+        "the name '{name1}' and one with a QUEEN crown over the second name from {names}, elegant "
+        "gothic-serif lettering, small chess-piece accents, '{date}' beneath each; classic couple "
+        "set, single colour"),
+    "barcode_name": ("▮ Mã vạch + tên (minimal)",
+        "a MINIMAL BARCODE design: a clean product barcode with the name '{name1}' printed below it "
+        "instead of digits and '{date}' as the code line, ultra-minimal fashion streetwear look, "
+        "single colour"),
+    "calligraphy_jp": ("🈶 Thư pháp Nhật + Katakana",
+        "a Japanese CALLIGRAPHY design: the name '{name1}' written in bold expressive brush-stroke "
+        "lettering with a KATAKANA transliteration column beside it, a red hanko seal stamp with "
+        "'{date}', ink splash accents, minimal zen composition"),
 }
 
 _PSN_BG = (" Isolated t-shirt print graphic on a plain solid BRIGHT MAGENTA #FF00FF chroma-key "
@@ -5330,13 +5380,28 @@ PSN_ART_STYLES = {
         "a MUSIC PLAYER interface layout: the photo as the album art in a rounded square, the name "
         "as the song title and a sweet phrase as the artist line, a progress bar with timestamps, "
         "play/skip control icons, minimal modern music-app aesthetic"),
+    "movie_poster": ("🎬 Poster phim (credits block)",
+        "a MOVIE POSTER layout: the photo as the dramatic key art with cinematic colour grading, "
+        "the name as the movie TITLE in big billing letters, a witty tagline at top, and an "
+        "authentic tiny CREDITS BLOCK (condensed tall font) at the bottom with release date, "
+        "festival laurels optional, blockbuster one-sheet feel"),
+    "half_sketch": ("✏️📷 Nửa ảnh thật nửa vẽ chì",
+        "an artistic HALF-AND-HALF portrait: the LEFT half stays the real photo while the RIGHT "
+        "half transitions into an unfinished pencil sketch with construction lines and a drawing "
+        "pencil resting on it, creative work-in-progress art effect"),
+    "passport_page": ("🛂 Trang hộ chiếu / ID",
+        "a PASSPORT PAGE parody: the photo in the ID photo box, the name and date in typed data "
+        "fields (SURNAME / GIVEN NAME / DATE), a machine-readable code strip of letters at the "
+        "bottom, watermark guilloche patterns and an entry VISA stamp overlapping the corner, "
+        "official-document look with a playful twist"),
 }
 
 # Dạng GIỮ ẢNH THẬT: chỉ dựng bố cục/hiệu ứng quanh ảnh, KHÔNG vẽ lại thành tranh
 PSN_ART_KEEP_PHOTO = {"bootleg_tee", "photo_collage_tee", "vintage_photo_wrap", "y2k_airbrush",
                       "polaroid_frame", "photo_strip", "wanted_poster", "sports_card",
                       "magazine_cover", "album_cover", "stamp_post", "angel_memorial",
-                      "photo_in_letters", "heart_collage", "music_player"}
+                      "photo_in_letters", "heart_collage", "music_player",
+                      "movie_poster", "half_sketch", "passport_page"}
 
 
 def psn_art_prompt(style_key, name, date, extra=""):
