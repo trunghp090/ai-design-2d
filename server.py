@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-28art-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-photolayout"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5227,15 +5227,80 @@ PSN_ART_STYLES = {
     "game_poster": ("🎮 Poster game bụi bặm",
         "a gritty URBAN ACTION-GAME box-art poster — painterly comic realism, bold collage framing, "
         "dramatic lighting, street-culture attitude, distressed texture"),
+    # ===== NHÓM GIỮ ẢNH THẬT (photo-layout: dựng bố cục quanh ảnh, KHÔNG vẽ lại) =====
+    "bootleg_tee": ("🔥 Custom Bootleg Tee (rap 90s)",
+        "a 90s RAP BOOTLEG tee layout: the subject's photo as a dramatic cut-out (slight airbrush "
+        "glow), duplicated once smaller in a corner, over an airbrushed smoke/flames/stars backdrop; "
+        "huge arched varsity name at top, a 'WORLD TOUR' style line and a small list of "
+        "dates/cities at the bottom, gritty halftone texture, authentic vintage bootleg energy"),
+    "photo_collage_tee": ("🖼️ Custom Photo Collage",
+        "a PHOTO COLLAGE print: the reference photo repeated in 4-6 crops/sizes arranged in a stylish "
+        "overlapping collage (some tilted, some in torn-paper or instant-photo frames, one big + "
+        "several small), with tasteful doodle accents (hearts, stars, sparkles) between them"),
+    "vintage_photo_wrap": ("📻 Ảnh vintage + chữ vòng",
+        "a VINTAGE WASHED photo print: the photo with a faded retro film treatment and distressed "
+        "screen-print texture, framed by ARCHED retro serif text above and below it (name on top, a "
+        "short line underneath), stars on the sides, classic 70s-90s heritage tee layout"),
+    "y2k_airbrush": ("💫 Y2K Airbrush photo",
+        "a Y2K AIRBRUSH photo tee: the photo inside a soft glowing heart or cloud frame, airbrushed "
+        "sparkles, chrome stars and angel wings around, dreamy gradient glow, early-2000s "
+        "flea-market airbrush aesthetic, script name lettering"),
+    "polaroid_frame": ("📷 Ảnh Polaroid + chữ viết tay",
+        "an INSTANT-PHOTO layout: the photo inside a classic white instant-camera frame (thick bottom "
+        "border), slightly tilted with a piece of washi tape on top, the name handwritten in marker "
+        "on the bottom border, one or two tiny doodles"),
+    "photo_strip": ("🎞️ Dải ảnh photobooth",
+        "a PHOTOBOOTH STRIP layout: a vertical film strip of 3-4 frames each containing a different "
+        "crop/zoom of the reference photo, white strip border, a small caption + date at the bottom "
+        "of the strip, cute candid keepsake vibe"),
+    "wanted_poster": ("🤠 Poster WANTED viễn tây",
+        "a Wild-West WANTED poster: the photo in rough halftone print at the centre of an aged "
+        "parchment poster with 'WANTED' in big slab-serif at top, the name and a witty 'REWARD' line "
+        "below, torn edges and bullet-hole details, western saloon style"),
+    "sports_card": ("🃏 Thẻ cầu thủ (trading card)",
+        "a RETRO SPORTS TRADING CARD: the photo inside a bold card frame with team-colour stripes, "
+        "the name in big card lettering, a position/year tag and small fake stats bar, 90s "
+        "collectible card design with foil-look accents"),
+    "magazine_cover": ("📰 Bìa tạp chí",
+        "a FASHION MAGAZINE COVER layout: the photo as the full cover shot, a big masthead title at "
+        "top (use the name as the magazine title), 3-4 short cover-line texts down the sides, a "
+        "barcode and issue/date line at the bottom, glossy editorial look"),
+    "album_cover": ("💿 Bìa album nhạc",
+        "a MUSIC ALBUM COVER artwork: the photo treated with a moody colour grade as the cover image, "
+        "the name as the ARTIST name in stylish type, an album title line and a small 'PARENTAL "
+        "ADVISORY'-style parody sticker block, hip-hop/R&B album aesthetic"),
+    "dollar_bill": ("💵 Tờ tiền (chân dung khắc)",
+        "a BANKNOTE parody design: the subject's portrait ENGRAVED in fine crosshatch line etching "
+        "inside the oval frame of an ornate dollar-bill style note, with guilloche border patterns, "
+        "the name on the banner and a playful denomination number in the corners, monochrome green"),
+    "stamp_post": ("📮 Tem thư",
+        "a POSTAGE STAMP design: the photo inside a stamp with perforated scalloped edges, a "
+        "denomination number in the corner, the name and a small 'PAR AVION' style line, vintage "
+        "postal ink texture and a faded postmark circle overlapping the corner"),
+    "angel_memorial": ("🕊️ Ảnh tưởng nhớ (cánh thiên thần)",
+        "a respectful MEMORIAL photo tee: the photo in a soft glowing oval/cloud frame with large "
+        "elegant angel WINGS spreading from behind it and a halo above, gentle light rays, 'In Loving "
+        "Memory' small caps arc, the name in elegant script and the dates line below, dignified and "
+        "tasteful"),
 }
+
+# Dạng GIỮ ẢNH THẬT: chỉ dựng bố cục/hiệu ứng quanh ảnh, KHÔNG vẽ lại thành tranh
+PSN_ART_KEEP_PHOTO = {"bootleg_tee", "photo_collage_tee", "vintage_photo_wrap", "y2k_airbrush",
+                      "polaroid_frame", "photo_strip", "wanted_poster", "sports_card",
+                      "magazine_cover", "album_cover", "stamp_post", "angel_memorial"}
 
 
 def psn_art_prompt(style_key, name, date, extra=""):
     label, desc = PSN_ART_STYLES[style_key]
-    p = ("Transform the person/people/pet in the reference photo into %s. KEEP a clear likeness of "
-         "the subject(s) — same face shape, hairstyle, glasses, outfit colours and pose vibe — so "
-         "they are recognisable, but fully redrawn in the art style (NOT a photo filter). Compose it "
-         "as a t-shirt print graphic." % desc)
+    if style_key in PSN_ART_KEEP_PHOTO:
+        p = ("Create %s, using the person/people/pet from the reference photo as the photo content. "
+             "KEEP their real photographic appearance (same face, hair, expression — only apply the "
+             "print treatment described). Compose it as a t-shirt print graphic." % desc)
+    else:
+        p = ("Transform the person/people/pet in the reference photo into %s. KEEP a clear likeness of "
+             "the subject(s) — same face shape, hairstyle, glasses, outfit colours and pose vibe — so "
+             "they are recognisable, but fully redrawn in the art style (NOT a photo filter). Compose it "
+             "as a t-shirt print graphic." % desc)
     if name:
         p += (" Add the name \"%s\" in a matching stylish lettering under/near the artwork, spelled "
               "EXACTLY with correct Vietnamese diacritics." % name)
