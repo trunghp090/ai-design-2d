@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-92styles"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-104styles"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5394,11 +5394,63 @@ PSN_ART_STYLES = {
         "fields (SURNAME / GIVEN NAME / DATE), a machine-readable code strip of letters at the "
         "bottom, watermark guilloche patterns and an entry VISA stamp overlapping the corner, "
         "official-document look with a playful twist"),
+    # ===== ĐỢT GỢI Ý THÊM (user sưu tầm) =====
+    "instagram_post": ("📱 Bố cục bài Instagram",
+        "a SOCIAL MEDIA POST layout: the photo as the post image in a rounded card with a profile "
+        "row on top (small avatar circle + the name as the username + a verified tick), a "
+        "like/comment/share icon row and a sweet caption line with the date below, clean modern "
+        "social-app UI aesthetic"),
+    "newspaper_front": ("📰 Trang nhất báo cổ",
+        "a VINTAGE NEWSPAPER FRONT PAGE: the photo printed in halftone dots as the main news image, "
+        "the name in the big headline, a masthead with the date line, two narrow columns of faux "
+        "article text, aged paper tone and ink texture, classic broadsheet layout"),
+    "yearbook_90s": ("🎓 Kỷ yếu Mỹ retro (yearbook)",
+        "a RETRO 90s AMERICAN YEARBOOK portrait: the photo treated as a classic studio yearbook "
+        "headshot with a laser-beam / mottled blue studio backdrop, soft glow, the name and a "
+        "'Class of' year caption in yearbook serif beneath, nostalgic school-photo charm"),
+    "film_frame": ("🎞️ Khung phim 35mm",
+        "a 35MM FILM FRAME: the photo inside a single film negative frame with sprocket holes on "
+        "both edges, frame-number and film-brand markings, a subtle orange datestamp in the corner, "
+        "cinematic analog film aesthetic"),
+    "vhs_retro": ("📼 Màn hình VHS 90s",
+        "a RETRO VHS SCREEN capture: the photo with slight scanlines, chromatic fringing and a "
+        "camcorder overlay — 'PLAY ▶' in the corner, a REC red dot, and the date as the timestamp "
+        "in retro digital font, nostalgic 90s home-video vibe"),
+    "risograph": ("🖨️ Risograph 2 màu",
+        "a RISOGRAPH print of the subject — grainy overlapping 2-colour ink layers (e.g. fluorescent "
+        "pink + teal) with slight misregistration, coarse riso grain texture, trendy zine print "
+        "aesthetic"),
+    "duotone_poster": ("🎨 Poster duotone",
+        "a bold DUOTONE poster portrait — the subject rendered in exactly TWO colours with a smooth "
+        "gradient map (e.g. deep navy + warm coral), strong contrast, big minimal name typography, "
+        "modern gig-poster style"),
+    "blueprint_tech": ("📐 Bản vẽ kỹ thuật (blueprint)",
+        "a technical BLUEPRINT drawing of the subject — white engineering line-work on classic "
+        "blueprint blue, with dimension arrows, measurement callouts, part labels and a title block "
+        "containing the name and date, witty schematic diagram style"),
+    "motel_postcard": ("🏖️ Bưu thiếp 'Greetings from'",
+        "a RETRO 'Greetings from' POSTCARD: big vintage bubble letters spelling the name with the "
+        "photo appearing inside the letterforms, a scenic sunset postcard background, a small 'wish "
+        "you were here' script line and the date, classic American roadside postcard style"),
+    "dreamy_clouds": ("☁️ Chân dung mây mộng mơ",
+        "a DREAMY CLOUD portrait — the subject softly painted floating among pastel pink-lavender "
+        "clouds with gentle sun rays, sparkles and tiny stars, ethereal airbrushed heaven-soft "
+        "aesthetic, calm and magical"),
+    "baby_birth_poster": ("👶 Poster em bé chào đời (có ảnh)",
+        "a BABY BIRTH ANNOUNCEMENT poster: the baby photo in a soft arch frame, the name in large "
+        "gentle serif, a neat row of birth stats (date, time, weight, height) in fine type below, "
+        "delicate stars/moon accents, warm cream nursery palette"),
+    "wedding_poster": ("💒 Poster ngày cưới (có ảnh)",
+        "a WEDDING DATE poster: the couple photo in an elegant arch or oval frame, both names joined "
+        "by an '&' in refined serif + script mix, the wedding date large beneath, delicate botanical "
+        "line accents and a thin border, timeless minimal wedding-announcement style"),
 }
 
 # Dạng GIỮ ẢNH THẬT: chỉ dựng bố cục/hiệu ứng quanh ảnh, KHÔNG vẽ lại thành tranh
 PSN_ART_KEEP_PHOTO = {"bootleg_tee", "photo_collage_tee", "vintage_photo_wrap", "y2k_airbrush",
                       "polaroid_frame", "photo_strip", "wanted_poster", "sports_card",
+                      "instagram_post", "newspaper_front", "yearbook_90s", "film_frame",
+                      "vhs_retro", "motel_postcard", "baby_birth_poster", "wedding_poster",
                       "magazine_cover", "album_cover", "stamp_post", "angel_memorial",
                       "photo_in_letters", "heart_collage", "music_player",
                       "movie_poster", "half_sketch", "passport_page"}
