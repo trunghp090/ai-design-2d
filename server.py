@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-photolayout"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-psn-53styles"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5282,12 +5282,61 @@ PSN_ART_STYLES = {
         "elegant angel WINGS spreading from behind it and a halo above, gentle light rays, 'In Loving "
         "Memory' small caps arc, the name in elegant script and the dates line below, dignified and "
         "tasteful"),
+    # ===== ĐỢT BỔ SUNG (phủ nốt các trend còn lại) =====
+    "bounty_poster": ("🏴‍☠️ Poster truy nã hải tặc (anime)",
+        "an anime PIRATE BOUNTY poster: the subject redrawn as an anime character inside an aged "
+        "parchment bounty poster with 'WANTED — DEAD OR ALIVE' lettering, a big bounty number in "
+        "berry-style currency, rough print texture, adventurous shonen anime energy"),
+    "brick_toy": ("🧱 Nhân vật đồ chơi lắp ráp",
+        "a BLOCKY BRICK-BUILT TOY MINIFIGURE version of the subject — cylindrical head with a simple "
+        "printed face, blocky plastic body and claw hands, glossy toy plastic render, standing on a "
+        "small brick baseplate, playful collectible style"),
+    "doll_box": ("🎀 Búp bê trong hộp (action figure)",
+        "the subject as a TOY DOLL / ACTION FIGURE inside a retail BLISTER BOX: clear plastic window "
+        "packaging, the name as the toy brand logo on the box, 2-3 tiny accessories displayed beside "
+        "the figure (phone, coffee, tools — matching their vibe), fun 'limited edition' box labels"),
+    "superhero": ("🦸 Siêu anh hùng comic",
+        "the subject as a COMIC-BOOK SUPERHERO — heroic pose in a custom suit with a chest emblem "
+        "from their initial, dynamic action lines and halftone comic shading, bold hero-title "
+        "lettering, epic comic cover energy"),
+    "zombie_horror": ("🧟 Zombie / Halloween",
+        "the subject as a fun CARTOON ZOMBIE — green-tinted skin, stitched details, tattered "
+        "clothes, spooky-cute horror cartoon style with dripping title lettering, Halloween tee "
+        "energy (playful, not gory)"),
+    "stick_family": ("🚶 Gia đình que (stick figure)",
+        "an adorable STICK-FIGURE version of the subject(s) — simple round heads with expressive "
+        "little faces and hair details, thin clean lines, tiny accessories matching each person, "
+        "the names in small handwriting under each figure, minimal cute family-decal style"),
+    "marble_statue": ("🏛️ Tượng đá cẩm thạch Hy Lạp",
+        "the subject as a classical GREEK MARBLE STATUE — carved white marble bust with realistic "
+        "stone texture and chiselled drapery, a museum pedestal with the name engraved on a plaque, "
+        "renaissance sculpture aesthetic with a modern streetwear twist"),
+    "clay_figure": ("🏺 Mô hình đất sét (claymation)",
+        "a cute CLAYMATION-style CLAY FIGURE of the subject — soft handmade plasticine texture with "
+        "visible fingerprint details, rounded chunky proportions, warm stop-motion movie charm"),
+    "yellow_cartoon": ("🟡 Cartoon vàng (sitcom)",
+        "the subject as a YELLOW-SKINNED CARTOON SITCOM character — flat bright yellow skin, big "
+        "round cartoon eyes with an overbite, simple bold outlines, a sitcom living-room couch "
+        "setting, classic adult-animation comedy style"),
+    "photo_in_letters": ("🔠 Ảnh THẬT trong chữ",
+        "the name rendered as HUGE thick letters where the letterforms are FILLED with the reference "
+        "photo (the photo shows through the letter shapes like a mask), crisp edges, a small tagline "
+        "underneath, bold modern photo-typography poster"),
+    "heart_collage": ("💗 Collage trái tim (ảnh thật)",
+        "a HEART-SHAPED PHOTO COLLAGE: the reference photo repeated in several crops and sizes tiled "
+        "together to fill one big heart shape, warm romantic tone, a script name + date underneath, "
+        "heartfelt gift layout"),
+    "music_player": ("🎧 Giao diện máy nghe nhạc",
+        "a MUSIC PLAYER interface layout: the photo as the album art in a rounded square, the name "
+        "as the song title and a sweet phrase as the artist line, a progress bar with timestamps, "
+        "play/skip control icons, minimal modern music-app aesthetic"),
 }
 
 # Dạng GIỮ ẢNH THẬT: chỉ dựng bố cục/hiệu ứng quanh ảnh, KHÔNG vẽ lại thành tranh
 PSN_ART_KEEP_PHOTO = {"bootleg_tee", "photo_collage_tee", "vintage_photo_wrap", "y2k_airbrush",
                       "polaroid_frame", "photo_strip", "wanted_poster", "sports_card",
-                      "magazine_cover", "album_cover", "stamp_post", "angel_memorial"}
+                      "magazine_cover", "album_cover", "stamp_post", "angel_memorial",
+                      "photo_in_letters", "heart_collage", "music_player"}
 
 
 def psn_art_prompt(style_key, name, date, extra=""):
