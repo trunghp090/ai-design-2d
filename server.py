@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-setshirt-tab"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-setshirt-2views"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5529,15 +5529,16 @@ SETSHIRT_GROUPS = {"couple": ("💑 Couple", 2), "family3": ("👨‍👩‍👧
 
 
 def setshirt_prompt(new_name, old_name):
-    p = ("This reference image is a PRODUCT PHOTO of a personalised name t-shirt — it may show the "
-         "FRONT view and BACK view of the shirt side by side. Recreate the EXACT SAME product photo "
-         "for another person: keep the same shirt colour and fit, the SAME camera composition (if "
-         "the reference shows front and back views side by side, output front and back the same "
-         "way; if it shows one view, keep one view), the same clean background and lighting, and "
-         "the printed design 100%% IDENTICAL — same arched lettering style, badge/oval, 'EST.' and "
-         "date, small script line, colours, sizes and positions. ONLY change the main printed NAME "
-         "to \"%s\" — spelled EXACTLY with correct Vietnamese diacritics, in the same font, arch, "
-         "size and colour as the original name." % new_name)
+    p = ("This reference image is a PRODUCT PHOTO of a personalised name t-shirt. Recreate the "
+         "EXACT SAME product photo for another person. The output image MUST show TWO views of the "
+         "SAME shirt side by side, exactly like the reference: the FRONT view on the LEFT (with the "
+         "printed design on the chest) and the BACK view on the RIGHT (plain with no print, unless "
+         "the reference's back view also has a print — then copy that identically too). Keep the "
+         "same shirt colour and fit, the same camera framing and shirt sizes, the same clean "
+         "background and lighting, and the printed design 100%% IDENTICAL — same arched lettering "
+         "style, badge/oval, 'EST.' and date, small script line, colours, sizes and positions. ONLY "
+         "change the main printed NAME to \"%s\" — spelled EXACTLY with correct Vietnamese "
+         "diacritics, in the same font, arch, size and colour as the original name." % new_name)
     if old_name:
         p += (" The reference's original name \"%s\" must NOT appear anywhere in the result — it is "
               "fully replaced." % old_name)
