@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-setshirt-back-script"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-zip-download"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7082,6 +7082,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_psn_art(body)
         if path == "/api/setshirt-gen":
             return self.handle_setshirt_gen(body)
+        if path == "/api/download-zip":
+            return self.handle_download_zip(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -7433,6 +7435,43 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_download_zip(self, body):
+        """Đóng gói các ảnh đã chọn thành 1 file ZIP tải về. items=[{id|url, name}]."""
+        import zipfile
+        items = body.get("items") or []
+        if not items:
+            return self.json(400, {"error": "Chưa chọn ảnh nào."})
+        buf = io.BytesIO()
+        count = 0
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+            for i, it in enumerate(items[:100]):
+                data = None
+                gid = str(it.get("id") or "").strip()
+                if gid and re.match(r"^[\w-]+$", gid):
+                    p = os.path.join(GALLERY_DIR, gid + ".png")
+                    if os.path.isfile(p):
+                        with open(p, "rb") as f:
+                            data = f.read()
+                if not data and it.get("url"):
+                    try:
+                        data, _ = fetch_image_bytes(it["url"])
+                    except Exception:
+                        data = None
+                if not data:
+                    continue
+                name = re.sub(r"[^\w\sÀ-ỹ&·-]+", "", str(it.get("name") or "anh")).strip()[:60] or "anh"
+                z.writestr("%02d-%s.png" % (i + 1, name.replace(" ", "-")), data)
+                count += 1
+        raw = buf.getvalue()
+        if not count:
+            return self.json(400, {"error": "Không đọc được ảnh nào để đóng gói."})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", 'attachment; filename="bo-anh.zip"')
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
 
     def handle_setshirt_gen(self, body):
         """👕 Bộ áo theo tệp: áo bố cục -> gpt-image-2 tạo N áo (couple/GĐ3/GĐ4), giữ layout đổi tên."""

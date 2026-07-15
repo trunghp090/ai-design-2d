@@ -2675,6 +2675,22 @@ $("dsDownloadAll").onclick = async () => {
   }
 };
 
+/* ---------- 📦 Tải ZIP hàng loạt (dùng chung các tab lưới ảnh) ---------- */
+async function zipDownloadSelected(items, btn) {
+  if (!items.length) { alert("⚠️ Chưa tick chọn ảnh nào."); return; }
+  const o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang đóng gói…";
+  try {
+    const r = await fetch("/api/download-zip", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: items }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || "Lỗi đóng gói"); }
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "bo-anh-" + Date.now() + ".zip";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { alert("✗ " + e.message); }
+  btn.disabled = false; btn.textContent = o;
+}
+
 /* =====================================================================
    TAB 👕 BỘ ÁO THEO TỆP — áo bố cục -> gpt-image-2 tạo bộ couple/GĐ, tự nghĩ tên
    ===================================================================== */
@@ -2708,6 +2724,15 @@ function ssInit() {
     document.querySelectorAll("#ssGroup .cchip").forEach(x => x.classList.toggle("on", x === c));
   });
   $("ssRunBtn").onclick = ssGenerate;
+  if ($("ssPickAll")) $("ssPickAll").onchange = (e) => { ssItems.forEach(it => it._sel = e.target.checked); ssRender(); };
+  if ($("ssZipBtn")) $("ssZipBtn").onclick = () => zipDownloadSelected(
+    ssItems.filter(it => it._sel).map(it => ({ id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "ao" })), $("ssZipBtn"));
+}
+function ssUpdateSel() {
+  const real = ssItems.length, sel = ssItems.filter(it => it._sel).length;
+  if ($("ssSelBar")) $("ssSelBar").classList.toggle("hidden", real === 0);
+  if ($("ssSelCount")) $("ssSelCount").textContent = "Đã chọn " + sel + "/" + real;
+  if ($("ssPickAll")) $("ssPickAll").checked = real > 0 && sel === real;
 }
 async function ssGenerate() {
   const note = $("ssNote"); note.className = "gen-note"; note.textContent = "";
@@ -2761,6 +2786,7 @@ function ssRender() {
   const grid = $("ssResults");
   const pending = ssJobs.reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
   $("ssCountBadge").textContent = ssItems.length ? "(" + ssItems.length + ")" : "";
+  ssUpdateSel();
   if (!ssItems.length && !pending) { $("ssEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
   $("ssEmpty").classList.add("hidden");
   grid.innerHTML = "";
@@ -2773,9 +2799,11 @@ function ssRender() {
     const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
     const card = document.createElement("div"); card.className = "gcard";
     card.innerHTML =
+      '<input type="checkbox" class="gpick ss-pick"' + (it._sel ? " checked" : "") + '>' +
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Bộ áo") + '</div>' +
       '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+    card.querySelector(".ss-pick").onchange = (e) => { it._sel = e.target.checked; ssUpdateSel(); };
     const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
     card.querySelector("img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
@@ -2836,6 +2864,15 @@ function psnInit() {
     if (typeof attachUniversalPaste === "function") attachUniversalPaste();   // quét dropzone mới (nút 📋 Dán)
   }
   if ($("psnArtRun")) $("psnArtRun").onclick = psnArtGenerate;
+  if ($("psnPickAll")) $("psnPickAll").onchange = (e) => { psnItems.forEach(it => it._sel = e.target.checked); psnRender(); };
+  if ($("psnZipBtn")) $("psnZipBtn").onclick = () => zipDownloadSelected(
+    psnItems.filter(it => it._sel).map(it => ({ id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "mau" })), $("psnZipBtn"));
+}
+function psnUpdateSel() {
+  const real = psnItems.length, sel = psnItems.filter(it => it._sel).length;
+  if ($("psnSelBar")) $("psnSelBar").classList.toggle("hidden", real === 0);
+  if ($("psnSelCount")) $("psnSelCount").textContent = "Đã chọn " + sel + "/" + real;
+  if ($("psnPickAll")) $("psnPickAll").checked = real > 0 && sel === real;
 }
 async function psnArtGenerate() {
   const note = $("psnNote"); note.className = "gen-note"; note.textContent = "";
@@ -2940,6 +2977,7 @@ function psnRender() {
   const grid = $("psnResults");
   const pending = psnJobs.reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
   $("psnCountBadge").textContent = psnItems.length ? "(" + psnItems.length + ")" : "";
+  psnUpdateSel();
   if (!psnItems.length && !pending) { $("psnEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
   $("psnEmpty").classList.add("hidden");
   grid.innerHTML = "";
@@ -2952,6 +2990,7 @@ function psnRender() {
     const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
     const card = document.createElement("div"); card.className = "gcard";
     card.innerHTML =
+      '<input type="checkbox" class="gpick psn-pick"' + (it._sel ? " checked" : "") + '>' +
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Personalized") + '</div>' +
       '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-use">👕 Lên áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
@@ -2973,6 +3012,7 @@ function psnRender() {
       card.appendChild(det);
     }
     const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
+    card.querySelector(".psn-pick").onchange = (e) => { it._sel = e.target.checked; psnUpdateSel(); };
     card.querySelector("img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
