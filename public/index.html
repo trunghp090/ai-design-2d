@@ -58,6 +58,7 @@
     <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
+    <button class="app-tab" data-app="setshirt" data-group="product">👕 Bộ áo tệp</button>
     <button class="app-tab" data-app="agent" data-group="marketing">🤖 Trợ lý AI</button>
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
@@ -1056,6 +1057,67 @@
         </div>
         <div id="psnResults" class="fp-creations grid"></div>
         <div class="gallery-empty" id="psnEmpty">Nhập vai trò + tên → chọn dạng (hoặc bật 🧠 3 AI) → bấm Tạo.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: 👕 BỘ ÁO THEO TỆP (couple / gia đình) ===== -->
+  <section class="auto-view app-view hidden" id="view-setshirt">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">👕 Bộ áo theo tệp</h2>
+        <p class="panel-desc" style="margin:0 0 12px">Gửi <b>ảnh áo bố cục</b> (mặt trước + mặt sau) → gpt-image-2 tạo <b>bộ áo cho cả tệp</b>: giữ nguyên design/bố cục, <b>tự nghĩ tên</b> và điền cho từng người.</p>
+
+        <label class="fp-label">📐 ẢNH ÁO BỐ CỤC (mẫu trước + sau)</label>
+        <label class="dropzone sm" id="ssDrop" style="min-height:90px;display:flex;align-items:center;justify-content:center;text-align:center">
+          <input type="file" id="ssFile" accept="image/*" hidden>
+          <span id="ssName">⬆️ Tải / kéo-thả / dán ảnh áo bố cục</span>
+        </label>
+        <div class="thumb-row" id="ssPrev"></div>
+
+        <label class="fp-label" style="margin-top:12px">👥 Chọn tệp</label>
+        <div class="color-chips" id="ssGroup">
+          <div class="cchip on" data-g="couple">💑 Couple (2 áo) <span class="tick">✓</span></div>
+          <div class="cchip" data-g="family3">👨‍👩‍👧 Gia đình 3 người <span class="tick">✓</span></div>
+          <div class="cchip" data-g="family4">👨‍👩‍👧‍👦 Gia đình 4 người <span class="tick">✓</span></div>
+        </div>
+
+        <label class="fp-label" style="margin-top:12px">🏷️ Tên từng áo (tuỳ chọn — trống = GPT tự nghĩ)</label>
+        <input type="text" id="ssNames" class="input" placeholder="VD: Lan Anh, Hữu Phước (cách nhau dấu phẩy)" />
+
+        <div class="auto-row" style="margin-top:12px">
+          <div>
+            <label class="fp-label">📐 Tỉ lệ ảnh</label>
+            <select id="ssAspect" class="input">
+              <option value="1:1" selected>Vuông 1:1</option>
+              <option value="3:2">Ngang 3:2 (trước+sau rộng)</option>
+              <option value="4:5">Dọc 4:5</option>
+            </select>
+          </div>
+          <div>
+            <label class="fp-label">⚡ Chất lượng</label>
+            <select id="ssQuality" class="input">
+              <option value="high" selected>💎 Đẹp nhất</option>
+              <option value="medium">⚖️ Cân bằng</option>
+              <option value="low">⚡ Nhanh</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="ssRunBtn" style="margin-top:14px">👕 Tạo bộ áo</button>
+        <div class="batch-progress hidden" id="ssProgress" style="margin-top:8px">
+          <div class="bp-bar"><div class="bp-fill" id="ssBar"></div></div>
+          <span id="ssProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="ssNote"></p>
+      </aside>
+
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">👕 Bộ áo đã tạo <span id="ssCountBadge" class="fp-count"></span></h3>
+        </div>
+        <div id="ssResults" class="fp-creations grid"></div>
+        <div class="gallery-empty" id="ssEmpty">Tải ảnh áo bố cục → chọn tệp → bấm Tạo bộ áo.</div>
       </section>
     </div>
   </section>

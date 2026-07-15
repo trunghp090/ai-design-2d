@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-psn-104styles"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-setshirt-tab"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5521,6 +5521,79 @@ def run_psn_art_job(job_id, photo, styles, name, date, extra, n, size):
             BATCH_JOBS[job_id]["finished"] = True
 
 
+# ===================== TAB 👕 BỘ ÁO THEO TỆP (couple / gia đình 3-4) =====================
+# User gửi ÁO BỐ CỤC (ảnh sản phẩm mặt trước + mặt sau) -> gpt-image-2 tạo bộ áo cho từng
+# người trong tệp: GIỮ NGUYÊN layout/design/bố cục ảnh, CHỈ đổi tên. GPT tự nghĩ tên nếu trống.
+SETSHIRT_GROUPS = {"couple": ("💑 Couple", 2), "family3": ("👨‍👩‍👧 Gia đình 3 người", 3),
+                   "family4": ("👨‍👩‍👧‍👦 Gia đình 4 người", 4)}
+
+
+def setshirt_prompt(new_name, old_name):
+    p = ("This reference image is a PRODUCT PHOTO of a personalised name t-shirt — it may show the "
+         "FRONT view and BACK view of the shirt side by side. Recreate the EXACT SAME product photo "
+         "for another person: keep the same shirt colour and fit, the SAME camera composition (if "
+         "the reference shows front and back views side by side, output front and back the same "
+         "way; if it shows one view, keep one view), the same clean background and lighting, and "
+         "the printed design 100%% IDENTICAL — same arched lettering style, badge/oval, 'EST.' and "
+         "date, small script line, colours, sizes and positions. ONLY change the main printed NAME "
+         "to \"%s\" — spelled EXACTLY with correct Vietnamese diacritics, in the same font, arch, "
+         "size and colour as the original name." % new_name)
+    if old_name:
+        p += (" The reference's original name \"%s\" must NOT appear anywhere in the result — it is "
+              "fully replaced." % old_name)
+    return p + (" Do NOT add, remove, move or redesign any other element. Crisp, photorealistic, "
+                "high-quality e-commerce product photo.")
+
+
+def run_setshirt_job(job_id, layout_img, group, names, aspect, quality):
+    """Job nền: mỗi người trong tệp -> 1 ảnh áo (trước+sau) giữ layout, đổi tên."""
+    n = SETSHIRT_GROUPS.get(group, ("", 2))[1]
+    old_name = ads_read_name(layout_img[0])
+    given = [str(x).strip() for x in (names or []) if str(x).strip()][:n]
+    if group == "couple":
+        auto = ads_couple_names()
+        full = [given[0] if len(given) > 0 else auto["female"],
+                given[1] if len(given) > 1 else auto["male"]]
+    else:
+        auto = ads_n_names(n)
+        full = [given[i] if i < len(given) else auto[i] for i in range(n)]
+    size = ASPECT_TO_SIZE.get(aspect, "1024x1024")
+    glabel = SETSHIRT_GROUPS.get(group, ("Bộ áo", n))[0]
+
+    def work(nm):
+        try:
+            prompt = setshirt_prompt(nm, old_name)
+            b64 = openai_edit([layout_img], prompt, size, native_transparent=False, quality=quality)
+            if HAS_PIL:
+                try:
+                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
+                except Exception:
+                    pass
+            b64 = strip_ai_meta_b64(b64)
+            title = "%s · %s" % (glabel, nm)
+            g = gallery_add(b64, {"mode": "setshirt", "prompt": title})
+            return {"image": b64, "title": title, "gallery": g, "prompt": prompt, "name": nm}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": nm}
+        except Exception as e:
+            return {"error": str(e), "title": nm}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, full):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def psn_build_prompt(key, role, names, date, extra=""):
     label, tpl = PSN_STYLES[key]
     names = [n.strip() for n in (names or []) if n and n.strip()] or ["Minh Anh"]
@@ -6987,6 +7060,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_psn_gen(body)
         if path == "/api/psn-art":
             return self.handle_psn_art(body)
+        if path == "/api/setshirt-gen":
+            return self.handle_setshirt_gen(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -7338,6 +7413,33 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_setshirt_gen(self, body):
+        """👕 Bộ áo theo tệp: áo bố cục -> gpt-image-2 tạo N áo (couple/GĐ3/GĐ4), giữ layout đổi tên."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        ld, lm = fetch_image_bytes(body.get("image", ""))
+        if not ld:
+            return self.json(400, {"error": "Cần ẢNH ÁO BỐ CỤC (mặt trước + mặt sau)."})
+        group = (body.get("group") or "couple").strip()
+        if group not in SETSHIRT_GROUPS:
+            return self.json(400, {"error": "Tệp không hợp lệ (couple / family3 / family4)."})
+        names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:4]
+        aspect = (body.get("aspect") or "1:1").strip()
+        if aspect not in ASPECT_TO_SIZE:
+            aspect = "1:1"
+        quality = (body.get("quality") or "high").strip()
+        if quality not in ("low", "medium", "high"):
+            quality = "high"
+        n = SETSHIRT_GROUPS[group][1]
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ss%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_setshirt_job,
+                         args=(job_id, (ld, lm or "image/png"), group, names, aspect, quality),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_psn_art(self, body):
         """🎁 Personalized: BIẾN ẢNH THẬT thành art (chibi/watercolor/pop-art…) in áo."""

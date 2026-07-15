@@ -746,6 +746,7 @@ function showApp(app) {
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
+  document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
   document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
@@ -770,6 +771,7 @@ function showApp(app) {
   if (app === "product") prodInit();
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
   if (app === "psn") psnInit();
+  if (app === "setshirt") ssInit();
   if (app === "namedes") namedesInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
@@ -2672,6 +2674,127 @@ $("dsDownloadAll").onclick = async () => {
     await new Promise(r => setTimeout(r, 350));
   }
 };
+
+/* =====================================================================
+   TAB 👕 BỘ ÁO THEO TỆP — áo bố cục -> gpt-image-2 tạo bộ couple/GĐ, tự nghĩ tên
+   ===================================================================== */
+let ssInited = false, ssImg = null, ssGroupKey = "couple", ssItems = [], ssJobs = [], ssPollTimer = null;
+function ssInit() {
+  if (ssInited) return; ssInited = true;
+  const setImg = (durl) => {
+    ssImg = durl;
+    $("ssName").textContent = "✅ Đã có áo bố cục — chọn tệp rồi bấm Tạo";
+    $("ssPrev").innerHTML = '<img src="' + durl + '" style="max-width:140px;max-height:140px;border-radius:10px;border:1px solid var(--line)"><button class="btn-ghost sm" id="ssImgX" style="vertical-align:top;margin-left:6px">✕</button>';
+    $("ssImgX").onclick = () => { ssImg = null; $("ssPrev").innerHTML = ""; $("ssName").textContent = "⬆️ Tải / kéo-thả / dán ảnh áo bố cục"; };
+  };
+  $("ssFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) setImg(await fileToDataURL(f)); e.target.value = ""; };
+  $("ssDrop").ondragover = (e) => e.preventDefault();
+  $("ssDrop").ondrop = async (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) setImg(await fileToDataURL(f)); };
+  if (typeof attachUniversalPaste === "function") attachUniversalPaste();
+  document.querySelectorAll("#ssGroup .cchip").forEach(c => c.onclick = () => {
+    ssGroupKey = c.dataset.g;
+    document.querySelectorAll("#ssGroup .cchip").forEach(x => x.classList.toggle("on", x === c));
+  });
+  $("ssRunBtn").onclick = ssGenerate;
+}
+async function ssGenerate() {
+  const note = $("ssNote"); note.className = "gen-note"; note.textContent = "";
+  if (!ssImg) { note.className = "gen-note err"; note.textContent = "⚠️ Tải ảnh ÁO BỐ CỤC trước."; return; }
+  const names = ($("ssNames").value || "").split(",").map(s => s.trim()).filter(Boolean);
+  const btn = $("ssRunBtn"); btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳ Đang tạo…";
+  $("ssProgress").classList.remove("hidden");
+  try {
+    const r = await fetch("/api/setshirt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: ssImg, group: ssGroupKey, names: names,
+        aspect: $("ssAspect").value, quality: $("ssQuality").value }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    ssJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    ssRender();
+    note.className = "gen-note ok"; note.textContent = "⏳ GPT đang nghĩ tên + tạo " + d.total + " áo (giữ nguyên bố cục)…";
+    if (!ssPollTimer) ssPollTimer = setInterval(ssPollAll, 2500);
+    ssPollAll();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = old;
+}
+async function ssPollAll() {
+  const active = ssJobs.filter(j => !j.finished);
+  let errs = [];
+  await Promise.all(active.map(async j => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      j.total = Math.max(j.total || 0, d.total || 0);
+      j.done = Math.max(j.done || 0, d.done || 0);
+      j.finished = !!d.finished;
+      (d.items || []).forEach(it => {
+        const key = (it.gallery && it.gallery.id) || it.title;
+        if (!ssItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) ssItems.unshift(it);
+      });
+      (d.errors || []).forEach(e => errs.push(e));
+    } catch (e) {}
+  }));
+  ssRender();
+  const total = ssJobs.reduce((a, j) => a + (j.total || 0), 0);
+  const done = ssJobs.reduce((a, j) => a + (j.done || 0), 0);
+  const running = ssJobs.filter(j => !j.finished).length;
+  $("ssBar").style.width = (total ? Math.round(done / total * 100) : 0) + "%";
+  $("ssProgText").textContent = (running ? "⏳ đang chạy · " : "✓ xong · ") + done + "/" + total;
+  if (errs.length) { $("ssNote").className = "gen-note err"; $("ssNote").textContent = "⚠️ " + errs[0]; }
+  if (!running && ssPollTimer) {
+    clearInterval(ssPollTimer); ssPollTimer = null;
+    if (!errs.length) { $("ssNote").className = "gen-note ok"; $("ssNote").textContent = "✓ Xong bộ áo! (đã lưu Lịch sử)"; }
+    if (typeof loadGallery === "function") loadGallery();
+  }
+}
+function ssRender() {
+  const grid = $("ssResults");
+  const pending = ssJobs.reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
+  $("ssCountBadge").textContent = ssItems.length ? "(" + ssItems.length + ")" : "";
+  if (!ssItems.length && !pending) { $("ssEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("ssEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  for (let i = 0; i < pending; i++) {
+    const c = document.createElement("div"); c.className = "gcard gcard-loading";
+    c.innerHTML = '<div class="ds-loading"><span class="ds-spin"></span><span>Đang tạo áo…</span></div>';
+    grid.appendChild(c);
+  }
+  ssItems.forEach(it => {
+    const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
+    const card = document.createElement("div"); card.className = "gcard";
+    card.innerHTML =
+      '<img src="' + src + '" loading="lazy" alt="">' +
+      '<div class="gmeta">' + (it.title || "Bộ áo") + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+    const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
+    card.querySelector("img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "bo-ao");
+    card.querySelector(".b-del").onclick = async () => {
+      if (!confirm("Xoá ảnh này?")) return;
+      try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
+      ssItems = ssItems.filter(x => x !== it); ssRender();
+      if (typeof loadGallery === "function") loadGallery();
+    };
+    // ✏️ prompt xem + copy
+    if (it.prompt) {
+      const det = document.createElement("details");
+      det.style.cssText = "padding:5px 8px;border-top:1px solid var(--line);background:#fdfbfc";
+      const sum = document.createElement("summary");
+      sum.style.cssText = "cursor:pointer;font-size:11px;color:var(--violet);font-weight:600";
+      sum.textContent = "✏️ Prompt";
+      const pre = document.createElement("div");
+      pre.style.cssText = "font-size:10.5px;line-height:1.45;color:var(--muted);margin-top:4px;max-height:130px;overflow:auto;white-space:pre-wrap";
+      pre.textContent = it.prompt;
+      const cb = document.createElement("button");
+      cb.className = "btn-ghost sm"; cb.style.cssText = "margin-top:4px;font-size:11px;padding:3px 9px";
+      cb.textContent = "📋 Copy prompt";
+      cb.onclick = async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(it.prompt); cb.textContent = "✓ Đã copy"; setTimeout(() => cb.textContent = "📋 Copy prompt", 1200); } catch (err) {} };
+      det.appendChild(sum); det.appendChild(pre); det.appendChild(cb);
+      card.appendChild(det);
+    }
+    grid.appendChild(card);
+  });
+}
 
 /* =====================================================================
    TAB 🎁 PERSONALIZED — mọi dạng cá nhân hoá, 3 AI (Claude+GPT+Gemini) phân tích
