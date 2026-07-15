@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-setshirt-2views"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.01-setshirt-back-script"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5528,17 +5528,31 @@ SETSHIRT_GROUPS = {"couple": ("💑 Couple", 2), "family3": ("👨‍👩‍👧
                    "family4": ("👨‍👩‍👧‍👦 Gia đình 4 người", 4)}
 
 
-def setshirt_prompt(new_name, old_name):
-    p = ("This reference image is a PRODUCT PHOTO of a personalised name t-shirt. Recreate the "
+SETSHIRT_SURNAMES = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi", "Đỗ", "Ngô"]
+
+
+def setshirt_prompt(new_name, old_name, script_line="", has_back=False):
+    p = ("The first reference image is a PRODUCT PHOTO of a personalised name t-shirt. Recreate the "
          "EXACT SAME product photo for another person. The output image MUST show TWO views of the "
          "SAME shirt side by side, exactly like the reference: the FRONT view on the LEFT (with the "
-         "printed design on the chest) and the BACK view on the RIGHT (plain with no print, unless "
-         "the reference's back view also has a print — then copy that identically too). Keep the "
-         "same shirt colour and fit, the same camera framing and shirt sizes, the same clean "
-         "background and lighting, and the printed design 100%% IDENTICAL — same arched lettering "
-         "style, badge/oval, 'EST.' and date, small script line, colours, sizes and positions. ONLY "
-         "change the main printed NAME to \"%s\" — spelled EXACTLY with correct Vietnamese "
-         "diacritics, in the same font, arch, size and colour as the original name." % new_name)
+         "printed design on the chest) and the BACK view on the RIGHT. ")
+    if has_back:
+        p += ("The SECOND reference image shows the BACK design of the shirt — render the BACK view "
+              "with that design reproduced identically. ")
+    else:
+        p += ("The BACK view is exactly as in the reference (plain with no print if the reference's "
+              "back is plain). ")
+    p += ("Keep the same shirt colour and fit, the same camera framing and shirt sizes, the same "
+          "clean background and lighting, and the printed design 100% IDENTICAL — same arched "
+          "lettering style, badge/oval, 'EST.' and date, colours, sizes and positions. TWO text "
+          "changes ONLY: (1) the main printed NAME becomes \"" + new_name + "\" — spelled EXACTLY "
+          "with correct Vietnamese diacritics, in the same font, arch, size and colour as the "
+          "original name.")
+    if script_line:
+        p += (" (2) the small cursive script line under the badge becomes EXACTLY \"" + script_line +
+              "\" — same script font, size, colour and position as the original script line.")
+    else:
+        p += " (2) keep the small script line unchanged."
     if old_name:
         p += (" The reference's original name \"%s\" must NOT appear anywhere in the result — it is "
               "fully replaced." % old_name)
@@ -5546,8 +5560,10 @@ def setshirt_prompt(new_name, old_name):
                 "high-quality e-commerce product photo.")
 
 
-def run_setshirt_job(job_id, layout_img, group, names, aspect, quality):
-    """Job nền: mỗi người trong tệp -> 1 ảnh áo (trước+sau) giữ layout, đổi tên."""
+def run_setshirt_job(job_id, layout_img, back_img, group, names, aspect, quality):
+    """Job nền: mỗi người trong tệp -> 1 ảnh áo (trước+sau) giữ layout, đổi tên.
+    back_img: ảnh mặt sau (tuỳ chọn) — có thì in mặt sau theo đó, không thì mặt sau trơn.
+    Chữ ký script dưới badge: couple = 'Tên1 & Tên2'; gia đình = '<Họ> Family'."""
     n = SETSHIRT_GROUPS.get(group, ("", 2))[1]
     old_name = ads_read_name(layout_img[0])
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:n]
@@ -5555,16 +5571,19 @@ def run_setshirt_job(job_id, layout_img, group, names, aspect, quality):
         auto = ads_couple_names()
         full = [given[0] if len(given) > 0 else auto["female"],
                 given[1] if len(given) > 1 else auto["male"]]
+        script_line = "%s & %s" % (full[0], full[1])
     else:
         auto = ads_n_names(n)
         full = [given[i] if i < len(given) else auto[i] for i in range(n)]
+        script_line = "%s Family" % random.choice(SETSHIRT_SURNAMES)
     size = ASPECT_TO_SIZE.get(aspect, "1024x1024")
     glabel = SETSHIRT_GROUPS.get(group, ("Bộ áo", n))[0]
+    imgs = [layout_img] + ([back_img] if back_img else [])
 
     def work(nm):
         try:
-            prompt = setshirt_prompt(nm, old_name)
-            b64 = openai_edit([layout_img], prompt, size, native_transparent=False, quality=quality)
+            prompt = setshirt_prompt(nm, old_name, script_line, bool(back_img))
+            b64 = openai_edit(imgs, prompt, size, native_transparent=False, quality=quality)
             if HAS_PIL:
                 try:
                     b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
@@ -7422,6 +7441,11 @@ class Handler(BaseHTTPRequestHandler):
         ld, lm = fetch_image_bytes(body.get("image", ""))
         if not ld:
             return self.json(400, {"error": "Cần ẢNH ÁO BỐ CỤC (mặt trước + mặt sau)."})
+        back = None
+        if body.get("back"):
+            bd, bm = fetch_image_bytes(body.get("back", ""))
+            if bd:
+                back = (bd, bm or "image/png")
         group = (body.get("group") or "couple").strip()
         if group not in SETSHIRT_GROUPS:
             return self.json(400, {"error": "Tệp không hợp lệ (couple / family3 / family4)."})
@@ -7438,7 +7462,7 @@ class Handler(BaseHTTPRequestHandler):
             job_id = "ss%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
         threading.Thread(target=run_setshirt_job,
-                         args=(job_id, (ld, lm or "image/png"), group, names, aspect, quality),
+                         args=(job_id, (ld, lm or "image/png"), back, group, names, aspect, quality),
                          daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n})
 

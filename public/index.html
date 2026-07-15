@@ -1068,12 +1068,20 @@
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">👕 Bộ áo theo tệp</h2>
         <p class="panel-desc" style="margin:0 0 12px">Gửi <b>ảnh áo bố cục</b> (mặt trước + mặt sau) → gpt-image-2 tạo <b>bộ áo cho cả tệp</b>: giữ nguyên design/bố cục, <b>tự nghĩ tên</b> và điền cho từng người.</p>
 
-        <label class="fp-label">📐 ẢNH ÁO BỐ CỤC (mẫu trước + sau)</label>
+        <label class="fp-label">📐 ẢNH ÁO BỐ CỤC (mặt trước — hoặc mẫu có sẵn 2 mặt)</label>
         <label class="dropzone sm" id="ssDrop" style="min-height:90px;display:flex;align-items:center;justify-content:center;text-align:center">
           <input type="file" id="ssFile" accept="image/*" hidden>
           <span id="ssName">⬆️ Tải / kéo-thả / dán ảnh áo bố cục</span>
         </label>
         <div class="thumb-row" id="ssPrev"></div>
+
+        <label class="fp-label" style="margin-top:10px">🔄 DESIGN MẶT SAU (tuỳ chọn — trống = mặt sau trơn)</label>
+        <label class="dropzone sm" id="ssBackDrop" style="min-height:64px;display:flex;align-items:center;justify-content:center;text-align:center">
+          <input type="file" id="ssBackFile" accept="image/*" hidden>
+          <span id="ssBackName">⬆️ Tải design mặt sau (nếu có)</span>
+        </label>
+        <div class="thumb-row" id="ssBackPrev"></div>
+        <p class="hint" style="margin-top:4px">✍️ Dòng chữ ký dưới badge tự đổi: couple = "Tên1 &amp; Tên2" · gia đình = "&lt;Họ&gt; Family".</p>
 
         <label class="fp-label" style="margin-top:12px">👥 Chọn tệp</label>
         <div class="color-chips" id="ssGroup">

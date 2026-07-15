@@ -2678,7 +2678,7 @@ $("dsDownloadAll").onclick = async () => {
 /* =====================================================================
    TAB 👕 BỘ ÁO THEO TỆP — áo bố cục -> gpt-image-2 tạo bộ couple/GĐ, tự nghĩ tên
    ===================================================================== */
-let ssInited = false, ssImg = null, ssGroupKey = "couple", ssItems = [], ssJobs = [], ssPollTimer = null;
+let ssInited = false, ssImg = null, ssBackImg = null, ssGroupKey = "couple", ssItems = [], ssJobs = [], ssPollTimer = null;
 function ssInit() {
   if (ssInited) return; ssInited = true;
   const setImg = (durl) => {
@@ -2690,6 +2690,18 @@ function ssInit() {
   $("ssFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) setImg(await fileToDataURL(f)); e.target.value = ""; };
   $("ssDrop").ondragover = (e) => e.preventDefault();
   $("ssDrop").ondrop = async (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) setImg(await fileToDataURL(f)); };
+  // 🔄 design mặt sau (tuỳ chọn)
+  const setBack = (durl) => {
+    ssBackImg = durl;
+    $("ssBackName").textContent = "✅ Có design mặt sau — sẽ in vào lưng áo";
+    $("ssBackPrev").innerHTML = '<img src="' + durl + '" style="max-width:110px;max-height:110px;border-radius:10px;border:1px solid var(--line)"><button class="btn-ghost sm" id="ssBackX" style="vertical-align:top;margin-left:6px">✕</button>';
+    $("ssBackX").onclick = () => { ssBackImg = null; $("ssBackPrev").innerHTML = ""; $("ssBackName").textContent = "⬆️ Tải design mặt sau (nếu có)"; };
+  };
+  if ($("ssBackFile")) $("ssBackFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) setBack(await fileToDataURL(f)); e.target.value = ""; };
+  if ($("ssBackDrop")) {
+    $("ssBackDrop").ondragover = (e) => e.preventDefault();
+    $("ssBackDrop").ondrop = async (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) setBack(await fileToDataURL(f)); };
+  }
   if (typeof attachUniversalPaste === "function") attachUniversalPaste();
   document.querySelectorAll("#ssGroup .cchip").forEach(c => c.onclick = () => {
     ssGroupKey = c.dataset.g;
@@ -2705,7 +2717,7 @@ async function ssGenerate() {
   $("ssProgress").classList.remove("hidden");
   try {
     const r = await fetch("/api/setshirt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: ssImg, group: ssGroupKey, names: names,
+      body: JSON.stringify({ image: ssImg, back: ssBackImg || "", group: ssGroupKey, names: names,
         aspect: $("ssAspect").value, quality: $("ssQuality").value }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     ssJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
