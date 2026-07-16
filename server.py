@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.01-zip-download"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.16-setshirt-noaccent"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5531,6 +5531,14 @@ SETSHIRT_GROUPS = {"couple": ("💑 Couple", 2), "family3": ("👨‍👩‍👧
 SETSHIRT_SURNAMES = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Vũ", "Đặng", "Bùi", "Đỗ", "Ngô"]
 
 
+def strip_vn_accents(s):
+    """Bỏ dấu tiếng Việt: 'Thanh Tùng' -> 'Thanh Tung' (tên in trên áo kiểu varsity)."""
+    import unicodedata
+    s = unicodedata.normalize("NFD", str(s or ""))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.replace("đ", "d").replace("Đ", "D")
+
+
 def setshirt_prompt(new_name, old_name, script_line="", has_back=False):
     p = ("The first reference image is a PRODUCT PHOTO of a personalised name t-shirt. Recreate the "
          "EXACT SAME product photo for another person. The output image MUST show TWO views of the "
@@ -5546,8 +5554,8 @@ def setshirt_prompt(new_name, old_name, script_line="", has_back=False):
           "clean background and lighting, and the printed design 100% IDENTICAL — same arched "
           "lettering style, badge/oval, 'EST.' and date, colours, sizes and positions. TWO text "
           "changes ONLY: (1) the main printed NAME becomes \"" + new_name + "\" — spelled EXACTLY "
-          "with correct Vietnamese diacritics, in the same font, arch, size and colour as the "
-          "original name.")
+          "as given, a Vietnamese name written WITHOUT accents/diacritics (plain ASCII letters "
+          "only), in the same font, arch, size and colour as the original name.")
     if script_line:
         p += (" (2) the small cursive script line under the badge becomes EXACTLY \"" + script_line +
               "\" — same script font, size, colour and position as the original script line.")
@@ -5563,7 +5571,8 @@ def setshirt_prompt(new_name, old_name, script_line="", has_back=False):
 def run_setshirt_job(job_id, layout_img, back_img, group, names, aspect, quality):
     """Job nền: mỗi người trong tệp -> 1 ảnh áo (trước+sau) giữ layout, đổi tên.
     back_img: ảnh mặt sau (tuỳ chọn) — có thì in mặt sau theo đó, không thì mặt sau trơn.
-    Chữ ký script dưới badge: couple = 'Tên1 & Tên2'; gia đình = '<Họ> Family'."""
+    Tên in KHÔNG DẤU. Chữ ký script: couple = ghép tên ngắn 2 người ('Thanh Tung' + 'Thu Trang'
+    -> 'Tung Trang'); gia đình = '<Ho> Family'."""
     n = SETSHIRT_GROUPS.get(group, ("", 2))[1]
     old_name = ads_read_name(layout_img[0])
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:n]
@@ -5571,11 +5580,13 @@ def run_setshirt_job(job_id, layout_img, back_img, group, names, aspect, quality
         auto = ads_couple_names()
         full = [given[0] if len(given) > 0 else auto["female"],
                 given[1] if len(given) > 1 else auto["male"]]
-        script_line = "%s & %s" % (full[0], full[1])
+        full = [strip_vn_accents(x) for x in full]
+        script_line = "%s %s" % (_short_name(full[0]), _short_name(full[1]))
     else:
         auto = ads_n_names(n)
         full = [given[i] if i < len(given) else auto[i] for i in range(n)]
-        script_line = "%s Family" % random.choice(SETSHIRT_SURNAMES)
+        full = [strip_vn_accents(x) for x in full]
+        script_line = "%s Family" % strip_vn_accents(random.choice(SETSHIRT_SURNAMES))
     size = ASPECT_TO_SIZE.get(aspect, "1024x1024")
     glabel = SETSHIRT_GROUPS.get(group, ("Bộ áo", n))[0]
     imgs = [layout_img] + ([back_img] if back_img else [])
