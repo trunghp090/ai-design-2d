@@ -5575,6 +5575,14 @@ function fbpRenderAll() {
       '<div class="fp-card-prompt">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
         (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
+      (function () {
+        const proofs = (it.pics || []).map((p, i) => p.prompt
+          ? '<div style="margin:4px 0"><b style="font-size:11px">📷 Ảnh ' + (i + 1) + ' — prompt đã gửi cho model:</b><pre style="white-space:pre-wrap;font-size:10px;line-height:1.45;max-height:150px;overflow:auto;background:rgba(127,127,127,.1);padding:6px 8px;border-radius:6px;margin:2px 0">' + p.prompt.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></div>'
+          : "").join("");
+        return proofs
+          ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — xem prompt của từng ảnh' + (it.scene ? ' (cảnh Claude viết: ' + it.scene.length + ' ký tự)' : '') + '</summary>' + proofs + '</details>'
+          : "";
+      })() +
       '<textarea class="input fbp-cap" rows="3" placeholder="Caption bài đăng (AI tự viết)…"></textarea>' +
       '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
@@ -5607,7 +5615,7 @@ async function fbpRegenOne(it, i, btn) {
         bg: it.bg || "", scene: it.scene || "", engine: ($("fbpEngine") && $("fbpEngine").value) || "",
         aspect: $("fbpAspect").value, quality: $("fbpQuality").value }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    it.pics[i] = { image: d.image, url: d.url, id: d.id };
+    it.pics[i] = { image: d.image, url: d.url, id: d.id, prompt: d.prompt || "" };
     fbpRenderAll();
     note.className = "gen-note ok";
     note.textContent = "✓ Đã gen lại ảnh " + (i + 1) + (d.by === "claude" ? " (🧠 prompt Claude của bộ)" : "") + ".";

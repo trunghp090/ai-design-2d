@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-claude100"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-proof"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1792,8 +1792,10 @@ def ads_n_names(n):
         names = [str(s).strip() for s in (d.get("names") or []) if str(s).strip()][:n]
     except Exception:
         names = []
-    while len(names) < n:
-        names.append("Bạn %d" % (len(names) + 1))
+    pool = [x for x in (VN_COUPLE_NU + VN_COUPLE_NAM) if x not in names]
+    random.shuffle(pool)
+    while len(names) < n and pool:   # fallback = tên thật từ pool, KHÔNG BAO GIỜ "Bạn 1/Bạn 2"
+        names.append(pool.pop())
     return names
 
 
@@ -2360,7 +2362,8 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         pass
                 b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
-                pics.append({"image": b64, "url": g.get("url"), "id": g.get("id")})
+                # prompt lưu theo TỪNG ảnh làm BẰNG CHỨNG Claude viết (FE hiện nút 🧠 xem prompt)
+                pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"), "prompt": prompt})
             # names/bg/scene trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + cảnh của bộ
             return {"concept": key, "title": label, "pics": pics,
                     "names": names, "bg": bg, "scene": scene}
@@ -8984,7 +8987,7 @@ class Handler(BaseHTTPRequestHandler):
             b64 = strip_ai_meta_b64(b64)
             g = gallery_add(b64, {"mode": "fbpost", "prompt": "FB Post regen · %s" % fbp_concept_label(key)})
             return self.json(200, {"image": b64, "url": g.get("url"), "id": g.get("id"),
-                                   "by": "claude" if scene else "template"})
+                                   "by": "claude" if scene else "template", "prompt": prompt})
         except urllib.error.HTTPError as e:
             return self.json(502, {"error": openai_error_message(e)})
         except Exception as e:
@@ -9000,7 +9003,7 @@ class Handler(BaseHTTPRequestHandler):
         cons = []
         for c in (body.get("concepts") or []):
             key = c.get("key")
-            if key not in ADS_CONCEPTS and key not in FBP_SETS:
+            if key not in FBP_SETS:   # CHỈ 4 bộ skill (100% Claude) — key cũ = giao diện cache cũ
                 continue
             ref = None
             if c.get("ref"):
@@ -9013,7 +9016,7 @@ class Handler(BaseHTTPRequestHandler):
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
                          "n": max(0, min(8, cn)), "names": given})
         if not cons:
-            return self.json(400, {"error": "Chọn ít nhất 1 concept."})
+            return self.json(400, {"error": "Chọn ít nhất 1 bộ ảnh (nếu vừa cập nhật, nhấn Ctrl+Shift+R để nạp giao diện 4 bộ skill mới)."})
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
         quality = (body.get("quality") or "high").strip()   # cao như FB ads -> giữ design nét, ít vẽ lại
