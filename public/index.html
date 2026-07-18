@@ -1126,6 +1126,22 @@
           <input type="text" id="ttBonusNames" class="input" style="margin-top:6px" placeholder="Tên 2 áo (trống = tự nghĩ): VD Hương Lan, Huy Hùng" />
           <button class="btn-primary" id="ttBonusBtn" style="margin-top:8px">🎁 Tạo slide bonus</button>
         </div>
+
+        <!-- 🖼️ UP ẢNH CỦA BẠN + CHÈN TEXT -->
+        <div style="border-top:2px dashed var(--line);margin-top:14px;padding-top:12px">
+          <label class="fp-label">🖼️ UP ẢNH CỦA BẠN + CHÈN TEXT</label>
+          <label class="dropzone sm" id="ttUpDrop" style="min-height:64px;display:flex;align-items:center;justify-content:center;text-align:center">
+            <input type="file" id="ttUpFile" accept="image/*" multiple hidden>
+            <span id="ttUpName">⬆️ Tải / kéo-thả ảnh (chọn được nhiều)</span>
+          </label>
+          <div class="thumb-row" id="ttUpPrev" style="display:flex;flex-wrap:wrap"></div>
+          <textarea id="ttUpText" class="input" rows="3" style="margin-top:6px" placeholder="Text chèn vào ảnh — MỖI DÒNG = 1 dòng trên ảnh&#10;VD: Top 5: Áo đôi in tên 🎁&#10;xịn xò cho 2 đứa mình"></textarea>
+          <select id="ttUpPos" class="input" style="margin-top:6px">
+            <option value="1/3 trên" selected>📍 Text ở 1/3 TRÊN</option>
+            <option value="1/3 dưới">📍 Text ở 1/3 DƯỚI</option>
+          </select>
+          <button class="btn-primary" id="ttUpAdd" style="margin-top:8px">🅰️ Chèn text + thêm vào bộ</button>
+        </div>
       </aside>
 
       <section class="panel fp-main">

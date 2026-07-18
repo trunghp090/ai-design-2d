@@ -2753,6 +2753,51 @@ function ttInit() {
     if (!ttMeta) return;
     try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
   };
+  // 🖼️ Up ảnh của bạn + chèn text
+  let ttUpQueue = [];
+  const ttUpRender = () => {
+    const row = $("ttUpPrev"); if (!row) return;
+    row.innerHTML = "";
+    ttUpQueue.forEach((durl, i) => {
+      const wrap = document.createElement("div"); wrap.style.cssText = "position:relative;margin:5px 5px 0 0";
+      wrap.innerHTML = '<img src="' + durl + '" style="width:52px;height:66px;object-fit:cover;border-radius:8px;border:1px solid var(--line)"><button style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:11px;line-height:1;cursor:pointer">×</button>';
+      wrap.querySelector("button").onclick = () => { ttUpQueue.splice(i, 1); ttUpRender(); };
+      row.appendChild(wrap);
+    });
+    if ($("ttUpName")) $("ttUpName").textContent = ttUpQueue.length ? ("✅ " + ttUpQueue.length + " ảnh — nhập text rồi bấm Chèn") : "⬆️ Tải / kéo-thả ảnh (chọn được nhiều)";
+  };
+  const ttUpAddFiles = async (files) => {
+    for (const f of files) { if (f && f.type.startsWith("image/")) ttUpQueue.push(await fileToDataURL(f)); }
+    ttUpRender();
+  };
+  if ($("ttUpFile")) $("ttUpFile").onchange = async (e) => { await ttUpAddFiles([...e.target.files]); e.target.value = ""; };
+  if ($("ttUpDrop")) {
+    $("ttUpDrop").ondragover = (e) => e.preventDefault();
+    $("ttUpDrop").ondrop = async (e) => { e.preventDefault(); await ttUpAddFiles([...e.dataTransfer.files]); };
+  }
+  if ($("ttUpAdd")) $("ttUpAdd").onclick = async () => {
+    const note = $("ttNote");
+    if (!ttUpQueue.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải ảnh của bạn vào trước."; return; }
+    const lines = ($("ttUpText").value || "").split("\n").map(s => s.trim()).filter(Boolean);
+    if (!lines.length) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập text (mỗi dòng = 1 dòng trên ảnh)."; return; }
+    const b = $("ttUpAdd"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang chèn…";
+    for (const durl of ttUpQueue) {
+      let g = null;
+      try {
+        const r = await fetch("/api/save-design", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: durl, mode: "tiktok", label: "Slide up · " + (lines[0] || "").slice(0, 40) }) });
+        const d = await r.json(); g = d.gallery || null;
+      } catch (e) {}
+      const it = { idx: 500 + ttItems.length, title: "Slide up · " + (lines[0] || "ảnh của bạn").slice(0, 30),
+                   overlay: lines, position: $("ttUpPos").value, image: durl.split(",")[1], gallery: g };
+      ttItems.push(it);
+      await ttAutoBurn(it);
+    }
+    ttUpQueue = []; ttUpRender(); $("ttUpText").value = "";
+    ttRender();
+    note.className = "gen-note ok"; note.textContent = "✓ Đã chèn text + thêm vào bộ slide (cuộn xem bên phải).";
+    b.disabled = false; b.textContent = o;
+  };
   if ($("ttTextAll")) $("ttTextAll").onclick = async () => {
     const b = $("ttTextAll"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang chèn…";
     const on = !ttItems.every(it => it._showText);   // chưa bật hết -> bật hết; đang bật hết -> tắt hết
