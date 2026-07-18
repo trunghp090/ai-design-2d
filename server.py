@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-remove-jitter"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-nanobanana-real"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1261,23 +1261,27 @@ def run_generate_job(job_id, images, mode, user_prompt, size, transparent, overr
 #  Ảnh sản phẩm (gpt-image-2 edits) — theo phương pháp Nano Banana "khách thật"
 # --------------------------------------------------------------------------- #
 PRODUCT_NEG = (
-    "Negative: visible pores, skin texture, airbrushed skin, plastic skin, waxy skin, "
-    "beauty mode, portrait mode, skin smoothing, moles on face, acne, blemishes, warm color "
-    "cast, orange tint, yellow tint, golden hour, dark moody, underexposed, film grain, "
-    "vintage, faded, desaturated, stock photo look, oversaturated, deformed hands, mannequin "
-    "pose, HDR, beauty filter, cluttered props, neck label, brand tag, mouth wide open, "
-    "exaggerated smile, forced smile, blank stare, studio lighting, ring light, artificial "
-    "light, fashion editorial look, dramatic shadows, harsh shadows."
+    "Negative: visible pores, skin texture, hyper-detailed skin, airbrushed skin, plastic skin, "
+    "waxy skin, beauty mode, portrait mode, skin smoothing, moles on face, acne, blemishes, warm "
+    "color cast, orange tint, yellow tint, golden hour, dark moody, underexposed, low-key, film "
+    "grain, vintage, faded, desaturated, stock photo look, oversaturated, extra fingers, deformed "
+    "hands, mannequin pose, HDR, beauty filter, cluttered props, tan skin, dark skin, muscular, "
+    "angular jawline, mature-looking, neck label, brand tag, mouth wide open, open mouth laugh, "
+    "exaggerated smile, forced smile, blank stare, vacant expression, overly posed, choreographed "
+    "pose, studio lighting, ring light, artificial light, fashion editorial look, dramatic "
+    "shadows, side lighting, harsh shadows."
 )
 _SHIRT = ("an OVERSIZED t-shirt, its color exactly as in the reference product image, with the "
-          "printed graphic reproduced EXACTLY as in the reference product image — same artwork, "
-          "SAME SIZE & SCALE, SAME POSITION on the shirt; do NOT shrink, enlarge, move, re-center, "
-          "crop or redraw the design, keep it just as large and placed as in the reference; clean "
-          "ribbed crewneck collar with no visible tags or labels, natural soft cotton wrinkles")
-_CAM = ("Casual smartphone photo. Sharp, clean, naturally exposed — no beauty filter, no "
-        "portrait blur, no skin smoothing, no grain. Feels like a friend took it. Aspect ratio 4:5. "
-        "Photorealistic real photograph, true cotton fabric texture with natural fabric folds, real "
-        "skin and lighting; NOT a 3D render, NOT CGI, NOT illustration, NOT AI-looking.")
+          "printed graphic reproduced EXACTLY as in the reference product image — treat the print "
+          "as a LOCKED design copied pixel-faithful from the reference: same artwork, same "
+          "lettering, SAME SIZE & SCALE, SAME POSITION on the shirt; do NOT shrink, enlarge, move, "
+          "re-center, crop, restyle or redraw any part of it; clean ribbed crewneck collar with no "
+          "visible tags or labels, natural soft cotton wrinkles at armpits and waist")
+_CAM = ("Casual smartphone photo, slightly off-center handheld framing — like a friend took it on "
+        "a phone. Sharp, clean, naturally exposed — no beauty filter, no portrait blur, no skin "
+        "smoothing, no grain, no filter. Aspect ratio 4:5. Photorealistic real photograph, true "
+        "cotton fabric texture with natural fabric folds, real skin and lighting; NOT a 3D render, "
+        "NOT CGI, NOT illustration, NOT AI-looking.")
 _SKIN = ("clean smooth natural Vietnamese skin, naturally clear, no moles, no blemishes, not "
          "airbrushed, not plastic")
 _MODEL_F = ("a young Vietnamese woman in her early 20s, petite slim, fair light skin (%s); round "
@@ -1289,7 +1293,8 @@ _MODEL_M = ("a young Vietnamese man in his early 20s, tall lean, fair light skin
             "falling loosely across the forehead, not styled; wearing beige wide-leg trousers "
             "and white sneakers" % _SKIN)
 _EXPR = ("bright cheerful gentle smile, lips parted slightly showing just the edge of teeth, eyes "
-         "sparkling and alive, expression genuinely spontaneous not rehearsed")
+         "bright and sparkling with life, expression feels genuinely spontaneous not rehearsed — "
+         "the kind of natural joy that shows up in a real candid smartphone photo")
 _MODEL_KID = ("a cheerful Vietnamese child about 6 years old, %s, round happy face with bright eyes, "
               "short neat black hair, wearing simple shorts and small white sneakers" % _SKIN)
 # Đội mẫu theo TỆP khách — ai mặc áo trong ảnh người mẫu
@@ -1386,9 +1391,9 @@ PRODUCT_SEGMENTS = {
 
 # Khung ngắm cho từng biến thể người mẫu (template khi KHÔNG bật AI prompt)
 _MODEL_FRAMES = {
-    "couple_34": "Three-quarter shot from mid-thigh up, standing side by side, shoulders lightly touching, looking at the camera with bright cheerful smiles.",
-    "couple_wu": "Waist-up shot, standing very close, shoulders touching, facing the camera with cheerful natural smiles.",
-    "couple_lean": "Waist-up shot, she leans her head gently on his shoulder, both relaxed with gentle cheerful smiles.",
+    "couple_34": "Three-quarter shot from mid-thigh up. She looks at the camera with a bright cheerful smile; he turns his head slightly toward her with a fond expression, as if he just glanced over — caught mid-moment. He has one hand in his pocket, she holds her bag strap. Genuinely candid, not posed.",
+    "couple_wu": "Waist-up shot, standing very close, shoulders touching, both facing the camera with bright sparkling eyes and cheerful natural smiles — caught mid-smile as if someone just said something funny, fresh and full of energy.",
+    "couple_lean": "Waist-up shot, she leans her head gently on his shoulder, he tilts his head slightly toward hers, both relaxed and peaceful with soft gentle smiles, teeth barely visible — the comfortable quiet of a real couple, not looking posed.",
     "family_34": "Three-quarter shot from mid-thigh up, the family standing close together with the child in front between the parents, all looking at the camera with bright happy smiles.",
     "family_wu": "Waist-up group shot, the parents leaning in beside the child, all facing the camera with cheerful natural smiles.",
     "family_play": "Candid three-quarter group shot, the parents smiling as the child looks up, a joyful natural family moment, not posed.",
@@ -1449,7 +1454,9 @@ def product_prompt(cat, vk, bg_key, seg="single"):
         # solo 1 người (single)
         female = vk in ("solo_f", "solo_f2", "solo_f3")
         who = _MODEL_F if female else _MODEL_M
-        pose = ("one hand holding her bag strap" if female else "one hand relaxed in his pocket")
+        pose = ("one hand holding her bag strap, as if waiting for someone and genuinely happy"
+                if female else
+                "one hand relaxed in his pocket, as if someone just called his name and he turned with a cheerful expression")
         return ("A candid casual smartphone photo of %s, wearing %s. Standing %s, %s. Waist-up shot "
                 "from the waist to the top of the head, looking at the camera, %s. The fabric color "
                 "stays true to life, well exposed. %s %s"
