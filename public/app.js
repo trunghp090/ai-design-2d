@@ -2702,7 +2702,9 @@ function ttInit() {
   $("ttRunBtn").onclick = ttGenerate;
   if ($("ttPickAll")) $("ttPickAll").onchange = (e) => { ttItems.forEach(it => it._sel = e.target.checked); ttRender(); };
   if ($("ttZipBtn")) $("ttZipBtn").onclick = () => zipDownloadSelected(
-    ttItems.filter(it => it._sel).map(it => ({ id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "slide" })), $("ttZipBtn"));
+    ttItems.filter(it => it._sel).map(it => (it._showText && it._textedUrl)
+      ? { data: it._textedUrl, name: (it.title || "slide") + "-text" }
+      : { id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "slide" }), $("ttZipBtn"));
   if ($("ttCapCopy")) $("ttCapCopy").onclick = async () => {
     if (!ttMeta) return;
     try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
@@ -2758,7 +2760,10 @@ async function ttPollAll() {
       if (d.note) { try { ttMeta = JSON.parse(d.note); } catch (e) {} }
       (d.items || []).forEach(it => {
         const key = (it.gallery && it.gallery.id) || it.title;
-        if (!ttItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) ttItems.push(it);
+        if (!ttItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) {
+          ttItems.push(it);
+          ttAutoBurn(it);   // TỰ CHÈN TEXT ngay khi slide về (mặc định ảnh có text)
+        }
       });
       (d.errors || []).forEach(e => errs.push(e));
     } catch (e) {}
@@ -2795,6 +2800,10 @@ async function ttTextedDataURL(it) {
   cx.shadowColor = "rgba(0,0,0,.5)"; cx.shadowBlur = fs * 0.18; cx.shadowOffsetY = 2;
   lines.forEach(l => { cx.strokeText(l, cv.width / 2, y); cx.fillText(l, cv.width / 2, y); y += lh; });
   return cv.toDataURL("image/png");
+}
+async function ttAutoBurn(it) {
+  if (!it.overlay || !it.overlay.length) return;
+  try { it._textedUrl = await ttTextedDataURL(it); it._showText = true; ttRender(); } catch (e) {}
 }
 async function ttToggleText(it, card) {
   if (!it._textedUrl) { try { it._textedUrl = await ttTextedDataURL(it); } catch (e) { alert("✗ Không vẽ được text: " + e.message); return; } }
