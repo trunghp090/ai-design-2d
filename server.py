@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-hands-guard"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-noloud"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1825,7 +1825,12 @@ _ADS_REAL = (
     "skin and hair, soft natural light, realistic fabric and folds; NOT 3D, NOT CGI, NOT a cartoon, NOT "
     "an AI-looking render. The ADULTS' t-shirts are clearly ADULT OVERSIZE streetwear — roomy, wide, "
     "boxy body with DROP SHOULDERS and wide short sleeves, worn loose and relaxed (size L–XXL look), "
-    "longer hem; NOT slim-fit, NOT tight, NOT small. ")
+    "longer hem; NOT slim-fit, NOT tight, NOT small. "
+    "Everyone's hands stay relaxed and natural — in pockets, holding hands, holding a bag strap, or "
+    "loosely at their sides; NOBODY raises a hand toward the camera and there are NO hand signs of any "
+    "kind (no V sign, no peace sign, no finger heart, no finger gun, no pointing, no waving). Smiles "
+    "are gentle and genuine with mouths closed or only slightly parted — NEVER wide-open laughing, "
+    "never exaggerated. ")
 
 
 def _short_name(name):
@@ -2032,7 +2037,7 @@ _FBPOST_PEOPLE_POSES = [
     "a candid laughing moment, looking at each other happily",
     "walking together side by side outdoors, relaxed and in motion",
     "leaning in close, one with an arm gently around the other, cozy and happy",
-    "a fun playful pose with a light hand gesture, cheerful mood",
+    "a playful cheerful moment standing close together, hands relaxed or holding each other's hand",
     "sitting together relaxed on a bench/step, leaning in close",
     "a calm candid moment looking slightly away, soft natural expression",
     "side-by-side confident pose, smiling at the camera",
