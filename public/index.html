@@ -1123,7 +1123,12 @@
           <button class="btn-ghost sm" id="ttSpPick" style="margin-top:4px">📦 Chọn sản phẩm (lấy design)</button>
           <span class="hint" id="ttSpInfo" style="display:block;margin-top:4px">Chưa chọn SP — chọn để AI lấy đúng design áo của shop.</span>
           <div id="ttSpColors" style="display:flex;flex-wrap:wrap;align-items:flex-start"></div>
-          <input type="text" id="ttBonusNames" class="input" style="margin-top:6px" placeholder="Tên 2 áo (trống = tự nghĩ): VD Hương Lan, Huy Hùng" />
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+            <input type="text" id="ttBonusName1" class="input" style="flex:1;margin:0" placeholder="Tên áo TRÁI (nữ)" />
+            <input type="text" id="ttBonusName2" class="input" style="flex:1;margin:0" placeholder="Tên áo PHẢI (nam)" />
+            <button type="button" class="btn-ghost sm" id="ttBonusRnd" title="Random cặp tên nữ + nam" style="white-space:nowrap;padding:8px 10px">🎲</button>
+          </div>
+          <p class="hint" style="margin:4px 0 0">🎲 Random ra cặp tên → sửa được → ưng rồi mới bấm tạo. (Để trống = AI tự nghĩ.)</p>
           <button class="btn-primary" id="ttBonusBtn" style="margin-top:8px">🎁 Tạo slide bonus</button>
         </div>
 

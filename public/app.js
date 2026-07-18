@@ -2738,10 +2738,19 @@ function ttInit() {
       }
     }
   });
+  // 🎲 Random cặp tên (nữ + nam) — điền sẵn để xem/sửa TRƯỚC khi gen
+  const TT_NAMES_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
+    "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh", "Quỳnh Như", "Hà My", "Tường Vy"];
+  const TT_NAMES_NAM = ["Minh Quân", "Hữu Phước", "Đức Anh", "Hoàng Nam", "Tuấn Kiệt", "Gia Bảo",
+    "Quốc Bảo", "Nhật Minh", "Đình Phong", "Hải Đăng", "Trí Dũng", "Thanh Tùng", "Việt Hoàng", "Duy Khánh", "Minh Khôi"];
+  if ($("ttBonusRnd")) $("ttBonusRnd").onclick = () => {
+    $("ttBonusName1").value = TT_NAMES_NU[Math.floor(Math.random() * TT_NAMES_NU.length)];
+    $("ttBonusName2").value = TT_NAMES_NAM[Math.floor(Math.random() * TT_NAMES_NAM.length)];
+  };
   if ($("ttBonusBtn")) $("ttBonusBtn").onclick = async () => {
     const note = $("ttNote");
     if (!ttSp || !ttSp.image) { note.className = "gen-note err"; note.textContent = "⚠️ Bấm 📦 Chọn sản phẩm trước (lấy design áo)."; return; }
-    const names = ($("ttBonusNames").value || "").split(",").map(s => s.trim()).filter(Boolean);
+    const names = [($("ttBonusName1").value || "").trim(), ($("ttBonusName2").value || "").trim()].filter(Boolean);
     const overlay = (ttMeta && ttMeta.bonus && ttMeta.bonus.length) ? ttMeta.bonus : [];
     const b = $("ttBonusBtn"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo…";
     $("ttProgress").classList.remove("hidden");
