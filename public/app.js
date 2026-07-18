@@ -5295,7 +5295,6 @@ function fbpInit() {
   $("fbpRunBtn").onclick = fbpGenerate;
   const sf = document.createElement("input"); sf.type = "file"; sf.accept = "image/*"; sf.style.display = "none"; sf.id = "fbpStyleFile"; document.body.appendChild(sf);
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && fbpPickKey) { fbpStyle[fbpPickKey] = await fileToDataURL(f); fbpSel.add(fbpPickKey); fbpRenderConcepts(); } e.target.value = ""; };
-  if ($("fbpUseAdsStyle")) $("fbpUseAdsStyle").onclick = fbpUseAdsStyle;
   if ($("fbpSavePreset")) $("fbpSavePreset").onclick = fbpSavePreset;
   if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
   fbpLoadPreset();   // tự nạp style mặc định đã lưu
@@ -5327,25 +5326,6 @@ async function fbpSaveToHistory(it) {
     const d = await r.json(); if (d && d.id) it._hid = d.id;
   } catch (e) { it._histSaved = false; }
 }
-// Lấy Y HỆT style đã setup bên FB ADS (concept + ảnh style + background)
-async function fbpUseAdsStyle() {
-  const note = $("fbpPresetNote");
-  // đảm bảo style ads đã nạp (builtin + đã lưu trên server) nếu user chưa mở tab ads
-  if (Object.keys(adsStyle || {}).length === 0 && typeof adsLoadStyleBank === "function") {
-    if (note) { note.style.color = "var(--violet)"; note.textContent = "⏳ Đang lấy style từ FB ADS…"; }
-    try { if (typeof adsInit === "function") adsInit(); await adsLoadStyleBank(); } catch (e) {}
-  }
-  const styleKeys = Object.keys(adsStyle || {});
-  if (!styleKeys.length && (!adsSel || adsSel.size === 0)) {
-    if (note) { note.style.color = "#c0392b"; note.textContent = "⚠️ Chưa có style nào bên FB ADS — vào tab 📣 Tạo Ảnh FB ADS tải ảnh style cho concept trước."; }
-    return;
-  }
-  fbpStyle = Object.assign({}, adsStyle);     // copy ảnh style/concept
-  fbpBg = Object.assign({}, adsBg);           // copy background/concept
-  fbpSel = new Set((adsSel && adsSel.size) ? Array.from(adsSel) : styleKeys);  // concept đã tick bên ads
-  fbpRenderConcepts();
-  if (note) { note.style.color = "var(--violet)"; note.textContent = "✓ Đã lấy style giống FB ADS (" + fbpSel.size + " concept). Bấm '💾 Lưu mặc định' để giữ cho lần sau."; }
-}
 const FBP_PRESET_KEY = "fbpost_preset_v1";
 function fbpSavePreset() {
   const note = $("fbpPresetNote");
@@ -5358,7 +5338,6 @@ function fbpSavePreset() {
     bg: fbpBg,                       // {key: text}
     aspect: $("fbpAspect") && $("fbpAspect").value,
     quality: $("fbpQuality") && $("fbpQuality").value,
-    perSet: $("fbpPerSet") && $("fbpPerSet").value,
     engine: $("fbpEngine") && $("fbpEngine").value
   };
   try {
@@ -5385,7 +5364,6 @@ function fbpLoadPreset() {
   if (Array.isArray(preset.sel)) fbpSel = new Set(preset.sel);
   if (preset.aspect && $("fbpAspect")) $("fbpAspect").value = preset.aspect;
   if (preset.quality && $("fbpQuality")) $("fbpQuality").value = preset.quality;
-  if (preset.perSet && $("fbpPerSet")) $("fbpPerSet").value = preset.perSet;
   if (preset.engine && $("fbpEngine")) { try { $("fbpEngine").value = preset.engine; } catch (e) {} }
   if (note) { note.style.color = "var(--violet)"; note.textContent = "♻️ Đã nạp style mặc định đã lưu (" + (preset.sel ? preset.sel.length : 0) + " concept)."; }
 }
@@ -5554,7 +5532,7 @@ async function fbpGenerate() {
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 bộ + ít nhất 1 chủ đề shot."; return; }
   const engine = ($("fbpEngine") && $("fbpEngine").value) || "";
   try {
-    const r = await fetch("/api/fbpost-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: fbpDesignImg, engine: engine, aspect: $("fbpAspect").value, quality: $("fbpQuality").value, per_set: $("fbpPerSet").value, concepts: cons }) });
+    const r = await fetch("/api/fbpost-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: fbpDesignImg, engine: engine, aspect: $("fbpAspect").value, quality: $("fbpQuality").value, concepts: cons }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     cons.forEach(c => fbpItems.unshift({ loading: true, job: d.job_id, concept: c.key, title: c.label, _design: fbpDesignImg, _ref: c.ref || "" }));
     fbpRenderAll(); fbpPoll(d.job_id);
