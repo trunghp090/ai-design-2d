@@ -5576,11 +5576,15 @@ function fbpRenderAll() {
     }
     const card = document.createElement("div"); card.className = "fp-card";
     const canRegen = !!(it._design && (it.names || []).length);
+    if (!it._pick) it._pick = new Set((it.pics || []).map((_, k) => k));   // ảnh được TICK để đẩy/tải (mặc định: tất cả)
     const thumbs = (it.pics || []).map((p, i) => {
       const s = p.image ? "data:image/png;base64," + p.image : p.url;
+      const busy = it._regening === i;
       return '<div style="position:relative;width:84px;flex:0 0 auto">' +
-        '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer">' +
-        (canRegen ? '<button class="b-regen1" data-i="' + i + '" title="Gen lại ảnh này (giữ nguyên tên + cảnh của bộ)" style="position:absolute;right:2px;bottom:6px;font-size:11px;line-height:1;padding:2px 4px;border-radius:5px;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer">🔄</button>' : '') +
+        '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:' + (busy ? '.3' : (it._pick.has(i) ? '1' : '.35')) + '">' +
+        (busy ? '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px">⏳</span>' : '') +
+        '<input type="checkbox" class="fbp-pick" data-i="' + i + '"' + (it._pick.has(i) ? " checked" : "") + ' title="Tick = chọn ảnh này để đẩy sang Bài FB/IG / tải về" style="position:absolute;left:4px;top:4px;width:15px;height:15px;accent-color:#c2185b;cursor:pointer">' +
+        (canRegen && !busy ? '<button class="b-regen1" data-i="' + i + '" title="Tạo LẠI ảnh này (giữ nguyên tên + cảnh của bộ, ~30-60s)" style="position:absolute;right:2px;bottom:6px;font-size:11px;line-height:1;padding:2px 4px;border-radius:5px;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer">🔄</button>' : '') +
         '</div>';
     }).join("");
     card.innerHTML =
@@ -5595,13 +5599,22 @@ function fbpRenderAll() {
           ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — xem prompt của từng ảnh' + (it.scene ? ' (cảnh Claude viết: ' + it.scene.length + ' ký tự)' : '') + '</summary>' + proofs + '</details>'
           : "";
       })() +
-      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board" title="Đẩy bộ ảnh sang tab Bài FB/IG — viết bài + đăng ở bên đó">➕ Đẩy sang Bài FB/IG</button><button class="b-dlall">⬇ Tải bộ</button><button class="b-delhist">🗑️</button></div>' +
+      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board" title="Đẩy các ảnh ĐÃ TICK sang tab Bài FB/IG — viết bài + đăng ở bên đó">➕ Đẩy <span class="fbp-pickn">' + it._pick.size + '</span> ảnh tick sang Bài FB/IG</button><button class="b-dlall" title="Tải các ảnh đã tick">⬇ Tải <span class="fbp-pickn2">' + it._pick.size + '</span> ảnh</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
-    card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10), btn); }; });
+    card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10)); }; });
+    card.querySelectorAll(".fbp-pick").forEach(cb => {
+      cb.onchange = () => {
+        const i = parseInt(cb.dataset.i, 10);
+        if (cb.checked) it._pick.add(i); else it._pick.delete(i);
+        const img = card.querySelector('img[data-i="' + i + '"]'); if (img) img.style.opacity = cb.checked ? "1" : ".35";
+        const n1 = card.querySelector(".fbp-pickn"); if (n1) n1.textContent = it._pick.size;
+        const n2 = card.querySelector(".fbp-pickn2"); if (n2) n2.textContent = it._pick.size;
+      };
+    });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
     card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
-    card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
+    card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image && it._pick.has(i)) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
     card.querySelector(".b-delhist").onclick = async () => {
       if (!confirm("Xoá bộ ảnh này khỏi danh sách?")) return;
       if (it._hid) { try { await fetch("/api/fbpost-hist-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it._hid }) }); } catch (e) {} }
@@ -5610,11 +5623,21 @@ function fbpRenderAll() {
     grid.appendChild(card);
   });
 }
-// 🔄 Gen lại MỘT ảnh trong bộ — giữ nguyên tên + cảnh (scene Claude) để khớp với cả bộ
-async function fbpRegenOne(it, i, btn) {
-  const note = $("fbpNote");
-  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
-  note.className = "gen-note"; note.textContent = "⏳ Đang gen lại ảnh " + (i + 1) + " của bộ " + (it.title || "") + "…";
+// 🔄 TẠO LẠI một ảnh trong bộ — giữ nguyên tên + cảnh Claude + chủ đề shot; spinner ngay trên ảnh
+function _fbpCardOf(it) {
+  const idx = fbpItems.indexOf(it);
+  return idx >= 0 ? $("fbpResults").children[idx] : null;
+}
+function _fbpCardNote(it, cls, msg) {
+  const card = _fbpCardOf(it);
+  const note = card && card.querySelector(".fbp-postnote");
+  if (note) { note.className = "gen-note fbp-postnote " + cls; note.textContent = msg; }
+}
+async function fbpRegenOne(it, i) {
+  if (it._regening !== undefined && it._regening !== null) return;   // 1 ảnh/lần cho bộ này
+  it._regening = i;
+  fbpRenderAll();   // hiện spinner ⏳ trên chính thumb đó
+  _fbpCardNote(it, "", "⏳ Đang TẠO LẠI ảnh " + (i + 1) + " (giữ tên + cảnh Claude, ~30–60s)…");
   try {
     const r = await fetch("/api/fbpost-regen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: it._design, ref: it._ref || "", key: it.concept, names: it.names || [],
@@ -5623,12 +5646,13 @@ async function fbpRegenOne(it, i, btn) {
         aspect: $("fbpAspect").value, quality: $("fbpQuality").value }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     it.pics[i] = { image: d.image, url: d.url, id: d.id, prompt: d.prompt || "", shot: it.pics[i] && it.pics[i].shot };
+    it._regening = null;
     fbpRenderAll();
-    note.className = "gen-note ok";
-    note.textContent = "✓ Đã gen lại ảnh " + (i + 1) + (d.by === "claude" ? " (🧠 prompt Claude của bộ)" : "") + ".";
+    _fbpCardNote(it, "ok", "✓ Đã tạo lại ảnh " + (i + 1) + (d.by === "claude" ? " — 🧠 prompt Claude của bộ." : "."));
   } catch (e) {
-    note.className = "gen-note err"; note.textContent = "✗ Gen lại lỗi: " + e.message;
-    if (btn) { btn.disabled = false; btn.textContent = "🔄"; }
+    it._regening = null;
+    fbpRenderAll();
+    _fbpCardNote(it, "err", "✗ Tạo lại ảnh " + (i + 1) + " lỗi: " + e.message);
   }
 }
 
@@ -6254,8 +6278,9 @@ function updateMultiNote() {
    BẢNG BÀI ĐĂNG FANPAGE + INSTAGRAM (organic) — đưa bộ ảnh sang + đăng hàng loạt
    ===================================================================== */
 async function pgpostAddFromSet(it, btn, card) {
-  const urls = (it.pics || []).map(p => p.url).filter(Boolean);
-  if (!urls.length) { alert("Bộ ảnh chưa có URL công khai (chưa lưu gallery) — đợi tạo xong rồi thử lại."); return; }
+  // chỉ đẩy các ảnh ĐÃ TICK (mặc định tick hết)
+  const urls = (it.pics || []).filter((p, i) => !it._pick || it._pick.has(i)).map(p => p.url).filter(Boolean);
+  if (!urls.length) { alert("Chưa tick ảnh nào (hoặc bộ chưa có URL công khai) — tick ảnh muốn đẩy rồi thử lại."); return; }
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
   const cap = (it.caption || "").trim();   // caption viết ở tab Bài FB/IG (nút 🤖 AI viết bên đó)
   try {
