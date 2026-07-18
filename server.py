@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-nanobanana-real"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-claude-prompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7366,6 +7366,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_tiktok_gift_gen(body)
         if path == "/api/tiktok-bonus-gen":
             return self.handle_tiktok_bonus_gen(body)
+        if path == "/api/prod-ai-prompt":
+            return self.handle_prod_ai_prompt(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -7717,6 +7719,44 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_prod_ai_prompt(self, body):
+        """🧠 Claude nhìn ảnh design -> viết prompt Nano Banana chuẩn skill (7 block, real-look).
+        FE điền vào ô prompt để user duyệt/sửa rồi mới gen."""
+        if not ANTHROPIC_API_KEY and not API_KEY:
+            return self.json(400, {"error": "Cần ANTHROPIC_API_KEY (Claude) hoặc OPENAI_API_KEY."})
+        ib, im = fetch_image_bytes(body.get("image", ""))
+        if not ib:
+            return self.json(400, {"error": "Cần ảnh tham chiếu (thêm ảnh áo/design ở panel trái)."})
+        hint = (body.get("hint") or "").strip()[:500]
+        want = hint or ("ảnh người mẫu couple Việt trẻ mặc áo này, bối cảnh Việt đời thường GenZ "
+                        "tự chọn cho hợp design (café indie / ngõ phố cổ / công viên...), waist-up "
+                        "hoặc 3/4, candid")
+        instr = ("Loại ảnh cần đạt (viết lại tự nhiên, chi tiết, đủ 7 block + Negative chuẩn): "
+                 + want + " — Viết 1 prompt tiếng Anh siêu thực cho ảnh áo dưới đây, GIỮ NGUYÊN "
+                 "design theo quy tắc. Chỉ trả prompt, không giải thích.")
+        used = ""
+        p = ""
+        if ANTHROPIC_API_KEY:
+            try:
+                p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, ib, im or "image/png", 1400) or "").strip().strip('"')
+                used = "Claude " + ANTHROPIC_MODEL
+            except Exception:
+                p = ""
+        if len(p) < 30 and API_KEY:
+            try:
+                b64 = base64.b64encode(ib).decode()
+                content = [{"type": "text", "text": instr},
+                           {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}}]
+                p = (openai_chat([{"role": "system", "content": PRODUCT_PROMPT_SYSTEM},
+                                  {"role": "user", "content": content}],
+                                 json_mode=False, max_tokens=1300, model=BEST_TEXT_MODEL) or "").strip().strip('"')
+                used = "gpt-4o"
+            except Exception as e:
+                return self.json(502, {"error": "AI viết prompt lỗi: %s" % e})
+        if len(p) < 30:
+            return self.json(502, {"error": "AI chưa viết được prompt — thử lại."})
+        return self.json(200, {"prompt": p, "by": used})
 
     def handle_tiktok_bonus_gen(self, body):
         """Slide 8 bonus: SP đã chọn -> ảnh 2 áo gấp trên sofa (giữ design, 2 tên khác nhau)."""

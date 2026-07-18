@@ -1935,11 +1935,14 @@ function prodRenderStyle() {
 
 async function prodSuggest() {
   if (!prodRefs.length) { alert("Thêm ảnh tham chiếu trước."); return; }
-  const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang gợi ý…";
+  const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Claude đang viết prompt…";
   try {
-    const r = await fetch("/api/prod-suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: prodRefs[0], kind: "model" }) });
+    // hint = ý tưởng bạn đang gõ trong ô prompt (vd "couple ở bãi biển") -> Claude viết thành prompt chuẩn skill
+    const hint = ($("prodPrompt").value || "").trim();
+    const r = await fetch("/api/prod-ai-prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: prodRefs[0], hint: hint }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     $("prodPrompt").value = d.prompt || "";
+    const note = $("prodNote"); if (note) { note.className = "gen-note ok"; note.textContent = "🧠 " + (d.by || "AI") + " đã viết prompt chuẩn skill — duyệt/sửa rồi bấm Generate."; }
   } catch (e) { alert("✗ " + e.message); } finally { btn.disabled = false; btn.textContent = o; }
 }
 
