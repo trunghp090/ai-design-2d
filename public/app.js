@@ -5551,7 +5551,7 @@ function fbpPoll(job) {
         if (idx < 0) idx = fbpItems.findIndex(x => x.loading && x.job === job);
         if (idx >= 0) { it._design = fbpItems[idx]._design; it._ref = fbpItems[idx]._ref; fbpItems[idx] = it; }
         else fbpItems.unshift(it);
-        placed++; fbpRenderAll(); fbpWriteCaption(it);
+        placed++; fbpRenderAll(); fbpSaveToHistory(it);   // lưu lịch sử ngay (viết bài ở tab Bài FB/IG)
       }
       if (d.finished) {
         clearInterval(timer);
@@ -5595,18 +5595,12 @@ function fbpRenderAll() {
           ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — xem prompt của từng ảnh' + (it.scene ? ' (cảnh Claude viết: ' + it.scene.length + ' ký tự)' : '') + '</summary>' + proofs + '</details>'
           : "";
       })() +
-      '<textarea class="input fbp-cap" rows="3" placeholder="Caption bài đăng (AI tự viết)…"></textarea>' +
-      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board">➕ Bài đăng</button><button class="b-cap">🤖 Viết caption</button><button class="b-post">📤 Đăng Fanpage</button><button class="b-dlall">⬇ Tải bộ</button><button class="b-delhist">🗑️</button></div>' +
+      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board" title="Đẩy bộ ảnh sang tab Bài FB/IG — viết bài + đăng ở bên đó">➕ Đẩy sang Bài FB/IG</button><button class="b-dlall">⬇ Tải bộ</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
-    card.querySelector(".fbp-cap").value = it.caption || (it.caption === "" ? "" : "⏳ AI đang viết caption…");
-    card.querySelector(".fbp-cap").oninput = (e) => { it.caption = e.target.value; };
-    card.querySelectorAll(".fbp-card img, div img[data-i]").forEach(() => {});
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
     card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10), btn); }; });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
     card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
-    card.querySelector(".b-cap").onclick = () => fbpWriteCaption(it, true);
-    card.querySelector(".b-post").onclick = (e) => fbpPostToPage(it, card);
     card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
     card.querySelector(".b-delhist").onclick = async () => {
       if (!confirm("Xoá bộ ảnh này khỏi danh sách?")) return;
@@ -5658,40 +5652,6 @@ function fbpSetAsStyle(it, card) {
   if (typeof adsSaveConceptStyle === "function") { try { adsSaveConceptStyle(key, durl); } catch (e) {} }
   if (note) { note.className = "gen-note ok"; note.textContent = "⭐ Đã đặt ảnh #" + (i + 1) + " làm style mẫu cho '" + (it.title || key) + "' (dùng chung FB ADS). Bấm lại để chọn ảnh khác trong bộ. Nhớ '💾 Lưu mặc định'."; }
 }
-async function fbpWriteCaption(it, force) {
-  if (it.caption && !force) return;
-  const src = (it.pics && it.pics[0]) ? (it.pics[0].image ? "data:image/png;base64," + it.pics[0].image : it.pics[0].url) : null;
-  if (!src) return;
-  it.caption = "⏳ AI đang viết caption…"; fbpRenderAll();
-  const fb = "🔥 Áo thun in tên cá nhân hoá theo tên riêng — chất vải đẹp, in sắc nét.\n👉 Đặt ngay tại rieng.vn!";
-  try {
-    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
-    const d = await r.json();
-    it.caption = (r.ok && (d.facebook || "").trim()) ? d.facebook.trim() : fb;
-  } catch (e) { it.caption = fb; }
-  // CTA "Mua ngay" + link sản phẩm (bài Trang không có nút CTA -> để trong caption)
-  const lk = fbpProductLink || "";
-  if (lk && !it.caption.includes(lk)) it.caption += "\n\n🛒 MUA NGAY: " + lk;
-  fbpRenderAll();
-  fbpSaveToHistory(it);   // lưu bộ vào lịch sử (kèm caption)
-}
-async function fbpPostToPage(it, card) {
-  const note = card.querySelector(".fbp-postnote"), btn = card.querySelector(".b-post");
-  let cap = card.querySelector(".fbp-cap").value.trim();
-  const lk = fbpProductLink || "";
-  if (lk && !cap.includes(lk)) cap += "\n\n🛒 MUA NGAY: " + lk;   // đảm bảo có CTA + link SP
-  const urls = (it.pics || []).map(p => p.url).filter(Boolean);
-  if (!urls.length) { note.className = "gen-note err"; note.textContent = "⚠️ Bộ ảnh chưa có URL (chưa lưu gallery)."; return; }
-  if (!confirm("Đăng bộ " + urls.length + " ảnh này lên Fanpage rieng.vn NGAY? (đăng công khai)")) return;
-  btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳ Đang đăng…"; note.className = "gen-note"; note.textContent = "Đang đăng lên Trang…";
-  try {
-    const r = await fetch("/api/fb-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_urls: urls, message: cap }) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    note.className = "gen-note ok"; note.innerHTML = "✓ Đã đăng lên Fanpage! <a href='" + d.url + "' target='_blank' style='color:var(--violet);font-weight:600'>Xem bài →</a>";
-  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
-  finally { btn.disabled = false; btn.textContent = o; }
-}
-
 /* =====================================================================
    QUẢN LÝ / PHÂN TÍCH ADS: list campaign + insights + bật/tắt + sửa ngân sách
    ===================================================================== */
@@ -6297,8 +6257,7 @@ async function pgpostAddFromSet(it, btn, card) {
   const urls = (it.pics || []).map(p => p.url).filter(Boolean);
   if (!urls.length) { alert("Bộ ảnh chưa có URL công khai (chưa lưu gallery) — đợi tạo xong rồi thử lại."); return; }
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
-  let cap = (card && card.querySelector(".fbp-cap") ? card.querySelector(".fbp-cap").value : (it.caption || "")).trim();
-  if (!cap || cap.startsWith("⏳")) { await fbpWriteCaption(it, true); cap = (it.caption || "").trim(); }   // AI tự viết content
+  const cap = (it.caption || "").trim();   // caption viết ở tab Bài FB/IG (nút 🤖 AI viết bên đó)
   try {
     const r = await fetch("/api/pgpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ caption: cap, image_urls: urls, product: (typeof fbpProductLink !== "undefined" ? fbpProductLink : "") || "" }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
@@ -6355,7 +6314,8 @@ function pgpostRender(items) {
     h += '<tr data-id="' + it.id + '">' +
       '<td><input type="checkbox" class="pgpost-tick" value="' + it.id + '"></td>' +
       '<td style="position:relative"><img src="' + (it.image_urls || [])[0] + '" style="width:54px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:0 4px;border-radius:6px">' + n + '🖼</span>' + (it.source === "auto" ? '<span style="position:absolute;top:2px;left:2px;background:var(--violet);color:#fff;font-size:9px;padding:0 4px;border-radius:6px">🤖</span>' : '') + (it.product ? '<div class="hint" style="max-width:60px;font-size:9px;line-height:1.1;margin-top:2px">' + (it.product || "").slice(0, 26) + '</div>' : '') + '</td>' +
-      '<td><textarea class="input pgpost-cap" rows="4" style="width:320px;padding:6px 8px;font-size:12px">' + (it.caption || "") + '</textarea></td>' +
+      '<td><textarea class="input pgpost-cap" rows="4" style="width:320px;padding:6px 8px;font-size:12px" placeholder="Content bài đăng — bấm 🤖 để AI viết">' + (it.caption || "") + '</textarea>' +
+        '<br><button class="btn-ghost sm pgpost-ai" style="margin-top:3px" title="AI nhìn ảnh + link SP viết content bài đăng">🤖 AI viết bài</button></td>' +
       '<td style="white-space:nowrap">' + resCell + '</td>' +
       '<td><button class="btn-ghost sm pgpost-del">🗑️</button></td>' +
       '</tr>';
@@ -6365,6 +6325,24 @@ function pgpostRender(items) {
   box.querySelectorAll("tr[data-id]").forEach(tr => {
     const id = tr.dataset.id;
     tr.querySelector(".pgpost-cap").onchange = (e) => fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: e.target.value }) });
+    tr.querySelector(".pgpost-ai").onclick = async (e) => {
+      const btn = e.currentTarget, ta = tr.querySelector(".pgpost-cap");
+      const item = items.find(x => String(x.id) === String(id));
+      const img = (item && (item.image_urls || [])[0]) || "";
+      if (!img) { alert("Bài này chưa có ảnh."); return; }
+      btn.disabled = true; btn.textContent = "⏳ AI đang viết…";
+      try {
+        const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: img.startsWith("http") ? img : location.origin + img, info: "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn" }) });
+        const d = await r.json();
+        let cap = (r.ok && (d.facebook || "").trim()) || "🔥 Áo thun in tên cá nhân hoá theo tên riêng — chất vải đẹp, in sắc nét.\n👉 Đặt ngay tại rieng.vn!";
+        const lk = (item && item.product) || "";
+        if (lk && !cap.includes(lk)) cap += "\n\n🛒 MUA NGAY: " + lk;
+        ta.value = cap; if (item) item.caption = cap;
+        await fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: cap }) });
+        btn.textContent = "✓ Xong"; setTimeout(() => { btn.disabled = false; btn.textContent = "🤖 AI viết bài"; }, 1200);
+      } catch (err) { alert("✗ " + err.message); btn.disabled = false; btn.textContent = "🤖 AI viết bài"; }
+    };
     tr.querySelector(".pgpost-del").onclick = async () => { if (!confirm("Xoá bài này?")) return; await fetch("/api/pgpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); pgpostLoad(); };
   });
 }
