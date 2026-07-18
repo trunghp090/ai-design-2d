@@ -5450,7 +5450,7 @@ async function fbpGenerate() {
   try {
     const r = await fetch("/api/fbpost-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: fbpDesignImg, engine: engine, aspect: $("fbpAspect").value, quality: $("fbpQuality").value, per_set: $("fbpPerSet").value, concepts: cons }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    cons.forEach(c => fbpItems.unshift({ loading: true, job: d.job_id, concept: c.key, title: c.label }));
+    cons.forEach(c => fbpItems.unshift({ loading: true, job: d.job_id, concept: c.key, title: c.label, _design: fbpDesignImg, _ref: c.ref || "" }));
     fbpRenderAll(); fbpPoll(d.job_id);
     note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " bộ ảnh (mỗi bộ " + $("fbpPerSet").value + " ảnh)…";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
@@ -5463,8 +5463,10 @@ function fbpPoll(job) {
       const items = d.items || [];
       while (placed < items.length) {
         const it = items[placed];
-        const idx = fbpItems.findIndex(x => x.loading && x.job === job);
-        if (idx >= 0) fbpItems[idx] = it; else fbpItems.unshift(it);
+        let idx = fbpItems.findIndex(x => x.loading && x.job === job && x.concept === it.concept);
+        if (idx < 0) idx = fbpItems.findIndex(x => x.loading && x.job === job);
+        if (idx >= 0) { it._design = fbpItems[idx]._design; it._ref = fbpItems[idx]._ref; fbpItems[idx] = it; }
+        else fbpItems.unshift(it);
         placed++; fbpRenderAll(); fbpWriteCaption(it);
       }
       if (d.finished) {
@@ -5489,7 +5491,14 @@ function fbpRenderAll() {
       grid.appendChild(ph); return;
     }
     const card = document.createElement("div"); card.className = "fp-card";
-    const thumbs = (it.pics || []).map((p, i) => { const s = p.image ? "data:image/png;base64," + p.image : p.url; return '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer">'; }).join("");
+    const canRegen = !!(it._design && (it.names || []).length);
+    const thumbs = (it.pics || []).map((p, i) => {
+      const s = p.image ? "data:image/png;base64," + p.image : p.url;
+      return '<div style="position:relative;width:84px;flex:0 0 auto">' +
+        '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer">' +
+        (canRegen ? '<button class="b-regen1" data-i="' + i + '" title="Gen lại ảnh này (giữ nguyên tên + cảnh của bộ)" style="position:absolute;right:2px;bottom:6px;font-size:11px;line-height:1;padding:2px 4px;border-radius:5px;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer">🔄</button>' : '') +
+        '</div>';
+    }).join("");
     card.innerHTML =
       '<div class="fp-card-prompt">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
         (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') + '</div>' +
@@ -5501,6 +5510,7 @@ function fbpRenderAll() {
     card.querySelector(".fbp-cap").oninput = (e) => { it.caption = e.target.value; };
     card.querySelectorAll(".fbp-card img, div img[data-i]").forEach(() => {});
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
+    card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10), btn); }; });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
     card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
     card.querySelector(".b-cap").onclick = () => fbpWriteCaption(it, true);
@@ -5514,6 +5524,27 @@ function fbpRenderAll() {
     grid.appendChild(card);
   });
 }
+// 🔄 Gen lại MỘT ảnh trong bộ — giữ nguyên tên + cảnh (scene Claude) để khớp với cả bộ
+async function fbpRegenOne(it, i, btn) {
+  const note = $("fbpNote");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  note.className = "gen-note"; note.textContent = "⏳ Đang gen lại ảnh " + (i + 1) + " của bộ " + (it.title || "") + "…";
+  try {
+    const r = await fetch("/api/fbpost-regen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: it._design, ref: it._ref || "", key: it.concept, names: it.names || [],
+        bg: it.bg || "", scene: it.scene || "", engine: ($("fbpEngine") && $("fbpEngine").value) || "",
+        aspect: $("fbpAspect").value, quality: $("fbpQuality").value }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    it.pics[i] = { image: d.image, url: d.url, id: d.id };
+    fbpRenderAll();
+    note.className = "gen-note ok";
+    note.textContent = "✓ Đã gen lại ảnh " + (i + 1) + (d.by === "claude" ? " (🧠 prompt Claude của bộ)" : "") + ".";
+  } catch (e) {
+    note.className = "gen-note err"; note.textContent = "✗ Gen lại lỗi: " + e.message;
+    if (btn) { btn.disabled = false; btn.textContent = "🔄"; }
+  }
+}
+
 // Lấy 1 ảnh trong bộ làm STYLE mẫu cho concept (đồng bộ cả FB post + FB ADS)
 let _fbpStylePickIdx = {};
 function fbpSetAsStyle(it, card) {

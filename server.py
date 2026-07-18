@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-claude"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-regen"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1802,7 +1802,8 @@ ADS_CONCEPT_N = {"couple": 2, "kids": 2, "group": 3, "family": 4, "flatlay2": 2,
 
 
 _ADS_KEEP = (
-    "Reference image #1 is the t-shirt design. On EVERY shirt reproduce this design faithfully: same "
+    "Reference image #1 is the t-shirt design. Treat the print as a LOCKED graphic COPIED PIXEL-FAITHFUL "
+    "from it — on EVERY shirt reproduce this design faithfully: same "
     "layout, same fonts, same emblem/icons, stars, lines, banners and the NON-NAME secondary text "
     "(taglines/series words like 'CUSTOM NAME SERIES' / 'Athletic', and any EST/date) — keep those "
     "identical, do NOT remove, redraw, restyle, simplify or re-center anything. What CHANGES per shirt is "
@@ -2096,8 +2097,8 @@ def fbpost_scene_ai(design_img, concept_key, n, bg):
         "3. Chỉ trả về PROMPT, không giải thích, không markdown."
     )
     try:
-        raw = base64.b64decode(design_img[0])
-        p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, raw,
+        # design_img = (raw_bytes, mime) — fetch_image_bytes đã decode sẵn, KHÔNG b64decode lần nữa
+        p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
                            design_img[1] if len(design_img) > 1 else "image/png",
                            max_tokens=1200) or "").strip().strip('"')
         return p if len(p) > 200 else ""
@@ -2222,7 +2223,9 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id")})
-            return {"concept": key, "title": label, "pics": pics}
+            # names/bg/scene trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + cảnh của bộ
+            return {"concept": key, "title": label, "pics": pics,
+                    "names": names, "bg": bg, "scene": scene}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
         except Exception as e:
@@ -7399,6 +7402,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"ok": True})
         if path == "/api/fbpost-generate":
             return self.handle_fbpost_generate(body)
+        if path == "/api/fbpost-regen":
+            return self.handle_fbpost_regen(body)
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":
@@ -8777,6 +8782,59 @@ class Handler(BaseHTTPRequestHandler):
         if not r.get("ok"):
             return self.json(400, {"error": r.get("error")})
         return self.json(200, r)
+
+    def handle_fbpost_regen(self, body):
+        """Gen lại MỘT ảnh trong bộ FB post — giữ nguyên TÊN + CẢNH (scene Claude) của bộ cho khớp set."""
+        dd, dm = fetch_image_bytes(body.get("image", ""))
+        if not dd:
+            return self.json(400, {"error": "Thiếu ảnh design gốc (bộ trong lịch sử cũ không gen lại được)."})
+        key = (body.get("key") or "").strip()
+        if key not in ADS_CONCEPTS:
+            return self.json(400, {"error": "Concept không hợp lệ."})
+        names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:6]
+        if not names:
+            return self.json(400, {"error": "Thiếu tên của bộ ảnh."})
+        nm = {"female": names[0], "male": names[1] if len(names) > 1 else names[0]} if key == "couple" else None
+        bg = (body.get("bg") or "").strip()[:200]
+        scene = (body.get("scene") or "").strip()
+        engine = resolve_engine_id(body)
+        aspect = (body.get("aspect") or "4:5").strip()
+        quality = (body.get("quality") or "high").strip()
+        if quality not in ("low", "medium", "high"):
+            quality = "high"
+        size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
+        imgs = [(dd, dm or "image/png")]; img_n = None
+        if body.get("ref"):
+            rb, rm = fetch_image_bytes(body["ref"])
+            if rb:
+                imgs.append((rb, rm or "image/png")); img_n = 2
+        is_people = key in ("couple", "kids", "group", "family")
+        if is_people and not scene:
+            scene = fbpost_scene_ai((dd, dm or "image/png"), key, len(names), bg)
+        if key.startswith("flatlay"):
+            pose = random.choice(_FBPOST_FLAT_SHOTS)
+        elif is_people:
+            pose = random.choice(_FBPOST_PEOPLE_POSES)
+        else:
+            pose = random.choice(_FBPOST_SHOTS)
+        v = ("A NEW shot of the SAME matching set — the SAME people in a DIFFERENT pose: %s. " % pose) if is_people \
+            else ("A NEW shot of the same matching set — %s. " % pose)
+        try:
+            prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene)
+            b64 = gen_shot(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
+            if HAS_PIL:
+                try:
+                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
+                except Exception:
+                    pass
+            b64 = strip_ai_meta_b64(b64)
+            g = gallery_add(b64, {"mode": "fbpost", "prompt": "FB Post regen · %s" % ADS_CONCEPTS[key][0]})
+            return self.json(200, {"image": b64, "url": g.get("url"), "id": g.get("id"),
+                                   "by": "claude" if scene else "template"})
+        except urllib.error.HTTPError as e:
+            return self.json(502, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": str(e)})
 
     def handle_fbpost_generate(self, body):
         """Gen các BỘ ảnh sạch (không text) cho FB Post — mỗi concept 1 bộ per_set ảnh."""
