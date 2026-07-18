@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-ui3buoc"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-skillsets"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2075,27 +2075,141 @@ _FBPOST_WHO = {
     "family": "MỘT gia đình Việt Nam ĐÚNG %d người (bố, mẹ và con), mỗi người mặc 1 áo",
 }
 
+# ==== 4 BỘ ẢNH FB POST THEO SKILL nano-banana (Output 1: model couple; 7-12: sofa; 13-17: trắng; 18-24: kraft) ====
+FBP_SETS = {"couple": "💑 Bộ Model Couple", "sofa": "🛋️ Flatlay Sofa kem",
+            "white": "⬜ Flatlay Nền trắng", "kraft": "📦 Flatlay Hộp kraft"}
+_FBP_SET_DESC = {   # mô tả loại ảnh đưa cho Claude viết prompt cảnh
+    "sofa": "FLATLAY 2 áo couple trên SOFA VẢI MÀU KEM trong phòng khách sáng cạnh cửa sổ (đúng spec flatlay sofa của skill), KHÔNG có người",
+    "white": "FLATLAY 2 áo couple trải trên NỀN TRẮNG liền mạch sáng đều kiểu e-commerce (đúng spec flatlay nền trắng của skill), KHÔNG có người",
+    "kraft": "FLATLAY 2 áo couple với HỘP QUÀ GIẤY KRAFT mở trên bàn gỗ sáng (đúng spec flatlay kraft box của skill), KHÔNG có người",
+}
+# Ngân hàng POSE couple theo skill (FULL A–H, WAIST A–F, SOLO nữ/nam)
+_FBP_POSE_FULL = [
+    "They stand side by side naturally holding hands down between them, both looking at the camera with bright cheerful smiles, arms lightly touching.",
+    "She looks at the camera with a bright cheerful smile while he turns his head slightly toward her with a fond expression, caught mid-moment.",
+    "They sit side by side on low steps; he leans forward with elbows casually on knees, she sits turned slightly toward him — relaxed lazy-afternoon mood.",
+    "She holds his hand with both of hers, gently pulling him as if leading somewhere, glancing at the camera with a playful bright smile; he looks at her fondly.",
+    "They stand side by side, both looking slightly off to one side as if they spotted something interesting, shoulders lightly touching; his hand in his pocket, she holds her bag strap — genuinely candid.",
+    "She leans her body lightly against his side, one hand holding his arm loosely; he stands steady and relaxed; both look at the camera with bright cheerful smiles.",
+    "They stand shoulder to shoulder, turned slightly toward each other then looking at the camera, caught mid-smile as if someone just said something funny.",
+    "He stands slightly behind and to the side of her; she faces the camera with a bright smile — casual layered depth composition.",
+]
+_FBP_POSE_WAIST = [
+    "They face each other at a slight angle, close together, looking into each other's eyes with bright smiles as if mid-conversation, hands naturally at their sides.",
+    "She leans her head gently on his shoulder; he tilts his head slightly toward hers; both relaxed and peaceful with gentle cheerful smiles.",
+    "They stand very close together, shoulders touching, both facing the camera with bright sparkling eyes and cheerful natural smiles.",
+    "She looks at the camera with a bright cheerful smile while he turns his head toward her with a fond warm expression — a candid intimate moment.",
+    "She holds his hand and pulls it gently toward her; both look at the camera with playful bright smiles.",
+    "They look at each other and smile — a genuine unguarded moment of joy, not looking at the camera.",
+]
+_FBP_POSE_SOLO_F = [
+    "She stands naturally, one hand holding her bag strap, the other relaxed, looking at the camera with bright sparkling eyes and a fresh cheerful smile, as if waiting for someone.",
+    "She leans her back lightly against the wall, hands loosely behind, looking at the camera with a natural easy smile, head tilted slightly.",
+    "One hand gently touching her hair near her ear, looking at the camera with bright eyes and a warm cheerful smile — natural and unrehearsed.",
+    "She stands with arms relaxed at her sides, chin slightly lifted, looking at the camera with a confident bright smile and sparkling eyes.",
+]
+_FBP_POSE_SOLO_M = [
+    "He stands relaxed with one hand in his pocket, looking at the camera with bright eyes and a warm natural smile, as if someone just called his name.",
+    "He leans one shoulder casually against the wall, one hand in his pocket, bright sparkling eyes and a fresh natural smile — genuinely at ease.",
+    "He looks slightly off-camera to the side with a bright expression, as if spotting a friend — a candid moment.",
+    "He stands with arms relaxed, looking directly at the camera with a confident bright smile.",
+]
+
+
+def _fbp_couple_shots():
+    """6 shot MODEL couple đúng thứ tự skill: 1×3/4 + 2×waist-up + solo nữ + solo nam + cận design."""
+    w = random.sample(_FBP_POSE_WAIST, 2)
+    return [
+        "Three-quarter shot from mid-thigh up of BOTH of them — the ONLY 3/4 shot of the set, full outfits visible. " + random.choice(_FBP_POSE_FULL),
+        "Waist-up shot of the COUPLE (from the waist to the top of the head), faces large and clear. " + w[0],
+        "Waist-up shot of the COUPLE (from the waist to the top of the head), faces large and clear. " + w[1],
+        "Waist-up SOLO shot of the WOMAN alone wearing her shirt (the man is not in this frame). " + random.choice(_FBP_POSE_SOLO_F),
+        "Waist-up SOLO shot of the MAN alone wearing his shirt (the woman is not in this frame). " + random.choice(_FBP_POSE_SOLO_M),
+        ("Close-up chest-level crop of BOTH of them standing shoulder to shoulder — framed from below the "
+         "collars to above the waist, NO faces visible, slightly off-center handheld angle as if a friend "
+         "zoomed in on the shirts, both printed designs filling the frame and clearly readable, real cotton "
+         "fabric texture, directional natural daylight creating slight shadow depth on the fabric."),
+    ]
+
+
+_FBP_FLAT_ARR = {   # cách sắp xếp từng shot flatlay theo skill
+    "sofa": [
+        "the two shirts draped diagonally across the sofa seat, slightly overlapping, natural soft folds",
+        "the two shirts neatly folded side by side on the sofa cushion",
+        "the two shirts folded and stacked loosely one on top of the other",
+        "a close-up on BOTH printed chest designs together filling the frame, cotton texture visible",
+        "a close-up on the first shirt's printed design only",
+        "a close-up on the second shirt's printed design only",
+    ],
+    "white": [
+        "both shirts spread fully open side by side, sleeves relaxed naturally",
+        "both shirts overlapping, crossed at a slight angle",
+        "both shirts arranged diagonally across the frame",
+        "shot from a slight oblique angle instead of straight top-down",
+        "a close-up on both printed designs",
+    ],
+    "kraft": [
+        "both shirts folded neatly inside the open kraft box, straight top-down view",
+        "the open kraft box shot from a slight oblique angle",
+        "one shirt half tucked inside the box as if just being unpacked, the other folded beside it",
+        "both shirts crossed, overlapping the box edges",
+        "both shirts folded outside next to the closed box with the lid leaning against it",
+        "a close-up on both printed designs inside the box",
+        "a close-up on one printed design resting on kraft wrapping paper",
+    ],
+}
+_FBP_FLAT_BODY = {   # fallback body khi Claude không chạy được
+    "sofa": ("Lay the TWO matching oversize t-shirts on a clean CREAM fabric sofa in a bright cozy living "
+             "room near a window, soft neutral daylight, gentle natural cotton folds, minimal props. "
+             "NO people, NO hands. "),
+    "white": ("Lay the TWO matching oversize t-shirts FLAT on a pure WHITE seamless background, bright and "
+              "evenly lit, neutral true-to-life colour, crisp clean flatlay. NO people, NO props, NO hands. "),
+    "kraft": ("Present the TWO matching oversize t-shirts with an OPEN KRAFT cardboard gift box on a light "
+              "wooden table, soft neutral daylight, minimal kraft-paper styling, clean and giftable. "
+              "NO people, NO hands. "),
+}
+
+
+def fbp_concept_label(key):
+    return FBP_SETS.get(key) or (ADS_CONCEPTS[key][0] if key in ADS_CONCEPTS else key)
+
 
 def fbpost_scene_ai(design_img, concept_key, n, bg):
     """Claude nhìn ảnh áo -> viết prompt CẢNH theo skill (không design, không tên, không khoá pose).
-    Trả "" nếu Claude không chạy được (fallback template cũ)."""
-    who = _FBPOST_WHO.get(concept_key)
-    if not who:
-        return ""
-    if "%d" in who:
-        who = who % n
+    Hỗ trợ cả 4 bộ skill: couple model + flatlay sofa/trắng/kraft. Trả "" nếu Claude lỗi (fallback template)."""
     extra_bg = ("Bối cảnh user muốn (bắt buộc dùng thay vì tự chọn BG bank): %s. " % bg) if (bg or "").strip() else ""
-    instr = (
-        "Loại ảnh cần đạt: 1 ẢNH FB POST đời thường 'real customer look' — " + who + ". " + extra_bg +
-        "Viết MỘT prompt tiếng Anh duy nhất theo đúng skill (SCENE SETUP, LIGHTING & COLOR, BACKGROUND, "
-        "PRODUCT ON BODY, MODEL cho TỪNG người, CAMERA, NEGATIVE — 1 đoạn liền mạch), với 3 quy tắc RIÊNG:\n"
-        "1. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo. Ở phần áo chỉ viết đúng ý này: wearing the "
-        "t-shirt 'with the printed design reproduced EXACTLY as shown in reference image #1 — same "
-        "artwork, same colours, same SIZE and same PLACEMENT on the shirt as the reference shows; do not "
-        "redraw, enlarge, shrink, move or re-center the print'.\n"
-        "2. KHÔNG khoá tư thế cụ thể (pose sẽ được thêm sau) — chỉ tả không khí, hoạt động chung của cảnh.\n"
-        "3. Chỉ trả về PROMPT, không giải thích, không markdown."
-    )
+    if concept_key in _FBP_SET_DESC:   # 3 bộ FLATLAY theo skill
+        instr = (
+            "Loại ảnh cần đạt: " + _FBP_SET_DESC[concept_key] + ". " + extra_bg +
+            "Viết MỘT prompt tiếng Anh duy nhất theo đúng spec flatlay của skill (SCENE SETUP, LIGHTING & "
+            "COLOR trung tính không ám vàng, BACKGROUND/bề mặt, PRODUCT — chất vải cotton nếp gấp tự nhiên, "
+            "CAMERA smartphone tự nhiên, NEGATIVE chuẩn — 1 đoạn liền mạch), với 3 quy tắc RIÊNG:\n"
+            "1. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo. Ở phần áo chỉ viết đúng ý này: the two "
+            "shirts 'with the printed designs reproduced EXACTLY as shown in reference image #1 — same "
+            "artwork, same colours, same SIZE and same PLACEMENT on each shirt as the reference shows; do "
+            "not redraw, enlarge, shrink, move or re-center the prints'.\n"
+            "2. KHÔNG khoá CÁCH SẮP XẾP áo (arrangement từng shot sẽ được thêm sau) — chỉ tả bề mặt, ánh "
+            "sáng, không khí của bối cảnh flatlay.\n"
+            "3. Chỉ trả về PROMPT, không giải thích, không markdown."
+        )
+        who = None
+    else:
+        who = _FBPOST_WHO.get(concept_key)
+        if not who:
+            return ""
+        if "%d" in who:
+            who = who % n
+        instr = (
+            "Loại ảnh cần đạt: 1 ẢNH FB POST đời thường 'real customer look' — " + who + ". " + extra_bg +
+            "Viết MỘT prompt tiếng Anh duy nhất theo đúng skill (SCENE SETUP, LIGHTING & COLOR, BACKGROUND, "
+            "PRODUCT ON BODY, MODEL cho TỪNG người, CAMERA, NEGATIVE — 1 đoạn liền mạch), với 3 quy tắc RIÊNG:\n"
+            "1. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo. Ở phần áo chỉ viết đúng ý này: wearing the "
+            "t-shirt 'with the printed design reproduced EXACTLY as shown in reference image #1 — same "
+            "artwork, same colours, same SIZE and same PLACEMENT on the shirt as the reference shows; do not "
+            "redraw, enlarge, shrink, move or re-center the print'.\n"
+            "2. KHÔNG khoá tư thế cụ thể (pose sẽ được thêm sau) — chỉ tả không khí, hoạt động chung của cảnh.\n"
+            "3. Chỉ trả về PROMPT, không giải thích, không markdown."
+        )
     try:
         # design_img = (raw_bytes, mime) — fetch_image_bytes đã decode sẵn, KHÔNG b64decode lần nữa
         p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
@@ -2113,7 +2227,7 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
     style = _ads_style_clauses(img_style_n, None)
     n = len(names)
     bg = (bg or "").strip()
-    is_flat = concept_key.startswith("flatlay")
+    is_flat = concept_key.startswith("flatlay") or concept_key in _FBP_FLAT_BODY
     if concept_key == "couple":
         body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt with "
                 "the printed design kept at the SAME size and position as the reference shows. " + _ADS_REAL)
@@ -2138,14 +2252,17 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                 "pose/angle changes between shots. A photo of exactly %d people, NOT a flatlay. "
                 % (n, n)) + _ADS_REAL
         names_clause = _fbpost_names_clause(names)
+    elif concept_key in _FBP_FLAT_BODY:   # 3 bộ flatlay theo skill: sofa / nền trắng / hộp kraft
+        body = _FBP_FLAT_BODY[concept_key]
+        names_clause = _fbpost_names_clause(names)
     else:  # flatlay
         on_bg = (" on " + bg) if bg else ""
         body = ("Lay %d OVERSIZE relaxed t-shirts out FLAT in a clean tidy flatlay arrangement%s, NO "
                 "people. Natural realistic product photo. " % (n, on_bg))
         names_clause = _fbpost_names_clause(names)
-    if scene and not is_flat:
-        # Claude đã viết cảnh đầy đủ theo skill -> thay body template (giữ _ADS_REAL làm lưới an toàn)
-        body = scene.rstrip() + " " + _ADS_REAL
+    if scene:
+        # Claude đã viết cảnh đầy đủ theo skill -> thay body template (người: giữ _ADS_REAL làm lưới an toàn)
+        body = scene.rstrip() + " " + ("" if is_flat else _ADS_REAL)
     bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat and not scene) else ""
     # biệt danh phụ = tên rút gọn của tên chính (nếu mẫu vốn có)
     if concept_key == "couple":
@@ -2181,7 +2298,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             bg = (c.get("bg") or "").strip()
             given = [str(x).strip() for x in (c.get("names") or []) if str(x).strip()]   # tên user nhập
             nm = None
-            if key == "couple":
+            if key in FBP_SETS:   # 4 bộ skill: luôn là CẶP áo couple -> 2 tên (nữ, nam)
                 auto = ads_couple_names()
                 nm = {"female": given[0] if len(given) > 0 else auto["female"],
                       "male": given[1] if len(given) > 1 else auto["male"]}
@@ -2194,9 +2311,13 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             imgs = [design_img]; img_n = None
             if c.get("ref"):
                 imgs.append((c["ref"], "image/png")); img_n = 2
-            cn = max(1, min(6, int(c.get("n") or per_set)))   # SỐ ẢNH riêng concept này (fallback per_set)
+            cn = max(1, min(8, int(c.get("n") or per_set)))   # SỐ ẢNH riêng concept này (fallback per_set)
             is_people = key in ("couple", "kids", "group", "family")   # concept CÓ NGƯỜI (loại flatlay)
-            if key.startswith("flatlay"):
+            if key == "couple":
+                hints = _fbp_couple_shots()                    # 6 shot đúng thứ tự skill
+            elif key in _FBP_FLAT_ARR:
+                hints = _FBP_FLAT_ARR[key]                     # sắp xếp flatlay theo skill
+            elif key.startswith("flatlay"):
                 hints = _FBPOST_FLAT_SHOTS
             elif is_people:
                 # mỗi shot 1 tư thế KHÁC nhau (chọn ngẫu nhiên, không trùng trong bộ)
@@ -2205,14 +2326,21 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 hints = (pool * 2)[:max(cn, 1)]
             else:
                 hints = _FBPOST_SHOTS
-            # Claude viết prompt CẢNH theo skill (1 lần cho cả bộ) -> fallback template nếu lỗi/thiếu key
-            scene = fbpost_scene_ai(design_img, key, len(names), bg) if is_people else ""
-            label = "FB Post · %s%s" % (ADS_CONCEPTS[key][0], " · 🧠 Claude" if scene else "")
+            cn = min(cn, len(hints)) if key in FBP_SETS else cn
+            # Claude viết prompt CẢNH theo skill (1 lần cho cả bộ, CẢ flatlay) -> fallback template nếu lỗi
+            scene = fbpost_scene_ai(design_img, key, len(names), bg) if (is_people or key in _FBP_SET_DESC) else ""
+            label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if scene else "")
             pics = []
             for i in range(cn):
                 pose = hints[i % len(hints)]
-                v = ("Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)) if is_people \
-                    else ("Shot %d of a matching set — %s. " % (i + 1, pose))
+                if key in FBP_SETS and key != "couple":
+                    v = "Shot %d of the matching flatlay set — arrangement for THIS shot: %s. " % (i + 1, pose)
+                elif key == "couple":
+                    v = "Shot %d of the matching set (skill order) — %s " % (i + 1, pose)
+                elif is_people:
+                    v = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)
+                else:
+                    v = "Shot %d of a matching set — %s. " % (i + 1, pose)
                 prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, scene)
                 b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
@@ -2227,9 +2355,9 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             return {"concept": key, "title": label, "pics": pics,
                     "names": names, "bg": bg, "scene": scene}
         except urllib.error.HTTPError as e:
-            return {"error": openai_error_message(e), "title": ADS_CONCEPTS[c["key"]][0]}
+            return {"error": openai_error_message(e), "title": fbp_concept_label(c["key"])}
         except Exception as e:
-            return {"error": str(e), "title": ADS_CONCEPTS[c["key"]][0]}
+            return {"error": str(e), "title": fbp_concept_label(c["key"])}
 
     with ThreadPoolExecutor(max_workers=2) as ex:
         for res in ex.map(work, concepts):
@@ -8789,12 +8917,12 @@ class Handler(BaseHTTPRequestHandler):
         if not dd:
             return self.json(400, {"error": "Thiếu ảnh design gốc (bộ trong lịch sử cũ không gen lại được)."})
         key = (body.get("key") or "").strip()
-        if key not in ADS_CONCEPTS:
+        if key not in ADS_CONCEPTS and key not in FBP_SETS:
             return self.json(400, {"error": "Concept không hợp lệ."})
         names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:6]
         if not names:
             return self.json(400, {"error": "Thiếu tên của bộ ảnh."})
-        nm = {"female": names[0], "male": names[1] if len(names) > 1 else names[0]} if key == "couple" else None
+        nm = {"female": names[0], "male": names[1] if len(names) > 1 else names[0]} if key in FBP_SETS else None
         bg = (body.get("bg") or "").strip()[:500]
         scene = (body.get("scene") or "").strip()
         engine = resolve_engine_id(body)
@@ -8809,16 +8937,26 @@ class Handler(BaseHTTPRequestHandler):
             if rb:
                 imgs.append((rb, rm or "image/png")); img_n = 2
         is_people = key in ("couple", "kids", "group", "family")
-        if is_people and not scene:
+        if (is_people or key in _FBP_SET_DESC) and not scene:
             scene = fbpost_scene_ai((dd, dm or "image/png"), key, len(names), bg)
-        if key.startswith("flatlay"):
+        if key == "couple":
+            pose = random.choice(_fbp_couple_shots())
+        elif key in _FBP_FLAT_ARR:
+            pose = random.choice(_FBP_FLAT_ARR[key])
+        elif key.startswith("flatlay"):
             pose = random.choice(_FBPOST_FLAT_SHOTS)
         elif is_people:
             pose = random.choice(_FBPOST_PEOPLE_POSES)
         else:
             pose = random.choice(_FBPOST_SHOTS)
-        v = ("A NEW shot of the SAME matching set — the SAME people in a DIFFERENT pose: %s. " % pose) if is_people \
-            else ("A NEW shot of the same matching set — %s. " % pose)
+        if key == "couple":
+            v = "A NEW shot of the SAME matching set — %s " % pose
+        elif key in _FBP_FLAT_ARR:
+            v = "A NEW shot of the SAME matching flatlay set — arrangement for THIS shot: %s. " % pose
+        elif is_people:
+            v = "A NEW shot of the SAME matching set — the SAME people in a DIFFERENT pose: %s. " % pose
+        else:
+            v = "A NEW shot of the same matching set — %s. " % pose
         try:
             prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene)
             b64 = gen_shot(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
@@ -8828,7 +8966,7 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
             b64 = strip_ai_meta_b64(b64)
-            g = gallery_add(b64, {"mode": "fbpost", "prompt": "FB Post regen · %s" % ADS_CONCEPTS[key][0]})
+            g = gallery_add(b64, {"mode": "fbpost", "prompt": "FB Post regen · %s" % fbp_concept_label(key)})
             return self.json(200, {"image": b64, "url": g.get("url"), "id": g.get("id"),
                                    "by": "claude" if scene else "template"})
         except urllib.error.HTTPError as e:
@@ -8846,7 +8984,7 @@ class Handler(BaseHTTPRequestHandler):
         cons = []
         for c in (body.get("concepts") or []):
             key = c.get("key")
-            if key not in ADS_CONCEPTS:
+            if key not in ADS_CONCEPTS and key not in FBP_SETS:
                 continue
             ref = None
             if c.get("ref"):
@@ -8857,7 +8995,7 @@ class Handler(BaseHTTPRequestHandler):
                 cn = 0
             given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
-                         "n": max(0, min(6, cn)), "names": given})
+                         "n": max(0, min(8, cn)), "names": given})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept."})
         engine = resolve_engine_id(body)

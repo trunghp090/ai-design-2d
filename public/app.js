@@ -5281,7 +5281,7 @@ function fbpFromProduct(p) {
   fbpProductLink = p.store_url || p.url || "";
   setTimeout(() => {
     fbpDesignImg = p.image; fbpRenderDesign();
-    fbpSel.clear(); fbpSel.add("flatlay3"); fbpRenderConcepts();
+    fbpSel.clear(); fbpSel.add("couple"); fbpRenderConcepts();
     const n = $("fbpNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã nạp design từ \"" + (p.title || "SP") + "\" — đang tạo bộ ảnh post…"; }
     fbpGenerate();
   }, 200);
@@ -5299,6 +5299,7 @@ function fbpInit() {
   if ($("fbpSavePreset")) $("fbpSavePreset").onclick = fbpSavePreset;
   if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
   fbpLoadPreset();   // tự nạp style mặc định đã lưu
+  if (![...fbpSel].some(k => FBP_CONCEPTS.find(c => c.key === k))) fbpSel.add("couple");   // mặc định bộ model couple
   fbpRenderDesign(); fbpRenderConcepts(); fbpRenderAll();
   fbpLoadHistory();  // nạp lịch sử các bộ ảnh post đã tạo
 }
@@ -5411,6 +5412,15 @@ function fbpRenderDesign() {
     add.innerHTML = "＋<span>Design</span>"; add.onclick = () => { fbpPasteTo = "design"; $("fbpDesignFile").click(); }; box.appendChild(add);
   }
 }
+// 4 BỘ ẢNH FB POST đúng theo skill nano-banana (bỏ đội nhóm/gia đình)
+const FBP_CONCEPTS = [
+  { key: "couple", label: "💑 Bộ MODEL Couple", max: 6, hint: "6 shot chuẩn skill: 1 ảnh 3/4 cặp đôi → 2 ảnh nửa người → chụp RIÊNG nữ → chụp RIÊNG nam → cận design 2 áo" },
+  { key: "sofa", label: "🛋️ Flatlay SOFA kem", max: 6, hint: "6 shot: trải xéo → gấp cạnh nhau → chồng gọn → cận 2 design → cận áo nữ → cận áo nam" },
+  { key: "white", label: "⬜ Flatlay NỀN TRẮNG", max: 5, hint: "5 shot: cạnh nhau → chồng chéo → xéo khung → góc nghiêng → cận design" },
+  { key: "kraft", label: "📦 Flatlay HỘP KRAFT", max: 7, hint: "7 shot: top-down trong hộp → góc nghiêng → hé mở → chéo mép hộp → cạnh hộp đóng → cận 2 design → cận 1 design" },
+];
+CONCEPT_SHIRTS.sofa = 2; CONCEPT_SHIRTS.white = 2; CONCEPT_SHIRTS.kraft = 2;
+
 // Pool tên thật (đồng bộ backend VN_COUPLE_NU/NAM) — cho nút 🎲 cố định tên
 const FBP_NAME_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
   "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh", "Quỳnh Như", "Hà My", "Tường Vy"];
@@ -5446,22 +5456,22 @@ function fbpNamesArr(key) {
 
 function fbpRenderConcepts() {
   const box = $("fbpConcepts"); box.innerHTML = "";
-  ADS_CONCEPTS.forEach(c => {
+  FBP_CONCEPTS.forEach(c => {
     const row = document.createElement("div"); row.className = "ads-con";
     const has = !!fbpStyle[c.key];
-    const isFlat = c.key.indexOf("flatlay") === 0;
-    const cnt = fbpCount[c.key] || parseInt(($("fbpPerSet") && $("fbpPerSet").value) || "3", 10) || 3;
-    const cntOpts = [1, 2, 3, 4, 5, 6].map(v => '<option value="' + v + '"' + (v === cnt ? " selected" : "") + '>' + v + ' ảnh</option>').join("");
-    // Ô TÊN riêng từng áo (cố định tên) + 🎲
+    const isFlat = c.key !== "couple";
+    const cnt = Math.min(c.max, fbpCount[c.key] || parseInt(($("fbpPerSet") && $("fbpPerSet").value) || "3", 10) || 3);
+    const cntOpts = Array.from({ length: c.max }, (_, k) => k + 1).map(v => '<option value="' + v + '"' + (v === cnt ? " selected" : "") + '>' + v + ' ảnh</option>').join("");
+    // Ô TÊN riêng từng áo (cố định tên) + 🎲 — cả 4 bộ đều là CẶP áo couple (tên nữ + tên nam)
     const arr = fbpNamesArr(c.key);
     const labels = c.key === "couple" ? ["👩 Tên NỮ → in áo NAM", "👨 Tên NAM → in áo NỮ"]
-      : arr.map((_, i) => "🏷️ Tên áo " + (i + 1) + " (trống = AI)");
+      : ["👩 Tên NỮ (áo 1)", "👨 Tên NAM (áo 2)"];
     let nameHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;align-items:center">' +
       arr.map((v, i) => '<input type="text" class="ads-con-name1" data-i="' + i + '" placeholder="' + labels[i] +
         '" value="' + v.replace(/"/g, "&quot;") + '" style="flex:1 1 45%;min-width:108px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--line,#ccc);background:transparent;color:inherit">').join("") +
       '<button class="btn-ghost sm b-rndname" title="🎲 Random tên thật từ pool (couple: 1 nữ + 1 nam)" style="padding:2px 7px;font-size:12px">🎲</button></div>';
-    // BỐI CẢNH: chọn từ ngân hàng BG của skill / tự nhập / Claude tự chọn
-    const bank = isFlat ? FBP_BG_FLAT : FBP_BG_BANK;
+    // BỐI CẢNH: couple = ngân hàng BG skill; flatlay = nền cố định theo skill (chỉ cho tự nhập thêm)
+    const bank = isFlat ? [["", "📐 Nền chuẩn skill (mặc định)"]] : FBP_BG_BANK;
     const cur = fbpBg[c.key] || "";
     const inBank = bank.some(b => b[0] === cur);
     const bgHtml = '<select class="ads-con-bgsel" style="width:100%;margin-top:4px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--line,#ccc);background:transparent;color:inherit">' +
@@ -5473,8 +5483,9 @@ function fbpRenderConcepts() {
       '<input type="checkbox" class="ads-con-tick"' + (fbpSel.has(c.key) ? " checked" : "") + '>' +
       '<div class="ads-con-ref">' + (has ? '<img src="' + fbpStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
       '<div class="ads-con-lbl">' + c.label +
-        ' <select class="ads-con-cnt" title="Số ảnh của concept này" style="font-size:11px;padding:1px 3px;border-radius:6px">' + cntOpts + '</select>' +
+        ' <select class="ads-con-cnt" title="Số ảnh của bộ này" style="font-size:11px;padding:1px 3px;border-radius:6px">' + cntOpts + '</select>' +
         (has ? ' <span class="hint" style="font-size:10px">✅ style</span>' : '') +
+        '<br><span class="hint" style="font-size:10px;line-height:1.35">' + c.hint + '</span>' +
         nameHtml + bgHtml + '</div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) fbpSel.add(c.key); else fbpSel.delete(c.key); };
     row.querySelector(".ads-con-ref").onclick = (e) => { fbpPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete fbpStyle[c.key]; fbpRenderConcepts(); return; } fbpPickKey = c.key; $("fbpStyleFile").click(); };
@@ -5483,16 +5494,9 @@ function fbpRenderConcepts() {
       inp.oninput = () => { const a = fbpNamesArr(c.key); a[parseInt(inp.dataset.i, 10)] = inp.value; fbpNames[c.key] = a.join(", "); };
     });
     row.querySelector(".b-rndname").onclick = () => {
-      const n = CONCEPT_SHIRTS[c.key] || 1;
-      let picks;
-      if (c.key === "couple") {
-        picks = [FBP_NAME_NU[Math.floor(Math.random() * FBP_NAME_NU.length)],
-                 FBP_NAME_NAM[Math.floor(Math.random() * FBP_NAME_NAM.length)]];
-      } else {
-        const pool = FBP_NAME_NU.concat(FBP_NAME_NAM);
-        picks = [];
-        for (let i = 0; i < n; i++) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-      }
+      // cả 4 bộ đều là cặp áo couple -> luôn random 1 tên NỮ + 1 tên NAM
+      const picks = [FBP_NAME_NU[Math.floor(Math.random() * FBP_NAME_NU.length)],
+                     FBP_NAME_NAM[Math.floor(Math.random() * FBP_NAME_NAM.length)]];
       fbpNames[c.key] = picks.join(", "); fbpSel.add(c.key); fbpRenderConcepts();
     };
     const bgSel = row.querySelector(".ads-con-bgsel"), bgTxt = row.querySelector(".ads-con-bg");
@@ -5505,14 +5509,14 @@ function fbpRenderConcepts() {
   });
 }
 function fbpHandlePaste(durl) {
-  if (fbpPasteTo && fbpPasteTo !== "design" && ADS_CONCEPTS.find(c => c.key === fbpPasteTo)) {
+  if (fbpPasteTo && fbpPasteTo !== "design" && FBP_CONCEPTS.find(c => c.key === fbpPasteTo)) {
     fbpStyle[fbpPasteTo] = durl; fbpSel.add(fbpPasteTo); fbpRenderConcepts();
   } else { fbpDesignImg = durl; fbpRenderDesign(); }
 }
 async function fbpGenerate() {
   const note = $("fbpNote"); note.className = "gen-note"; note.textContent = "";
   if (!fbpDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa design trước."; return; }
-  const cons = ADS_CONCEPTS.filter(c => fbpSel.has(c.key)).map(c => ({ key: c.key, ref: fbpStyle[c.key] || "", bg: (fbpBg[c.key] || "").trim(), n: fbpCount[c.key] || 0, names: (fbpNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) }));
+  const cons = FBP_CONCEPTS.filter(c => fbpSel.has(c.key)).map(c => ({ key: c.key, label: c.label, ref: fbpStyle[c.key] || "", bg: (fbpBg[c.key] || "").trim(), n: fbpCount[c.key] || 0, names: (fbpNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) }));
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 concept."; return; }
   const engine = ($("fbpEngine") && $("fbpEngine").value) || "";
   try {
