@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fullskill-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-hands-guard"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1523,8 +1523,12 @@ CHARACTER PROFILE (viết TRỰC TIẾP đầy đủ vào prompt, không placeho
 BIỂU CẢM — 3 MỨC (cấm há miệng to/cười lố/blank stare):
 - Mức 1 (pose intimate — tựa vai, nhìn nhau): "soft gentle smile with lips gently curved, teeth barely visible, eyes bright and kind".
 - Mức 2 (nhìn camera): "bright cheerful smile with lips parted slightly showing just the edge of teeth, eyes sparkling and alive — fresh youthful energy, not forced".
-- Mức 3 (playful/candid): "caught mid-smile with a light natural laugh — mouth NOT wide open, eyes crinkled slightly with genuine joy".
+- Mức 3 (playful/candid): "caught mid-smile with a light natural laugh — lips only slightly parted, mouth NOT wide open, eyes crinkled slightly with genuine joy".
 LUÔN thêm cuối model prompt: "eyes bright and sparkling with life, expression feels genuinely spontaneous not rehearsed — the kind of natural joy that shows up in a real candid smartphone photo".
+
+QUY TẮC TAY & MIỆNG (BẮT BUỘC — viết thành RÀNG BUỘC DƯƠNG trong block POSE của prompt, vì model hay bỏ qua negative):
+- TAY: luôn tả rõ tay đang làm gì tự nhiên — "his hands stay relaxed, one in his pocket" / "she holds her bag strap with one hand" / "hands loosely at their sides" / "her hand rests lightly on his arm". Kèm đúng câu: "Their hands stay relaxed and low — nobody raises a hand toward the camera, no hand signs of any kind." TUYỆT ĐỐI không để nhân vật giơ tay làm dấu (V/peace, finger heart, finger gun, trỏ, vẫy).
+- MIỆNG: mọi nụ cười tả kèm "mouth closed or only slightly parted" — KHÔNG BAO GIỜ có tiếng cười há miệng to.
 
 NGÂN HÀNG POSE (chọn 1 đúng loại ảnh, ưu tiên đa dạng — KHÔNG bịa pose gượng: cấm trán chạm trán, khoác vai editorial, ôm sau lưng, chỉ vào áo, peace sign, selfie gương):
 - COUPLE 3/4 (mid-thigh up): A đứng nắm tay nhìn camera cười tươi | B cô nhìn camera, anh liếc cô fond expression caught mid-moment | C ngồi bậc thềm cạnh nhau relaxed lazy-afternoon | D cô kéo tay anh playful glance | E cả 2 nhìn cùng hướng như vừa thấy gì đó, vai chạm nhẹ, candid | F cô tựa nhẹ vào anh, cả 2 nhìn camera | G đứng so vai caught mid-laugh | H anh đứng sau hơi lệch layered depth.
