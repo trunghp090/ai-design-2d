@@ -5411,28 +5411,96 @@ function fbpRenderDesign() {
     add.innerHTML = "＋<span>Design</span>"; add.onclick = () => { fbpPasteTo = "design"; $("fbpDesignFile").click(); }; box.appendChild(add);
   }
 }
+// Pool tên thật (đồng bộ backend VN_COUPLE_NU/NAM) — cho nút 🎲 cố định tên
+const FBP_NAME_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
+  "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh", "Quỳnh Như", "Hà My", "Tường Vy"];
+const FBP_NAME_NAM = ["Minh Quân", "Hữu Phước", "Đức Anh", "Hoàng Nam", "Tuấn Kiệt", "Gia Bảo",
+  "Quốc Bảo", "Nhật Minh", "Đình Phong", "Hải Đăng", "Trí Dũng", "Thanh Tùng", "Việt Hoàng", "Duy Khánh", "Minh Khôi"];
+// Ngân hàng BỐI CẢNH theo skill nano-banana (BG bank + lighting đi kèm, tiếng Anh cho prompt)
+const FBP_BG_BANK = [
+  ["", "🧠 Claude tự chọn bối cảnh (mặc định)"],
+  ["an indie café interior with exposed brick and light wood walls, mismatched vintage wooden chairs, potted plants, an espresso counter and a big street-facing window — soft neutral daylight from the shopfront window plus even ambient interior light, bright, faces and fabric colour true to life, no warm cast", "☕ Café indie (gạch thô + gỗ)"],
+  ["a daytime rooftop café terrace overlooking city buildings, simple tables and green plants — bright open daytime sky, soft and even, neutral, no harsh shadows", "🏙️ Café rooftop ban ngày"],
+  ["inside a Vietnamese convenience store with bright tidy shelves and glass doors — bright even fluorescent-style interior light kept fully neutral, no green or yellow tint on skin or fabric", "🏪 Cửa hàng tiện lợi"],
+  ["a Vietnamese sidewalk tea stall with low plastic stools beside an old shophouse wall — bright flat daytime street light, even and neutral, no harsh midday shadows", "🍵 Quán trà đá vỉa hè"],
+  ["a narrow old-quarter alley with weathered shophouse walls and everyday street details — bright flat daytime street light, even and neutral", "🏮 Ngõ phố cổ"],
+  ["a green city park with tall trees and a walking path — bright open daytime sky, dappled tree light kept gentle and even, neutral, no harsh spots on faces", "🌳 Công viên cây xanh"],
+  ["a lakeside promenade with a railing and water behind — bright neutral daytime light reflecting gently off the water, airy, well exposed", "🌊 Ven hồ / bờ sông"],
+  ["a simple everyday Vietnamese beach with sand and sea — bright intense high-key daylight reflecting off sand and water, neutral, no warm or orange cast", "🏖️ Bãi biển bình dân"],
+  ["a cozy GenZ bedroom with a curtained window, a simple desk and posters — soft neutral daylight through the curtained window, bright and airy, no warm tint from lamps", "🛏️ Phòng trọ GenZ"],
+];
+const FBP_BG_FLAT = [
+  ["", "🎨 AI tự chọn nền flatlay"],
+  ["laid on a clean cream fabric sofa with soft natural window light, bright and neutral", "🛋️ Sofa kem (chuẩn skill)"],
+  ["on a pure white seamless background, bright and evenly lit, neutral", "⬜ Nền trắng"],
+  ["in and around an open kraft cardboard gift box on a wooden table, soft neutral daylight", "📦 Hộp quà kraft"],
+  ["on a light wooden floor, top-down view, soft neutral daylight", "🪵 Sàn gỗ sáng"],
+];
+
+function fbpNamesArr(key) {
+  const n = CONCEPT_SHIRTS[key] || 1;
+  const arr = (fbpNames[key] || "").split(",").map(s => s.trim());
+  while (arr.length < n) arr.push("");
+  return arr.slice(0, n);
+}
+
 function fbpRenderConcepts() {
   const box = $("fbpConcepts"); box.innerHTML = "";
   ADS_CONCEPTS.forEach(c => {
     const row = document.createElement("div"); row.className = "ads-con";
     const has = !!fbpStyle[c.key];
-    const ph = (c.key.indexOf("flatlay") === 0) ? "Background (sàn gỗ, nền trắng…)" : "Background/bối cảnh (tuỳ chọn)";
+    const isFlat = c.key.indexOf("flatlay") === 0;
     const cnt = fbpCount[c.key] || parseInt(($("fbpPerSet") && $("fbpPerSet").value) || "3", 10) || 3;
     const cntOpts = [1, 2, 3, 4, 5, 6].map(v => '<option value="' + v + '"' + (v === cnt ? " selected" : "") + '>' + v + ' ảnh</option>').join("");
-    const nsh = CONCEPT_SHIRTS[c.key] || 1;
+    // Ô TÊN riêng từng áo (cố định tên) + 🎲
+    const arr = fbpNamesArr(c.key);
+    const labels = c.key === "couple" ? ["👩 Tên NỮ → in áo NAM", "👨 Tên NAM → in áo NỮ"]
+      : arr.map((_, i) => "🏷️ Tên áo " + (i + 1) + " (trống = AI)");
+    let nameHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;align-items:center">' +
+      arr.map((v, i) => '<input type="text" class="ads-con-name1" data-i="' + i + '" placeholder="' + labels[i] +
+        '" value="' + v.replace(/"/g, "&quot;") + '" style="flex:1 1 45%;min-width:108px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--line,#ccc);background:transparent;color:inherit">').join("") +
+      '<button class="btn-ghost sm b-rndname" title="🎲 Random tên thật từ pool (couple: 1 nữ + 1 nam)" style="padding:2px 7px;font-size:12px">🎲</button></div>';
+    // BỐI CẢNH: chọn từ ngân hàng BG của skill / tự nhập / Claude tự chọn
+    const bank = isFlat ? FBP_BG_FLAT : FBP_BG_BANK;
+    const cur = fbpBg[c.key] || "";
+    const inBank = bank.some(b => b[0] === cur);
+    const bgHtml = '<select class="ads-con-bgsel" style="width:100%;margin-top:4px;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--line,#ccc);background:transparent;color:inherit">' +
+      bank.map(b => '<option value="' + b[0].replace(/"/g, "&quot;") + '"' + (cur === b[0] ? " selected" : "") + '>' + b[1] + '</option>').join("") +
+      '<option value="__custom"' + (!inBank && cur ? " selected" : "") + '>✍️ Tự nhập bối cảnh…</option></select>' +
+      '<input type="text" class="ads-con-bg" placeholder="Mô tả bối cảnh tự nhập…" value="' + (!inBank ? cur.replace(/"/g, "&quot;") : "") +
+      '" style="' + (inBank || !cur ? "display:none;" : "") + 'width:100%;margin-top:3px;font-size:11px;padding:3px 6px">';
     row.innerHTML =
       '<input type="checkbox" class="ads-con-tick"' + (fbpSel.has(c.key) ? " checked" : "") + '>' +
       '<div class="ads-con-ref">' + (has ? '<img src="' + fbpStyle[c.key] + '"><button class="ads-ref-x">×</button>' : '<span class="ads-ref-add">🎨<br>+ Style</span>') + '</div>' +
       '<div class="ads-con-lbl">' + c.label +
         ' <select class="ads-con-cnt" title="Số ảnh của concept này" style="font-size:11px;padding:1px 3px;border-radius:6px">' + cntOpts + '</select>' +
-        '<br><span class="hint">' + (has ? '✅ có style' : 'tick + tải style') + '</span>' +
-        '<input type="text" class="ads-con-bg" placeholder="' + ph + '" value="' + (fbpBg[c.key] || "").replace(/"/g, "&quot;") + '">' +
-        '<input type="text" class="ads-con-names" placeholder="🏷️ Tên ' + nsh + ' áo (cách nhau dấu phẩy, trống = AI tự đặt)" value="' + (fbpNames[c.key] || "").replace(/"/g, "&quot;") + '"></div>';
+        (has ? ' <span class="hint" style="font-size:10px">✅ style</span>' : '') +
+        nameHtml + bgHtml + '</div>';
     row.querySelector(".ads-con-tick").onchange = (e) => { if (e.target.checked) fbpSel.add(c.key); else fbpSel.delete(c.key); };
     row.querySelector(".ads-con-ref").onclick = (e) => { fbpPasteTo = c.key; if (e.target.classList.contains("ads-ref-x")) { delete fbpStyle[c.key]; fbpRenderConcepts(); return; } fbpPickKey = c.key; $("fbpStyleFile").click(); };
-    row.querySelector(".ads-con-bg").oninput = (e) => { fbpBg[c.key] = e.target.value; };
     row.querySelector(".ads-con-cnt").onchange = (e) => { fbpCount[c.key] = parseInt(e.target.value, 10) || 3; };
-    row.querySelector(".ads-con-names").oninput = (e) => { fbpNames[c.key] = e.target.value; };
+    row.querySelectorAll(".ads-con-name1").forEach(inp => {
+      inp.oninput = () => { const a = fbpNamesArr(c.key); a[parseInt(inp.dataset.i, 10)] = inp.value; fbpNames[c.key] = a.join(", "); };
+    });
+    row.querySelector(".b-rndname").onclick = () => {
+      const n = CONCEPT_SHIRTS[c.key] || 1;
+      let picks;
+      if (c.key === "couple") {
+        picks = [FBP_NAME_NU[Math.floor(Math.random() * FBP_NAME_NU.length)],
+                 FBP_NAME_NAM[Math.floor(Math.random() * FBP_NAME_NAM.length)]];
+      } else {
+        const pool = FBP_NAME_NU.concat(FBP_NAME_NAM);
+        picks = [];
+        for (let i = 0; i < n; i++) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      }
+      fbpNames[c.key] = picks.join(", "); fbpSel.add(c.key); fbpRenderConcepts();
+    };
+    const bgSel = row.querySelector(".ads-con-bgsel"), bgTxt = row.querySelector(".ads-con-bg");
+    bgSel.onchange = () => {
+      if (bgSel.value === "__custom") { bgTxt.style.display = ""; fbpBg[c.key] = bgTxt.value; bgTxt.focus(); }
+      else { bgTxt.style.display = "none"; fbpBg[c.key] = bgSel.value; }
+    };
+    bgTxt.oninput = () => { fbpBg[c.key] = bgTxt.value; };
     box.appendChild(row);
   });
 }

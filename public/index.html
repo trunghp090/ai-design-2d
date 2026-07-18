@@ -1719,42 +1719,44 @@
     <div class="fp-layout">
       <aside class="panel fp-side">
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📘 Facebook Post</h2>
-        <p class="panel-desc" style="margin:0 0 14px">Đưa <b>design</b> → mỗi concept ra <b>1 bộ 4–5 ảnh SẠCH</b> (KHÔNG chèn chữ) → đăng thẳng lên <b>Fanpage rieng.vn</b>. Chỉ copy STYLE ảnh mẫu, không lấy người/đồ trong đó.</p>
+        <p class="panel-desc" style="margin:0 0 14px">Đưa <b>design</b> → 🧠 <b>Claude viết prompt theo skill</b> → mỗi concept ra <b>1 bộ ảnh SẠCH</b> (không chữ quảng cáo), design in <b>đúng cỡ + vị trí như áo thật</b> → đăng thẳng lên <b>Fanpage rieng.vn</b>.</p>
 
-        <label class="fp-label">DESIGN (ảnh áo / design)</label>
+        <label class="fp-label">1️⃣ DESIGN ÁO (ảnh áo / design)</label>
         <div class="fp-refs" id="fbpDesign"></div>
         <input type="file" id="fbpDesignFile" accept="image/*" hidden />
         <button class="btn-ghost sm" id="fbpDesignFromShop" style="margin-top:6px">🛍️ Chọn design từ SP Shopify</button>
 
-        <label class="fp-label" style="margin-top:14px">MODEL gen ảnh</label>
+        <label class="fp-label" style="margin-top:16px">2️⃣ CONCEPT · TÊN ÁO · BỐI CẢNH</label>
+        <p class="hint" style="margin:2px 0 6px;font-size:11px">Tick concept → điền tên hoặc 🎲 để <b>cố định tên in trên áo</b> (bỏ trống = AI tự đặt) → chọn bối cảnh theo skill hoặc để 🧠 Claude tự chọn.<br>💑 Couple đúng skill: áo <b>NAM</b> in tên <b>NỮ</b> · áo <b>NỮ</b> in tên <b>NAM</b>.</p>
+        <div id="fbpConcepts"></div>
+
+        <label class="fp-label" style="margin-top:16px">3️⃣ CÀI ĐẶT GEN</label>
+        <label class="fp-label" style="margin-top:8px;font-size:10px">MODEL gen ảnh</label>
         <select id="fbpEngine" class="input"></select>
 
-        <label class="fp-label" style="margin-top:14px">📐 Tỉ lệ ảnh</label>
+        <label class="fp-label" style="margin-top:10px;font-size:10px">📐 Tỉ lệ ảnh</label>
         <select id="fbpAspect" class="input">
-          <option value="3:4" selected>Dọc 3:4 (mặc định)</option>
-          <option value="4:5">Dọc 4:5 (feed)</option>
+          <option value="4:5" selected>Dọc 4:5 (chuẩn skill, feed FB)</option>
+          <option value="3:4">Dọc 3:4</option>
           <option value="1:1">Vuông 1:1</option>
           <option value="9:16">Dọc 9:16</option>
           <option value="2:3">Dọc 2:3</option>
           <option value="16:9">Ngang 16:9</option>
         </select>
 
-        <label class="fp-label" style="margin-top:14px">⚡ Tốc độ / Chất lượng</label>
+        <label class="fp-label" style="margin-top:10px;font-size:10px">⚡ Tốc độ / Chất lượng</label>
         <select id="fbpQuality" class="input">
           <option value="low">⚡ Nhanh (~30s/ảnh)</option>
           <option value="medium" selected>⚖️ Cân bằng (~60s/ảnh)</option>
           <option value="high">💎 Đẹp nhất (chậm)</option>
         </select>
 
-        <label class="fp-label" style="margin-top:14px">🖼️ Số ảnh mỗi bộ</label>
+        <label class="fp-label" style="margin-top:10px;font-size:10px">🖼️ Số ảnh mỗi bộ</label>
         <select id="fbpPerSet" class="input">
           <option value="3" selected>3 ảnh / concept</option>
           <option value="4">4 ảnh / concept</option>
           <option value="5">5 ảnh / concept</option>
         </select>
-
-        <label class="fp-label" style="margin-top:14px">CONCEPT + ẢNH STYLE (upload từng cái)</label>
-        <div id="fbpConcepts"></div>
 
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center">
           <button class="btn-ghost sm" id="fbpUseAdsStyle" title="Lấy y hệt concept + ảnh style + background đã setup bên tab Tạo Ảnh FB ADS">📋 Lấy style giống FB ADS</button>

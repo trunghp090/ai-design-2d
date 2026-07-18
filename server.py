@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-regen"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-ui3buoc"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8744,7 +8744,7 @@ class Handler(BaseHTTPRequestHandler):
                 rb, _ = fetch_image_bytes(c["ref"])
                 ref = rb
             given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
-            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
                          "custom_prompt": (c.get("custom_prompt") or "").strip()[:4000], "names": given})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept (và nên có ảnh style)."})
@@ -8795,7 +8795,7 @@ class Handler(BaseHTTPRequestHandler):
         if not names:
             return self.json(400, {"error": "Thiếu tên của bộ ảnh."})
         nm = {"female": names[0], "male": names[1] if len(names) > 1 else names[0]} if key == "couple" else None
-        bg = (body.get("bg") or "").strip()[:200]
+        bg = (body.get("bg") or "").strip()[:500]
         scene = (body.get("scene") or "").strip()
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
@@ -8856,7 +8856,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 cn = 0
             given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
-            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:200],
+            cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
                          "n": max(0, min(6, cn)), "names": given})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 concept."})
