@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-proof"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-shotpick"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2336,6 +2336,12 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             else:
                 hints = _FBPOST_SHOTS
             cn = min(cn, len(hints)) if key in FBP_SETS else cn
+            # user CHỌN CHỦ ĐỀ từng shot (tick) -> gen đúng các shot đó theo thứ tự skill
+            sel_shots = [i for i in (c.get("shots") or []) if isinstance(i, int) and 0 <= i < len(hints)]
+            if key in FBP_SETS and sel_shots:
+                shot_pairs = [(i, hints[i]) for i in sorted(set(sel_shots))]
+            else:
+                shot_pairs = [(i % len(hints), hints[i % len(hints)]) for i in range(cn)]
             # 100% ảnh phải dùng prompt Claude — không có scene thì BÁO LỖI, không âm thầm dùng template
             scene = fbpost_scene_ai(design_img, key, len(names), bg) if (is_people or key in _FBP_SET_DESC) else ""
             if key in FBP_SETS and not scene:
@@ -2343,16 +2349,15 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         "title": fbp_concept_label(key)}
             label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if scene else "")
             pics = []
-            for i in range(cn):
-                pose = hints[i % len(hints)]
+            for seq, (si, pose) in enumerate(shot_pairs):
                 if key in FBP_SETS and key != "couple":
-                    v = "Shot %d of the matching flatlay set — arrangement for THIS shot: %s. " % (i + 1, pose)
+                    v = "Shot %d of the matching flatlay set — arrangement for THIS shot: %s. " % (seq + 1, pose)
                 elif key == "couple":
-                    v = "Shot %d of the matching set (skill order) — %s " % (i + 1, pose)
+                    v = "Shot %d of the matching set (skill order) — %s " % (seq + 1, pose)
                 elif is_people:
-                    v = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)
+                    v = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (seq + 1, pose)
                 else:
-                    v = "Shot %d of a matching set — %s. " % (i + 1, pose)
+                    v = "Shot %d of a matching set — %s. " % (seq + 1, pose)
                 prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, scene)
                 b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
@@ -2362,8 +2367,9 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         pass
                 b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
-                # prompt lưu theo TỪNG ảnh làm BẰNG CHỨNG Claude viết (FE hiện nút 🧠 xem prompt)
-                pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"), "prompt": prompt})
+                # prompt lưu theo TỪNG ảnh làm BẰNG CHỨNG Claude viết; shot = chủ đề để 🔄 gen lại đúng loại
+                pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"),
+                             "prompt": prompt, "shot": si})
             # names/bg/scene trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + cảnh của bộ
             return {"concept": key, "title": label, "pics": pics,
                     "names": names, "bg": bg, "scene": scene}
@@ -8959,15 +8965,17 @@ class Handler(BaseHTTPRequestHandler):
         if key in FBP_SETS and not scene:
             return self.json(502, {"error": "🧠 Claude không viết được prompt cho ảnh này — thử lại sau ít phút."})
         if key == "couple":
-            pose = random.choice(_fbp_couple_shots())
+            bank = _fbp_couple_shots()
         elif key in _FBP_FLAT_ARR:
-            pose = random.choice(_FBP_FLAT_ARR[key])
+            bank = _FBP_FLAT_ARR[key]
         elif key.startswith("flatlay"):
-            pose = random.choice(_FBPOST_FLAT_SHOTS)
+            bank = _FBPOST_FLAT_SHOTS
         elif is_people:
-            pose = random.choice(_FBPOST_PEOPLE_POSES)
+            bank = _FBPOST_PEOPLE_POSES
         else:
-            pose = random.choice(_FBPOST_SHOTS)
+            bank = _FBPOST_SHOTS
+        si = body.get("shot")   # gen lại ĐÚNG CHỦ ĐỀ shot của ảnh đó (pose trong bank vẫn random)
+        pose = bank[int(si)] if isinstance(si, (int, float)) and 0 <= int(si) < len(bank) else random.choice(bank)
         if key == "couple":
             v = "A NEW shot of the SAME matching set — %s " % pose
         elif key in _FBP_FLAT_ARR:
@@ -9013,8 +9021,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 cn = 0
             given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
+            shots = [int(i) for i in (c.get("shots") or []) if isinstance(i, (int, float)) and 0 <= int(i) < 12][:12]
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
-                         "n": max(0, min(8, cn)), "names": given})
+                         "n": max(0, min(8, cn)), "names": given, "shots": shots})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 bộ ảnh (nếu vừa cập nhật, nhấn Ctrl+Shift+R để nạp giao diện 4 bộ skill mới)."})
         engine = resolve_engine_id(body)

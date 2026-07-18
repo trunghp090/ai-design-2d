@@ -1751,12 +1751,10 @@
           <option value="high">💎 Đẹp nhất (chậm)</option>
         </select>
 
-        <label class="fp-label" style="margin-top:10px;font-size:10px">🖼️ Số ảnh mỗi bộ</label>
-        <select id="fbpPerSet" class="input">
+        <select id="fbpPerSet" class="input" hidden>
           <option value="3" selected>3 ảnh / concept</option>
-          <option value="4">4 ảnh / concept</option>
-          <option value="5">5 ảnh / concept</option>
         </select>
+        <p class="hint" style="margin:8px 0 0;font-size:10px">🖼️ Số ảnh mỗi bộ = số chủ đề shot bạn tick ở bước 2️⃣.</p>
 
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center">
           <button class="btn-ghost sm" id="fbpUseAdsStyle" title="Lấy y hệt concept + ảnh style + background đã setup bên tab Tạo Ảnh FB ADS">📋 Lấy style giống FB ADS</button>
