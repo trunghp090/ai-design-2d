@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.16-tiktok-upimg"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-speed-fix"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6855,11 +6855,22 @@ class Handler(BaseHTTPRequestHandler):
         if not fp.startswith(base) or not os.path.isfile(fp):
             return self.json(404, {"error": "Not found"})
         ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-        data = open(fp, "rb").read()
+        with open(fp, "rb") as f:
+            data = f.read()
         self.send_response(200)
         self.send_header("Content-Type", ctype)
+        if path.startswith("/gallery/") or path.startswith("/mockups/"):
+            # ảnh sinh ra không bao giờ đổi (tên file mới mỗi lần) -> cache vĩnh viễn, hết tải lại
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-cache")
+            # nén gzip file text (app.js 400KB -> ~90KB)
+            if ("javascript" in ctype or ctype.startswith("text/")) and len(data) > 2048 \
+                    and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                import gzip as _gz
+                data = _gz.compress(data, 6)
+                self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(data)
 
@@ -8962,6 +8973,14 @@ class Handler(BaseHTTPRequestHandler):
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        # nén gzip JSON lớn (danh sách gallery/board/ảnh b64) nếu trình duyệt hỗ trợ
+        try:
+            if len(data) > 2048 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                import gzip as _gz
+                data = _gz.compress(data, 5)
+                self.send_header("Content-Encoding", "gzip")
+        except Exception:
+            pass
         self.send_header("Content-Length", str(len(data)))
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)

@@ -700,26 +700,39 @@ $("exportMockup").onclick = async () => {
 };
 
 /* ---------- gallery ---------- */
+let _galItems = [], _galLimit = 150;   // render giới hạn -> hết lag khi lịch sử cả nghìn ảnh
 async function loadGallery() {
   try {
     const r = await fetch("/api/gallery"); const data = await r.json();
-    const grid = $("galleryGrid"); grid.innerHTML = "";
-    const items = data.items || [];
-    $("galleryEmpty").classList.toggle("hidden", items.length > 0);
-    items.forEach(it => {
-      const card = document.createElement("div"); card.className = "gcard";
-      const label = (it.prompt || it.mode || "design").slice(0, 40);
-      card.innerHTML = `<img src="${it.url}" loading="lazy"><div class="gmeta">${label}</div><button class="gcopy" title="copy ảnh để gửi chỗ khác">📋</button><button class="gdel" title="xoá">×</button>`;
-      card.querySelector("img").onclick = () => useGalleryItem(it);
-      card.querySelector(".gcopy").onclick = (e) => { e.stopPropagation(); copyImageToClipboard(it.url, e.currentTarget); };
-      card.querySelector(".gdel").onclick = async (e) => {
-        e.stopPropagation();
-        await fetch("/api/gallery?id=" + it.id, { method: "DELETE" });
-        loadGallery();
-      };
-      grid.appendChild(card);
-    });
+    _galItems = data.items || [];
+    renderGallery();
   } catch (e) { /* im lặng */ }
+}
+function renderGallery() {
+  const grid = $("galleryGrid"); grid.innerHTML = "";
+  const items = _galItems;
+  $("galleryEmpty").classList.toggle("hidden", items.length > 0);
+  items.slice(0, _galLimit).forEach(it => {
+    const card = document.createElement("div"); card.className = "gcard";
+    const label = (it.prompt || it.mode || "design").slice(0, 40);
+    card.innerHTML = `<img src="${it.url}" loading="lazy"><div class="gmeta">${label}</div><button class="gcopy" title="copy ảnh để gửi chỗ khác">📋</button><button class="gdel" title="xoá">×</button>`;
+    card.querySelector("img").onclick = () => useGalleryItem(it);
+    card.querySelector(".gcopy").onclick = (e) => { e.stopPropagation(); copyImageToClipboard(it.url, e.currentTarget); };
+    card.querySelector(".gdel").onclick = async (e) => {
+      e.stopPropagation();
+      await fetch("/api/gallery?id=" + it.id, { method: "DELETE" });
+      loadGallery();
+    };
+    grid.appendChild(card);
+  });
+  if (items.length > _galLimit) {
+    const more = document.createElement("button");
+    more.className = "btn-ghost";
+    more.style.cssText = "grid-column:1/-1;margin-top:8px;padding:10px";
+    more.textContent = "⬇ Xem thêm (còn " + (items.length - _galLimit) + " ảnh)";
+    more.onclick = () => { _galLimit += 200; renderGallery(); };
+    grid.appendChild(more);
+  }
 }
 async function useGalleryItem(it) {
   // tải ảnh -> base64 để dùng lại (download/upscale/mockup)
@@ -5771,17 +5784,24 @@ async function adpostAddFromAd(c, btn) {
   const link = c._link || ($("adsLink") && $("adsLink").value.trim()) || (typeof adsProductLink !== "undefined" ? adsProductLink : "") || "";
   let caption = "🔥 " + (product || title) + " — " + (c.hook || "Cá nhân hoá theo tên riêng") + "\n✨ In tên riêng theo yêu cầu, chất vải đẹp, giao toàn quốc.\n👉 Đặt ngay tại rieng.vn!";
   try {
-    const src = c.image ? "data:image/png;base64," + c.image : url;
-    const AUD = { couple: "Bài cho CẶP ĐÔI (couple, 2 áo).", group: "Bài cho NHÓM BẠN / ĐỘI NHÓM (nhiều áo, KHÔNG phải couple).", flatlay2: "Bài couple/đôi (2 áo).", flatlay3: "Bài cho NHÓM (3 áo, KHÔNG phải couple).", family: "Bài cho GIA ĐÌNH (có cả size trẻ em, KHÔNG phải couple)." };
-    const aud = AUD[c.concept] || "";
-    const info = "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. " + aud + " Nhớ: hợp couple/đội nhóm/gia đình, CÓ size trẻ em.";
-    const r = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: src, info: info }) });
-    const d = await r.json(); if (r.ok && (d.facebook || "").trim()) caption = d.facebook.trim();
-  } catch (e) {}
-  try {
+    // THÊM NGAY (hết lag) — caption tạm bằng template, AI viết bản xịn chạy NỀN rồi tự cập nhật
     const r = await fetch("/api/adpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: title, caption: caption, link: link, product: product, product_img: c._pimg || "", image_url: url }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài Ads"; }, 1500); }
+    (async () => {   // AI caption chạy nền: gửi URL (không upload base64 nặng)
+      try {
+        const AUD = { couple: "Bài cho CẶP ĐÔI (couple, 2 áo).", group: "Bài cho NHÓM BẠN / ĐỘI NHÓM (nhiều áo, KHÔNG phải couple).", flatlay2: "Bài couple/đôi (2 áo).", flatlay3: "Bài cho NHÓM (3 áo, KHÔNG phải couple).", family: "Bài cho GIA ĐÌNH (có cả size trẻ em, KHÔNG phải couple)." };
+        const info = "Áo thun in tên cá nhân hoá, thương hiệu rieng.vn. " + (AUD[c.concept] || "") + " Nhớ: hợp couple/đội nhóm/gia đình, CÓ size trẻ em.";
+        const absUrl = url.startsWith("http") ? url : (location.origin + url);   // server cần URL tuyệt đối
+        const rr = await fetch("/api/product-content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: absUrl, info: info }) });
+        const dd = await rr.json();
+        if (rr.ok && (dd.facebook || "").trim()) {
+          await fetch("/api/adpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: d.id, caption: dd.facebook.trim() }) });
+          const v = document.getElementById("view-adpost");
+          if (v && !v.classList.contains("hidden") && typeof adpostLoad === "function") adpostLoad();
+        }
+      } catch (e) {}
+    })();
     return true;
   } catch (e) { if (btn) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = "➕ Bài Ads"; } return false; }
 }
