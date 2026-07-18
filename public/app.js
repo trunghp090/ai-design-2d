@@ -2707,6 +2707,27 @@ function ttInit() {
     if (!ttMeta) return;
     try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
   };
+  if ($("ttTextAll")) $("ttTextAll").onclick = async () => {
+    const b = $("ttTextAll"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang chèn…";
+    const on = !ttItems.every(it => it._showText);   // chưa bật hết -> bật hết; đang bật hết -> tắt hết
+    for (const it of ttItems) {
+      if (on && !it._textedUrl) { try { it._textedUrl = await ttTextedDataURL(it); } catch (e) {} }
+      it._showText = on && !!it._textedUrl;
+    }
+    ttRender();
+    b.disabled = false; b.textContent = on ? "🅰️ Bỏ text tất cả" : "🅰️ Chèn text tất cả";
+  };
+  if ($("ttDlTexted")) $("ttDlTexted").onclick = async () => {
+    const sel = ttItems.filter(it => it._sel);
+    if (!sel.length) { alert("⚠️ Chưa tick chọn slide nào."); return; }
+    const b = $("ttDlTexted"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tải…";
+    for (const it of sel) {
+      if (!it._textedUrl) { try { it._textedUrl = await ttTextedDataURL(it); } catch (e) { continue; } }
+      autoDownload(it._textedUrl.split(",")[1], (it.title || "slide") + "-text");
+      await new Promise(r => setTimeout(r, 400));
+    }
+    b.disabled = false; b.textContent = o;
+  };
 }
 async function ttGenerate() {
   const note = $("ttNote"); note.className = "gen-note"; note.textContent = "";
@@ -2755,6 +2776,34 @@ async function ttPollAll() {
     if (typeof loadGallery === "function") loadGallery();
   }
 }
+/* 🅰️ Vẽ text overlay lên ảnh (kiểu TikTok: trắng đậm + viền đen, đúng vị trí 1/3 trên/dưới) */
+async function ttTextedDataURL(it) {
+  const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
+  const img = await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  const cv = document.createElement("canvas"); cv.width = img.naturalWidth || 1024; cv.height = img.naturalHeight || 1365;
+  const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0);
+  const lines = (it.overlay || []).filter(Boolean);
+  if (!lines.length) return cv.toDataURL("image/png");
+  let fs = Math.round(cv.width * 0.052);
+  cx.textAlign = "center";
+  const widest = () => { cx.font = "800 " + fs + "px 'Arial Black', Arial, sans-serif"; return Math.max.apply(null, lines.map(l => cx.measureText(l).width)); };
+  while (fs > 18 && widest() > cv.width * 0.88) fs -= 2;
+  const lh = fs * 1.42;
+  const isBottom = (it.position || "").includes("dưới");
+  let y = isBottom ? (cv.height * 0.88 - lh * (lines.length - 1)) : (cv.height * 0.10 + fs);
+  cx.lineJoin = "round"; cx.strokeStyle = "rgba(0,0,0,.85)"; cx.lineWidth = Math.max(4, fs * 0.16); cx.fillStyle = "#fff";
+  cx.shadowColor = "rgba(0,0,0,.5)"; cx.shadowBlur = fs * 0.18; cx.shadowOffsetY = 2;
+  lines.forEach(l => { cx.strokeText(l, cv.width / 2, y); cx.fillText(l, cv.width / 2, y); y += lh; });
+  return cv.toDataURL("image/png");
+}
+async function ttToggleText(it, card) {
+  if (!it._textedUrl) { try { it._textedUrl = await ttTextedDataURL(it); } catch (e) { alert("✗ Không vẽ được text: " + e.message); return; } }
+  it._showText = !it._showText;
+  const img = card.querySelector("img");
+  img.src = it._showText ? it._textedUrl : (it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url));
+  const b = card.querySelector(".b-text");
+  if (b) { b.textContent = it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh"; b.classList.toggle("on", it._showText); }
+}
 function ttUpdateSel() {
   const real = ttItems.length, sel = ttItems.filter(it => it._sel).length;
   if ($("ttSelBar")) $("ttSelBar").classList.toggle("hidden", real === 0);
@@ -2785,7 +2834,7 @@ function ttRender() {
       '<input type="checkbox" class="gpick tt-pick"' + (it._sel ? " checked" : "") + '>' +
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Slide") + '</div>' +
-      '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+      '<div class="gacts"><button class="b-text">' + (it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh") + '</button><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
     // 📝 TEXT OVERLAY (nội dung chính — hiện luôn, copy 1 chạm)
     if (it.overlay && it.overlay.length) {
       const ov = document.createElement("div");
@@ -2820,12 +2869,17 @@ function ttRender() {
       det.appendChild(sum); det.appendChild(pre); det.appendChild(pc);
       card.appendChild(det);
     }
+    if (it._showText && it._textedUrl) card.querySelector("img").src = it._textedUrl;
     const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
     card.querySelector(".tt-pick").onchange = (e) => { it._sel = e.target.checked; ttUpdateSel(); };
-    card.querySelector("img").onclick = () => openZoom(src);
-    card.querySelector(".b-zoom").onclick = () => openZoom(src);
-    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "slide");
+    card.querySelector(".b-text").onclick = () => ttToggleText(it, card);
+    card.querySelector("img").onclick = () => openZoom(card.querySelector("img").src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(card.querySelector("img").src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(card.querySelector("img").src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = async () => {
+      if (it._showText && it._textedUrl) autoDownload(it._textedUrl.split(",")[1], (it.title || "slide") + "-text");
+      else autoDownload(await b64(), it.title || "slide");
+    };
     card.querySelector(".b-del").onclick = async () => {
       if (!confirm("Xoá slide này?")) return;
       try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
