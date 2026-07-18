@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-noloud"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-claude"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1740,8 +1740,8 @@ def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style="", tex
     style = _ads_style_clauses(img_style_n, txt_style_n)
     return ("Create a polished, eye-catching FACEBOOK AD creative for a t-shirt brand. "
             "The FIRST reference image is the DESIGN: reproduce its printed graphic EXACTLY — same "
-            "artwork, text, colors — as a LARGE full-front chest print on the shirt; do not redraw, "
-            "recolor or shrink it. " + style +
+            "artwork, text, colors — printed on the shirt at the SAME size and position as the reference "
+            "shows; do not redraw, recolor, enlarge, shrink or move it. " + style +
             "Show " + cast + " wearing the design from the first reference image. "
             "Integrate bold VIETNAMESE ad text naturally into the image like a real ad: " + txt +
             " — render the text CRISP and CORRECTLY SPELLED with proper Vietnamese diacritics, well "
@@ -1810,7 +1810,11 @@ _ADS_KEEP = (
     "position, correct Vietnamese diacritics). "
     "PRINT COLOUR: keep the design's OWN original colours, but render them CLEAN, crisp and EXACTLY the "
     "SAME on every shirt — the print colour and text must NOT drift, shift, fade, recolor or look "
-    "misaligned/mismatched between the shirts; all prints look perfectly aligned and sharp. ")
+    "misaligned/mismatched between the shirts; all prints look perfectly aligned and sharp. "
+    "PRINT SIZE & PLACEMENT: if the reference shows the design ON a shirt, print it at the SAME size and "
+    "SAME position on the shirt as the reference shows — do NOT enlarge it into a bigger full-front "
+    "print, do NOT shrink, move or re-center it; if the reference is only the artwork itself, print it "
+    "as a natural centered chest print at a realistic size. ")
 
 
 _ADS_SAFE_FRAME = (
@@ -1882,21 +1886,22 @@ def ads_multi_prompt(concept_key, names, prod_name, hook, img_style_n, txt_style
     bg = (bg or "").strip()
     if concept_key == "kids":
         scene = ("Show TWO cute young Vietnamese CHILDREN (little kids/siblings, roughly 3–8 years old) "
-                 "standing together, EACH wearing one of these matching KID-SIZED t-shirts as a LARGE "
-                 "full-front chest print. Adorable, natural, NO adults. " + _ADS_REAL)
+                 "standing together, EACH wearing one of these matching KID-SIZED t-shirts, print kept "
+                 "at the SAME size and position as the reference shows. Adorable, natural, NO adults. " + _ADS_REAL)
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     elif concept_key == "group":
         scene = ("Show a group of %d young Vietnamese friends standing together, EACH wearing one of "
-                 "these shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
+                 "these shirts with the print kept at the SAME size and position as the reference shows. " % n) + _ADS_REAL
         if bg:
             scene += ("Set the scene with this background: " + bg + ". ")
     elif concept_key == "family":
         pose = random.choice(_FAMILY_POSES)
         scene = ("Show ONE single happy Vietnamese FAMILY — EXACTLY %d people: a father, a mother and "
                  "their child(ren) — and NO extra people, NO crowd, NO other adults. The whole family is "
-                 "%s, in a natural lifestyle photo, EACH person WEARING one of these matching shirts as a "
-                 "LARGE full-front chest print (kids wear smaller kid-sized versions of the same design). "
+                 "%s, in a natural lifestyle photo, EACH person WEARING one of these matching shirts with "
+                 "the print kept at the SAME size and position as the reference shows (kids wear smaller "
+                 "kid-sized versions of the same design). "
                  "A photo of exactly %d people wearing the shirts — NOT a flatlay, NOT a product-only shot. "
                  % (n, pose, n)) + _ADS_REAL
         if bg:
@@ -1939,8 +1944,8 @@ def ads_couple_prompt(nm, prod_name, hook, img_style_n, txt_style_n, text_style=
             + nm["male"] + "\". Do NOT put the male name on the man or the female name on the woman; do "
             "NOT correct or normalise it. "
             + style +
-            "Show a happy young Vietnamese couple standing together, each wearing their shirt as a LARGE "
-            "full-front chest print. " + _ADS_REAL + bg_clause +
+            "Show a happy young Vietnamese couple standing together, each wearing their shirt with the "
+            "print kept at the SAME size and position as the reference shows. " + _ADS_REAL + bg_clause +
             "Integrate bold VIETNAMESE ad text naturally like a real ad: " + txt + " — crisp, correctly "
             "spelled with proper Vietnamese diacritics. Photorealistic, high-quality social-media ad.")
 
@@ -2062,15 +2067,55 @@ def _fbpost_names_clause(names):
             % (n, n, namelist, perslot))
 
 
-def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation=""):
-    """Ảnh SẠCH cho FB post (giữ design + tên, KHÔNG chèn text quảng cáo)."""
+_FBPOST_WHO = {
+    "couple": "một CẶP ĐÔI trẻ Việt Nam (1 nam + 1 nữ), mỗi người mặc 1 áo",
+    "kids": "HAI EM BÉ Việt Nam (anh chị em, 3–8 tuổi, KHÔNG có người lớn), mỗi bé mặc 1 áo kid-size",
+    "group": "một nhóm %d người bạn trẻ Việt Nam, mỗi người mặc 1 áo",
+    "family": "MỘT gia đình Việt Nam ĐÚNG %d người (bố, mẹ và con), mỗi người mặc 1 áo",
+}
+
+
+def fbpost_scene_ai(design_img, concept_key, n, bg):
+    """Claude nhìn ảnh áo -> viết prompt CẢNH theo skill (không design, không tên, không khoá pose).
+    Trả "" nếu Claude không chạy được (fallback template cũ)."""
+    who = _FBPOST_WHO.get(concept_key)
+    if not who:
+        return ""
+    if "%d" in who:
+        who = who % n
+    extra_bg = ("Bối cảnh user muốn (bắt buộc dùng thay vì tự chọn BG bank): %s. " % bg) if (bg or "").strip() else ""
+    instr = (
+        "Loại ảnh cần đạt: 1 ẢNH FB POST đời thường 'real customer look' — " + who + ". " + extra_bg +
+        "Viết MỘT prompt tiếng Anh duy nhất theo đúng skill (SCENE SETUP, LIGHTING & COLOR, BACKGROUND, "
+        "PRODUCT ON BODY, MODEL cho TỪNG người, CAMERA, NEGATIVE — 1 đoạn liền mạch), với 3 quy tắc RIÊNG:\n"
+        "1. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo. Ở phần áo chỉ viết đúng ý này: wearing the "
+        "t-shirt 'with the printed design reproduced EXACTLY as shown in reference image #1 — same "
+        "artwork, same colours, same SIZE and same PLACEMENT on the shirt as the reference shows; do not "
+        "redraw, enlarge, shrink, move or re-center the print'.\n"
+        "2. KHÔNG khoá tư thế cụ thể (pose sẽ được thêm sau) — chỉ tả không khí, hoạt động chung của cảnh.\n"
+        "3. Chỉ trả về PROMPT, không giải thích, không markdown."
+    )
+    try:
+        raw = base64.b64decode(design_img[0])
+        p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, raw,
+                           design_img[1] if len(design_img) > 1 else "image/png",
+                           max_tokens=1200) or "").strip().strip('"')
+        return p if len(p) > 200 else ""
+    except Exception as e:
+        print("fbpost_scene_ai fail: %s" % e)
+        return ""
+
+
+def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="", scene=""):
+    """Ảnh SẠCH cho FB post (giữ design + tên, KHÔNG chèn text quảng cáo).
+    scene != "" -> dùng prompt cảnh do Claude viết thay cho template body."""
     style = _ads_style_clauses(img_style_n, None)
     n = len(names)
     bg = (bg or "").strip()
     is_flat = concept_key.startswith("flatlay")
     if concept_key == "couple":
-        body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt as a "
-                "LARGE full-front chest print. " + _ADS_REAL)
+        body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt with "
+                "the printed design kept at the SAME size and position as the reference shows. " + _ADS_REAL)
         names_clause = ("There are TWO shirts. The MAN's shirt shows the FEMALE name \"" + nm["female"] +
                         "\"; the WOMAN's shirt shows the MALE name \"" + nm["male"] + "\". This swap is ON "
                         "PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt "
@@ -2078,12 +2123,12 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                         "name on the woman; do NOT correct or normalise it. ")
     elif concept_key == "kids":
         body = ("Show TWO cute young Vietnamese CHILDREN (little kids/siblings, ~3–8 years old) together, "
-                "each wearing one of these matching KID-SIZED shirts as a LARGE full-front chest print. "
-                "Adorable and natural, NO adults. " + _ADS_REAL)
+                "each wearing one of these matching KID-SIZED shirts, print kept at the SAME size and "
+                "position as the reference shows. Adorable and natural, NO adults. " + _ADS_REAL)
         names_clause = _fbpost_names_clause(names)
     elif concept_key == "group":
         body = ("Show a group of %d young Vietnamese friends standing together, each wearing one of these "
-                "shirts as a LARGE full-front chest print. " % n) + _ADS_REAL
+                "shirts with the print kept at the SAME size and position as the reference shows. " % n) + _ADS_REAL
         names_clause = _fbpost_names_clause(names)
     elif concept_key == "family":
         body = ("Show ONE single happy Vietnamese FAMILY — EXACTLY %d people: father, mother and "
@@ -2097,7 +2142,10 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
         body = ("Lay %d OVERSIZE relaxed t-shirts out FLAT in a clean tidy flatlay arrangement%s, NO "
                 "people. Natural realistic product photo. " % (n, on_bg))
         names_clause = _fbpost_names_clause(names)
-    bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat) else ""
+    if scene and not is_flat:
+        # Claude đã viết cảnh đầy đủ theo skill -> thay body template (giữ _ADS_REAL làm lưới an toàn)
+        body = scene.rstrip() + " " + _ADS_REAL
+    bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat and not scene) else ""
     # biệt danh phụ = tên rút gọn của tên chính (nếu mẫu vốn có)
     if concept_key == "couple":
         nick_pairs = [(nm["female"], _short_name(nm["female"])), (nm["male"], _short_name(nm["male"]))]
@@ -2156,13 +2204,15 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 hints = (pool * 2)[:max(cn, 1)]
             else:
                 hints = _FBPOST_SHOTS
-            label = "FB Post · %s" % ADS_CONCEPTS[key][0]
+            # Claude viết prompt CẢNH theo skill (1 lần cho cả bộ) -> fallback template nếu lỗi/thiếu key
+            scene = fbpost_scene_ai(design_img, key, len(names), bg) if is_people else ""
+            label = "FB Post · %s%s" % (ADS_CONCEPTS[key][0], " · 🧠 Claude" if scene else "")
             pics = []
             for i in range(cn):
                 pose = hints[i % len(hints)]
                 v = ("Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (i + 1, pose)) if is_people \
                     else ("Shot %d of a matching set — %s. " % (i + 1, pose))
-                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v)
+                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, scene)
                 b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
                     try:
