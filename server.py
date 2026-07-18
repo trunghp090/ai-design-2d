@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-bonus-2names"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-no-anhyeu"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1723,8 +1723,22 @@ def ads_ad_prompt(cast, name, hook, img_style_n, txt_style_n, text_style="", tex
             "placed and clearly readable. Photorealistic, high-quality social-media ad.")
 
 
+# Pool tên couple THẬT (fallback không bao giờ ra "Anh Yêu/Em Yêu" nữa)
+VN_COUPLE_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
+                "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh",
+                "Quỳnh Như", "Hà My", "Tường Vy"]
+VN_COUPLE_NAM = ["Minh Quân", "Hữu Phước", "Đức Anh", "Hoàng Nam", "Tuấn Kiệt", "Gia Bảo",
+                 "Quốc Bảo", "Nhật Minh", "Đình Phong", "Hải Đăng", "Trí Dũng", "Thanh Tùng",
+                 "Việt Hoàng", "Duy Khánh", "Minh Khôi"]
+
+
+def couple_names_pool():
+    """Random 1 tên nữ + 1 tên nam từ pool — tức thì, không cần API."""
+    return {"male": random.choice(VN_COUPLE_NAM), "female": random.choice(VN_COUPLE_NU)}
+
+
 def ads_couple_names():
-    """2 tên người Việt 2 chữ: 1 nam, 1 nữ (cho áo đôi cross-name)."""
+    """2 tên người Việt 2 chữ: 1 nam, 1 nữ (cho áo đôi cross-name). AI lỗi -> pool tên thật."""
     sys = ("Đặt 2 TÊN NGƯỜI Việt 2 chữ cho áo couple: 1 NAM, 1 NỮ (vd nam \"Minh Quân\", nữ "
            "\"Thuỳ Linh\"). Trả JSON {\"male\":\"...\",\"female\":\"...\"}.")
     try:
@@ -1732,9 +1746,13 @@ def ads_couple_names():
                            {"role": "user", "content": "Cho 2 tên couple. Chỉ trả JSON."}],
                           json_mode=True, max_tokens=80)
         d = json.loads(raw)
-        return {"male": (d.get("male") or "Anh Yêu").strip(), "female": (d.get("female") or "Em Yêu").strip()}
+        male = (d.get("male") or "").strip()
+        female = (d.get("female") or "").strip()
+        if not male or not female or male in ("Anh Yêu", "Anh") or female in ("Em Yêu", "Em"):
+            return couple_names_pool()
+        return {"male": male, "female": female}
     except Exception:
-        return {"male": "Anh Yêu", "female": "Em Yêu"}
+        return couple_names_pool()
 
 
 def ads_n_names(n):
@@ -5743,7 +5761,7 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
     """Slide 8 bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
     2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:2]
-    auto = ads_couple_names()
+    auto = couple_names_pool()   # pool tên thật, tức thì (không gọi AI -> hết cảnh "Anh Yêu/Em Yêu")
     n1 = given[0] if len(given) > 0 else auto["female"]
     n2 = given[1] if len(given) > 1 else auto["male"]
     prompt = (
