@@ -747,6 +747,7 @@ function showApp(app) {
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
   document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
+  document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
   document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
@@ -772,6 +773,7 @@ function showApp(app) {
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
   if (app === "psn") psnInit();
   if (app === "setshirt") ssInit();
+  if (app === "tiktok") ttInit();
   if (app === "namedes") namedesInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
@@ -2689,6 +2691,155 @@ async function zipDownloadSelected(items, btn) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (e) { alert("✗ " + e.message); }
   btn.disabled = false; btn.textContent = o;
+}
+
+/* =====================================================================
+   TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
+   ===================================================================== */
+let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null;
+function ttInit() {
+  if (ttInited) return; ttInited = true;
+  $("ttRunBtn").onclick = ttGenerate;
+  if ($("ttPickAll")) $("ttPickAll").onchange = (e) => { ttItems.forEach(it => it._sel = e.target.checked); ttRender(); };
+  if ($("ttZipBtn")) $("ttZipBtn").onclick = () => zipDownloadSelected(
+    ttItems.filter(it => it._sel).map(it => ({ id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "slide" })), $("ttZipBtn"));
+  if ($("ttCapCopy")) $("ttCapCopy").onclick = async () => {
+    if (!ttMeta) return;
+    try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
+  };
+}
+async function ttGenerate() {
+  const note = $("ttNote"); note.className = "gen-note"; note.textContent = "";
+  const btn = $("ttRunBtn"); btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳ Đang tạo…";
+  $("ttProgress").classList.remove("hidden");
+  try {
+    const r = await fetch("/api/tiktok-gift-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ occasion: $("ttOccasion").value, gender: $("ttGender").value,
+        tier: $("ttTier").value, n: parseInt($("ttCount").value, 10) || 6 }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+    ttRender();
+    note.className = "gen-note ok"; note.textContent = "🧠 AI đang chọn quà brand thật + lập bài… rồi Nano Banana Pro vẽ " + d.total + " slide.";
+    if (!ttPollTimer) ttPollTimer = setInterval(ttPollAll, 2500);
+    ttPollAll();
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = old;
+}
+async function ttPollAll() {
+  const active = ttJobs.filter(j => !j.finished);
+  let errs = [];
+  await Promise.all(active.map(async j => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      j.total = Math.max(j.total || 0, d.total || 0);
+      j.done = Math.max(j.done || 0, d.done || 0);
+      j.finished = !!d.finished;
+      if (d.note) { try { ttMeta = JSON.parse(d.note); } catch (e) {} }
+      (d.items || []).forEach(it => {
+        const key = (it.gallery && it.gallery.id) || it.title;
+        if (!ttItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) ttItems.push(it);
+      });
+      (d.errors || []).forEach(e => errs.push(e));
+    } catch (e) {}
+  }));
+  ttRender();
+  const total = ttJobs.reduce((a, j) => a + (j.total || 0), 0);
+  const done = ttJobs.reduce((a, j) => a + (j.done || 0), 0);
+  const running = ttJobs.filter(j => !j.finished).length;
+  $("ttBar").style.width = (total ? Math.round(done / total * 100) : 0) + "%";
+  $("ttProgText").textContent = (running ? "⏳ đang vẽ · " : "✓ xong · ") + done + "/" + total;
+  if (errs.length) { $("ttNote").className = "gen-note err"; $("ttNote").textContent = "⚠️ " + errs[0]; }
+  if (!running && ttPollTimer) {
+    clearInterval(ttPollTimer); ttPollTimer = null;
+    if (!errs.length) { $("ttNote").className = "gen-note ok"; $("ttNote").textContent = "✓ Xong bài carousel! Tải ZIP ảnh + copy text overlay từng slide."; }
+    if (typeof loadGallery === "function") loadGallery();
+  }
+}
+function ttUpdateSel() {
+  const real = ttItems.length, sel = ttItems.filter(it => it._sel).length;
+  if ($("ttSelBar")) $("ttSelBar").classList.toggle("hidden", real === 0);
+  if ($("ttSelCount")) $("ttSelCount").textContent = "Đã chọn " + sel + "/" + real;
+  if ($("ttPickAll")) $("ttPickAll").checked = real > 0 && sel === real;
+}
+function ttRender() {
+  const grid = $("ttResults");
+  const pending = ttJobs.reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
+  $("ttCountBadge").textContent = ttItems.length ? "(" + ttItems.length + ")" : "";
+  // meta: tiêu đề + caption + bonus + engine
+  if (ttMeta) {
+    $("ttCaptionBox").classList.remove("hidden");
+    $("ttTitle").textContent = "📌 " + (ttMeta.title || "Bài carousel");
+    $("ttCaption").textContent = ttMeta.caption || "";
+    $("ttBonus").textContent = (ttMeta.bonus && ttMeta.bonus.length) ? ("🎁 Slide 8 (rieng.vn — bạn tự chụp áo): " + ttMeta.bonus.join(" / ")) : "";
+    if ($("ttEngine")) $("ttEngine").textContent = ttMeta.engine ? ("🎨 " + ttMeta.engine) : "";
+  }
+  ttUpdateSel();
+  if (!ttItems.length && !pending) { $("ttEmpty").classList.remove("hidden"); grid.innerHTML = ""; return; }
+  $("ttEmpty").classList.add("hidden");
+  grid.innerHTML = "";
+  const sorted = ttItems.slice().sort((a, b) => (a.idx || 0) - (b.idx || 0));
+  sorted.forEach(it => {
+    const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
+    const card = document.createElement("div"); card.className = "gcard";
+    card.innerHTML =
+      '<input type="checkbox" class="gpick tt-pick"' + (it._sel ? " checked" : "") + '>' +
+      '<img src="' + src + '" loading="lazy" alt="">' +
+      '<div class="gmeta">' + (it.title || "Slide") + '</div>' +
+      '<div class="gacts"><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+    // 📝 TEXT OVERLAY (nội dung chính — hiện luôn, copy 1 chạm)
+    if (it.overlay && it.overlay.length) {
+      const ov = document.createElement("div");
+      ov.style.cssText = "padding:7px 9px;border-top:1px solid var(--line);background:#f6f0ff";
+      const pos = document.createElement("div");
+      pos.style.cssText = "font-size:10px;color:var(--violet);font-weight:700;margin-bottom:3px";
+      pos.textContent = "📝 TEXT OVERLAY (" + (it.position || "") + ") — chèn CapCut:";
+      const tx = document.createElement("div");
+      tx.style.cssText = "font-size:11.5px;line-height:1.5;white-space:pre-wrap";
+      tx.textContent = it.overlay.join("\n");
+      const cb = document.createElement("button");
+      cb.className = "btn-ghost sm"; cb.style.cssText = "margin-top:5px;font-size:11px;padding:3px 9px";
+      cb.textContent = "📋 Copy text";
+      cb.onclick = async () => { try { await navigator.clipboard.writeText(it.overlay.join("\n")); cb.textContent = "✓ Đã copy"; setTimeout(() => cb.textContent = "📋 Copy text", 1200); } catch (e) {} };
+      ov.appendChild(pos); ov.appendChild(tx); ov.appendChild(cb);
+      card.appendChild(ov);
+    }
+    // ✏️ prompt ảnh
+    if (it.prompt) {
+      const det = document.createElement("details");
+      det.style.cssText = "padding:5px 8px;border-top:1px solid var(--line);background:#fdfbfc";
+      const sum = document.createElement("summary");
+      sum.style.cssText = "cursor:pointer;font-size:11px;color:var(--violet);font-weight:600";
+      sum.textContent = "✏️ Prompt ảnh";
+      const pre = document.createElement("div");
+      pre.style.cssText = "font-size:10.5px;line-height:1.45;color:var(--muted);margin-top:4px;max-height:120px;overflow:auto;white-space:pre-wrap";
+      pre.textContent = it.prompt;
+      const pc = document.createElement("button");
+      pc.className = "btn-ghost sm"; pc.style.cssText = "margin-top:4px;font-size:11px;padding:3px 9px";
+      pc.textContent = "📋 Copy prompt";
+      pc.onclick = async (e) => { e.preventDefault(); try { await navigator.clipboard.writeText(it.prompt); pc.textContent = "✓ Đã copy"; setTimeout(() => pc.textContent = "📋 Copy prompt", 1200); } catch (err) {} };
+      det.appendChild(sum); det.appendChild(pre); det.appendChild(pc);
+      card.appendChild(det);
+    }
+    const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
+    card.querySelector(".tt-pick").onchange = (e) => { it._sel = e.target.checked; ttUpdateSel(); };
+    card.querySelector("img").onclick = () => openZoom(src);
+    card.querySelector(".b-zoom").onclick = () => openZoom(src);
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "slide");
+    card.querySelector(".b-del").onclick = async () => {
+      if (!confirm("Xoá slide này?")) return;
+      try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
+      ttItems = ttItems.filter(x => x !== it); ttRender();
+      if (typeof loadGallery === "function") loadGallery();
+    };
+    grid.appendChild(card);
+  });
+  // loading placeholder ở cuối (slide đang vẽ)
+  for (let i = 0; i < pending; i++) {
+    const c = document.createElement("div"); c.className = "gcard gcard-loading";
+    c.innerHTML = '<div class="ds-loading"><span class="ds-spin"></span><span>Đang vẽ slide…</span></div>';
+    grid.appendChild(c);
+  }
 }
 
 /* =====================================================================

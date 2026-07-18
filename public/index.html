@@ -63,6 +63,7 @@
     <button class="app-tab" data-app="post" data-group="marketing">📱 Đăng bài</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
+    <button class="app-tab" data-app="tiktok" data-group="marketing">🎵 TikTok Quà tặng</button>
     <button class="app-tab" data-app="admgr" data-group="marketing">📊 Quản lý Ads</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
@@ -1063,6 +1064,72 @@
         </div>
         <div id="psnResults" class="fp-creations grid"></div>
         <div class="gallery-empty" id="psnEmpty">Nhập vai trò + tên → chọn dạng (hoặc bật 🧠 3 AI) → bấm Tạo.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: 🎵 TIKTOK QUÀ TẶNG (carousel Nano Banana Pro) ===== -->
+  <section class="auto-view app-view hidden" id="view-tiktok">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🎵 TikTok Quà tặng</h2>
+        <p class="panel-desc" style="margin:0 0 12px">AI lập bài <b>carousel gợi ý quà</b> (brand thật) → <b>Nano Banana Pro</b> vẽ ảnh SẠCH không chữ (3:4, chừa chỗ overlay) → kèm <b>text overlay + caption</b> để bạn chèn CapCut.</p>
+
+        <label class="fp-label">🎯 Dịp / chủ đề (trống = AI tự chọn theo mùa)</label>
+        <input type="text" id="ttOccasion" class="input" placeholder="VD: Valentine, 20/10, sinh nhật, quà xin lỗi ny…" />
+
+        <label class="fp-label" style="margin-top:12px">👤 Quà cho ai</label>
+        <select id="ttGender" class="input">
+          <option value="nam" selected>💙 Bạn trai (mấy bà ơi…)</option>
+          <option value="nu">💗 Bạn gái (mấy ông ơi…)</option>
+          <option value="cả hai">💑 Couple cả hai</option>
+        </select>
+
+        <label class="fp-label" style="margin-top:12px">💸 Tầng giá</label>
+        <select id="ttTier" class="input">
+          <option value="budget" selected>💵 Dưới 300k (sinh viên — viral nhất)</option>
+          <option value="mid">💳 300k–700k (mới đi làm)</option>
+          <option value="treat">💎 500k–1.5tr (dịp đặc biệt)</option>
+        </select>
+
+        <label class="fp-label" style="margin-top:12px">🖼️ Số món quà</label>
+        <select id="ttCount" class="input">
+          <option value="6" selected>6 món (chuẩn 7 slide)</option>
+          <option value="4">4 món</option>
+          <option value="5">5 món</option>
+          <option value="8">8 món</option>
+        </select>
+
+        <button class="btn-primary" id="ttRunBtn" style="margin-top:14px">🎵 Tạo bài TikTok</button>
+        <div class="batch-progress hidden" id="ttProgress" style="margin-top:8px">
+          <div class="bp-bar"><div class="bp-fill" id="ttBar"></div></div>
+          <span id="ttProgText" class="hint"></span>
+        </div>
+        <p class="gen-note" id="ttNote"></p>
+        <p class="hint" style="margin-top:8px">💡 Slide cuối (bonus rieng.vn) bạn tự chụp áo đôi + chèn text gợi ý bên kết quả.</p>
+      </aside>
+
+      <section class="panel fp-main">
+        <div class="gallery-head">
+          <h3 style="margin:0">🎵 Bài carousel <span id="ttCountBadge" class="fp-count"></span></h3>
+          <span class="hint" id="ttEngine" style="margin:0"></span>
+        </div>
+        <div id="ttCaptionBox" class="hidden" style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:#fdf8f9">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <b id="ttTitle" style="font-size:14px"></b>
+            <button class="btn-ghost sm" id="ttCapCopy">📋 Copy caption</button>
+          </div>
+          <p id="ttCaption" class="hint" style="margin:6px 0 0;white-space:pre-wrap;font-size:12px"></p>
+          <p id="ttBonus" class="hint" style="margin:6px 0 0;font-size:12px;color:var(--violet)"></p>
+        </div>
+        <div id="ttSelBar" class="hidden" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 8px;padding:8px 10px;background:var(--violet-soft);border-radius:10px">
+          <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="ttPickAll"> Chọn tất cả</label>
+          <span class="hint" id="ttSelCount" style="margin:0">Đã chọn 0</span>
+          <span style="flex:1"></span>
+          <button class="btn-primary sm" id="ttZipBtn">📦 Tải ZIP đã chọn</button>
+        </div>
+        <div id="ttResults" class="fp-creations grid"></div>
+        <div class="gallery-empty" id="ttEmpty">Chọn dịp + đối tượng + tầng giá → bấm Tạo bài TikTok.</div>
       </section>
     </div>
   </section>

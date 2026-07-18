@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.16-setshirt-noaccent"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.16-tiktok-gift"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5625,6 +5625,132 @@ def run_setshirt_job(job_id, layout_img, back_img, group, names, aspect, quality
             BATCH_JOBS[job_id]["finished"] = True
 
 
+# ===================== TAB 🎵 TIKTOK QUÀ TẶNG (photo carousel — Nano Banana Pro) =====================
+# Theo skill "tiktok-carousel-prompt": 1 HOOK + N slide sản phẩm brand thật, ảnh SẠCH KHÔNG
+# TEXT (3:4, chừa khoảng trống overlay), text overlay tiếng Việt GenZ riêng + caption SEO.
+TIKTOK_TIERS = {
+    "budget": ("Dưới 300k (sinh viên)", "50k-300k: 2 món 80-150k, 2 món 150-250k, 2 món 250-300k"),
+    "mid": ("300k-700k (mới đi làm)", "300k-700k: 2 món 300-400k, 2 món 400-550k, 2 món 550-700k"),
+    "treat": ("500k-1.5tr (dịp đặc biệt)", "500k-1.5tr: 2 món 500-700k, 2 món 700k-1tr, 2 món 1tr-1.5tr"),
+}
+TIKTOK_GENDERS = {"nam": "bạn trai (tone: mấy bà, ảnh, ổng)", "nu": "bạn gái (tone: mấy ông, bả, nàng)",
+                  "cả hai": "couple cả hai"}
+
+_TIKTOK_SYS = """Bạn là chuyên gia content TikTok Photo Carousel quà tặng cho GenZ Việt (shop rieng.vn — áo đôi in tên).
+Lập kế hoạch 1 bài carousel: 1 slide HOOK + N slide sản phẩm (đếm ngược Top N→1) + caption.
+
+CHỌN QUÀ: N món brand THẬT phổ biến trên Shopee/TikTok Shop, đúng đối tượng + tầng giá được giao, danh mục ĐA DẠNG (làm đẹp, phụ kiện, tech, decor, couple/custom, gift box, thể thao...).
+⚠️ GIÁ PHẢI ĐÚNG TẦNG — mọi món phải mua được TRONG khoảng giá của tầng (giá Shopee thực tế). Brand theo tầng: BUDGET <300k: Nivea Men, Vaseline, Baseus, Casio F-91W, Miniso, Romand, Focallure, Colorkey, The Saem, phụ kiện/custom Shopee. MID 300-700k: Anker, JBL Tune, Casio GA-700, Innisfree, Laneige mini, The Body Shop, Victoria's Secret mist, vòng bạc. TREAT 500k-1.5tr: Daniel Wellington, Casio GA-2100, MAC, Lancôme mini, Pandora charm, nước hoa mini 7.5-10ml, Instax Mini 12. KHÔNG chọn brand đắt hơn tầng (vd DW/MAC/Pandora KHÔNG thuộc tầng budget).
+
+PROMPT ẢNH (tiếng Anh) — QUY TẮC SẮT:
+- Ảnh SẠCH TUYỆT ĐỐI KHÔNG TEXT/chữ/typography/watermark/logo-text trên ảnh.
+- Dọc 3:4, cảm giác smartphone đời thường (KHÔNG studio, KHÔNG stock photo).
+- CẤM từ: warm, golden, amber, cozy, golden hour, professional photograph, 8K, masterpiece, studio lighting, film grain, vintage.
+- HOOK: 1 scene couple GenZ Việt KHÔNG RÕ MẶT (đi dạo quay sau lưng / ngồi tựa vai / POV tay cầm túi quà / flatlay nhiều hộp quà / tay mở hộp / tay đan nhau close-up...). Cuối prompt thêm: "The lower third of the frame is relatively simple and uncluttered — suitable as empty space for text to be added later in post-production."
+- SLIDE SẢN PHẨM: đa số flatlay (hộp/packaging brand trên bàn gỗ/vải/giường), 2 slide dạng tay cầm/đang dùng (không mặt). Mỗi prompt ≥3 chi tiết brand/packaging đặc trưng (hộp, túi, tag, ribbon, màu nhận diện). Cuối prompt thêm: "The upper third of the frame shows clean surface/background — suitable as empty space for text to be added later in post-production."
+- Mỗi prompt KẾT THÚC bằng: "Negative: stock photo, studio lighting, posed model, clear face close-up, horizontal, cluttered, extra fingers, deformed hands, warm color cast, golden hour, any text, any words, any letters, any typography, any watermark. Aspect ratio 3:4."
+
+TEXT OVERLAY (tiếng Việt GenZ, user tự chèn CapCut): 2-3 dòng ngắn/slide. Hook ĐƯỢC ghi giá nếu theme giá ("6 quà tặng ảnh dưới 300k..."); slide sản phẩm: "Top X: [tên món] [emoji]" + 1-2 dòng comment GenZ, KHÔNG ghi giá. Tone: quà bạn trai = "mấy bà/ảnh/ổng", quà bạn gái = "mấy ông/bả/nàng". Viết tắt tự nhiên (ny, rcm, nma). Position: hook = "1/3 dưới", sản phẩm = "1/3 trên".
+
+CAPTION: 1 câu tự nhiên như nhắn tin bạn thân (không CTA, không công thức, không giá) + 10-15 hashtag TikTok VN.
+
+BONUS: text overlay cho slide 8 rieng.vn (áo đôi in tên — plot twist dễ thương, không giá).
+
+Trả JSON THUẦN đúng schema:
+{"title":"tên bài","caption":"...","hook":{"prompt":"...","overlay":["d1","d2","d3"],"position":"1/3 dưới"},"slides":[{"rank":N,"product":"brand + tên món","prompt":"...","overlay":["Top N: ...","..."],"position":"1/3 trên"}, ... rank giảm dần tới 1],"bonus_overlay":["..."]}"""
+
+
+def tiktok_gift_plan(occasion, gender, tier, n):
+    import datetime
+    month = datetime.datetime.now().month
+    tier_desc = TIKTOK_TIERS.get(tier, TIKTOK_TIERS["budget"])
+    gd = TIKTOK_GENDERS.get(gender, TIKTOK_GENDERS["nam"])
+    occ = (occasion or "").strip() or ("tự chọn dịp phù hợp 2-4 tuần tới (tháng hiện tại: %d, lịch dịp couple VN: "
+                                      "T1 Tết, T2 Valentine, T3 8/3+White Day, T4 Boy's Day 6/4, T5 Mẹ, T6 Bố+1/6, "
+                                      "T9 Trung thu, T10 20/10, T11 19/11, T12 Noel; không có dịp thì evergreen/sinh nhật)" % month)
+    user = ("Dịp/chủ đề: %s.\nĐối tượng nhận quà: %s.\nTầng giá: %s (%s).\nSố món: %d.\n"
+            "Lập kế hoạch bài carousel theo đúng quy tắc. Chỉ trả JSON thuần." % (occ, gd, tier_desc[0], tier_desc[1], n))
+    raw = ai_json(_TIKTOK_SYS, user, 4000)
+    d = json.loads(_strip_json_fence(raw))
+    hook = d.get("hook") or {}
+    slides = [s for s in (d.get("slides") or []) if s.get("prompt")][:n]
+    if not hook.get("prompt") or not slides:
+        raise RuntimeError("AI chưa trả đủ kế hoạch bài (hook/slides)")
+    return d
+
+
+def _tiktok_render_slide(prompt):
+    """Render 1 ảnh 3:4: ưu tiên Nano Banana Pro (Gemini 3), lỗi/thiếu key -> gpt-image."""
+    if GEMINI_API_KEY:
+        try:
+            return gemini_edit([], prompt, "3:4", GEMINI_IMAGE_MODEL)
+        except Exception:
+            pass
+    b64 = openai_generate(prompt, "1024x1536")
+    if HAS_PIL:
+        try:
+            b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
+        except Exception:
+            pass
+    return b64
+
+
+def run_tiktok_job(job_id, occasion, gender, tier, n):
+    """Job nền: AI lập plan -> render từng slide (Nano Banana Pro) -> gallery mode 'tiktok'."""
+    try:
+        plan = tiktok_gift_plan(occasion, gender, tier, n)
+    except Exception as e:
+        with _batch_lock:
+            if BATCH_JOBS.get(job_id):
+                BATCH_JOBS[job_id]["errors"].append("AI lập kế hoạch lỗi: %s" % e)
+                BATCH_JOBS[job_id]["finished"] = True
+        return
+    hook = plan.get("hook") or {}
+    slides = [{"idx": 0, "title": "Slide 1 · HOOK", "prompt": hook.get("prompt", ""),
+               "overlay": hook.get("overlay") or [], "position": hook.get("position") or "1/3 dưới"}]
+    for i, s in enumerate((plan.get("slides") or [])[:n]):
+        slides.append({"idx": i + 1,
+                       "title": "Slide %d · Top %s · %s" % (i + 2, s.get("rank", "?"), str(s.get("product", ""))[:40]),
+                       "prompt": s.get("prompt", ""), "overlay": s.get("overlay") or [],
+                       "position": s.get("position") or "1/3 trên"})
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["total"] = len(slides)
+        job["note"] = json.dumps({"title": plan.get("title", ""), "caption": plan.get("caption", ""),
+                                  "bonus": plan.get("bonus_overlay") or [],
+                                  "engine": "Nano Banana Pro (Gemini 3)" if GEMINI_API_KEY else "gpt-image"},
+                                 ensure_ascii=False)
+
+    def work(s):
+        try:
+            b64 = _tiktok_render_slide(s["prompt"])
+            b64 = strip_ai_meta_b64(b64)
+            g = gallery_add(b64, {"mode": "tiktok", "prompt": s["title"]})
+            return {"idx": s["idx"], "image": b64, "title": s["title"], "prompt": s["prompt"],
+                    "overlay": s["overlay"], "position": s["position"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": s["title"]}
+        except Exception as e:
+            return {"error": str(e), "title": s["title"]}
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        for res in ex.map(work, slides):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def psn_build_prompt(key, role, names, date, extra=""):
     label, tpl = PSN_STYLES[key]
     names = [n.strip() for n in (names or []) if n and n.strip()] or ["Minh Anh"]
@@ -7095,6 +7221,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_setshirt_gen(body)
         if path == "/api/download-zip":
             return self.handle_download_zip(body)
+        if path == "/api/tiktok-gift-gen":
+            return self.handle_tiktok_gift_gen(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -7446,6 +7574,28 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_tiktok_gift_gen(self, body):
+        """🎵 TikTok Quà tặng: AI lập plan carousel -> Nano Banana Pro render ảnh sạch 3:4."""
+        if not API_KEY and not ANTHROPIC_API_KEY:
+            return self.json(400, {"error": "Cần OPENAI_API_KEY (hoặc ANTHROPIC) để AI lập kế hoạch bài."})
+        if not GEMINI_API_KEY and not API_KEY:
+            return self.json(400, {"error": "Cần GEMINI_API_KEY (Nano Banana Pro) hoặc OPENAI_API_KEY để vẽ ảnh."})
+        occasion = (body.get("occasion") or "").strip()[:120]
+        gender = (body.get("gender") or "nam").strip()
+        if gender not in TIKTOK_GENDERS:
+            gender = "nam"
+        tier = (body.get("tier") or "budget").strip()
+        if tier not in TIKTOK_TIERS:
+            tier = "budget"
+        n = max(4, min(int(body.get("n", 6) or 6), 8))
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "tk%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n + 1, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_tiktok_job, args=(job_id, occasion, gender, tier, n),
+                         daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n + 1})
 
     def handle_download_zip(self, body):
         """Đóng gói các ảnh đã chọn thành 1 file ZIP tải về. items=[{id|url, name}]."""
