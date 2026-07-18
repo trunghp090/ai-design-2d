@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.16-tiktok-gender-concepts"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.16-tiktok-spcolor"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6801,6 +6801,7 @@ class Handler(BaseHTTPRequestHandler):
                 out.append({
                     "id": p["id"], "title": p.get("title", ""), "status": p.get("status", ""),
                     "image": img, "variants": len(vs),
+                    "images": [im.get("src") for im in (p.get("images") or []) if im.get("src")][:12],
                     "price_min": prices[0] if prices else "", "price_max": prices[-1] if prices else "",
                     "url": shop_admin_url(p["id"]),
                     "store_url": ("https://rieng.vn/products/%s" % p.get("handle", "")) if p.get("handle") else "",

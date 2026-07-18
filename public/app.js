@@ -2704,6 +2704,26 @@ function ttInit() {
   if ($("ttSpPick")) $("ttSpPick").onclick = () => openSpPicker((p) => {
     ttSp = { image: p.image || "", title: p.title || "" };
     $("ttSpInfo").innerHTML = "📦 <b>" + (p.title || "SP").replace(/</g, "&lt;").slice(0, 40) + "</b> — sẽ giữ đúng design này.";
+    // 🎨 chọn ảnh MÀU ÁO trong các ảnh của SP
+    const row = $("ttSpColors");
+    if (row) {
+      row.innerHTML = "";
+      const imgs = (p.images || []).filter(Boolean);
+      if (imgs.length > 1) {
+        row.insertAdjacentHTML("beforeend", '<div class="hint" style="width:100%;margin:6px 0 2px">🎨 Chọn ảnh MÀU ÁO làm tham chiếu:</div>');
+        imgs.forEach(u => {
+          const im = document.createElement("img");
+          im.src = u; im.loading = "lazy";
+          im.style.cssText = "width:46px;height:58px;object-fit:cover;border-radius:8px;cursor:pointer;margin:0 5px 5px 0;border:2px solid " + (u === ttSp.image ? "var(--violet)" : "var(--line)");
+          im.onclick = () => {
+            ttSp.image = u;
+            [...row.querySelectorAll("img")].forEach(x => x.style.borderColor = "var(--line)");
+            im.style.borderColor = "var(--violet)";
+          };
+          row.appendChild(im);
+        });
+      }
+    }
   });
   if ($("ttBonusBtn")) $("ttBonusBtn").onclick = async () => {
     const note = $("ttNote");
