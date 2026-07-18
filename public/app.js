@@ -2781,24 +2781,56 @@ async function ttPollAll() {
     if (typeof loadGallery === "function") loadGallery();
   }
 }
-/* 🅰️ Vẽ text overlay lên ảnh (kiểu TikTok: trắng đậm + viền đen, đúng vị trí 1/3 trên/dưới) */
+/* 🅰️ Vẽ text overlay kiểu TikTok "text background": chữ ĐEN đậm trên NỀN TRẮNG bo tròn
+   ôm sát từng dòng, các dòng nối liền thành khối, căn giữa, tự xuống dòng khi dài. */
 async function ttTextedDataURL(it) {
   const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
   const img = await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
   const cv = document.createElement("canvas"); cv.width = img.naturalWidth || 1024; cv.height = img.naturalHeight || 1365;
   const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0);
-  const lines = (it.overlay || []).filter(Boolean);
-  if (!lines.length) return cv.toDataURL("image/png");
-  let fs = Math.round(cv.width * 0.052);
-  cx.textAlign = "center";
-  const widest = () => { cx.font = "800 " + fs + "px 'Arial Black', Arial, sans-serif"; return Math.max.apply(null, lines.map(l => cx.measureText(l).width)); };
-  while (fs > 18 && widest() > cv.width * 0.88) fs -= 2;
-  const lh = fs * 1.42;
+  const raw = (it.overlay || []).filter(Boolean);
+  if (!raw.length) return cv.toDataURL("image/png");
+  let fs = Math.round(cv.width * 0.05);
+  cx.textAlign = "center"; cx.textBaseline = "middle";
+  const setFont = () => { cx.font = "700 " + fs + "px -apple-system, 'Helvetica Neue', Arial, sans-serif"; };
+  const maxW = cv.width * 0.82;
+  const wrap = (line) => {   // tự xuống dòng theo từ
+    setFont();
+    if (cx.measureText(line).width <= maxW) return [line];
+    const words = line.split(" "); const out = []; let cur = "";
+    for (const w of words) {
+      const t = cur ? cur + " " + w : w;
+      if (cx.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) out.push(cur);
+    return out;
+  };
+  let lines = [];
+  raw.forEach(l => { lines = lines.concat(wrap(l)); });
+  while (fs > 20 && lines.length > 6) { fs -= 2; lines = []; raw.forEach(l => { lines = lines.concat(wrap(l)); }); }
+  setFont();
+  const lh = Math.round(fs * 1.55), padX = fs * 0.6, rad = fs * 0.45;
   const isBottom = (it.position || "").includes("dưới");
-  let y = isBottom ? (cv.height * 0.88 - lh * (lines.length - 1)) : (cv.height * 0.10 + fs);
-  cx.lineJoin = "round"; cx.strokeStyle = "rgba(0,0,0,.85)"; cx.lineWidth = Math.max(4, fs * 0.16); cx.fillStyle = "#fff";
-  cx.shadowColor = "rgba(0,0,0,.5)"; cx.shadowBlur = fs * 0.18; cx.shadowOffsetY = 2;
-  lines.forEach(l => { cx.strokeText(l, cv.width / 2, y); cx.fillText(l, cv.width / 2, y); y += lh; });
+  const blockH = lh * lines.length;
+  const yTop = isBottom ? (cv.height * 0.92 - blockH) : (cv.height * 0.05);
+  const rrect = (x, y, w, h, r) => {
+    r = Math.min(r, h / 2, w / 2);
+    cx.beginPath();
+    cx.moveTo(x + r, y);
+    cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r);
+    cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r);
+    cx.closePath();
+  };
+  // nền trắng bo tròn từng dòng (chồng mí 1px cho liền khối)
+  cx.fillStyle = "#ffffff";
+  lines.forEach((l, i) => {
+    const w = cx.measureText(l).width + padX * 2;
+    rrect((cv.width - w) / 2, yTop + i * lh - (i > 0 ? 1 : 0), w, lh + (i < lines.length - 1 ? 2 : 0), rad);
+    cx.fill();
+  });
+  // chữ đen đậm
+  cx.fillStyle = "#111111";
+  lines.forEach((l, i) => cx.fillText(l, cv.width / 2, yTop + i * lh + lh / 2 + 1));
   return cv.toDataURL("image/png");
 }
 async function ttAutoBurn(it) {
