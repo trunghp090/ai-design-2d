@@ -2696,10 +2696,34 @@ async function zipDownloadSelected(items, btn) {
 /* =====================================================================
    TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
    ===================================================================== */
-let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null;
+let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null;
 function ttInit() {
   if (ttInited) return; ttInited = true;
   $("ttRunBtn").onclick = ttGenerate;
+  // 🎁 Slide 8 bonus: chọn SP shop -> gen ảnh 2 áo gấp trên sofa
+  if ($("ttSpPick")) $("ttSpPick").onclick = () => openSpPicker((p) => {
+    ttSp = { image: p.image || "", title: p.title || "" };
+    $("ttSpInfo").innerHTML = "📦 <b>" + (p.title || "SP").replace(/</g, "&lt;").slice(0, 40) + "</b> — sẽ giữ đúng design này.";
+  });
+  if ($("ttBonusBtn")) $("ttBonusBtn").onclick = async () => {
+    const note = $("ttNote");
+    if (!ttSp || !ttSp.image) { note.className = "gen-note err"; note.textContent = "⚠️ Bấm 📦 Chọn sản phẩm trước (lấy design áo)."; return; }
+    const names = ($("ttBonusNames").value || "").split(",").map(s => s.trim()).filter(Boolean);
+    const overlay = (ttMeta && ttMeta.bonus && ttMeta.bonus.length) ? ttMeta.bonus : [];
+    const b = $("ttBonusBtn"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo…";
+    $("ttProgress").classList.remove("hidden");
+    try {
+      const r = await fetch("/api/tiktok-bonus-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: ttSp.image, names: names, overlay: overlay }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
+      ttRender();
+      note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo slide bonus (2 áo gấp trên sofa, giữ đúng design SP)…";
+      if (!ttPollTimer) ttPollTimer = setInterval(ttPollAll, 2500);
+      ttPollAll();
+    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+    b.disabled = false; b.textContent = o;
+  };
   if ($("ttPickAll")) $("ttPickAll").onchange = (e) => { ttItems.forEach(it => it._sel = e.target.checked); ttRender(); };
   if ($("ttZipBtn")) $("ttZipBtn").onclick = () => zipDownloadSelected(
     ttItems.filter(it => it._sel).map(it => (it._showText && it._textedUrl)

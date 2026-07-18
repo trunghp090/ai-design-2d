@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.16-tiktok-pillstyle"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.16-tiktok-bonus-sp"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5695,6 +5695,66 @@ def _tiktok_render_slide(prompt):
     return b64
 
 
+def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
+    """Slide 8 bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
+    2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
+    given = [str(x).strip() for x in (names or []) if str(x).strip()][:2]
+    auto = ads_couple_names()
+    n1 = given[0] if len(given) > 0 else auto["female"]
+    n2 = given[1] if len(given) > 1 else auto["male"]
+    prompt = (
+        "Casual smartphone lifestyle photo: TWO neatly folded white t-shirts lying side by side on a "
+        "cream fabric sofa, photographed from a slight top-down angle, soft natural indoor daylight, "
+        "gentle shadows, cozy minimal home vibe (NOT studio, NOT stock photo). Each folded shirt "
+        "clearly shows the SAME printed chest design as the reference image — reproduce the design "
+        "100%% identical (same arched lettering style, badge/oval with date, small script line, same "
+        "colours) — but with TWO DIFFERENT Vietnamese names: the LEFT shirt shows \"%s\" and the "
+        "RIGHT shirt shows \"%s\", each spelled EXACTLY with correct Vietnamese diacritics in the "
+        "same font and arch as the reference. The prints follow the natural folds of the fabric "
+        "slightly. The upper third of the frame is relatively clean and uncluttered — suitable as "
+        "empty space for text to be added later in post-production. "
+        "Negative: studio lighting, white seamless background, e-commerce photo, mannequin, person, "
+        "face, horizontal, oversaturated, warm color cast, golden hour, any text overlay, any words "
+        "on image besides the shirt prints, any typography, any watermark. Aspect ratio 3:4." % (n1, n2))
+
+    def work():
+        try:
+            b64 = None
+            if GEMINI_API_KEY:
+                try:
+                    b64 = gemini_edit([ref_img], prompt, "3:4", GEMINI_IMAGE_MODEL)
+                except Exception:
+                    b64 = None
+            if not b64:
+                b64 = openai_edit([ref_img], prompt, "1024x1536", native_transparent=False, quality="high")
+                if HAS_PIL:
+                    try:
+                        b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
+                    except Exception:
+                        pass
+            b64 = strip_ai_meta_b64(b64)
+            title = "Slide 8 · Bonus rieng.vn · %s & %s" % (n1, n2)
+            g = gallery_add(b64, {"mode": "tiktok", "prompt": title})
+            return {"idx": 999, "image": b64, "title": title, "prompt": prompt,
+                    "overlay": overlay, "position": "1/3 trên", "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": "Slide bonus"}
+        except Exception as e:
+            return {"error": str(e), "title": "Slide bonus"}
+
+    res = work()
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        job["done"] = 1
+        if res.get("error"):
+            job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+        else:
+            job["items"].append(res)
+        job["finished"] = True
+
+
 def run_tiktok_job(job_id, occasion, gender, tier, n):
     """Job nền: AI lập plan -> render từng slide (Nano Banana Pro) -> gallery mode 'tiktok'."""
     try:
@@ -7223,6 +7283,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_download_zip(body)
         if path == "/api/tiktok-gift-gen":
             return self.handle_tiktok_gift_gen(body)
+        if path == "/api/tiktok-bonus-gen":
+            return self.handle_tiktok_bonus_gen(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
         if path == "/api/personalize":
@@ -7574,6 +7636,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": "Đổi màu lỗi: %s"
                                    % (errors[0] if errors else "không rõ")})
         return self.json(200, {"items": items, "errors": errors})
+
+    def handle_tiktok_bonus_gen(self, body):
+        """Slide 8 bonus: SP đã chọn -> ảnh 2 áo gấp trên sofa (giữ design, 2 tên khác nhau)."""
+        if not API_KEY and not GEMINI_API_KEY:
+            return self.json(400, {"error": "Cần GEMINI_API_KEY hoặc OPENAI_API_KEY để vẽ ảnh."})
+        rd, rm = fetch_image_bytes(body.get("image", ""))
+        if not rd:
+            return self.json(400, {"error": "Cần ảnh SP/design tham chiếu — bấm 📦 Chọn sản phẩm trước."})
+        names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:2]
+        overlay = [str(x).strip()[:120] for x in (body.get("overlay") or []) if str(x).strip()][:4]
+        if not overlay:
+            overlay = ["Bonus: Áo đôi in tên riêng 🎁", "chỉ 2 đứa mình có — link bio nha 👆"]
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "tb%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_tiktok_bonus_job,
+                         args=(job_id, (rd, rm or "image/png"), names, overlay), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": 1})
 
     def handle_tiktok_gift_gen(self, body):
         """🎵 TikTok Quà tặng: AI lập plan carousel -> Nano Banana Pro render ảnh sạch 3:4."""
