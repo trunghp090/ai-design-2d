@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-skillsets"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-claude100"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2082,6 +2082,9 @@ _FBP_SET_DESC = {   # mô tả loại ảnh đưa cho Claude viết prompt cản
     "sofa": "FLATLAY 2 áo couple trên SOFA VẢI MÀU KEM trong phòng khách sáng cạnh cửa sổ (đúng spec flatlay sofa của skill), KHÔNG có người",
     "white": "FLATLAY 2 áo couple trải trên NỀN TRẮNG liền mạch sáng đều kiểu e-commerce (đúng spec flatlay nền trắng của skill), KHÔNG có người",
     "kraft": "FLATLAY 2 áo couple với HỘP QUÀ GIẤY KRAFT mở trên bàn gỗ sáng (đúng spec flatlay kraft box của skill), KHÔNG có người",
+    # key cũ (lịch content tự động vẫn dùng) -> vẫn phải qua Claude
+    "flatlay2": "FLATLAY 2 áo trải phẳng gọn gàng trên bề mặt sạch đẹp sáng trung tính (sofa kem / sàn gỗ sáng / vải trơn), KHÔNG có người",
+    "flatlay3": "FLATLAY 3 áo trải phẳng gọn gàng trên bề mặt sạch đẹp sáng trung tính, KHÔNG có người",
 }
 # Ngân hàng POSE couple theo skill (FULL A–H, WAIST A–F, SOLO nữ/nam)
 _FBP_POSE_FULL = [
@@ -2210,15 +2213,19 @@ def fbpost_scene_ai(design_img, concept_key, n, bg):
             "2. KHÔNG khoá tư thế cụ thể (pose sẽ được thêm sau) — chỉ tả không khí, hoạt động chung của cảnh.\n"
             "3. Chỉ trả về PROMPT, không giải thích, không markdown."
         )
-    try:
-        # design_img = (raw_bytes, mime) — fetch_image_bytes đã decode sẵn, KHÔNG b64decode lần nữa
-        p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
-                           design_img[1] if len(design_img) > 1 else "image/png",
-                           max_tokens=1200) or "").strip().strip('"')
-        return p if len(p) > 200 else ""
-    except Exception as e:
-        print("fbpost_scene_ai fail: %s" % e)
-        return ""
+    # BẮT BUỘC 100% ảnh dùng prompt Claude -> retry 3 lần trước khi chịu thua
+    for attempt in range(3):
+        try:
+            # design_img = (raw_bytes, mime) — fetch_image_bytes đã decode sẵn, KHÔNG b64decode lần nữa
+            p = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
+                               design_img[1] if len(design_img) > 1 else "image/png",
+                               max_tokens=1200) or "").strip().strip('"')
+            if len(p) > 200:
+                return p
+        except Exception as e:
+            print("fbpost_scene_ai attempt %d fail: %s" % (attempt + 1, e))
+        time.sleep(2 + attempt * 3)
+    return ""
 
 
 def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="", scene=""):
@@ -2327,8 +2334,11 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             else:
                 hints = _FBPOST_SHOTS
             cn = min(cn, len(hints)) if key in FBP_SETS else cn
-            # Claude viết prompt CẢNH theo skill (1 lần cho cả bộ, CẢ flatlay) -> fallback template nếu lỗi
+            # 100% ảnh phải dùng prompt Claude — không có scene thì BÁO LỖI, không âm thầm dùng template
             scene = fbpost_scene_ai(design_img, key, len(names), bg) if (is_people or key in _FBP_SET_DESC) else ""
+            if key in FBP_SETS and not scene:
+                return {"error": "🧠 Claude không viết được prompt (hết quota/lỗi tạm) — bấm tạo lại bộ này.",
+                        "title": fbp_concept_label(key)}
             label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if scene else "")
             pics = []
             for i in range(cn):
@@ -2642,11 +2652,15 @@ def autopost_gen_set(design_img, key, per_set):
     if ref:
         imgs.append((ref, "image/png")); img_n = 2
     hints = _FBPOST_FLAT_SHOTS if key.startswith("flatlay") else _FBPOST_SHOTS
-    label = "FB Post · %s" % ADS_CONCEPTS[key][0]
+    # 100% ảnh dùng prompt Claude — kể cả lịch content tự động; Claude lỗi -> fail run này (lần sau thử lại)
+    scene = fbpost_scene_ai(design_img, key, len(names), "")
+    if not scene:
+        raise Exception("🧠 Claude không viết được prompt cho bộ ảnh tự động — sẽ thử lại lần chạy sau.")
+    label = "FB Post · %s · 🧠 Claude" % fbp_concept_label(key)
     urls = []
     for i in range(max(1, min(6, per_set))):
         v = "Shot %d of a matching set — %s. " % (i + 1, hints[i % len(hints)])
-        prompt = fbpost_prompt(key, names, nm, img_n, "", old_name, v)
+        prompt = fbpost_prompt(key, names, nm, img_n, "", old_name, v, scene)
         b64 = gen_shot(imgs, prompt, size, "openai", asp, lock=False, quality="medium")
         if HAS_PIL:
             try:
@@ -8939,6 +8953,8 @@ class Handler(BaseHTTPRequestHandler):
         is_people = key in ("couple", "kids", "group", "family")
         if (is_people or key in _FBP_SET_DESC) and not scene:
             scene = fbpost_scene_ai((dd, dm or "image/png"), key, len(names), bg)
+        if key in FBP_SETS and not scene:
+            return self.json(502, {"error": "🧠 Claude không viết được prompt cho ảnh này — thử lại sau ít phút."})
         if key == "couple":
             pose = random.choice(_fbp_couple_shots())
         elif key in _FBP_FLAT_ARR:
