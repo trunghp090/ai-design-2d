@@ -2945,6 +2945,60 @@ async function ttTextedDataURL(it) {
   lines.forEach((l, i) => cx.fillText(l, cv.width / 2, yTop + i * lh + lh / 2 + 1));
   return cv.toDataURL("image/png");
 }
+/* 🎬 Ảnh -> VIDEO GIẬT GIẬT kiểu TikTok (jitter + zoom punch), xuất mp4/webm */
+async function ttJitterBlob(it, durMs) {
+  const src = (it._showText && it._textedUrl) ? it._textedUrl
+    : (it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url));
+  const img = await new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  const W = 720, H = 960;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const cx = cv.getContext("2d");
+  const stream = cv.captureStream(30);
+  let mime = "video/mp4";
+  if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(mime)) mime = "video/webm;codecs=vp9";
+  if (!MediaRecorder.isTypeSupported(mime)) mime = "video/webm";
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 });
+  const chunks = []; rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((res) => { rec.onstop = res; });
+  rec.start(200);
+  const t0 = performance.now(); const DUR = durMs || 3500;
+  const cover = Math.max(W / img.width, H / img.height) * 1.06;   // phóng nhẹ để giật không hở mép
+  let jx = 0, jy = 0, js = 1, jr = 0, nextJ = 0;
+  const draw = () => {
+    const el = performance.now() - t0;
+    if (el >= nextJ) {   // nhịp giật mới (staccato, thi thoảng punch zoom mạnh)
+      const punch = Math.random() < 0.25;
+      js = 1 + Math.random() * (punch ? 0.10 : 0.035);
+      jx = (Math.random() - 0.5) * W * 0.035;
+      jy = (Math.random() - 0.5) * H * 0.03;
+      jr = (Math.random() - 0.5) * 2.4 * Math.PI / 180;
+      nextJ = el + 80 + Math.random() * 120;
+    }
+    cx.fillStyle = "#000"; cx.fillRect(0, 0, W, H);
+    cx.save();
+    cx.translate(W / 2 + jx, H / 2 + jy); cx.rotate(jr); cx.scale(js, js);
+    cx.drawImage(img, -img.width * cover / 2, -img.height * cover / 2, img.width * cover, img.height * cover);
+    cx.restore();
+    if (el < DUR) requestAnimationFrame(draw); else rec.stop();
+  };
+  requestAnimationFrame(draw);
+  await stopped;
+  stream.getTracks().forEach(t => t.stop());
+  return { blob: new Blob(chunks, { type: mime.split(";")[0] }), ext: mime.indexOf("mp4") >= 0 ? "mp4" : "webm" };
+}
+async function ttJitterVideo(it, btn) {
+  const o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ 3s…";
+  try {
+    const r = await ttJitterBlob(it);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(r.blob);
+    a.download = (it.title || "slide").replace(/[^\wÀ-ỹ ·-]+/g, "").slice(0, 50) + "-giat." + r.ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    btn.textContent = "✓ Đã tải";
+    setTimeout(() => { btn.textContent = o; btn.disabled = false; }, 1500);
+  } catch (e) { alert("✗ " + e.message); btn.textContent = o; btn.disabled = false; }
+}
 async function ttAutoBurn(it) {
   if (!it.overlay || !it.overlay.length) return;
   try { it._textedUrl = await ttTextedDataURL(it); it._showText = true; ttRender(); } catch (e) {}
@@ -2987,7 +3041,7 @@ function ttRender() {
       '<input type="checkbox" class="gpick tt-pick"' + (it._sel ? " checked" : "") + '>' +
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Slide") + '</div>' +
-      '<div class="gacts"><button class="b-text">' + (it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh") + '</button><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
+      '<div class="gacts"><button class="b-text">' + (it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh") + '</button><button class="b-jit">🎬 Giật</button><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
     // 📝 TEXT OVERLAY (nội dung chính — hiện luôn, copy 1 chạm)
     if (it.overlay && it.overlay.length) {
       const ov = document.createElement("div");
@@ -3026,6 +3080,7 @@ function ttRender() {
     const b64 = async () => { if (it.image) return it.image; const b = await (await fetch(src)).blob(); return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); }); };
     card.querySelector(".tt-pick").onchange = (e) => { it._sel = e.target.checked; ttUpdateSel(); };
     card.querySelector(".b-text").onclick = () => ttToggleText(it, card);
+    card.querySelector(".b-jit").onclick = (e) => ttJitterVideo(it, e.currentTarget);
     card.querySelector("img").onclick = () => openZoom(card.querySelector("img").src);
     card.querySelector(".b-zoom").onclick = () => openZoom(card.querySelector("img").src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(card.querySelector("img").src, e.currentTarget);
