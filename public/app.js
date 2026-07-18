@@ -2762,7 +2762,8 @@ async function ttGenerate() {
   try {
     const r = await fetch("/api/tiktok-gift-gen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ occasion: $("ttOccasion").value, gender: $("ttGender").value,
-        tier: $("ttTier").value, n: parseInt($("ttCount").value, 10) || 6 }) });
+        tier: $("ttTier").value, concept: ($("ttConcept") && $("ttConcept").value) || "auto",
+        n: parseInt($("ttCount").value, 10) || 6 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
     ttRender();
