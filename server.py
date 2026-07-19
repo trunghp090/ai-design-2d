@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-progress"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-livepics"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2363,6 +2363,24 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             if j is not None:
                 j["note"] = msg
 
+    def partial_set(key, entry):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None:
+                j.setdefault("partial", {})[key] = entry
+
+    def partial_add_pic(key, pic):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None and key in j.get("partial", {}):
+                j["partial"][key]["pics"].append(pic)
+
+    def partial_del(key):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None:
+                (j.get("partial") or {}).pop(key, None)
+
     def work(c):
         try:
             key = c["key"]
@@ -2416,6 +2434,8 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             elif is_people or key in _FBP_SET_DESC:
                 scene = fbpost_scene_ai(design_img, key, len(names), bg)
             label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if (bases or scene) else "")
+            # ảnh xong tấm nào hiện tấm đó: khởi tạo partial cho FE poll
+            partial_set(key, {"concept": key, "title": label, "expected": len(shot_pairs), "pics": []})
             pics = []
             for seq, (si, pose) in enumerate(shot_pairs):
                 note("🎨 %s: đang gen ảnh %d/%d…" % (fbp_concept_label(key), seq + 1, len(shot_pairs)))
@@ -2444,13 +2464,17 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"),
                              "prompt": prompt, "shot": si,
                              "base": (bases[seq] if bases else (scene or ""))})
+                partial_add_pic(key, {"url": g.get("url"), "shot": si})   # hiện ngay tấm vừa xong
+            partial_del(key)
             # names/bg trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + prompt riêng của bộ
             return {"concept": key, "title": label, "pics": pics,
                     "names": names, "bg": bg, "scene": scene or "",
                     "nprompts": len(bases) if bases else 0}
         except urllib.error.HTTPError as e:
+            partial_del(c.get("key"))
             return {"error": openai_error_message(e), "title": fbp_concept_label(c["key"])}
         except Exception as e:
+            partial_del(c.get("key"))
             return {"error": str(e), "title": fbp_concept_label(c["key"])}
 
     with ThreadPoolExecutor(max_workers=2) as ex:
@@ -7169,7 +7193,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.json(404, {"error": "Không thấy job"})
                 return self.json(200, {"total": job["total"], "done": job["done"],
                                        "finished": job["finished"], "items": job["items"],
-                                       "errors": job["errors"], "note": job.get("note", "")})
+                                       "errors": job["errors"], "note": job.get("note", ""),
+                                       "partial": list((job.get("partial") or {}).values())})
 
         # static: gallery, mockups, public
         if path.startswith("/gallery/"):

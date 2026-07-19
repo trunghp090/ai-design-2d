@@ -5545,6 +5545,10 @@ function fbpPoll(job) {
     try {
       const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job))).json();
       if (d.note) fbpItems.forEach(x => { if (x.loading && x.job === job) x._note = d.note; });
+      (d.partial || []).forEach(pe => {   // ảnh xong tấm nào hiện tấm đó
+        const t = fbpItems.find(x => x.loading && x.job === job && x.concept === pe.concept);
+        if (t) t._partial = pe;
+      });
       const items = d.items || [];
       while (placed < items.length) {
         const it = items[placed];
@@ -5572,7 +5576,20 @@ function fbpRenderAll() {
   fbpItems.forEach(it => {
     if (it.loading) {
       const ph = document.createElement("div"); ph.className = "fp-card fp-card-loading";
-      ph.innerHTML = '<div class="fp-card-prompt">' + (it.title || "") + '</div><div class="fp-loading" style="min-height:120px"><span class="fp-spin"></span><span>' + (it._note || "Đang tạo bộ ảnh…") + '</span></div>';
+      const pp = it._partial;
+      if (pp && (pp.expected || 0) > 0) {
+        // hiện từng ảnh đã xong + ô ⏳ cho ảnh còn lại
+        const done = (pp.pics || []).map(p =>
+          '<img src="' + p.url + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="openZoom(this.src)">').join("");
+        const remain = Math.max(0, (pp.expected || 0) - (pp.pics || []).length);
+        const wait = Array.from({ length: remain }, () =>
+          '<div style="width:84px;height:104px;border-radius:6px;background:rgba(127,127,127,.14);display:flex;align-items:center;justify-content:center;font-size:18px"><span class="fp-spin" style="width:18px;height:18px"></span></div>').join("");
+        ph.innerHTML = '<div class="fp-card-prompt">' + (pp.title || it.title || "") + ' · ' + (pp.pics || []).length + '/' + pp.expected + ' ảnh</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + done + wait + '</div>' +
+          '<p class="hint" style="margin:0;font-size:11px">' + (it._note || "") + '</p>';
+      } else {
+        ph.innerHTML = '<div class="fp-card-prompt">' + (it.title || "") + '</div><div class="fp-loading" style="min-height:120px"><span class="fp-spin"></span><span>' + (it._note || "Đang tạo bộ ảnh…") + '</span></div>';
+      }
       grid.appendChild(ph); return;
     }
     const card = document.createElement("div"); card.className = "fp-card";
