@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-nprompts"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-skillfinal"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2212,7 +2212,9 @@ def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
         "PLACEMENT on the shirt as the reference shows; do not redraw, enlarge, shrink, move or re-center.\n"
         "5. Shot nào chỉ có 1 áo / 1 người thì prompt đó tả ĐÚNG 1 áo / 1 người (áo kia ngoài khung hình).\n"
         "6. Trả về DUY NHẤT JSON hợp lệ: {\"prompts\": [\"prompt 1\", ..., \"prompt %d\"]} — không markdown, "
-        "không giải thích." % n
+        "không giải thích.\n"
+        "LƯU Ý GHI ĐÈ: quy tắc 'viết MỘT prompt duy nhất' trong system chỉ áp dụng cho từng phần tử — "
+        "bài này BẮT BUỘC trả về đủ %d prompt trong JSON như trên." % (n, n)
     )
     for attempt in range(3):
         try:
