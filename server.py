@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-arrfix"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-nprompts"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2137,6 +2137,7 @@ def _fbp_couple_shots():
     ]
 
 
+_FBP_SINGLE_SHOTS = {"sofa": {4, 5}, "kraft": {6}}   # index shot chỉ có 1 áo trong khung
 _FBP_ONE_SHIRT = ("IMPORTANT EXCEPTION for THIS shot only: exactly ONE shirt is visible in the frame — "
                   "the other shirt is completely OUT of frame (the set still has two shirts, but this is a "
                   "single-shirt close-up). Ignore any earlier instruction to show two shirts in THIS shot. ")
@@ -2180,6 +2181,54 @@ _FBP_FLAT_BODY = {   # fallback body khi Claude không chạy được
 
 def fbp_concept_label(key):
     return FBP_SETS.get(key) or (ADS_CONCEPTS[key][0] if key in ADS_CONCEPTS else key)
+
+
+def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
+    """Claude viết N PROMPT RIÊNG BIỆT (1 prompt / 1 shot) cho bộ skill — CÙNG nhân vật + bối cảnh,
+    KHÁC pose/arrangement theo từng shot. Trả list[str] hoặc None (caller báo lỗi, không fallback)."""
+    n = len(shot_descs)
+    if not n:
+        return None
+    if concept_key == "couple":
+        kind = "bộ ảnh MODEL đời thường 'real customer look' — 1 CẶP ĐÔI trẻ Việt Nam (1 nam + 1 nữ) mặc áo couple"
+    elif concept_key in _FBP_SET_DESC:
+        kind = _FBP_SET_DESC[concept_key]
+    else:
+        return None
+    extra_bg = ("Bối cảnh user muốn (bắt buộc dùng): %s. " % bg) if (bg or "").strip() else ""
+    shots_txt = "\n".join("%d. %s" % (i + 1, s) for i, s in enumerate(shot_descs))
+    instr = (
+        "Loại bộ ảnh: " + kind + ". " + extra_bg +
+        "Bộ này có %d SHOT — MỖI SHOT MỘT PROMPT RIÊNG BIỆT:\n" % n + shots_txt + "\n\n"
+        "YÊU CẦU BẮT BUỘC:\n"
+        "1. Viết ĐÚNG %d prompt tiếng Anh. Prompt thứ i phải theo ĐÚNG mô tả shot i ở trên — nhúng nguyên "
+        "ý pose/arrangement/framing đó vào prompt (không đổi shot).\n" % n +
+        "2. TẤT CẢ prompt dùng CÙNG một bối cảnh, CÙNG ánh sáng, CÙNG character profile/outfit (nếu có người) "
+        "— đúng quy tắc skill; giữa các prompt CHỈ khác pose/arrangement/framing theo shot.\n"
+        "3. Mỗi prompt PHẢI ĐẦY ĐỦ và TỰ ĐỨNG ĐỘC LẬP theo skill (SCENE SETUP, LIGHTING & COLOR trung tính, "
+        "BACKGROUND, PRODUCT, MODEL nếu có người, CAMERA, NEGATIVE chuẩn ở cuối) — 1 đoạn văn liền mạch.\n"
+        "4. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo — chỗ áo chỉ viết: with the printed design "
+        "reproduced EXACTLY as shown in reference image #1 — same artwork, same colours, same SIZE and same "
+        "PLACEMENT on the shirt as the reference shows; do not redraw, enlarge, shrink, move or re-center.\n"
+        "5. Shot nào chỉ có 1 áo / 1 người thì prompt đó tả ĐÚNG 1 áo / 1 người (áo kia ngoài khung hình).\n"
+        "6. Trả về DUY NHẤT JSON hợp lệ: {\"prompts\": [\"prompt 1\", ..., \"prompt %d\"]} — không markdown, "
+        "không giải thích." % n
+    )
+    for attempt in range(3):
+        try:
+            raw = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
+                                 design_img[1] if len(design_img) > 1 else "image/png",
+                                 max_tokens=min(1400 * n + 500, 8000)) or "").strip()
+            m = re.search(r"\{.*\}", raw, re.S)
+            if m:
+                ps = [str(x).strip() for x in (json.loads(m.group(0)).get("prompts") or [])]
+                if len(ps) == n and all(len(x) > 150 for x in ps):
+                    return ps
+            print("fbpost_prompts_ai attempt %d: JSON thiếu/ngắn (%d)" % (attempt + 1, len(raw)))
+        except Exception as e:
+            print("fbpost_prompts_ai attempt %d fail: %s" % (attempt + 1, e))
+        time.sleep(2 + attempt * 3)
+    return None
 
 
 def fbpost_scene_ai(design_img, concept_key, n, bg):
@@ -2346,23 +2395,28 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 shot_pairs = [(i, hints[i]) for i in sorted(set(sel_shots))]
             else:
                 shot_pairs = [(i % len(hints), hints[i % len(hints)]) for i in range(cn)]
-            # 100% ảnh phải dùng prompt Claude — không có scene thì BÁO LỖI, không âm thầm dùng template
-            scene = fbpost_scene_ai(design_img, key, len(names), bg) if (is_people or key in _FBP_SET_DESC) else ""
-            if key in FBP_SETS and not scene:
-                return {"error": "🧠 Claude không viết được prompt (hết quota/lỗi tạm) — bấm tạo lại bộ này.",
-                        "title": fbp_concept_label(key)}
-            label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if scene else "")
+            # 100% Claude — bộ skill: Claude viết N PROMPT RIÊNG (1 prompt/shot, cùng nhân vật + bối cảnh)
+            bases = scene = None
+            if key in FBP_SETS:
+                bases = fbpost_prompts_ai(design_img, key, [p for (_i, p) in shot_pairs], bg)
+                if not bases:
+                    return {"error": "🧠 Claude không viết được bộ prompt (hết quota/lỗi tạm) — bấm tạo lại bộ này.",
+                            "title": fbp_concept_label(key)}
+            elif is_people or key in _FBP_SET_DESC:
+                scene = fbpost_scene_ai(design_img, key, len(names), bg)
+            label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if (bases or scene) else "")
             pics = []
             for seq, (si, pose) in enumerate(shot_pairs):
-                if key in FBP_SETS and key != "couple":
-                    v = "ARRANGEMENT FOR SHOT %d — follow EXACTLY: %s. " % (seq + 1, pose)
+                if bases:
+                    # prompt riêng của shot này (pose/arrangement đã nằm trong prompt Claude)
+                    v, base_i = "", bases[seq]
                 elif key == "couple":
-                    v = "Shot %d of the matching set (skill order) — %s " % (seq + 1, pose)
+                    v, base_i = "Shot %d of the matching set (skill order) — %s " % (seq + 1, pose), scene or ""
                 elif is_people:
-                    v = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (seq + 1, pose)
+                    v, base_i = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (seq + 1, pose), scene or ""
                 else:
-                    v = "Shot %d of a matching set — %s. " % (seq + 1, pose)
-                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, scene)
+                    v, base_i = "Shot %d of a matching set — %s. " % (seq + 1, pose), scene or ""
+                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, base_i)
                 if _FBP_ONE_SHIRT in pose:   # shot cận 1 áo: nhắc lại Ở CUỐI để không bị câu '2 shirts' đè
                     prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                                "the two-shirt rule applies to the whole SET, not to this close-up.")
@@ -2374,12 +2428,14 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         pass
                 b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
-                # prompt lưu theo TỪNG ảnh làm BẰNG CHỨNG Claude viết; shot = chủ đề để 🔄 gen lại đúng loại
+                # prompt = BẰNG CHỨNG; base = prompt Claude RIÊNG của shot này (dùng khi 🔄 gen lại)
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"),
-                             "prompt": prompt, "shot": si})
-            # names/bg/scene trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + cảnh của bộ
+                             "prompt": prompt, "shot": si,
+                             "base": (bases[seq] if bases else (scene or ""))})
+            # names/bg trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + prompt riêng của bộ
             return {"concept": key, "title": label, "pics": pics,
-                    "names": names, "bg": bg, "scene": scene}
+                    "names": names, "bg": bg, "scene": scene or "",
+                    "nprompts": len(bases) if bases else 0}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": fbp_concept_label(c["key"])}
         except Exception as e:
@@ -8981,9 +9037,13 @@ class Handler(BaseHTTPRequestHandler):
             bank = _FBPOST_PEOPLE_POSES
         else:
             bank = _FBPOST_SHOTS
-        si = body.get("shot")   # gen lại ĐÚNG CHỦ ĐỀ shot của ảnh đó (pose trong bank vẫn random)
+        si = body.get("shot")   # gen lại ĐÚNG CHỦ ĐỀ shot của ảnh đó
         pose = bank[int(si)] if isinstance(si, (int, float)) and 0 <= int(si) < len(bank) else random.choice(bank)
-        if key == "couple":
+        single = key in _FBP_SINGLE_SHOTS and isinstance(si, (int, float)) and int(si) in _FBP_SINGLE_SHOTS[key]
+        if scene and key in FBP_SETS:
+            # scene = prompt Claude RIÊNG của shot này (FE gửi pics[i].base) — pose đã nằm trong đó
+            v = "This is a NEW take of the SAME shot — same scene and same pose/arrangement type, with natural variation. "
+        elif key == "couple":
             v = "A NEW shot of the SAME matching set — %s " % pose
         elif key in _FBP_FLAT_ARR:
             v = "A NEW shot of the SAME matching flatlay set — ARRANGEMENT, follow EXACTLY: %s. " % pose
@@ -8993,7 +9053,7 @@ class Handler(BaseHTTPRequestHandler):
             v = "A NEW shot of the same matching set — %s. " % pose
         try:
             prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene)
-            if _FBP_ONE_SHIRT in pose:
+            if single or _FBP_ONE_SHIRT in pose:
                 prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                            "the two-shirt rule applies to the whole SET, not to this close-up.")
             b64 = gen_shot(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
@@ -9005,7 +9065,7 @@ class Handler(BaseHTTPRequestHandler):
             b64 = strip_ai_meta_b64(b64)
             g = gallery_add(b64, {"mode": "fbpost", "prompt": "FB Post regen · %s" % fbp_concept_label(key)})
             return self.json(200, {"image": b64, "url": g.get("url"), "id": g.get("id"),
-                                   "by": "claude" if scene else "template", "prompt": prompt})
+                                   "by": "claude" if scene else "template", "prompt": prompt, "base": scene or ""})
         except urllib.error.HTTPError as e:
             return self.json(502, {"error": openai_error_message(e)})
         except Exception as e:

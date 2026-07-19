@@ -5595,8 +5595,9 @@ function fbpRenderAll() {
         const proofs = (it.pics || []).map((p, i) => p.prompt
           ? '<div style="margin:4px 0"><b style="font-size:11px">📷 Ảnh ' + (i + 1) + ' — prompt đã gửi cho model:</b><pre style="white-space:pre-wrap;font-size:10px;line-height:1.45;max-height:150px;overflow:auto;background:rgba(127,127,127,.1);padding:6px 8px;border-radius:6px;margin:2px 0">' + p.prompt.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></div>'
           : "").join("");
+        const nDistinct = new Set((it.pics || []).map(p => p.base).filter(Boolean)).size;
         return proofs
-          ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — xem prompt của từng ảnh' + (it.scene ? ' (cảnh Claude viết: ' + it.scene.length + ' ký tự)' : '') + '</summary>' + proofs + '</details>'
+          ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — ' + (nDistinct > 1 ? nDistinct + ' PROMPT RIÊNG BIỆT (1 prompt/ảnh)' : 'xem prompt từng ảnh') + '</summary>' + proofs + '</details>'
           : "";
       })() +
       '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board" title="Đẩy các ảnh ĐÃ TICK sang tab Bài FB/IG — viết bài + đăng ở bên đó">➕ Đẩy <span class="fbp-pickn">' + it._pick.size + '</span> ảnh tick sang Bài FB/IG</button><button class="b-dlall" title="Tải các ảnh đã tick">⬇ Tải <span class="fbp-pickn2">' + it._pick.size + '</span> ảnh</button><button class="b-delhist">🗑️</button></div>' +
@@ -5641,11 +5642,12 @@ async function fbpRegenOne(it, i) {
   try {
     const r = await fetch("/api/fbpost-regen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: it._design, ref: it._ref || "", key: it.concept, names: it.names || [],
-        bg: it.bg || "", scene: it.scene || "", shot: (it.pics[i] && typeof it.pics[i].shot === "number") ? it.pics[i].shot : null,
+        bg: it.bg || "", scene: (it.pics[i] && it.pics[i].base) || it.scene || "",
+        shot: (it.pics[i] && typeof it.pics[i].shot === "number") ? it.pics[i].shot : null,
         engine: ($("fbpEngine") && $("fbpEngine").value) || "",
         aspect: $("fbpAspect").value, quality: $("fbpQuality").value }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    it.pics[i] = { image: d.image, url: d.url, id: d.id, prompt: d.prompt || "", shot: it.pics[i] && it.pics[i].shot };
+    it.pics[i] = { image: d.image, url: d.url, id: d.id, prompt: d.prompt || "", shot: it.pics[i] && it.pics[i].shot, base: d.base || (it.pics[i] && it.pics[i].base) || "" };
     it._regening = null;
     fbpRenderAll();
     _fbpCardNote(it, "ok", "✓ Đã tạo lại ảnh " + (i + 1) + (d.by === "claude" ? " — 🧠 prompt Claude của bộ." : "."));
