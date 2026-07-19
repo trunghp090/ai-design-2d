@@ -5544,6 +5544,7 @@ function fbpPoll(job) {
   const timer = setInterval(async () => {
     try {
       const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job))).json();
+      if (d.note) fbpItems.forEach(x => { if (x.loading && x.job === job) x._note = d.note; });
       const items = d.items || [];
       while (placed < items.length) {
         const it = items[placed];
@@ -5571,7 +5572,7 @@ function fbpRenderAll() {
   fbpItems.forEach(it => {
     if (it.loading) {
       const ph = document.createElement("div"); ph.className = "fp-card fp-card-loading";
-      ph.innerHTML = '<div class="fp-card-prompt">' + (it.title || "") + '</div><div class="fp-loading" style="min-height:120px"><span class="fp-spin"></span><span>Đang tạo bộ ảnh…</span></div>';
+      ph.innerHTML = '<div class="fp-card-prompt">' + (it.title || "") + '</div><div class="fp-loading" style="min-height:120px"><span class="fp-spin"></span><span>' + (it._note || "Đang tạo bộ ảnh…") + '</span></div>';
       grid.appendChild(ph); return;
     }
     const card = document.createElement("div"); card.className = "fp-card";

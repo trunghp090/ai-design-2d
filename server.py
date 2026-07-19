@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-skillfinal"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-progress"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -664,7 +664,7 @@ def openai_chat(messages, json_mode=True, max_tokens=1500, model=None):
     return res["choices"][0]["message"]["content"]
 
 
-def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700):
+def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700, timeout=120):
     """Gọi Claude API (Anthropic Messages) có vision: nhìn 1 ảnh + chỉ dẫn -> trả text.
 
     Dùng cho việc 'Claude viết prompt ảnh sản phẩm'. Gọi qua API key, không phải agent.
@@ -690,7 +690,7 @@ def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700):
     req.add_header("x-api-key", ANTHROPIC_API_KEY)
     req.add_header("anthropic-version", "2023-06-01")
     req.add_header("Content-Type", "application/json")
-    res = json.loads(_openai_call(req, timeout=120))
+    res = json.loads(_openai_call(req, timeout=timeout))
     # Trả về text của các block type=="text"; bỏ qua thinking/khác.
     parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
     return "\n".join(p for p in parts if p).strip()
@@ -2206,7 +2206,8 @@ def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
         "2. TẤT CẢ prompt dùng CÙNG một bối cảnh, CÙNG ánh sáng, CÙNG character profile/outfit (nếu có người) "
         "— đúng quy tắc skill; giữa các prompt CHỈ khác pose/arrangement/framing theo shot.\n"
         "3. Mỗi prompt PHẢI ĐẦY ĐỦ và TỰ ĐỨNG ĐỘC LẬP theo skill (SCENE SETUP, LIGHTING & COLOR trung tính, "
-        "BACKGROUND, PRODUCT, MODEL nếu có người, CAMERA, NEGATIVE chuẩn ở cuối) — 1 đoạn văn liền mạch.\n"
+        "BACKGROUND, PRODUCT, MODEL nếu có người, CAMERA, NEGATIVE chuẩn ở cuối) — 1 đoạn văn liền mạch, "
+        "GỌN: 140–220 từ mỗi prompt (không tính block Negative), đừng dài hơn.\n"
         "4. TUYỆT ĐỐI KHÔNG mô tả design/chữ/tên in trên áo — chỗ áo chỉ viết: with the printed design "
         "reproduced EXACTLY as shown in reference image #1 — same artwork, same colours, same SIZE and same "
         "PLACEMENT on the shirt as the reference shows; do not redraw, enlarge, shrink, move or re-center.\n"
@@ -2220,7 +2221,7 @@ def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
         try:
             raw = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
                                  design_img[1] if len(design_img) > 1 else "image/png",
-                                 max_tokens=min(1400 * n + 500, 8000)) or "").strip()
+                                 max_tokens=min(700 * n + 600, 6000), timeout=420) or "").strip()
             m = re.search(r"\{.*\}", raw, re.S)
             if m:
                 ps = [str(x).strip() for x in (json.loads(m.group(0)).get("prompts") or [])]
@@ -2356,6 +2357,12 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
     per_set = max(1, min(6, int(per_set or 3)))
     old_name = ads_read_name(design_img[0])
 
+    def note(msg):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None:
+                j["note"] = msg
+
     def work(c):
         try:
             key = c["key"]
@@ -2400,6 +2407,8 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             # 100% Claude — bộ skill: Claude viết N PROMPT RIÊNG (1 prompt/shot, cùng nhân vật + bối cảnh)
             bases = scene = None
             if key in FBP_SETS:
+                note("🧠 Claude đang viết %d prompt riêng cho bộ %s (1–3 phút)…"
+                     % (len(shot_pairs), fbp_concept_label(key)))
                 bases = fbpost_prompts_ai(design_img, key, [p for (_i, p) in shot_pairs], bg)
                 if not bases:
                     return {"error": "🧠 Claude không viết được bộ prompt (hết quota/lỗi tạm) — bấm tạo lại bộ này.",
@@ -2409,6 +2418,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if (bases or scene) else "")
             pics = []
             for seq, (si, pose) in enumerate(shot_pairs):
+                note("🎨 %s: đang gen ảnh %d/%d…" % (fbp_concept_label(key), seq + 1, len(shot_pairs)))
                 if bases:
                     # prompt riêng của shot này (pose/arrangement đã nằm trong prompt Claude)
                     v, base_i = "", bases[seq]
