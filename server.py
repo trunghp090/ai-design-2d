@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-pickregen"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-arrfix"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2137,30 +2137,33 @@ def _fbp_couple_shots():
     ]
 
 
+_FBP_ONE_SHIRT = ("IMPORTANT EXCEPTION for THIS shot only: exactly ONE shirt is visible in the frame — "
+                  "the other shirt is completely OUT of frame (the set still has two shirts, but this is a "
+                  "single-shirt close-up). Ignore any earlier instruction to show two shirts in THIS shot. ")
 _FBP_FLAT_ARR = {   # cách sắp xếp từng shot flatlay theo skill
     "sofa": [
-        "the two shirts draped diagonally across the sofa seat, slightly overlapping, natural soft folds",
-        "the two shirts neatly folded side by side on the sofa cushion",
-        "the two shirts folded and stacked loosely one on top of the other",
-        "a close-up on BOTH printed chest designs together filling the frame, cotton texture visible",
-        "a close-up on the first shirt's printed design only",
-        "a close-up on the second shirt's printed design only",
+        "the two shirts draped DIAGONALLY across the sofa seat, clearly overlapping each other at an angle, natural soft folds",
+        "both shirts NEATLY FOLDED into compact flat rectangles (sleeves tucked in, like in a clothing store), placed side by side on the sofa cushion — NOT spread open",
+        "both shirts NEATLY FOLDED into compact rectangles and STACKED one on top of the other in a tidy pile, the top design visible — NOT spread open, NOT side by side",
+        "a tight close-up with BOTH printed chest designs together filling the frame, real cotton texture visible",
+        "a tight close-up of ONLY the FIRST shirt's printed chest design filling the frame. " + _FBP_ONE_SHIRT,
+        "a tight close-up of ONLY the SECOND shirt's printed chest design filling the frame. " + _FBP_ONE_SHIRT,
     ],
     "white": [
         "both shirts spread fully open side by side, sleeves relaxed naturally",
-        "both shirts overlapping, crossed at a slight angle",
-        "both shirts arranged diagonally across the frame",
+        "both shirts overlapping, crossed at a clear angle",
+        "both shirts arranged DIAGONALLY across the frame",
         "shot from a slight oblique angle instead of straight top-down",
-        "a close-up on both printed designs",
+        "a tight close-up on both printed designs filling the frame",
     ],
     "kraft": [
-        "both shirts folded neatly inside the open kraft box, straight top-down view",
+        "both shirts NEATLY FOLDED inside the open kraft box, straight top-down view",
         "the open kraft box shot from a slight oblique angle",
         "one shirt half tucked inside the box as if just being unpacked, the other folded beside it",
         "both shirts crossed, overlapping the box edges",
         "both shirts folded outside next to the closed box with the lid leaning against it",
-        "a close-up on both printed designs inside the box",
-        "a close-up on one printed design resting on kraft wrapping paper",
+        "a tight close-up on both printed designs inside the box",
+        "a tight close-up of ONLY ONE shirt's printed design resting on kraft wrapping paper. " + _FBP_ONE_SHIRT,
     ],
 }
 _FBP_FLAT_BODY = {   # fallback body khi Claude không chạy được
@@ -2290,8 +2293,9 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
                       "endearment like 'Cục Cưng'/'Honey': " +
                       "; ".join('main "%s" -> small line "%s"' % (a, b) for (a, b) in nick_pairs) +
                       ". If the design has NO secondary name line, keep the layout exactly and add nothing. ")
-    return (body + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_KEEPSET + _FBPOST_CLEAN +
-            style + bg_clause + variation + "Photorealistic, high-quality, crisp, natural colours.")
+    # variation (pose/arrangement của shot) đặt NGAY SAU body — cuối prompt dài model hay bỏ qua
+    return (body + variation + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + sub_clause + names_clause + _FBPOST_KEEPSET + _FBPOST_CLEAN +
+            style + bg_clause + "Photorealistic, high-quality, crisp, natural colours.")
 
 
 def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="medium", per_set=3):
@@ -2351,7 +2355,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             pics = []
             for seq, (si, pose) in enumerate(shot_pairs):
                 if key in FBP_SETS and key != "couple":
-                    v = "Shot %d of the matching flatlay set — arrangement for THIS shot: %s. " % (seq + 1, pose)
+                    v = "ARRANGEMENT FOR SHOT %d — follow EXACTLY: %s. " % (seq + 1, pose)
                 elif key == "couple":
                     v = "Shot %d of the matching set (skill order) — %s " % (seq + 1, pose)
                 elif is_people:
@@ -2359,6 +2363,9 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 else:
                     v = "Shot %d of a matching set — %s. " % (seq + 1, pose)
                 prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, scene)
+                if _FBP_ONE_SHIRT in pose:   # shot cận 1 áo: nhắc lại Ở CUỐI để không bị câu '2 shirts' đè
+                    prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
+                               "the two-shirt rule applies to the whole SET, not to this close-up.")
                 b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
                     try:
@@ -8979,13 +8986,16 @@ class Handler(BaseHTTPRequestHandler):
         if key == "couple":
             v = "A NEW shot of the SAME matching set — %s " % pose
         elif key in _FBP_FLAT_ARR:
-            v = "A NEW shot of the SAME matching flatlay set — arrangement for THIS shot: %s. " % pose
+            v = "A NEW shot of the SAME matching flatlay set — ARRANGEMENT, follow EXACTLY: %s. " % pose
         elif is_people:
             v = "A NEW shot of the SAME matching set — the SAME people in a DIFFERENT pose: %s. " % pose
         else:
             v = "A NEW shot of the same matching set — %s. " % pose
         try:
             prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene)
+            if _FBP_ONE_SHIRT in pose:
+                prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
+                           "the two-shirt rule applies to the whole SET, not to this close-up.")
             b64 = gen_shot(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
             if HAS_PIL:
                 try:
