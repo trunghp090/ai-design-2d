@@ -6388,29 +6388,83 @@ async function pgpostLoad() {
     }
   } catch (e) {}
 }
+// ==== PREVIEW BÀI ĐĂNG NHƯ THẬT: mô phỏng cách FB xếp album & IG crop carousel ====
+let _pgPv = {};    // {id: "fb"|"ig"} chế độ preview từng bài
+let _pgIgR = {};   // {id: "4/5"|"1/1"} tỉ lệ crop IG
+function _pgImg(u) { return '<img src="' + u + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'; }
+function pgFbGrid(urls) {
+  const n = urls.length, c = (u, s) => '<div style="overflow:hidden;' + (s || "") + '">' + _pgImg(u) + '</div>';
+  if (!n) return "";
+  if (n === 1) return '<div style="aspect-ratio:4/5;overflow:hidden">' + _pgImg(urls[0]) + '</div>';
+  if (n === 2) return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;aspect-ratio:2/1.02">' + c(urls[0]) + c(urls[1]) + '</div>';
+  if (n === 3) return '<div style="display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:3/2">' + c(urls[0], "grid-row:1/3") + c(urls[1]) + c(urls[2]) + '</div>';
+  if (n === 4) return '<div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:1/1.02">' + urls.slice(0, 4).map(u => c(u)).join("") + '</div>';
+  const more = n - 5;
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;aspect-ratio:4/5">' + c(urls[0]) + c(urls[1]) + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-top:2px;aspect-ratio:3/1">' + c(urls[2]) + c(urls[3]) +
+    '<div style="position:relative;overflow:hidden">' + _pgImg(urls[4]) +
+    (more > 0 ? '<span style="position:absolute;inset:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700">+' + more + '</span>' : '') + '</div></div>';
+}
+function pgIgCarousel(urls, ratio) {
+  return '<div style="display:flex;overflow-x:auto;gap:2px;scroll-snap-type:x mandatory">' +
+    urls.map((u, i) => '<div style="flex:0 0 100%;aspect-ratio:' + ratio + ';overflow:hidden;position:relative;scroll-snap-align:start">' + _pgImg(u) +
+      (urls.length > 1 ? '<span style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 8px;border-radius:10px">' + (i + 1) + '/' + urls.length + '</span>' : '') +
+      '</div>').join("") + '</div>' +
+    (urls.length > 1 ? '<p class="hint" style="margin:3px 0 0;font-size:10px;text-align:center">← kéo ngang xem từng ảnh theo crop IG →</p>' : "");
+}
 function pgpostRender(items) {
   const box = $("pgpostList");
   if (!items.length) { box.innerHTML = ""; return; }
-  let h = '<table class="admgr-tbl"><thead><tr><th></th><th>Ảnh</th><th>Content</th><th>Trạng thái</th><th></th></tr></thead><tbody>';
+  box.innerHTML = "";
+  box.style.cssText = "margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start";
   items.forEach(it => {
     const st = PGPOST_ST[it.status] || ["?", ""], res = it.result || {};
-    const n = (it.image_urls || []).length;
+    const urls = it.image_urls || [];
+    const pv = _pgPv[it.id] || "fb";
+    const igr = _pgIgR[it.id] || "4/5";
     const resCell = it.status === "posted"
-      ? Object.entries(res).map(([k, v]) => (String(v || "").startsWith("http") ? '<a href="' + v + '" target="_blank" style="color:var(--violet)">' + k + ' →</a>' : '<span style="color:#dc2626">' + k + ': ' + (v || "").slice(0, 30) + '</span>')).join("<br>")
+      ? Object.entries(res).map(([k, v]) => (String(v || "").startsWith("http") ? '<a href="' + v + '" target="_blank" style="color:var(--violet)">' + k + ' →</a>' : '<span style="color:#dc2626">' + k + ': ' + (v || "").slice(0, 30) + '</span>')).join(" · ")
       : '<span class="gen-note ' + st[1] + '" style="margin:0">' + st[0] + '</span>';
-    h += '<tr data-id="' + it.id + '">' +
-      '<td><input type="checkbox" class="pgpost-tick" value="' + it.id + '"></td>' +
-      '<td style="position:relative"><img src="' + (it.image_urls || [])[0] + '" style="width:54px;height:66px;object-fit:cover;border-radius:8px" loading="lazy"><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:0 4px;border-radius:6px">' + n + '🖼</span>' + (it.source === "auto" ? '<span style="position:absolute;top:2px;left:2px;background:var(--violet);color:#fff;font-size:9px;padding:0 4px;border-radius:6px">🤖</span>' : '') + (it.product ? '<div class="hint" style="max-width:60px;font-size:9px;line-height:1.1;margin-top:2px">' + (it.product || "").slice(0, 26) + '</div>' : '') + '</td>' +
-      '<td><textarea class="input pgpost-cap" rows="4" style="width:320px;padding:6px 8px;font-size:12px" placeholder="Content bài đăng — bấm 🤖 để AI viết">' + (it.caption || "") + '</textarea>' +
-        '<br><button class="btn-ghost sm pgpost-ai" style="margin-top:3px" title="AI nhìn ảnh + link SP viết content bài đăng">🤖 AI viết bài</button></td>' +
-      '<td style="white-space:nowrap">' + resCell + '</td>' +
-      '<td><button class="btn-ghost sm pgpost-del">🗑️</button></td>' +
-      '</tr>';
+    const card = document.createElement("div");
+    card.dataset.id = it.id;
+    card.style.cssText = "width:340px;border:1px solid var(--line,#e3e3e3);border-radius:14px;overflow:hidden;background:var(--panel-2,rgba(127,127,127,.04))";
+    card.innerHTML =
+      // header giống bài đăng + toggle FB/IG
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px">' +
+        '<input type="checkbox" class="pgpost-tick" value="' + it.id + '" title="Chọn bài này để đăng">' +
+        '<span style="width:30px;height:30px;border-radius:50%;background:var(--violet,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">R</span>' +
+        '<div style="line-height:1.2"><b style="font-size:12.5px">rieng.vn</b><br><span class="hint" style="font-size:10px">' + (pv === "fb" ? "Bài Fanpage · vừa xong" : "Instagram · carousel") + '</span></div>' +
+        '<span style="flex:1"></span>' +
+        (it.source === "auto" ? '<span style="background:var(--violet);color:#fff;font-size:9px;padding:1px 5px;border-radius:6px">🤖 auto</span>' : '') +
+        '<div style="display:flex;border:1px solid var(--line,#ccc);border-radius:8px;overflow:hidden">' +
+          '<button class="pg-pv-fb" style="border:none;padding:3px 8px;font-size:11px;cursor:pointer;background:' + (pv === "fb" ? "var(--violet,#7c3aed)" : "transparent") + ';color:' + (pv === "fb" ? "#fff" : "inherit") + '">📘 FB</button>' +
+          '<button class="pg-pv-ig" style="border:none;padding:3px 8px;font-size:11px;cursor:pointer;background:' + (pv === "ig" ? "var(--violet,#7c3aed)" : "transparent") + ';color:' + (pv === "ig" ? "#fff" : "inherit") + '">📷 IG</button>' +
+        '</div>' +
+      '</div>' +
+      // vùng ảnh: FB album layout / IG carousel crop
+      '<div class="pg-imgs">' + (pv === "fb" ? pgFbGrid(urls) : pgIgCarousel(urls, igr)) + '</div>' +
+      (pv === "ig" ? '<div style="display:flex;gap:6px;align-items:center;padding:5px 10px 0"><span class="hint" style="font-size:10px">Tỉ lệ IG:</span>' +
+        '<button class="pg-igr" data-r="4/5" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "4/5" ? "var(--violet)" : "transparent") + ';color:' + (igr === "4/5" ? "#fff" : "inherit") + '">4:5 dọc</button>' +
+        '<button class="pg-igr" data-r="1/1" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "1/1" ? "var(--violet)" : "transparent") + ';color:' + (igr === "1/1" ? "#fff" : "inherit") + '">1:1 vuông</button>' +
+        '<span class="hint" style="font-size:10px">' + urls.length + ' ảnh</span></div>' : '') +
+      // caption + hành động
+      '<div style="padding:8px 10px 10px">' +
+        '<textarea class="input pgpost-cap" rows="3" style="width:100%;padding:6px 8px;font-size:12px" placeholder="Content bài đăng — bấm 🤖 để AI viết">' + (it.caption || "") + '</textarea>' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap">' +
+          '<button class="btn-ghost sm pgpost-ai" title="AI nhìn ảnh + link SP viết content">🤖 AI viết bài</button>' +
+          '<span style="flex:1"></span>' + resCell +
+          '<button class="btn-ghost sm pgpost-del">🗑️</button>' +
+        '</div>' +
+      '</div>';
+    box.appendChild(card);
   });
-  h += '</tbody></table>';
-  box.innerHTML = h;
-  box.querySelectorAll("tr[data-id]").forEach(tr => {
+  box.querySelectorAll("div[data-id]").forEach(tr => {
     const id = tr.dataset.id;
+    // toggle preview FB / IG + tỉ lệ IG (chỉ đổi hiển thị, giữ tick đang chọn)
+    const keepTick = () => tr.querySelector(".pgpost-tick").checked;
+    tr.querySelector(".pg-pv-fb").onclick = () => { const t = keepTick(); _pgPv[id] = "fb"; pgpostRender(items); restoreTick(id, t); };
+    tr.querySelector(".pg-pv-ig").onclick = () => { const t = keepTick(); _pgPv[id] = "ig"; pgpostRender(items); restoreTick(id, t); };
+    tr.querySelectorAll(".pg-igr").forEach(b => { b.onclick = () => { const t = keepTick(); _pgIgR[id] = b.dataset.r; pgpostRender(items); restoreTick(id, t); }; });
     tr.querySelector(".pgpost-cap").onchange = (e) => fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: e.target.value }) });
     tr.querySelector(".pgpost-ai").onclick = async (e) => {
       const btn = e.currentTarget, ta = tr.querySelector(".pgpost-cap");
@@ -6432,6 +6486,10 @@ function pgpostRender(items) {
     };
     tr.querySelector(".pgpost-del").onclick = async () => { if (!confirm("Xoá bài này?")) return; await fetch("/api/pgpost-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); pgpostLoad(); };
   });
+}
+function restoreTick(id, val) {
+  const cb = document.querySelector('#pgpostList div[data-id="' + id + '"] .pgpost-tick');
+  if (cb) cb.checked = val;
 }
 async function pgpostBatchPush() {
   const ids = [...document.querySelectorAll(".pgpost-tick:checked")].map(t => t.value);
