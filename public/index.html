@@ -1764,6 +1764,13 @@
         <div class="gallery-head">
           <h3 style="margin:0">📘 Bộ ảnh Post <span id="fbpCount" class="fp-count"></span></h3>
         </div>
+        <div id="fbpGlobalBar" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0 8px;padding:7px 10px;border:1px dashed var(--line,#ddd);border-radius:10px">
+          <span class="hint fbp-gcount" style="font-size:11px;margin:0">☑️ Chưa tick ảnh nào</span>
+          <button class="btn-ghost sm fbp-gpost" title="Gộp TẤT CẢ ảnh đã tick (chọn từ nhiều bộ / nhiều lần tạo / lịch sử) thành MỘT bài đăng bên tab Bài FB/IG" disabled>➕ Tạo 1 bài từ ảnh tick</button>
+          <button class="btn-ghost sm fbp-gall" title="Tick tất cả ảnh của mọi bộ">☑️ Tick hết</button>
+          <button class="btn-ghost sm fbp-gnone" title="Bỏ tick tất cả — rồi tick đúng những ảnh bạn muốn gộp vào 1 bài">🚫 Bỏ tick</button>
+          <span class="gen-note fbp-gnote" style="margin:0;font-size:11px"></span>
+        </div>
         <div id="fbpResults" class="fp-creations list"></div>
         <div class="gallery-empty" id="fbpEmpty">Chưa có bộ ảnh. Đưa design + tick concept rồi bấm Tạo.</div>
       </section>

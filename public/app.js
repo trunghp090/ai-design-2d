@@ -5297,6 +5297,12 @@ function fbpInit() {
   sf.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/") && fbpPickKey) { fbpStyle[fbpPickKey] = await fileToDataURL(f); fbpSel.add(fbpPickKey); fbpRenderConcepts(); } e.target.value = ""; };
   if ($("fbpSavePreset")) $("fbpSavePreset").onclick = fbpSavePreset;
   if ($("fbpClearPreset")) $("fbpClearPreset").onclick = fbpClearPreset;
+  const gbar = $("fbpGlobalBar");
+  if (gbar) {
+    gbar.querySelector(".fbp-gpost").onclick = fbpGlobalPost;
+    gbar.querySelector(".fbp-gall").onclick = () => { fbpItems.forEach(it => { if (!it.loading) it._pick = new Set((it.pics || []).map((_, k) => k)); }); fbpRenderAll(); };
+    gbar.querySelector(".fbp-gnone").onclick = () => { fbpItems.forEach(it => { if (!it.loading) it._pick = new Set(); }); fbpRenderAll(); };
+  }
   fbpLoadPreset();   // tự nạp style mặc định đã lưu
   if (![...fbpSel].some(k => FBP_CONCEPTS.find(c => c.key === k))) fbpSel.add("couple");   // mặc định bộ model couple
   fbpRenderDesign(); fbpRenderConcepts(); fbpRenderAll();
@@ -5594,7 +5600,7 @@ function fbpRenderAll() {
     }
     const card = document.createElement("div"); card.className = "fp-card";
     const canRegen = !!(it._design && (it.names || []).length);
-    if (!it._pick) it._pick = new Set((it.pics || []).map((_, k) => k));   // ảnh được TICK để đẩy/tải (mặc định: tất cả)
+    if (!it._pick) it._pick = new Set(it._hist ? [] : (it.pics || []).map((_, k) => k));   // bộ mới: tick hết; lịch sử: bỏ tick (để gộp bài chọn tay)
     const thumbs = (it.pics || []).map((p, i) => {
       const s = p.image ? "data:image/png;base64," + p.image : p.url;
       const busy = it._regening === i;
@@ -5629,6 +5635,7 @@ function fbpRenderAll() {
         const img = card.querySelector('img[data-i="' + i + '"]'); if (img) img.style.opacity = cb.checked ? "1" : ".35";
         const n1 = card.querySelector(".fbp-pickn"); if (n1) n1.textContent = it._pick.size;
         const n2 = card.querySelector(".fbp-pickn2"); if (n2) n2.textContent = it._pick.size;
+        fbpUpdateGlobalBar();
       };
     });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
@@ -5641,6 +5648,43 @@ function fbpRenderAll() {
     };
     grid.appendChild(card);
   });
+  fbpUpdateGlobalBar();
+}
+
+// ==== GỘP ẢNH TICK TỪ NHIỀU BỘ / NHIỀU LẦN TẠO THÀNH 1 BÀI (không chia theo từng bộ) ====
+function _fbpTicked() {
+  const urls = [];
+  fbpItems.filter(x => !x.loading).forEach(it => (it.pics || []).forEach((p, i) => {
+    if (p.url && it._pick && it._pick.has(i)) urls.push(p.url);
+  }));
+  return urls;
+}
+function fbpUpdateGlobalBar() {
+  const bar = $("fbpGlobalBar"); if (!bar) return;
+  let n = 0, ns = 0;
+  fbpItems.filter(x => !x.loading).forEach(it => {
+    const c = (it.pics || []).filter((p, i) => p.url && it._pick && it._pick.has(i)).length;
+    if (c) { n += c; ns++; }
+  });
+  bar.querySelector(".fbp-gcount").textContent = n ? ("☑️ Đã tick " + n + " ảnh từ " + ns + " bộ") : "☑️ Chưa tick ảnh nào";
+  const b = bar.querySelector(".fbp-gpost");
+  b.disabled = !n;
+  b.textContent = n ? ("➕ Tạo 1 bài từ " + n + " ảnh tick") : "➕ Tạo 1 bài từ ảnh tick";
+}
+async function fbpGlobalPost() {
+  const urls = _fbpTicked();
+  if (!urls.length) return;
+  if (urls.length > 10 && !confirm("Bạn tick " + urls.length + " ảnh — IG carousel tối đa 10 ảnh (FB vẫn đăng được). Tiếp tục?")) return;
+  const bar = $("fbpGlobalBar"), btn = bar.querySelector(".fbp-gpost"), note = bar.querySelector(".fbp-gnote");
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳ Đang tạo bài…";
+  note.className = "gen-note fbp-gnote"; note.textContent = "";
+  try {
+    const r = await fetch("/api/pgpost-add", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ caption: "", image_urls: urls, product: (typeof fbpProductLink !== "undefined" ? fbpProductLink : "") || "" }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note fbp-gnote ok"; note.textContent = "✓ Đã tạo 1 bài " + urls.length + " ảnh — sang tab 📋 Bài FB/IG để 🤖 viết bài + đăng.";
+  } catch (e) { note.className = "gen-note fbp-gnote err"; note.textContent = "✗ " + e.message; }
+  btn.textContent = o; fbpUpdateGlobalBar();
 }
 // 🔄 TẠO LẠI một ảnh trong bộ — giữ nguyên tên + cảnh Claude + chủ đề shot; spinner ngay trên ảnh
 function _fbpCardOf(it) {
