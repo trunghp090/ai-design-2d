@@ -5624,8 +5624,9 @@ function fbpRenderAll() {
         '</div>';
     }).join("");
     card.innerHTML =
-      '<div class="fp-card-prompt">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
-        (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') + '</div>' +
+      '<div class="fp-card-prompt" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
+        (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') +
+        (it.plate ? ' <img src="' + it.plate + '" title="🧵 Bản design chuẩn (bước 1) — mọi ảnh trong bộ copy y nguyên từ đây; bấm xem to" style="width:40px;height:28px;object-fit:cover;border-radius:5px;border:1px solid var(--violet,#7c3aed);cursor:zoom-in" onclick="openZoom(this.src)">' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
       (function () {
         const proofs = (it.pics || []).map((p, i) => p.prompt
@@ -5714,7 +5715,11 @@ async function fbpRegenOne(it, i) {
   _fbpCardNote(it, "", "⏳ Đang TẠO LẠI ảnh " + (i + 1) + " (giữ tên + cảnh Claude, ~30–60s)…");
   try {
     const r = await fetch("/api/fbpost-regen", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: it._design, ref: it._ref || "", key: it.concept, names: it.names || [],
+      body: JSON.stringify({
+        // có plate (bản design chuẩn) -> gen lại từ plate, copy AS-IS không đổi chữ
+        image: it.plate ? (it.plate.startsWith("http") ? it.plate : location.origin + it.plate) : it._design,
+        plate: !!it.plate,
+        ref: it._ref || "", key: it.concept, names: it.names || [],
         bg: it.bg || "", scene: (it.pics[i] && it.pics[i].base) || it.scene || "",
         shot: (it.pics[i] && typeof it.pics[i].shot === "number") ? it.pics[i].shot : null,
         engine: ($("fbpEngine") && $("fbpEngine").value) || "",

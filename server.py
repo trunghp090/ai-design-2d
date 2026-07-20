@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-vn-accents"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-design-plate"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2220,6 +2220,31 @@ def fbp_concept_label(key):
     return FBP_SETS.get(key) or (ADS_CONCEPTS[key][0] if key in ADS_CONCEPTS else key)
 
 
+# ==== QUY TRÌNH 2 BƯỚC GIỮ DESIGN: bước 1 tạo BẢN DESIGN CHUẨN (plate) chỉ đổi tên trên nền
+# phẳng (edit tập trung -> bám design tối đa); bước 2 mọi ảnh cảnh COPY Y NGUYÊN plate, không đổi chữ ====
+_ADS_KEEP_ASIS = (
+    "Reference image #1 shows the two FINAL shirts with the CORRECT printed names ALREADY on them. "
+    "Reproduce each shirt's print PIXEL-FAITHFUL exactly as shown in reference image #1 — identical fonts, "
+    "letters, names, Vietnamese accent marks, emblems/stars/dates/taglines, print colours, print size and "
+    "print position on the shirt. Do NOT change, re-letter, re-spell, translate, redraw, restyle, simplify, "
+    "recolor, resize, move or re-center ANY text or graphic — copy the prints AS-IS like locked stickers. ")
+
+
+def fbp_plate_prompt(nm, old_name):
+    """Prompt bước 1: nhân bản design từ ảnh gốc, CHỈ đổi tên chính (trái=tên nữ, phải=tên nam)."""
+    nick = ("SECONDARY SMALL NAME LINE rule: ONLY IF the design already has a small secondary name line "
+            "(cursive signature under the main name), replace its words with the SHORT given-name of THAT "
+            "shirt's NEW main name (LEFT shirt: \"%s\", RIGHT shirt: \"%s\"); if the design has no such "
+            "line, add nothing. " % (_short_name(nm["female"]), _short_name(nm["male"])))
+    return ("STRICT DESIGN-CLONE TASK (catalog plate). Create ONE image: TWO identical t-shirts (same "
+            "garment colour and style as the reference) laid perfectly FLAT side by side, straight top-down "
+            "view, on a plain light neutral seamless background, soft even neutral light, NO people, NO "
+            "props, NO scene — both printed designs razor sharp, straight-on and fully readable. "
+            + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + nick +
+            "The LEFT shirt's MAIN name becomes " + _vn_name_spec(nm["female"]) +
+            ". The RIGHT shirt's MAIN name becomes " + _vn_name_spec(nm["male"]) + ". ")
+
+
 def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
     """Claude viết N PROMPT RIÊNG BIỆT (1 prompt / 1 shot) cho bộ skill — CÙNG nhân vật + bối cảnh,
     KHÁC pose/arrangement theo từng shot. Trả list[str] hoặc None (caller báo lỗi, không fallback)."""
@@ -2322,9 +2347,10 @@ def fbpost_scene_ai(design_img, concept_key, n, bg):
     return ""
 
 
-def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="", scene=""):
+def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="", scene="", plate=False):
     """Ảnh SẠCH cho FB post (giữ design + tên, KHÔNG chèn text quảng cáo).
-    scene != "" -> dùng prompt cảnh do Claude viết thay cho template body."""
+    scene != "" -> dùng prompt cảnh do Claude viết thay cho template body.
+    plate=True -> reference #1 là BẢN DESIGN CHUẨN đã có tên đúng: copy AS-IS, cấm đổi chữ."""
     style = _ads_style_clauses(img_style_n, None)
     n = len(names)
     bg = (bg or "").strip()
@@ -2365,6 +2391,13 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
         # Claude đã viết cảnh đầy đủ theo skill -> thay body template (người: giữ _ADS_REAL làm lưới an toàn)
         body = scene.rstrip() + " " + ("" if is_flat else _ADS_REAL)
     bg_clause = ("Background/scene: " + bg + ". ") if (bg and not is_flat and not scene) else ""
+    if plate:
+        # BƯỚC 2 của quy trình plate: ảnh ref đã có TÊN ĐÚNG -> chỉ copy, không đổi bất kỳ chữ nào
+        wear = ("The MAN wears the LEFT shirt from reference image #1 and the WOMAN wears the RIGHT shirt "
+                "— exactly as printed. " if concept_key == "couple" else
+                "The two shirts in the photo are EXACTLY the two shirts shown in reference image #1. ")
+        return (body + variation + _ADS_KEEP_ASIS + wear + _FBPOST_KEEPSET + _FBPOST_CLEAN +
+                style + bg_clause + "Photorealistic, high-quality, crisp, natural colours.")
     # biệt danh phụ = tên rút gọn của tên chính (nếu mẫu vốn có)
     if concept_key == "couple":
         nick_pairs = [(nm["female"], _short_name(nm["female"])), (nm["male"], _short_name(nm["male"]))]
@@ -2470,7 +2503,24 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                             "title": fbp_concept_label(key)}
             elif is_people or key in _FBP_SET_DESC:
                 scene = fbpost_scene_ai(design_img, key, len(names), bg)
-            label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if (bases or scene) else "")
+            # BƯỚC 1/2 — BẢN DESIGN CHUẨN (plate): chỉ đổi tên trên nền phẳng (edit tập trung bám
+            # design tối đa) -> mọi shot sau chỉ COPY y nguyên, không phải đổi chữ nữa
+            plate_url, plate_ref = "", None
+            if key in FBP_SETS and nm:
+                note("🧵 %s: bước 1/2 — tạo BẢN DESIGN CHUẨN với tên mới…" % fbp_concept_label(key))
+                try:
+                    pb64 = gen_shot([design_img], fbp_plate_prompt(nm, old_name), "1536x1024",
+                                    engine, "3:2", lock=False, quality="high")
+                    pg = gallery_add(pb64, {"mode": "fbpost", "prompt": "FB Post · 🧵 bản design chuẩn"})
+                    plate_url, plate_ref = pg.get("url") or "", (base64.b64decode(pb64), "image/png")
+                except Exception as e:
+                    print("fbp plate fail: %s" % e)   # plate lỗi -> fallback 1 bước như cũ
+            use_plate = plate_ref is not None
+            if use_plate:
+                imgs = [plate_ref] + imgs[1:]   # ref #1 = plate; style ref (nếu có) vẫn là #2
+            label = "FB Post · %s%s%s" % (fbp_concept_label(key),
+                                          " · 🧠 Claude" if (bases or scene) else "",
+                                          " · 🧵 plate" if use_plate else "")
             # ảnh xong tấm nào hiện tấm đó: khởi tạo partial cho FE poll
             # 🔁 số BẢN mỗi chủ đề shot (1-3): Claude vẫn chỉ viết 1 prompt/chủ đề, mỗi bản là 1 lần gen mới
             reps = 1
@@ -2494,7 +2544,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                     v, base_i = "Shot %d of a matching set — the SAME people in a DIFFERENT pose: %s. " % (seq + 1, pose), scene or ""
                 else:
                     v, base_i = "Shot %d of a matching set — %s. " % (seq + 1, pose), scene or ""
-                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, base_i)
+                prompt = fbpost_prompt(key, names, nm, img_n, bg, old_name, v, base_i, plate=use_plate)
                 if _FBP_ONE_SHIRT in pose:   # shot cận 1 áo: nhắc lại Ở CUỐI để không bị câu '2 shirts' đè
                     prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                                "the two-shirt rule applies to the whole SET, not to this close-up.")
@@ -2512,10 +2562,10 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                              "base": (bases[idx] if bases else (scene or ""))})
                 partial_add_pic(key, {"url": g.get("url"), "shot": si})   # hiện ngay tấm vừa xong
             partial_del(key)
-            # names/bg trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + prompt riêng của bộ
+            # names/bg/plate trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + prompt riêng + plate của bộ
             return {"concept": key, "title": label, "pics": pics,
                     "names": names, "bg": bg, "scene": scene or "",
-                    "nprompts": len(bases) if bases else 0}
+                    "plate": plate_url, "nprompts": len(bases) if bases else 0}
         except urllib.error.HTTPError as e:
             partial_del(c.get("key"))
             return {"error": openai_error_message(e), "title": fbp_concept_label(c["key"])}
@@ -9139,8 +9189,9 @@ class Handler(BaseHTTPRequestHandler):
             v = "A NEW shot of the SAME matching set — the SAME people in a DIFFERENT pose: %s. " % pose
         else:
             v = "A NEW shot of the same matching set — %s. " % pose
+        plate_mode = bool(body.get("plate"))   # image gửi lên đã là BẢN DESIGN CHUẨN -> copy AS-IS
         try:
-            prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene)
+            prompt = fbpost_prompt(key, names, nm, img_n, bg, ads_read_name(dd), v, scene, plate=plate_mode)
             if single or _FBP_ONE_SHIRT in pose:
                 prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                            "the two-shirt rule applies to the whole SET, not to this close-up.")
