@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-multitake"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-imgref-labels"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -449,10 +449,14 @@ def gemini_edit(images, prompt, aspect="", model=""):
     """Nano Banana (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY")
-    parts = [{"text": prompt}]
-    for d, m in images:
+    # Ảnh đi TRƯỚC prompt + gán NHÃN rõ từng ảnh (khớp "reference image #N" trong prompt)
+    # -> model biết chính xác ảnh nào là design, ảnh nào là style; bám design tốt hơn hẳn
+    parts = []
+    for i, (d, m) in enumerate(images):
+        parts.append({"text": "REFERENCE IMAGE #%d%s:" % (i + 1, " (THE T-SHIRT DESIGN — copy its print EXACTLY)" if i == 0 else "")})
         parts.append({"inline_data": {"mime_type": m or "image/png",
                                       "data": base64.b64encode(d).decode()}})
+    parts.append({"text": prompt})
     gen = {"responseModalities": ["IMAGE"]}
     if aspect:
         gen["imageConfig"] = {"aspectRatio": aspect}   # vd "4:5", "1:1"
@@ -1817,7 +1821,10 @@ _ADS_KEEP = (
     "PRINT SIZE & PLACEMENT: if the reference shows the design ON a shirt, print it at the SAME size and "
     "SAME position on the shirt as the reference shows — do NOT enlarge it into a bigger full-front "
     "print, do NOT shrink, move or re-center it; if the reference is only the artwork itself, print it "
-    "as a natural centered chest print at a realistic size. ")
+    "as a natural centered chest print at a realistic size. "
+    "NAME SPELLING — VIETNAMESE DIACRITICS: copy every given name EXACTLY letter-for-letter with ALL "
+    "Vietnamese accent marks preserved ('Trí' NOT 'Tri', 'Hà' NOT 'Ha', 'Dũng' NOT 'Dung') — never "
+    "drop, add or change any diacritic on any letter. ")
 
 
 _ADS_SAFE_FRAME = (
