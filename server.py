@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-pgpost-reorder"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-vn-accents"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2069,9 +2069,39 @@ _FBPOST_FLAT_SHOTS = ["clean top-down flatlay", "angled flatlay arrangement",
                       "shirts spread out flatlay"]
 
 
+# Bảng dấu tiếng Việt -> mô tả tiếng Anh (đánh vần cho model khỏi rơi dấu khi vẽ chữ)
+_VN_MARKS = {0x0300: "grave accent", 0x0301: "acute accent", 0x0303: "tilde",
+             0x0309: "hook above", 0x0323: "dot below", 0x0302: "circumflex", 0x0306: "breve", 0x031B: "horn"}
+
+
+def _vn_name_spec(name):
+    """'Trí Dũng' -> '"Trí Dũng" (UPPERCASE: "TRÍ DŨNG") — accents that MUST appear: í = i with acute accent; ũ = u with tilde'.
+    Model hay tự viết hoa kiểu college font rồi LÀM RƠI DẤU -> đưa sẵn bản in hoa CÓ DẤU + đánh vần từng dấu."""
+    import unicodedata
+    notes, seen = [], set()
+    for ch in str(name or ""):
+        if ch.lower() == "đ":
+            k = "%s = letter d with a horizontal stroke (crossbar)" % ch
+        else:
+            d = unicodedata.normalize("NFD", ch)
+            if len(d) < 2:
+                continue
+            marks = [_VN_MARKS[ord(m)] for m in d[1:] if ord(m) in _VN_MARKS]
+            if not marks:
+                continue
+            k = "%s = %s with %s" % (ch, d[0], " and ".join(marks))
+        if k not in seen:
+            seen.add(k)
+            notes.append(k)
+    s = '"%s" (if the design renders names in UPPERCASE, write it EXACTLY as "%s")' % (name, str(name).upper())
+    if notes:
+        s += " — accent marks that MUST appear in the print: " + "; ".join(notes)
+    return s
+
+
 def _fbpost_names_clause(names):
     n = len(names)
-    perslot = " ".join(('Shirt #%d shows the name "%s".' % (i + 1, names[i])) for i in range(n))
+    perslot = " ".join(("Shirt #%d shows the name %s." % (i + 1, _vn_name_spec(names[i]))) for i in range(n))
     namelist = ", ".join('"' + x + '"' for x in names)
     return ("There are %d shirts with %d DIFFERENT names: %s. %s All names are DIFFERENT — do not repeat. "
             % (n, n, namelist, perslot))
@@ -2302,8 +2332,8 @@ def fbpost_prompt(concept_key, names, nm, img_style_n, bg, old_name, variation="
     if concept_key == "couple":
         body = ("Show a happy young Vietnamese couple standing together, each wearing their shirt with "
                 "the printed design kept at the SAME size and position as the reference shows. " + _ADS_REAL)
-        names_clause = ("There are TWO shirts. The MAN's shirt shows the FEMALE name \"" + nm["female"] +
-                        "\"; the WOMAN's shirt shows the MALE name \"" + nm["male"] + "\". This swap is ON "
+        names_clause = ("There are TWO shirts. The MAN's shirt shows the FEMALE name " + _vn_name_spec(nm["female"]) +
+                        ". The WOMAN's shirt shows the MALE name " + _vn_name_spec(nm["male"]) + ". This swap is ON "
                         "PURPOSE: the man's shirt MUST show \"" + nm["female"] + "\" and the woman's shirt "
                         "MUST show \"" + nm["male"] + "\". Do NOT put the male name on the man or the female "
                         "name on the woman; do NOT correct or normalise it. ")
