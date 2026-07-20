@@ -6447,6 +6447,18 @@ function pgpostRender(items) {
         '<button class="pg-igr" data-r="4/5" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "4/5" ? "var(--violet)" : "transparent") + ';color:' + (igr === "4/5" ? "#fff" : "inherit") + '">4:5 dọc</button>' +
         '<button class="pg-igr" data-r="1/1" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "1/1" ? "var(--violet)" : "transparent") + ';color:' + (igr === "1/1" ? "#fff" : "inherit") + '">1:1 vuông</button>' +
         '<span class="hint" style="font-size:10px">' + urls.length + ' ảnh</span></div>' : '') +
+      // dải SẮP XẾP ảnh: ◀▶ hoặc kéo-thả; ảnh 1 = ảnh bìa
+      (urls.length > 1 ? '<div style="display:flex;gap:5px;overflow-x:auto;padding:6px 10px 0;align-items:flex-start">' +
+        urls.map((u, i) => '<div style="flex:0 0 auto;text-align:center">' +
+          '<div style="position:relative">' +
+            '<img src="' + u + '" draggable="true" class="pg-th" data-i="' + i + '" loading="lazy" style="width:46px;height:56px;object-fit:cover;border-radius:6px;cursor:grab;border:' + (i === 0 ? '2px solid var(--violet,#7c3aed)' : '1px solid var(--line,#ddd)') + '">' +
+            '<span style="position:absolute;top:1px;left:1px;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:0 4px;border-radius:5px">' + (i + 1) + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:center;gap:1px">' +
+            '<button class="pg-mv" data-i="' + i + '" data-d="-1" title="Đẩy ảnh lên trước" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 3px' + (i === 0 ? ';visibility:hidden' : '') + '">◀</button>' +
+            '<button class="pg-mv" data-i="' + i + '" data-d="1" title="Đẩy ảnh ra sau" style="border:none;background:none;cursor:pointer;font-size:11px;padding:0 3px' + (i === urls.length - 1 ? ';visibility:hidden' : '') + '">▶</button>' +
+          '</div></div>').join("") +
+        '</div><p class="hint" style="margin:2px 10px 0;font-size:10px">🔀 Kéo-thả hoặc ◀▶ để sắp xếp — ảnh 1 (viền tím) là ảnh bìa bài đăng.</p>' : '') +
       // caption + hành động
       '<div style="padding:8px 10px 10px">' +
         '<textarea class="input pgpost-cap" rows="3" style="width:100%;padding:6px 8px;font-size:12px" placeholder="Content bài đăng — bấm 🤖 để AI viết">' + (it.caption || "") + '</textarea>' +
@@ -6465,6 +6477,41 @@ function pgpostRender(items) {
     tr.querySelector(".pg-pv-fb").onclick = () => { const t = keepTick(); _pgPv[id] = "fb"; pgpostRender(items); restoreTick(id, t); };
     tr.querySelector(".pg-pv-ig").onclick = () => { const t = keepTick(); _pgPv[id] = "ig"; pgpostRender(items); restoreTick(id, t); };
     tr.querySelectorAll(".pg-igr").forEach(b => { b.onclick = () => { const t = keepTick(); _pgIgR[id] = b.dataset.r; pgpostRender(items); restoreTick(id, t); }; });
+    // 🔀 SẮP XẾP ảnh: ◀▶ hoặc kéo-thả -> lưu thứ tự mới lên server rồi vẽ lại preview
+    const item = items.find(x => String(x.id) === String(id));
+    const saveOrder = async (arr) => {
+      const t = keepTick();
+      if (item) item.image_urls = arr;
+      try {
+        await fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id, image_urls: arr }) });
+      } catch (e) {}
+      pgpostRender(items); restoreTick(id, t);
+    };
+    tr.querySelectorAll(".pg-mv").forEach(b => {
+      b.onclick = () => {
+        const arr = ((item && item.image_urls) || []).slice();
+        const i = parseInt(b.dataset.i, 10), j = i + parseInt(b.dataset.d, 10);
+        if (j < 0 || j >= arr.length) return;
+        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        saveOrder(arr);
+      };
+    });
+    let _dragI = null;
+    tr.querySelectorAll(".pg-th").forEach(im => {
+      im.ondragstart = () => { _dragI = parseInt(im.dataset.i, 10); };
+      im.ondragover = (e) => e.preventDefault();
+      im.ondrop = (e) => {
+        e.preventDefault();
+        const j = parseInt(im.dataset.i, 10);
+        if (_dragI === null || _dragI === j) return;
+        const arr = ((item && item.image_urls) || []).slice();
+        const moved = arr.splice(_dragI, 1)[0];
+        arr.splice(j, 0, moved);
+        _dragI = null;
+        saveOrder(arr);
+      };
+    });
     tr.querySelector(".pgpost-cap").onchange = (e) => fetch("/api/pgpost-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, caption: e.target.value }) });
     tr.querySelector(".pgpost-ai").onclick = async (e) => {
       const btn = e.currentTarget, ta = tr.querySelector(".pgpost-cap");

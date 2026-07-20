@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-pgpost-preview"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-pgpost-reorder"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7467,8 +7467,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"ok": True, "id": item["id"]})
         if path == "/api/pgpost-update":
             pid = (body.get("id") or "").strip()
+            fields = {}
             if "caption" in body:
-                _pgpost_set(pid, caption=(body.get("caption") or "").strip())
+                fields["caption"] = (body.get("caption") or "").strip()
+            if isinstance(body.get("image_urls"), list):   # sắp xếp lại thứ tự ảnh trước khi đăng
+                fields["image_urls"] = [str(u).strip() for u in body["image_urls"] if str(u).strip()][:20]
+            if fields:
+                _pgpost_set(pid, **fields)
             return self.json(200, {"ok": True})
         if path == "/api/pgpost-del":
             pid = (body.get("id") or "").strip()
