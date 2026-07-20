@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-mergepost"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-multitake"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2435,13 +2435,22 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 scene = fbpost_scene_ai(design_img, key, len(names), bg)
             label = "FB Post · %s%s" % (fbp_concept_label(key), " · 🧠 Claude" if (bases or scene) else "")
             # ảnh xong tấm nào hiện tấm đó: khởi tạo partial cho FE poll
-            partial_set(key, {"concept": key, "title": label, "expected": len(shot_pairs), "pics": []})
+            # 🔁 số BẢN mỗi chủ đề shot (1-3): Claude vẫn chỉ viết 1 prompt/chủ đề, mỗi bản là 1 lần gen mới
+            reps = 1
+            if key in FBP_SETS:
+                try:
+                    reps = max(1, min(3, int(c.get("reps") or 1)))
+                except Exception:
+                    reps = 1
+            gen_list = [(idx, si, pose, r) for idx, (si, pose) in enumerate(shot_pairs) for r in range(reps)]
+            partial_set(key, {"concept": key, "title": label, "expected": len(gen_list), "pics": []})
             pics = []
-            for seq, (si, pose) in enumerate(shot_pairs):
-                note("🎨 %s: đang gen ảnh %d/%d…" % (fbp_concept_label(key), seq + 1, len(shot_pairs)))
+            for seq, (idx, si, pose, r) in enumerate(gen_list):
+                note("🎨 %s: đang gen ảnh %d/%d…" % (fbp_concept_label(key), seq + 1, len(gen_list)))
+                take = ("This is take %d of the SAME shot — same prompt, natural variation. " % (r + 1)) if r else ""
                 if bases:
                     # prompt riêng của shot này (pose/arrangement đã nằm trong prompt Claude)
-                    v, base_i = "", bases[seq]
+                    v, base_i = take, bases[idx]
                 elif key == "couple":
                     v, base_i = "Shot %d of the matching set (skill order) — %s " % (seq + 1, pose), scene or ""
                 elif is_people:
@@ -2463,7 +2472,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 # prompt = BẰNG CHỨNG; base = prompt Claude RIÊNG của shot này (dùng khi 🔄 gen lại)
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"),
                              "prompt": prompt, "shot": si,
-                             "base": (bases[seq] if bases else (scene or ""))})
+                             "base": (bases[idx] if bases else (scene or ""))})
                 partial_add_pic(key, {"url": g.get("url"), "shot": si})   # hiện ngay tấm vừa xong
             partial_del(key)
             # names/bg trả về để FE "🔄 gen lại 1 ảnh" giữ đúng tên + prompt riêng của bộ
@@ -9129,8 +9138,12 @@ class Handler(BaseHTTPRequestHandler):
                 cn = 0
             given = [str(x).strip()[:40] for x in (c.get("names") or []) if str(x).strip()][:6]
             shots = [int(i) for i in (c.get("shots") or []) if isinstance(i, (int, float)) and 0 <= int(i) < 12][:12]
+            try:
+                reps = max(1, min(3, int(c.get("reps") or 1)))
+            except Exception:
+                reps = 1
             cons.append({"key": key, "ref": ref, "bg": (c.get("bg") or "").strip()[:500],
-                         "n": max(0, min(8, cn)), "names": given, "shots": shots})
+                         "n": max(0, min(8, cn)), "names": given, "shots": shots, "reps": reps})
         if not cons:
             return self.json(400, {"error": "Chọn ít nhất 1 bộ ảnh (nếu vừa cập nhật, nhấn Ctrl+Shift+R để nạp giao diện 4 bộ skill mới)."})
         engine = resolve_engine_id(body)

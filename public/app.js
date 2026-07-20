@@ -5339,6 +5339,7 @@ function fbpSavePreset() {
     sel: Array.from(fbpSel),
     count: fbpCount,
     shots: Object.fromEntries(Object.keys(fbpShots).map(k => [k, [...fbpShots[k]]])),
+    reps: fbpReps,
     names: fbpNames,
     style: fbpStyle,                 // {key: dataURL}
     bg: fbpBg,                       // {key: text}
@@ -5366,6 +5367,7 @@ function fbpLoadPreset() {
   if (preset.bg) fbpBg = preset.bg;
   if (preset.count) fbpCount = preset.count;
   if (preset.shots) { fbpShots = {}; Object.keys(preset.shots).forEach(k => { fbpShots[k] = new Set(preset.shots[k]); }); }
+  if (preset.reps) fbpReps = preset.reps;
   if (preset.names) fbpNames = preset.names;
   if (Array.isArray(preset.sel)) fbpSel = new Set(preset.sel);
   if (preset.aspect && $("fbpAspect")) $("fbpAspect").value = preset.aspect;
@@ -5416,6 +5418,7 @@ const FBP_CONCEPTS = [
 ];
 CONCEPT_SHIRTS.sofa = 2; CONCEPT_SHIRTS.white = 2; CONCEPT_SHIRTS.kraft = 2;
 let fbpShots = {};   // {key: Set(chỉ số shot đã tick)} — mặc định tick hết
+let fbpReps = {};    // {key: 1|2|3} — số BẢN mỗi chủ đề shot (nhiều ảnh để lựa)
 function fbpShotSet(key) {
   if (!fbpShots[key]) {
     const c = FBP_CONCEPTS.find(x => x.key === key);
@@ -5469,7 +5472,11 @@ function fbpRenderConcepts() {
       c.shots.map((s, i) =>
         '<label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer;line-height:1.3">' +
         '<input type="checkbox" class="fbp-shot" data-i="' + i + '"' + (shotSet.has(i) ? " checked" : "") + ' style="margin:0">' +
-        '<span>' + s + '</span></label>').join("") + '</div>';
+        '<span>' + s + '</span></label>').join("") +
+      '<label style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:2px">🔁 Số bản mỗi chủ đề:' +
+      '<select class="fbp-reps" style="font-size:11px;padding:1px 4px;border-radius:6px">' +
+      [1, 2, 3].map(v => '<option value="' + v + '"' + ((fbpReps[c.key] || 1) === v ? " selected" : "") + '>×' + v + '</option>').join("") +
+      '</select><span class="hint" style="font-size:10px">(×2/×3 = mỗi shot gen nhiều ảnh để lựa)</span></label></div>';
     // Ô TÊN riêng từng áo (cố định tên) + 🎲 — cả 4 bộ đều là CẶP áo couple (tên nữ + tên nam)
     const arr = fbpNamesArr(c.key);
     const labels = c.key === "couple" ? ["👩 Tên NỮ → in áo NAM", "👨 Tên NAM → in áo NỮ"]
@@ -5513,6 +5520,8 @@ function fbpRenderConcepts() {
                      FBP_NAME_NAM[Math.floor(Math.random() * FBP_NAME_NAM.length)]];
       fbpNames[c.key] = picks.join(", "); fbpSel.add(c.key); fbpRenderConcepts();
     };
+    const repSel = row.querySelector(".fbp-reps");
+    if (repSel) repSel.onchange = () => { fbpReps[c.key] = parseInt(repSel.value, 10) || 1; };
     const bgSel = row.querySelector(".ads-con-bgsel"), bgTxt = row.querySelector(".ads-con-bg");
     bgSel.onchange = () => {
       if (bgSel.value === "__custom") { bgTxt.style.display = ""; fbpBg[c.key] = bgTxt.value; bgTxt.focus(); }
@@ -5532,17 +5541,20 @@ async function fbpGenerate() {
   if (!fbpDesignImg) { note.className = "gen-note err"; note.textContent = "⚠️ Đưa design trước."; return; }
   const cons = FBP_CONCEPTS.filter(c => fbpSel.has(c.key)).map(c => {
     const shots = [...fbpShotSet(c.key)].sort((a, b) => a - b);
+    const reps = fbpReps[c.key] || 1;
     return { key: c.key, label: c.label, ref: fbpStyle[c.key] || "", bg: (fbpBg[c.key] || "").trim(),
-      n: shots.length, shots: shots, names: (fbpNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) };
+      n: shots.length, shots: shots, reps: reps, names: (fbpNames[c.key] || "").split(",").map(s => s.trim()).filter(Boolean) };
   }).filter(c => c.shots.length);
   if (!cons.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tick ít nhất 1 bộ + ít nhất 1 chủ đề shot."; return; }
+  const totalImgs = cons.reduce((t, c) => t + c.shots.length * c.reps, 0);
+  if (totalImgs > 16 && !confirm("Tổng " + totalImgs + " ảnh sẽ được gen (khá lâu + tốn phí). Tiếp tục?")) return;
   const engine = ($("fbpEngine") && $("fbpEngine").value) || "";
   try {
     const r = await fetch("/api/fbpost-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: fbpDesignImg, engine: engine, aspect: $("fbpAspect").value, quality: $("fbpQuality").value, concepts: cons }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     cons.forEach(c => fbpItems.unshift({ loading: true, job: d.job_id, concept: c.key, title: c.label, _design: fbpDesignImg, _ref: c.ref || "" }));
     fbpRenderAll(); fbpPoll(d.job_id);
-    note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " bộ (" + cons.reduce((t, c) => t + c.shots.length, 0) + " ảnh, 🧠 Claude viết prompt từng bộ)…";
+    note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + cons.length + " bộ (" + totalImgs + " ảnh, 🧠 Claude viết prompt từng bộ)…";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
 function fbpPoll(job) {
