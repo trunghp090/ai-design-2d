@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-design-plate"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-ttbonus-lock"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6193,20 +6193,25 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
     auto = couple_names_pool()   # pool tên thật, tức thì (không gọi AI -> hết cảnh "Anh Yêu/Em Yêu")
     n1 = given[0] if len(given) > 0 else auto["female"]
     n2 = given[1] if len(given) > 1 else auto["male"]
+    # Bộ khoá design DÙNG CHUNG với FB post (pixel-faithful + đúng cỡ/vị trí + đánh vần dấu tên)
+    old_name = ads_read_name(ref_img[0])
+    nick = ("SECONDARY SMALL NAME LINE rule: ONLY IF the design already has a small secondary name line "
+            "(cursive signature under the main name), replace its words with the SHORT given-name of THAT "
+            "shirt's NEW main name (LEFT shirt: \"%s\", RIGHT shirt: \"%s\") — never keep the original "
+            "words; if the design has no such line, add nothing. " % (_short_name(n1), _short_name(n2)))
     prompt = (
-        "Casual smartphone lifestyle photo: TWO neatly folded white t-shirts lying side by side on a "
-        "cream fabric sofa, photographed from a slight top-down angle, soft natural indoor daylight, "
-        "gentle shadows, cozy minimal home vibe (NOT studio, NOT stock photo). Each folded shirt "
-        "clearly shows the SAME printed chest design as the reference image — reproduce the design "
-        "100%% identical (same arched lettering style, badge/oval with date, small script line, same "
-        "colours) — but with TWO DIFFERENT Vietnamese names: the LEFT shirt shows \"%s\" and the "
-        "RIGHT shirt shows \"%s\", each spelled EXACTLY with correct Vietnamese diacritics in the "
-        "same font and arch as the reference. The prints follow the natural folds of the fabric "
-        "slightly. The upper third of the frame is relatively clean and uncluttered — suitable as "
-        "empty space for text to be added later in post-production. "
+        "Casual smartphone lifestyle photo: TWO neatly folded t-shirts (same garment colour and style as "
+        "the reference) lying side by side on a cream fabric sofa, photographed from a slight top-down "
+        "angle, soft natural indoor daylight, gentle shadows, cozy minimal home vibe (NOT studio, NOT "
+        "stock photo). "
+        + _ADS_KEEP + _ADS_ALLNAMES + _ads_replace_clause(old_name) + _ADS_ONE + nick +
+        "The LEFT shirt's MAIN name becomes " + _vn_name_spec(n1) + ". The RIGHT shirt's MAIN name "
+        "becomes " + _vn_name_spec(n2) + ". The prints follow the natural folds of the fabric slightly. "
+        "The upper third of the frame is relatively clean and uncluttered — suitable as empty space for "
+        "text to be added later in post-production. "
         "Negative: studio lighting, white seamless background, e-commerce photo, mannequin, person, "
         "face, horizontal, oversaturated, warm color cast, golden hour, any text overlay, any words "
-        "on image besides the shirt prints, any typography, any watermark. Aspect ratio 3:4." % (n1, n2))
+        "on image besides the shirt prints, any typography, any watermark. Aspect ratio 3:4.")
 
     def work():
         try:
