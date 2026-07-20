@@ -5636,7 +5636,7 @@ function fbpRenderAll() {
           ? '<details style="margin:2px 0 4px"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 BẰNG CHỨNG Claude — ' + (nDistinct > 1 ? nDistinct + ' PROMPT RIÊNG BIỆT (1 prompt/ảnh)' : 'xem prompt từng ảnh') + '</summary>' + proofs + '</details>'
           : "";
       })() +
-      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-board" title="Đẩy các ảnh ĐÃ TICK sang tab Bài FB/IG — viết bài + đăng ở bên đó">➕ Đẩy <span class="fbp-pickn">' + it._pick.size + '</span> ảnh tick sang Bài FB/IG</button><button class="b-dlall" title="Tải các ảnh đã tick">⬇ Tải <span class="fbp-pickn2">' + it._pick.size + '</span> ảnh</button><button class="b-delhist">🗑️</button></div>' +
+      '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-dlall" title="Tải các ảnh đã tick">⬇ Tải <span class="fbp-pickn2">' + it._pick.size + '</span> ảnh</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
     card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
     card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10)); }; });
@@ -5651,7 +5651,6 @@ function fbpRenderAll() {
       };
     });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
-    card.querySelector(".b-board").onclick = (e) => pgpostAddFromSet(it, e.currentTarget, card);
     card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image && it._pick.has(i)) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
     card.querySelector(".b-delhist").onclick = async () => {
       if (!confirm("Xoá bộ ảnh này khỏi danh sách?")) return;
@@ -6353,19 +6352,6 @@ function updateMultiNote() {
 /* =====================================================================
    BẢNG BÀI ĐĂNG FANPAGE + INSTAGRAM (organic) — đưa bộ ảnh sang + đăng hàng loạt
    ===================================================================== */
-async function pgpostAddFromSet(it, btn, card) {
-  // chỉ đẩy các ảnh ĐÃ TICK (mặc định tick hết)
-  const urls = (it.pics || []).filter((p, i) => !it._pick || it._pick.has(i)).map(p => p.url).filter(Boolean);
-  if (!urls.length) { alert("Chưa tick ảnh nào (hoặc bộ chưa có URL công khai) — tick ảnh muốn đẩy rồi thử lại."); return; }
-  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
-  const cap = (it.caption || "").trim();   // caption viết ở tab Bài FB/IG (nút 🤖 AI viết bên đó)
-  try {
-    const r = await fetch("/api/pgpost-add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ caption: cap, image_urls: urls, product: (typeof fbpProductLink !== "undefined" ? fbpProductLink : "") || "" }) });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    if (btn) { btn.textContent = "✓ Đã thêm"; setTimeout(() => { btn.disabled = false; btn.textContent = "➕ Bài đăng"; }, 1500); }
-  } catch (e) { alert("✗ " + e.message); if (btn) { btn.disabled = false; btn.textContent = "➕ Bài đăng"; } }
-}
-
 let pgpostInited = false, pgpostPollTimer = null;
 function pgpostInit() {
   if (!pgpostInited) {
