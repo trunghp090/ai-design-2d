@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-tthook-viral"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-ttslide-retry"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6231,19 +6231,43 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto"):
 
 
 def _tiktok_render_slide(prompt):
-    """Render 1 ảnh 3:4: ưu tiên Nano Banana Pro (Gemini 3), lỗi/thiếu key -> gpt-image."""
+    """Render 1 ảnh 3:4: ưu tiên Nano Banana Pro; 429/5xx TỰ ĐỢI 30/60/120s thử lại; hết cỡ mới
+    fallback gpt-image (cũng retry). 429 lì -> lỗi rõ ràng thay vì treo im."""
+    last = None
     if GEMINI_API_KEY:
+        for a in range(len(_GEN_WAITS) + 1):
+            try:
+                return gemini_edit([], prompt, "3:4", GEMINI_IMAGE_MODEL)
+            except urllib.error.HTTPError as e:
+                last = e
+                if e.code in (429, 500, 502, 503) and a < len(_GEN_WAITS):
+                    time.sleep(_GEN_WAITS[a])
+                    continue
+                break
+            except Exception as e:
+                last = e
+                break
+    for a in range(2):
         try:
-            return gemini_edit([], prompt, "3:4", GEMINI_IMAGE_MODEL)
-        except Exception:
-            pass
-    b64 = openai_generate(prompt, "1024x1536")
-    if HAS_PIL:
-        try:
-            b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
-        except Exception:
-            pass
-    return b64
+            b64 = openai_generate(prompt, "1024x1536")
+            if HAS_PIL:
+                try:
+                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
+                except Exception:
+                    pass
+            return b64
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code in (429, 500, 502, 503) and a < 1:
+                time.sleep(45)
+                continue
+            break
+        except Exception as e:
+            last = e
+            break
+    if isinstance(last, urllib.error.HTTPError) and getattr(last, "code", 0) == 429:
+        raise RuntimeError("Hết hạn mức model gen ảnh (429) dù đã tự thử lại nhiều lần — đợi vài phút rồi bấm tạo lại.")
+    raise last if last else RuntimeError("Không gen được slide")
 
 
 def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
@@ -6351,7 +6375,7 @@ def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto"):
         except Exception as e:
             return {"error": str(e), "title": s["title"]}
 
-    with ThreadPoolExecutor(max_workers=3) as ex:
+    with ThreadPoolExecutor(max_workers=2) as ex:   # 3 -> 2: bớt dồn call gây 429
         for res in ex.map(work, slides):
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
