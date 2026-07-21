@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-fbpost-retry429"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-prompts-fmt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2286,25 +2286,34 @@ def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
         "reproduced EXACTLY as shown in reference image #1 — same artwork, same colours, same SIZE and same "
         "PLACEMENT on the shirt as the reference shows; do not redraw, enlarge, shrink, move or re-center.\n"
         "5. Shot nào chỉ có 1 áo / 1 người thì prompt đó tả ĐÚNG 1 áo / 1 người (áo kia ngoài khung hình).\n"
-        "6. Trả về DUY NHẤT JSON hợp lệ: {\"prompts\": [\"prompt 1\", ..., \"prompt %d\"]} — không markdown, "
-        "không giải thích.\n"
-        "LƯU Ý GHI ĐÈ: quy tắc 'viết MỘT prompt duy nhất' trong system chỉ áp dụng cho từng phần tử — "
-        "bài này BẮT BUỘC trả về đủ %d prompt trong JSON như trên." % (n, n)
+        "6. FORMAT TRẢ VỀ (BẮT BUỘC, KHÔNG JSON): trước mỗi prompt in đúng một dòng '### PROMPT %s' "
+        "(i = 1..%d) rồi tới nội dung prompt đó; ngoài ra KHÔNG markdown, KHÔNG giải thích, KHÔNG tiêu đề khác.\n"
+        "LƯU Ý GHI ĐÈ: quy tắc 'viết MỘT prompt duy nhất' trong system chỉ áp dụng cho TỪNG phần tử — "
+        "bài này BẮT BUỘC trả về đủ %d prompt theo format trên." % ("i", n, n)
     )
     for attempt in range(3):
         try:
             raw = (claude_vision(PRODUCT_PROMPT_SYSTEM, instr, design_img[0],
                                  design_img[1] if len(design_img) > 1 else "image/png",
-                                 max_tokens=min(700 * n + 600, 6000), timeout=420) or "").strip()
+                                 max_tokens=min(900 * n + 800, 8500), timeout=420) or "").strip()
+            # 1) format phân cách '### PROMPT i' (chuẩn); 2) lỡ trả JSON thì vẫn nhận
+            parts = [p.strip().strip('"') for p in re.split(r"#{2,}\s*PROMPT\s*\d+\s*", raw) if p.strip()]
+            if len(parts) == n and all(len(x) > 150 for x in parts):
+                return parts
             m = re.search(r"\{.*\}", raw, re.S)
             if m:
-                ps = [str(x).strip() for x in (json.loads(m.group(0)).get("prompts") or [])]
-                if len(ps) == n and all(len(x) > 150 for x in ps):
-                    return ps
-            print("fbpost_prompts_ai attempt %d: JSON thiếu/ngắn (%d)" % (attempt + 1, len(raw)))
+                try:
+                    ps = [str(x).strip() for x in (json.loads(m.group(0)).get("prompts") or [])]
+                    if len(ps) == n and all(len(x) > 150 for x in ps):
+                        return ps
+                except Exception:
+                    pass
+            print("fbpost_prompts_ai attempt %d: sai format/thiếu (raw %d ký tự, tách được %d/%d): %s"
+                  % (attempt + 1, len(raw), len(parts), n, raw[:160].replace("\n", " ")))
         except Exception as e:
             print("fbpost_prompts_ai attempt %d fail: %s" % (attempt + 1, e))
-        time.sleep(2 + attempt * 3)
+        if attempt < 2:
+            time.sleep(8 + attempt * 15)   # 8s rồi 23s — đủ hồi rate limit Claude
     return None
 
 
