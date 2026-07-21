@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-retry-hard"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-tthook-viral"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6152,11 +6152,21 @@ DẠNG BÀI (concept) — làm ĐÚNG dạng được giao:
 PROMPT ẢNH (tiếng Anh) — QUY TẮC SẮT:
 - Ảnh SẠCH TUYỆT ĐỐI KHÔNG TEXT/chữ/typography/watermark/logo-text trên ảnh.
 - Dọc 3:4, cảm giác smartphone đời thường (KHÔNG studio, KHÔNG stock photo).
-- CẤM từ: warm, golden, amber, cozy, golden hour, professional photograph, 8K, masterpiece, studio lighting, film grain, vintage.
-- HOOK: 1 scene couple GenZ Việt KHÔNG RÕ MẶT (đi dạo quay sau lưng / ngồi tựa vai / POV tay cầm túi quà / flatlay nhiều hộp quà / tay mở hộp / tay đan nhau close-up...). Cuối prompt thêm: "The lower third of the frame is relatively simple and uncluttered — suitable as empty space for text to be added later in post-production."
+- CẤM từ: warm, golden, amber, cozy, golden hour, professional photograph, 8K, masterpiece, studio lighting, film grain, vintage (riêng prompt HOOK ĐƯỢC dùng night / low-light / string lights — xem dưới; slide SẢN PHẨM vẫn cấm đủ).
+- HOOK — ẢNH KIỂU VIRAL TIKTOK COUPLE (thân mật, đời thường, hơi tối tình cảm), KHÔNG RÕ MẶT. Chọn 1 scene:
+  · cô gái ôm chàng từ phía sau / gục vào vai (đêm, ánh đèn phố bokeh)
+  · couple QUAY LƯNG đi phố đêm/phố đi bộ, chàng giấu bó hoa sau lưng
+  · mirror selfie ôm nhau, ĐIỆN THOẠI CHE MẶT
+  · close-up tay đang ĐEO ĐỒNG HỒ / cài vòng tay cho người kia
+  · BÓNG silhouette 2 người nắm tay đổ dài trên nền gạch
+  · couple ngồi tựa nhau trên giường, dây đèn fairy lights phía sau
+  · 2 bàn tay đan nhau close-up dưới ánh đèn phố đêm
+  · POV màn hình điện thoại đang chụp người yêu (không rõ mặt)
+  Chất ảnh hook: candid smartphone thật, được phép night scene / low-light / city lights bokeh / string lights, cảm xúc intimate — vẫn CẤM studio, stock photo, posed model, rõ mặt. Cuối prompt thêm: "The lower third of the frame is relatively simple and uncluttered — suitable as empty space for text to be added later in post-production."
 - SLIDE SẢN PHẨM: đa số flatlay (hộp/packaging brand trên bàn gỗ/vải/giường), 2 slide dạng tay cầm/đang dùng (không mặt). Mỗi prompt ≥3 chi tiết brand/packaging đặc trưng (hộp, túi, tag, ribbon, màu nhận diện). Cuối prompt thêm: "The upper third of the frame shows clean surface/background — suitable as empty space for text to be added later in post-production."
 - RIÊNG món CÁ NHÂN HOÁ: ảnh ĐƯỢC PHÉP có tên/chữ KHẮC hoặc IN NHỎ trên CHÍNH sản phẩm (đó là đặc tính món quà — vd 'engraved with the Vietnamese name "Nam"', 'printed with a couple's names "My & Nam"'); dùng tên Việt NGẮN không dấu phức tạp (My, Nam, Trang, Bảo); vẫn CẤM TUYỆT ĐỐI mọi text overlay/typography/watermark NGOÀI sản phẩm.
-- Mỗi prompt KẾT THÚC bằng: "Negative: stock photo, studio lighting, posed model, clear face close-up, horizontal, cluttered, extra fingers, deformed hands, warm color cast, golden hour, any text, any words, any letters, any typography, any watermark. Aspect ratio 3:4."
+- Slide SẢN PHẨM kết thúc bằng: "Negative: stock photo, studio lighting, posed model, clear face close-up, horizontal, cluttered, extra fingers, deformed hands, warm color cast, golden hour, any text, any words, any letters, any typography, any watermark. Aspect ratio 3:4."
+- Riêng HOOK kết thúc bằng (cho phép đêm/ánh đèn ấm): "Negative: stock photo, studio lighting, posed model, clear visible faces, horizontal, cluttered, extra fingers, deformed hands, any text, any words, any letters, any typography, any watermark. Aspect ratio 3:4."
 
 TEXT OVERLAY (tiếng Việt GenZ, user tự chèn CapCut): 2-3 dòng ngắn/slide, KHÔNG ghi giá ở slide sản phẩm. Hook ĐƯỢC ghi giá nếu theme giá ("6 quà tặng ảnh dưới 300k...").
 ⚠️ FORMAT overlay slide sản phẩm PHẢI THEO DẠNG BÀI:
@@ -6165,6 +6175,14 @@ TEXT OVERLAY (tiếng Việt GenZ, user tự chèn CapCut): 2-3 dòng ngắn/sli
 - compare: dòng 1 "[bản rẻ] vs [bản xịn]", dòng 2-3 khác gì nhau.
 - category/mood: dòng 1 "[tên món] [emoji]" + comment bám danh mục/mood.
 Tone: quà bạn trai = "mấy bà/ảnh/ổng", quà bạn gái = "mấy ông/bả/nàng". Viết tắt tự nhiên (ny, rcm, nma). Position: hook = "1/3 dưới", sản phẩm = "1/3 trên".
+HOOK OVERLAY — giọng VIRAL thầm-thì-bạn-thân, 2-3 dòng + emoji (😭😗😏🥹😛), biến tấu theo dịp+giới (KHÔNG lặp nguyên văn giữa các bài):
+- "mấy món này ảnh/bả thích mà không nói đâu 😗 / mấy ông(bà) lưu lại đi nha"
+- "[dịp] rồi mấy bà ơi 😭 chưa biết tặng ảnh gì thì lướt qua đây nha"
+- "đừng tặng [hoa/đồ sến/đồ chợ] nữa — nâng cấp lên mấy món này đi 😏 [tầm giá] thôi mà xài hoài luôn á"
+- "lương đầu tiên tặng ảnh/bả N món này 🥹 toàn đồ thiết thực á"
+- "ảnh nói không cần quà — nhưng tặng mấy cái này thì khác 😏"
+- "quà thiết thực + cảm xúc — bất ngờ không cần dịp 🥹"
+Chốt hook nên có 1 câu kéo hành động nhẹ: "lưu lại đi nha / kẻo trễ nha / lướt qua đây nha".
 
 CAPTION: 1 câu tự nhiên như nhắn tin bạn thân (không CTA, không công thức, không giá) + 10-15 hashtag TikTok VN.
 
