@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-ttgifts-psn"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-fbpost-retry429"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2230,6 +2230,18 @@ _ADS_KEEP_ASIS = (
     "recolor, resize, move or re-center ANY text or graphic — copy the prints AS-IS like locked stickers. ")
 
 
+def gen_shot_retry(images, prompt, size, engine, aspect, lock=False, quality="", tries=3):
+    """gen_shot + tự retry khi 429/5xx (đợi 20s/40s) — plate + nhiều shot liên tục dễ chạm rate limit."""
+    for a in range(tries):
+        try:
+            return gen_shot(images, prompt, size, engine, aspect, lock=lock, quality=quality)
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503) and a < tries - 1:
+                time.sleep(20 * (a + 1))
+                continue
+            raise
+
+
 def fbp_plate_prompt(nm, old_name):
     """Prompt bước 1: nhân bản design từ ảnh gốc, CHỈ đổi tên chính (trái=tên nữ, phải=tên nam)."""
     nick = ("SECONDARY SMALL NAME LINE rule: ONLY IF the design already has a small secondary name line "
@@ -2509,8 +2521,8 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             if key in FBP_SETS and nm:
                 note("🧵 %s: bước 1/2 — tạo BẢN DESIGN CHUẨN với tên mới…" % fbp_concept_label(key))
                 try:
-                    pb64 = gen_shot([design_img], fbp_plate_prompt(nm, old_name), "1536x1024",
-                                    engine, "3:2", lock=False, quality="high")
+                    pb64 = gen_shot_retry([design_img], fbp_plate_prompt(nm, old_name), "1536x1024",
+                                          engine, "3:2", lock=False, quality="high")
                     pg = gallery_add(pb64, {"mode": "fbpost", "prompt": "FB Post · 🧵 bản design chuẩn"})
                     plate_url, plate_ref = pg.get("url") or "", (base64.b64decode(pb64), "image/png")
                 except Exception as e:
@@ -2548,7 +2560,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                 if _FBP_ONE_SHIRT in pose:   # shot cận 1 áo: nhắc lại Ở CUỐI để không bị câu '2 shirts' đè
                     prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                                "the two-shirt rule applies to the whole SET, not to this close-up.")
-                b64 = gen_shot(imgs, prompt, size, engine, asp, lock=False, quality=quality)
+                b64 = gen_shot_retry(imgs, prompt, size, engine, asp, lock=False, quality=quality)
                 if HAS_PIL:
                     try:
                         b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
@@ -9208,7 +9220,7 @@ class Handler(BaseHTTPRequestHandler):
             if single or _FBP_ONE_SHIRT in pose:
                 prompt += (" FINAL REMINDER: THIS shot shows exactly ONE shirt filling the frame — "
                            "the two-shirt rule applies to the whole SET, not to this close-up.")
-            b64 = gen_shot(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
+            b64 = gen_shot_retry(imgs, prompt, size, engine, aspect, lock=False, quality=quality)
             if HAS_PIL:
                 try:
                     b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
