@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-plate-qc"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-couple-variety"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2317,6 +2317,47 @@ def fbp_plate_prompt(nm, old_name):
             ". The RIGHT shirt's MAIN name becomes " + _vn_name_spec(nm["male"]) + ". ")
 
 
+# NGÂN HÀNG BIẾN THỂ nhân vật/bối cảnh (theo outfit bank + BG bank của skill) — mỗi bộ random 1 tổ hợp
+# để KHÔNG còn cảnh cặp đôi nào cũng giống hệt nhau giữa các lần gen
+_FBP_VAR_HAIR_M = ["short neat black hair", "naturally tousled black hair falling over the forehead",
+                   "slightly wavy medium-length black hair", "a clean two-block cut",
+                   "short black hair with a subtle side part"]
+_FBP_VAR_HAIR_F = ["long straight black hair", "a low ponytail with face-framing strands",
+                   "a shoulder-length bob", "softly curled long hair",
+                   "a low loose bun held with a claw clip", "half-up half-down hair"]
+_FBP_VAR_FACE_F = ["a soft oval face", "a round gentle face", "a lightly V-line face", "cute full cheeks"]
+_FBP_VAR_PANTS_M = ["beige wide-leg trousers", "cream wide-leg trousers", "light grey wide-leg trousers",
+                    "black wide-leg trousers", "dark wash baggy jeans", "light wash baggy jeans",
+                    "black cargo pants", "olive cargo pants"]
+_FBP_VAR_SHOES_M = ["white sneakers", "mustard suede sneakers", "black canvas shoes", "beige slip-ons",
+                    "grey-white running shoes"]
+_FBP_VAR_BOTTOM_F = ["a beige pleated mini skirt", "a white tulle midi skirt", "a black pleated mini skirt",
+                     "a denim mini skirt", "a cream linen wrap skirt", "black straight-leg cropped trousers",
+                     "white wide-leg linen pants", "light wash mom jeans", "beige high-waist trousers"]
+_FBP_VAR_SHOES_F = ["white sneakers", "red mary-jane flats", "beige platform sandals",
+                    "white canvas slip-ons", "beige ballet flats"]
+_FBP_VAR_BG = ["café indie tường gạch thô + cửa sổ lớn (BG1)", "rooftop café ban ngày (BG2)",
+               "cửa hàng tiện lợi (BG3)", "quán trà đá vỉa hè (BG4)", "ngõ phố cổ shophouse (BG5)",
+               "công viên cây xanh (BG6)", "ven hồ / bờ sông (BG7)", "bãi biển bình dân (BG9)",
+               "phòng trọ GenZ (BG10)"]
+
+
+def _fbp_variety(bg):
+    """Random 1 tổ hợp nhân vật + bối cảnh cho BỘ này (tiêm vào instruction cho Claude)."""
+    return (
+        "BIẾN THỂ BẮT BUỘC CHO BỘ NÀY (để khác các bộ trước — KHÔNG dùng cặp mẫu mặc định của skill):\n"
+        "- NAM: %s; mặc %s với %s.\n"
+        "- NỮ: %s, %s; mặc %s với %s.\n"
+        "- Khuôn mặt/nét người tự nhiên Việt Nam theo chuẩn skill (da sáng sạch) nhưng hãy tả thành "
+        "NGƯỜI KHÁC với mô tả mặc định — đúng các chi tiết tóc/đồ ở trên.\n"
+        "%s"
+        % (random.choice(_FBP_VAR_HAIR_M), random.choice(_FBP_VAR_PANTS_M), random.choice(_FBP_VAR_SHOES_M),
+           random.choice(_FBP_VAR_HAIR_F), random.choice(_FBP_VAR_FACE_F),
+           random.choice(_FBP_VAR_BOTTOM_F), random.choice(_FBP_VAR_SHOES_F),
+           ("" if (bg or "").strip() else
+            "- BỐI CẢNH cho cả bộ: %s (theo BG bank + lighting chuẩn skill).\n" % random.choice(_FBP_VAR_BG))))
+
+
 def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
     """Claude viết N PROMPT RIÊNG BIỆT (1 prompt / 1 shot) cho bộ skill — CÙNG nhân vật + bối cảnh,
     KHÁC pose/arrangement theo từng shot. Trả list[str] hoặc None (caller báo lỗi, không fallback)."""
@@ -2324,7 +2365,8 @@ def fbpost_prompts_ai(design_img, concept_key, shot_descs, bg):
     if not n:
         return None
     if concept_key == "couple":
-        kind = "bộ ảnh MODEL đời thường 'real customer look' — 1 CẶP ĐÔI trẻ Việt Nam (1 nam + 1 nữ) mặc áo couple"
+        kind = ("bộ ảnh MODEL đời thường 'real customer look' — 1 CẶP ĐÔI trẻ Việt Nam (1 nam + 1 nữ) mặc "
+                "áo couple.\n" + _fbp_variety(bg))
     elif concept_key in _FBP_SET_DESC:
         kind = _FBP_SET_DESC[concept_key]
     else:
