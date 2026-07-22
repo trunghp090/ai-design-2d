@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-perf-thumbs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-gallery-clear"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7880,6 +7880,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_fbpost_generate(body)
         if path == "/api/fbpost-regen":
             return self.handle_fbpost_regen(body)
+        if path == "/api/gallery-clear":
+            return self.handle_gallery_clear(body)
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":
@@ -9258,6 +9260,59 @@ class Handler(BaseHTTPRequestHandler):
         if not r.get("ok"):
             return self.json(400, {"error": r.get("error")})
         return self.json(200, r)
+
+    def handle_gallery_clear(self, body):
+        """DỌN SẠCH kho gallery (ảnh gốc + thumbnail + file rác) — GIỮ LẠI ảnh mà các bài
+        CHỜ ĐĂNG bên Bài FB/IG đang tham chiếu (kẻo bài đăng fail)."""
+        keep = set()
+        try:
+            for it in pgpost_load():
+                if it.get("status") != "posted":
+                    for u in (it.get("image_urls") or []):
+                        keep.add(os.path.basename(str(u)))
+        except Exception:
+            pass
+        removed = freed = 0
+        kept_items = []
+        for it in gallery_load():
+            fn = os.path.basename(it.get("url") or "")
+            if fn in keep:
+                kept_items.append(it)
+                continue
+            fp = os.path.join(GALLERY_DIR, fn)
+            try:
+                if os.path.isfile(fp):
+                    freed += os.path.getsize(fp)
+                    os.remove(fp)
+                    removed += 1
+            except Exception:
+                pass
+        gallery_save_index(kept_items)
+        # quét nốt file rác không nằm trong index + toàn bộ thumbnail mồ côi
+        try:
+            for fn in os.listdir(GALLERY_DIR):
+                fp = os.path.join(GALLERY_DIR, fn)
+                if os.path.isfile(fp) and fn not in keep and fn != os.path.basename(GALLERY_INDEX) \
+                        and fn.lower().endswith((".png", ".jpg", ".webp", ".mp4", ".webm", ".mov")):
+                    try:
+                        freed += os.path.getsize(fp)
+                        os.remove(fp)
+                        removed += 1
+                    except Exception:
+                        pass
+            tdir = os.path.join(GALLERY_DIR, ".thumbs")
+            if os.path.isdir(tdir):
+                keep_stems = {k.rsplit(".", 1)[0] for k in keep}
+                for fn in os.listdir(tdir):
+                    if fn.rsplit(".", 1)[0] not in keep_stems:
+                        try:
+                            os.remove(os.path.join(tdir, fn))
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+        return self.json(200, {"ok": True, "removed": removed, "kept": len(kept_items),
+                               "freed_mb": round(freed / 1048576.0, 1)})
 
     def handle_fbpost_regen(self, body):
         """Gen lại MỘT ảnh trong bộ FB post — giữ nguyên TÊN + CẢNH (scene Claude) của bộ cho khớp set."""
