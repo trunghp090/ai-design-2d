@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-gallery-clear"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-plate-qc"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -696,6 +696,31 @@ def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700, ti
     req.add_header("Content-Type", "application/json")
     res = json.loads(_openai_call(req, timeout=timeout))
     # Trả về text của các block type=="text"; bỏ qua thinking/khác.
+    parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
+    return "\n".join(p for p in parts if p).strip()
+
+
+def claude_vision2(system, text, img_a, img_b, max_tokens=800, timeout=180):
+    """Claude vision với 2 ẢNH (so sánh A vs B) -> trả text. img_a/img_b = raw bytes PNG."""
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("Chưa cấu hình ANTHROPIC_API_KEY")
+    def _mime(raw):
+        if raw[:3] == b"\xff\xd8\xff":
+            return "image/jpeg"
+        if raw[:4] == b"RIFF" and b"WEBP" in raw[:16]:
+            return "image/webp"
+        return "image/png"
+    content = [{"type": "text", "text": text}]
+    for raw in (img_a, img_b):
+        content.append({"type": "image", "source": {"type": "base64", "media_type": _mime(raw),
+                                                    "data": base64.b64encode(raw).decode()}})
+    payload = {"model": ANTHROPIC_MODEL, "max_tokens": max_tokens, "system": system,
+               "messages": [{"role": "user", "content": content}]}
+    req = urllib.request.Request(ANTHROPIC_URL, data=json.dumps(payload).encode(), method="POST")
+    req.add_header("x-api-key", ANTHROPIC_API_KEY)
+    req.add_header("anthropic-version", "2023-06-01")
+    req.add_header("Content-Type", "application/json")
+    res = json.loads(_openai_call(req, timeout=timeout))
     parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
     return "\n".join(p for p in parts if p).strip()
 
@@ -2254,6 +2279,29 @@ def gen_shot_retry(images, prompt, size, engine, aspect, lock=False, quality="",
             raise
 
 
+def fbp_plate_check(design_img, plate_b64, nm):
+    """🔍 QC tự động: Claude SO plate với design GỐC — bố cục/font/màu giống hệt? tên đúng từng ký tự?
+    Trả (ok, issues). Claude lỗi -> (True, []) để không chặn oan."""
+    instr = (
+        "ẢNH 1 = design gốc trên áo (chuẩn). ẢNH 2 = bản plate vừa tạo (2 áo, CHỈ được đổi tên chính).\n"
+        "KIỂM TRA NGHIÊM KHẮC từng điểm:\n"
+        "1. BỐ CỤC design ảnh 2 có GIỐNG HỆT ảnh 1 không: thứ tự và vị trí từng thành phần (dòng tên, "
+        "sao, badge/oval, ngày, tagline, dòng chữ ký), kiểu font từng phần, MÀU in, cỡ in trên áo?\n"
+        "2. Áo TRÁI phải in tên \"%s\", áo PHẢI in tên \"%s\" — đúng chính tả TỪNG KÝ TỰ, đủ dấu tiếng Việt?\n"
+        "3. Không được thêm/bớt/di chuyển bất kỳ thành phần nào so với ảnh 1.\n"
+        "Trả JSON THUẦN: {\"ok\": true/false, \"issues\": [\"mô tả ngắn từng lỗi\"]} — ok=true CHỈ KHI đạt hết."
+        % (nm["female"], nm["male"]))
+    try:
+        raw = claude_vision2("Bạn là QC khó tính về design in áo. Chỉ trả JSON thuần.",
+                             instr, design_img[0], base64.b64decode(plate_b64), max_tokens=600)
+        m = re.search(r"\{.*\}", raw, re.S)
+        d = json.loads(m.group(0)) if m else {}
+        return bool(d.get("ok")), [str(x) for x in (d.get("issues") or [])][:4]
+    except Exception as e:
+        print("fbp_plate_check skip: %s" % e)
+        return True, []
+
+
 def fbp_plate_prompt(nm, old_name):
     """Prompt bước 1: nhân bản design từ ảnh gốc, CHỈ đổi tên chính (trái=tên nữ, phải=tên nam)."""
     nick = ("SECONDARY SMALL NAME LINE rule: ONLY IF the design already has a small secondary name line "
@@ -2540,14 +2588,30 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
             # design tối đa) -> mọi shot sau chỉ COPY y nguyên, không phải đổi chữ nữa
             plate_url, plate_ref = "", None
             if key in FBP_SETS and nm:
-                note("🧵 %s: bước 1/2 — tạo BẢN DESIGN CHUẨN với tên mới…" % fbp_concept_label(key))
-                try:
-                    pb64 = gen_shot_retry([design_img], fbp_plate_prompt(nm, old_name), "1536x1024",
-                                          engine, "3:2", lock=False, quality="high", on_wait=note)
-                    pg = gallery_add(pb64, {"mode": "fbpost", "prompt": "FB Post · 🧵 bản design chuẩn"})
+                # PLATE luôn dùng model MẠNH NHẤT (Pro) bất kể engine cảnh — chữ/layout là sống còn
+                plate_engine = "gemini_pro" if GEMINI_API_KEY else "openai"
+                pb64, ok, issues = None, False, []
+                for pa in range(2):
+                    note("🧵 %s: bước 1/2 — tạo BẢN DESIGN CHUẨN%s…"
+                         % (fbp_concept_label(key), " (lần %d)" % (pa + 1) if pa else ""))
+                    try:
+                        pb64 = gen_shot_retry([design_img], fbp_plate_prompt(nm, old_name), "1536x1024",
+                                              plate_engine, "3:2", lock=False, quality="high", on_wait=note)
+                    except Exception as e:
+                        print("fbp plate fail: %s" % e)
+                        break
+                    note("🔍 %s: Claude đang SO plate với design gốc…" % fbp_concept_label(key))
+                    ok, issues = fbp_plate_check(design_img, pb64, nm)
+                    if ok:
+                        break
+                    note("🔍 Plate LỆCH design (%s) — tạo lại…" % ("; ".join(issues)[:80] or "?"))
+                if pb64 and not ok:
+                    return {"error": "🔍 Plate lệch design gốc sau 2 lần tạo (%s) — bấm tạo lại bộ này."
+                                     % ("; ".join(issues)[:120] or "layout/tên sai"),
+                            "title": fbp_concept_label(key)}
+                if pb64:
+                    pg = gallery_add(pb64, {"mode": "fbpost", "prompt": "FB Post · 🧵 bản design chuẩn ✓QC"})
                     plate_url, plate_ref = pg.get("url") or "", (base64.b64decode(pb64), "image/png")
-                except Exception as e:
-                    print("fbp plate fail: %s" % e)   # plate lỗi -> fallback 1 bước như cũ
             use_plate = plate_ref is not None
             if use_plate:
                 imgs = [plate_ref] + imgs[1:]   # ref #1 = plate; style ref (nếu có) vẫn là #2
