@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-ttslide-retry"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-perf-thumbs"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7376,11 +7376,46 @@ class Handler(BaseHTTPRequestHandler):
                 job = BATCH_JOBS.get(jid)
                 if not job:
                     return self.json(404, {"error": "Không thấy job"})
+                try:   # have=N: chỉ trả items MỚI từ vị trí N (đỡ gửi lại base64 cũ mỗi lần poll)
+                    have = max(0, int((qs.get("have") or ["0"])[0]))
+                except Exception:
+                    have = 0
                 return self.json(200, {"total": job["total"], "done": job["done"],
-                                       "finished": job["finished"], "items": job["items"],
+                                       "finished": job["finished"], "items": job["items"][have:],
+                                       "count": len(job["items"]),
                                        "errors": job["errors"], "note": job.get("note", ""),
                                        "partial": list((job.get("partial") or {}).values())})
 
+        # THUMBNAIL gallery: /gallery/t/<id>.jpg — JPEG nhỏ ~30-60KB thay PNG gốc 1-2MB (lười-tạo lần đầu)
+        if path.startswith("/gallery/t/"):
+            name = os.path.basename(path[len("/gallery/t/"):])
+            tdir = os.path.join(GALLERY_DIR, ".thumbs")
+            tp = os.path.join(tdir, name)
+            if not os.path.isfile(tp):
+                stem = name[:-4] if name.lower().endswith(".jpg") else name
+                src = next((c for c in (os.path.join(GALLERY_DIR, stem + e) for e in (".png", ".jpg", ".webp"))
+                            if os.path.isfile(c)), None)
+                if not src:
+                    return self.json(404, {"error": "Not found"})
+                if HAS_PIL:
+                    try:
+                        os.makedirs(tdir, exist_ok=True)
+                        im = Image.open(src).convert("RGB")
+                        im.thumbnail((360, 480))
+                        im.save(tp, "JPEG", quality=80)
+                    except Exception:
+                        tp = src
+                else:
+                    tp = src
+            with open(tp, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg" if tp.endswith(".jpg") else
+                             (mimetypes.guess_type(tp)[0] or "image/png"))
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         # static: gallery, mockups, public
         if path.startswith("/gallery/"):
             base, sub = GALLERY_DIR, path[len("/gallery/"):]

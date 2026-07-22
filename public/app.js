@@ -708,6 +708,11 @@ async function loadGallery() {
     renderGallery();
   } catch (e) { /* im lặng */ }
 }
+// THUMBNAIL: ảnh gallery gốc 1-2MB -> JPEG ~40KB cho mọi lưới nhỏ (server lười-tạo lần đầu)
+function gthumb(u) {
+  if (!u || typeof u !== "string" || u.indexOf("/gallery/") !== 0 || u.indexOf("/gallery/t/") === 0) return u;
+  return "/gallery/t/" + u.slice(9).replace(/\.(png|webp|jpg)$/i, "") + ".jpg";
+}
 function renderGallery() {
   const grid = $("galleryGrid"); grid.innerHTML = "";
   const items = _galItems;
@@ -715,7 +720,7 @@ function renderGallery() {
   items.slice(0, _galLimit).forEach(it => {
     const card = document.createElement("div"); card.className = "gcard";
     const label = (it.prompt || it.mode || "design").slice(0, 40);
-    card.innerHTML = `<img src="${it.url}" loading="lazy"><div class="gmeta">${label}</div><button class="gcopy" title="copy ảnh để gửi chỗ khác">📋</button><button class="gdel" title="xoá">×</button>`;
+    card.innerHTML = `<img src="${gthumb(it.url)}" loading="lazy"><div class="gmeta">${label}</div><button class="gcopy" title="copy ảnh để gửi chỗ khác">📋</button><button class="gdel" title="xoá">×</button>`;
     card.querySelector("img").onclick = () => useGalleryItem(it);
     card.querySelector(".gcopy").onclick = (e) => { e.stopPropagation(); copyImageToClipboard(it.url, e.currentTarget); };
     card.querySelector(".gdel").onclick = async (e) => {
@@ -2868,10 +2873,12 @@ async function ttPollAll() {
   let errs = [];
   await Promise.all(active.map(async j => {
     try {
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      // have: chỉ nhận slide MỚI, không tải lại base64 các slide đã về mỗi lần poll
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + (j.have || 0))).json();
       j.total = Math.max(j.total || 0, d.total || 0);
       j.done = Math.max(j.done || 0, d.done || 0);
       j.finished = !!d.finished;
+      j.have = (j.have || 0) + ((d.items || []).length);
       if (d.note) { try { ttMeta = JSON.parse(d.note); } catch (e) {} }
       (d.items || []).forEach(it => {
         const key = (it.gallery && it.gallery.id) || it.title;
@@ -5561,21 +5568,20 @@ function fbpPoll(job) {
   let placed = 0;
   const timer = setInterval(async () => {
     try {
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job))).json();
+      // have=placed: server CHỈ trả items mới (đỡ tải lại base64 các bộ đã nhận mỗi 3s)
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job) + "&have=" + placed)).json();
       if (d.note) fbpItems.forEach(x => { if (x.loading && x.job === job) x._note = d.note; });
       (d.partial || []).forEach(pe => {   // ảnh xong tấm nào hiện tấm đó
         const t = fbpItems.find(x => x.loading && x.job === job && x.concept === pe.concept);
         if (t) t._partial = pe;
       });
-      const items = d.items || [];
-      while (placed < items.length) {
-        const it = items[placed];
+      (d.items || []).forEach(it => {
         let idx = fbpItems.findIndex(x => x.loading && x.job === job && x.concept === it.concept);
         if (idx < 0) idx = fbpItems.findIndex(x => x.loading && x.job === job);
         if (idx >= 0) { it._design = fbpItems[idx]._design; it._ref = fbpItems[idx]._ref; fbpItems[idx] = it; }
         else fbpItems.unshift(it);
         placed++; fbpRenderAll(); fbpSaveToHistory(it);   // lưu lịch sử ngay (viết bài ở tab Bài FB/IG)
-      }
+      });
       if (d.finished) {
         clearInterval(timer);
         fbpItems = fbpItems.filter(x => !(x.loading && x.job === job));
@@ -5614,10 +5620,10 @@ function fbpRenderAll() {
     const canRegen = !!(it._design && (it.names || []).length);
     if (!it._pick) it._pick = new Set(it._hist ? [] : (it.pics || []).map((_, k) => k));   // bộ mới: tick hết; lịch sử: bỏ tick (để gộp bài chọn tay)
     const thumbs = (it.pics || []).map((p, i) => {
-      const s = p.image ? "data:image/png;base64," + p.image : p.url;
+      const s = p.image ? "data:image/png;base64," + p.image : gthumb(p.url);
       const busy = it._regening === i;
       return '<div style="position:relative;width:84px;flex:0 0 auto">' +
-        '<img data-i="' + i + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:' + (busy ? '.3' : (it._pick.has(i) ? '1' : '.35')) + '">' +
+        '<img data-i="' + i + '" data-full="' + (p.url || "") + '" src="' + s + '" style="width:84px;height:104px;object-fit:cover;border-radius:6px;cursor:pointer;opacity:' + (busy ? '.3' : (it._pick.has(i) ? '1' : '.35')) + '">' +
         (busy ? '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px">⏳</span>' : '') +
         '<input type="checkbox" class="fbp-pick" data-i="' + i + '"' + (it._pick.has(i) ? " checked" : "") + ' title="Tick = chọn ảnh này để đẩy sang Bài FB/IG / tải về" style="position:absolute;left:4px;top:4px;width:15px;height:15px;accent-color:#c2185b;cursor:pointer">' +
         (canRegen && !busy ? '<button class="b-regen1" data-i="' + i + '" title="Tạo LẠI ảnh này (giữ nguyên tên + cảnh của bộ, ~30-60s)" style="position:absolute;right:2px;bottom:6px;font-size:11px;line-height:1;padding:2px 4px;border-radius:5px;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer">🔄</button>' : '') +
@@ -5626,7 +5632,7 @@ function fbpRenderAll() {
     card.innerHTML =
       '<div class="fp-card-prompt" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + (it._hist ? '🕘 ' : '') + (it.title || "Bộ ảnh") + ' · ' + (it.pics || []).length + ' ảnh' +
         (it._hist ? ' <span class="hint" style="font-size:10px">(lịch sử)</span>' : '') +
-        (it.plate ? ' <img src="' + it.plate + '" title="🧵 Bản design chuẩn (bước 1) — mọi ảnh trong bộ copy y nguyên từ đây; bấm xem to" style="width:40px;height:28px;object-fit:cover;border-radius:5px;border:1px solid var(--violet,#7c3aed);cursor:zoom-in" onclick="openZoom(this.src)">' : '') + '</div>' +
+        (it.plate ? ' <img src="' + gthumb(it.plate) + '" data-full="' + it.plate + '" title="🧵 Bản design chuẩn (bước 1) — mọi ảnh trong bộ copy y nguyên từ đây; bấm xem to" style="width:40px;height:28px;object-fit:cover;border-radius:5px;border:1px solid var(--violet,#7c3aed);cursor:zoom-in" onclick="openZoom(this.dataset.full)">' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">' + thumbs + '</div>' +
       (function () {
         const proofs = (it.pics || []).map((p, i) => p.prompt
@@ -5639,7 +5645,7 @@ function fbpRenderAll() {
       })() +
       '<div class="fp-card-acts"><button class="b-style" title="Lấy 1 ảnh trong bộ này làm STYLE mẫu cho concept — ảnh sau sẽ giống look này (dùng chung cả FB ADS)">⭐ Làm style mẫu</button><button class="b-dlall" title="Tải các ảnh đã tick">⬇ Tải <span class="fbp-pickn2">' + it._pick.size + '</span> ảnh</button><button class="b-delhist">🗑️</button></div>' +
       '<p class="gen-note fbp-postnote"></p>';
-    card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.src); });
+    card.querySelectorAll('img[data-i]').forEach(img => { img.onclick = () => openZoom(img.dataset.full || img.src); });
     card.querySelectorAll(".b-regen1").forEach(btn => { btn.onclick = (e) => { e.stopPropagation(); fbpRegenOne(it, parseInt(btn.dataset.i, 10)); }; });
     card.querySelectorAll(".fbp-pick").forEach(cb => {
       cb.onchange = () => {
@@ -6396,7 +6402,7 @@ async function pgpostLoad() {
 // ==== PREVIEW BÀI ĐĂNG NHƯ THẬT: mô phỏng cách FB xếp album & IG crop carousel ====
 let _pgPv = {};    // {id: "fb"|"ig"} chế độ preview từng bài
 let _pgIgR = {};   // {id: "4/5"|"1/1"} tỉ lệ crop IG
-function _pgImg(u) { return '<img src="' + u + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'; }
+function _pgImg(u) { return '<img src="' + gthumb(u) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'; }
 function pgFbGrid(urls) {
   const n = urls.length, c = (u, s) => '<div style="overflow:hidden;' + (s || "") + '">' + _pgImg(u) + '</div>';
   if (!n) return "";
@@ -6456,7 +6462,7 @@ function pgpostRender(items) {
       (urls.length > 1 ? '<div style="display:flex;gap:5px;overflow-x:auto;padding:6px 10px 0;align-items:flex-start">' +
         urls.map((u, i) => '<div style="flex:0 0 auto;text-align:center">' +
           '<div style="position:relative">' +
-            '<img src="' + u + '" draggable="true" class="pg-th" data-i="' + i + '" loading="lazy" style="width:46px;height:56px;object-fit:cover;border-radius:6px;cursor:grab;border:' + (i === 0 ? '2px solid var(--violet,#7c3aed)' : '1px solid var(--line,#ddd)') + '">' +
+            '<img src="' + gthumb(u) + '" draggable="true" class="pg-th" data-i="' + i + '" loading="lazy" style="width:46px;height:56px;object-fit:cover;border-radius:6px;cursor:grab;border:' + (i === 0 ? '2px solid var(--violet,#7c3aed)' : '1px solid var(--line,#ddd)') + '">' +
             '<span style="position:absolute;top:1px;left:1px;background:rgba(0,0,0,.55);color:#fff;font-size:9px;padding:0 4px;border-radius:5px">' + (i + 1) + '</span>' +
           '</div>' +
           '<div style="display:flex;justify-content:center;gap:1px">' +
