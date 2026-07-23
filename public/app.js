@@ -767,6 +767,7 @@ function showApp(app) {
   document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
   document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
+  document.getElementById("view-mixd").classList.toggle("hidden", app !== "mixd");
   document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
@@ -793,6 +794,7 @@ function showApp(app) {
   if (app === "setshirt") ssInit();
   if (app === "tiktok") ttInit();
   if (app === "namedes") namedesInit();
+  if (app === "mixd") mixdInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
@@ -5432,6 +5434,108 @@ function fbpShotSet(key) {
     fbpShots[key] = new Set(c ? c.shots.map((_, i) => i) : []);
   }
   return fbpShots[key];
+}
+
+/* ============ 🧪 MIX DESIGN: 2-3 resource + vai trò -> Claude viết công thức -> final design ============ */
+const MIXD_ROLE_OPTS = [
+  ["art", "🎨 Minh hoạ & Màu sắc"],
+  ["typo", "✍️ Typo & Ý tưởng"],
+  ["char", "👤 Nhân vật & Cảm hứng"],
+  ["energy", "⚡ Năng lượng & Tinh thần"],
+  ["layout", "📐 Bố cục"],
+];
+let mixdInited = false, mixdImgs = [null, null, null], mixdRoles = ["art", "typo", "char"], mixdItems = [];
+function mixdRenderSlots() {
+  const box = $("mixdSlots"); box.innerHTML = "";
+  [0, 1, 2].forEach(i => {
+    const d = document.createElement("div");
+    d.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:8px";
+    d.innerHTML =
+      '<div class="mixd-drop" data-i="' + i + '" style="width:74px;height:74px;border:2px dashed var(--line,#ccc);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex:0 0 auto">' +
+        (mixdImgs[i] ? '<img src="' + mixdImgs[i] + '" style="width:100%;height:100%;object-fit:cover">' : '<span style="font-size:11px;text-align:center;color:var(--muted,#999)">RESOURCE<br>' + (i + 1) + (i === 2 ? '<br>(tuỳ chọn)' : '') + '</span>') +
+      '</div>' +
+      '<div style="flex:1"><select class="input mixd-role" data-i="' + i + '" style="font-size:12px;padding:5px 8px">' +
+        MIXD_ROLE_OPTS.map(o => '<option value="' + o[0] + '"' + (mixdRoles[i] === o[0] ? " selected" : "") + '>' + o[1] + '</option>').join("") +
+      '</select>' + (mixdImgs[i] ? '<button class="btn-ghost sm mixd-x" data-i="' + i + '" style="margin-top:4px">× Bỏ ảnh</button>' : '') + '</div>';
+    box.appendChild(d);
+  });
+  box.querySelectorAll(".mixd-drop").forEach(el => {
+    el.onclick = () => { window._mixdPick = parseInt(el.dataset.i, 10); $("mixdFile").click(); };
+  });
+  box.querySelectorAll(".mixd-role").forEach(s => { s.onchange = () => { mixdRoles[parseInt(s.dataset.i, 10)] = s.value; }; });
+  box.querySelectorAll(".mixd-x").forEach(b => { b.onclick = (e) => { e.stopPropagation(); mixdImgs[parseInt(b.dataset.i, 10)] = null; mixdRenderSlots(); }; });
+}
+function mixdInit() {
+  if (mixdInited) { mixdRenderSlots(); return; }
+  mixdInited = true;
+  const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.id = "mixdFile"; f.hidden = true;
+  document.body.appendChild(f);
+  f.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith("image/")) { mixdImgs[window._mixdPick || 0] = await fileToDataURL(file); mixdRenderSlots(); }
+    e.target.value = "";
+  };
+  (async () => {
+    try {
+      const d = await (await fetch("/api/engines")).json();
+      $("mixdEngine").innerHTML = (d.engines || []).map(x => '<option value="' + x.id + '"' + (x.id === "gemini_pro" ? " selected" : "") + '>' + x.label + '</option>').join("");
+    } catch (e) {}
+  })();
+  $("mixdRunBtn").onclick = mixdGenerate;
+  mixdRenderSlots(); mixdRenderResults();
+}
+async function mixdGenerate() {
+  const note = $("mixdNote");
+  const resources = [0, 1, 2].filter(i => mixdImgs[i]).map(i => ({ image: mixdImgs[i], role: mixdRoles[i] }));
+  if (resources.length < 2) { note.className = "gen-note err"; note.textContent = "⚠️ Cần ít nhất 2 ảnh resource."; return; }
+  note.className = "gen-note"; note.textContent = "⏳ Đang gửi công thức…";
+  try {
+    const r = await fetch("/api/mixdesign-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resources: resources, idea: $("mixdIdea").value.trim(), n: $("mixdCount").value,
+        engine: $("mixdEngine").value, aspect: $("mixdAspect").value }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    note.className = "gen-note ok"; note.textContent = "⏳ 🧠 Claude đang phân tích resource…";
+    mixdPoll(d.job_id);
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+function mixdPoll(job) {
+  let have = 0;
+  const timer = setInterval(async () => {
+    try {
+      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(job) + "&have=" + have)).json();
+      (d.items || []).forEach(it => { mixdItems.unshift(it); have++; });
+      if (d.items && d.items.length) mixdRenderResults();
+      const note = $("mixdNote");
+      if (d.note) { note.className = "gen-note"; note.textContent = d.note; }
+      if (d.finished) {
+        clearInterval(timer);
+        if ((d.errors || []).length) { note.className = "gen-note err"; note.textContent = "✗ " + d.errors[0]; }
+        else { note.className = "gen-note ok"; note.textContent = "✓ Xong " + d.done + " design!"; }
+        if (typeof loadGallery === "function") loadGallery();
+      }
+    } catch (e) {}
+  }, 3000);
+}
+function mixdRenderResults() {
+  const grid = $("mixdResults");
+  $("mixdCountLbl").textContent = mixdItems.length ? "(" + mixdItems.length + ")" : "";
+  $("mixdEmpty").classList.toggle("hidden", mixdItems.length > 0);
+  grid.innerHTML = "";
+  mixdItems.forEach(it => {
+    const card = document.createElement("div"); card.className = "fp-card";
+    const src = it.image ? "data:image/png;base64," + it.image : it.url;
+    card.innerHTML =
+      '<img src="' + src + '" style="width:100%;max-width:340px;border-radius:10px;cursor:zoom-in">' +
+      '<details style="margin:4px 0"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">🧠 Prompt Claude đã viết (bằng chứng)</summary>' +
+      '<pre style="white-space:pre-wrap;font-size:10px;line-height:1.45;max-height:160px;overflow:auto;background:rgba(127,127,127,.1);padding:6px 8px;border-radius:6px">' + (it.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></details>' +
+      '<div class="fp-card-acts"><button class="b-dl">⬇ Tải PNG</button><button class="b-lenao" title="Đưa design này sang tab 👕 Lên áo">👕 Lên áo</button></div>';
+    card.querySelector("img").onclick = () => openZoom(it.url || src);
+    card.querySelector(".b-dl").onclick = () => { if (it.image) autoDownload(it.image, "mixdesign"); else window.open(it.url, "_blank"); };
+    card.querySelector(".b-lenao").onclick = () => {
+      try { lenaoSetDesign(src); showApp("lenao"); } catch (e) { alert("Mở tab 👕 Lên áo rồi dán ảnh này vào nhé (đã copy chưa được tự động)."); }
+    };
+    grid.appendChild(card);
+  });
 }
 
 // Pool tên thật (đồng bộ backend VN_COUPLE_NU/NAM) — cho nút 🎲 cố định tên

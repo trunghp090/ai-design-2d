@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-couple-variety"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-mixdesign"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -700,8 +700,8 @@ def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700, ti
     return "\n".join(p for p in parts if p).strip()
 
 
-def claude_vision2(system, text, img_a, img_b, max_tokens=800, timeout=180):
-    """Claude vision với 2 ẢNH (so sánh A vs B) -> trả text. img_a/img_b = raw bytes PNG."""
+def claude_vision_multi(system, text, raws, max_tokens=800, timeout=180):
+    """Claude vision với NHIỀU ẢNH (list raw bytes) -> trả text."""
     if not ANTHROPIC_API_KEY:
         raise RuntimeError("Chưa cấu hình ANTHROPIC_API_KEY")
     def _mime(raw):
@@ -711,7 +711,7 @@ def claude_vision2(system, text, img_a, img_b, max_tokens=800, timeout=180):
             return "image/webp"
         return "image/png"
     content = [{"type": "text", "text": text}]
-    for raw in (img_a, img_b):
+    for raw in raws:
         content.append({"type": "image", "source": {"type": "base64", "media_type": _mime(raw),
                                                     "data": base64.b64encode(raw).decode()}})
     payload = {"model": ANTHROPIC_MODEL, "max_tokens": max_tokens, "system": system,
@@ -723,6 +723,11 @@ def claude_vision2(system, text, img_a, img_b, max_tokens=800, timeout=180):
     res = json.loads(_openai_call(req, timeout=timeout))
     parts = [b.get("text", "") for b in (res.get("content") or []) if b.get("type") == "text"]
     return "\n".join(p for p in parts if p).strip()
+
+
+def claude_vision2(system, text, img_a, img_b, max_tokens=800, timeout=180):
+    """Claude vision với 2 ẢNH (so sánh A vs B) -> trả text."""
+    return claude_vision_multi(system, text, [img_a, img_b], max_tokens, timeout)
 
 
 def claude_text(system, user, max_tokens=2500):
@@ -6376,6 +6381,88 @@ def _tiktok_render_slide(prompt):
     raise last if last else RuntimeError("Không gen được slide")
 
 
+# ==== 🧪 MIX DESIGN: 2-3 ảnh resource (mỗi ảnh 1 VAI TRÒ) -> Claude viết prompt -> FINAL DESIGN ====
+MIXD_ROLES = {
+    "art":    "MINH HOẠ & MÀU SẮC — lấy phong cách vẽ minh hoạ, bảng màu, chất liệu/texture từ ảnh này",
+    "typo":   "TYPO & Ý TƯỞNG — lấy kiểu chữ/lettering, CÂU CHỮ/thông điệp và ý tưởng bố cục chữ từ ảnh này",
+    "char":   "NHÂN VẬT & CẢM HỨNG — lấy nhân vật/linh vật và cảm hứng tạo hình từ ảnh này",
+    "energy": "NĂNG LƯỢNG & TINH THẦN — lấy năng lượng, mood, cảm giác chuyển động từ ảnh này",
+    "layout": "BỐ CỤC — lấy cách bố trí tổng thể các thành phần trên áo từ ảnh này",
+}
+_MIXD_SYS = (
+    "Bạn là art director thiết kế áo thun POD. Nhìn các ảnh RESOURCE được đánh số, viết MỘT prompt tiếng "
+    "Anh duy nhất cho model gen ảnh (Nano Banana Pro) để tạo FINAL DESIGN in áo: artwork print-ready, "
+    "kiểu vector/screen-print nét sạch, bố cục poster hài hoà, KHÔNG mockup áo, KHÔNG watermark, KHÔNG "
+    "chữ ký. Prompt PHẢI chỉ rõ lấy yếu tố nào từ 'reference image #N' nào đúng theo VAI TRÒ từng "
+    "resource, rồi phối thành MỘT design MỚI thống nhất (không chắp vá). Câu chữ trên design: dùng đúng "
+    "câu trong resource TYPO (hoặc câu user yêu cầu) — giữ nguyên chính tả. Chỉ trả về PROMPT, không "
+    "giải thích, không markdown.")
+
+
+def run_mixdesign_job(job_id, resources, idea, n, engine, aspect):
+    """resources = [(raw_bytes, role_key)]. Claude viết prompt mix -> gen n biến thể."""
+    def note(msg):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None:
+                j["note"] = msg
+
+    def fail(msg):
+        with _batch_lock:
+            j = BATCH_JOBS.get(job_id)
+            if j is not None:
+                j["errors"].append(msg)
+                j["finished"] = True
+
+    try:
+        roles_txt = "\n".join("RESOURCE %d (reference image #%d): %s." %
+                              (i + 1, i + 1, MIXD_ROLES.get(r, r)) for i, (_b, r) in enumerate(resources))
+        instr = (roles_txt +
+                 ("\nYêu cầu thêm của user: %s." % idea if (idea or "").strip() else "") +
+                 "\nTỉ lệ khung design: %s. Viết prompt final design theo đúng công thức trên." % (aspect or "3:4"))
+        note("🧠 Claude đang phân tích %d resource + viết prompt mix…" % len(resources))
+        prompt = None
+        for attempt in range(3):
+            try:
+                p = (claude_vision_multi(_MIXD_SYS, instr, [b for (b, _r) in resources],
+                                         max_tokens=1600, timeout=300) or "").strip().strip('"')
+                if len(p) > 150:
+                    prompt = p
+                    break
+            except Exception as e:
+                print("mixd prompt attempt %d fail: %s" % (attempt + 1, e))
+            if attempt < 2:
+                time.sleep(8 + attempt * 15)
+        if not prompt:
+            return fail("🧠 Claude không viết được prompt mix (hết quota/lỗi tạm) — thử lại sau ít phút.")
+        imgs = [(b, "image/png") for (b, _r) in resources]
+        size = ASPECT_TO_SIZE.get(aspect or "3:4", "1024x1536")
+        for i in range(max(1, min(4, n))):
+            note("🎨 Đang gen final design %d/%d…" % (i + 1, n))
+            v = (" This is take %d — same recipe, natural variation." % (i + 1)) if i else ""
+            b64 = gen_shot_retry(imgs, prompt + v, size, engine, aspect or "3:4",
+                                 lock=False, quality="high", on_wait=note)
+            if HAS_PIL:
+                try:
+                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect or "3:4")).decode()
+                except Exception:
+                    pass
+            g = gallery_add(b64, {"mode": "mixdesign", "prompt": "🧪 Mix Design"})
+            with _batch_lock:
+                j = BATCH_JOBS.get(job_id)
+                if not j:
+                    return
+                j["done"] += 1
+                j["items"].append({"image": b64, "url": g.get("url"), "id": g.get("id"), "prompt": prompt})
+        with _batch_lock:
+            if BATCH_JOBS.get(job_id):
+                BATCH_JOBS[job_id]["finished"] = True
+    except urllib.error.HTTPError as e:
+        fail(openai_error_message(e))
+    except Exception as e:
+        fail(str(e))
+
+
 def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
     """Slide 8 bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
     2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
@@ -7988,6 +8075,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_fbpost_regen(body)
         if path == "/api/gallery-clear":
             return self.handle_gallery_clear(body)
+        if path == "/api/mixdesign-gen":
+            return self.handle_mixdesign_gen(body)
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":
@@ -9366,6 +9455,32 @@ class Handler(BaseHTTPRequestHandler):
         if not r.get("ok"):
             return self.json(400, {"error": r.get("error")})
         return self.json(200, r)
+
+    def handle_mixdesign_gen(self, body):
+        """🧪 Mix Design: 2-3 resource (ảnh + vai trò) -> Claude viết prompt -> gen final design."""
+        res_in = body.get("resources") or []
+        resources = []
+        for r in res_in[:3]:
+            rb, _m = fetch_image_bytes(r.get("image") or "")
+            role = (r.get("role") or "art").strip()
+            if rb:
+                resources.append((rb, role if role in MIXD_ROLES else "art"))
+        if len(resources) < 2:
+            return self.json(400, {"error": "Cần ít nhất 2 ảnh resource (mỗi ảnh 1 vai trò)."})
+        idea = (body.get("idea") or "").strip()[:500]
+        try:
+            n = max(1, min(4, int(body.get("n") or 2)))
+        except Exception:
+            n = 2
+        engine = resolve_engine_id(body)
+        aspect = (body.get("aspect") or "3:4").strip()
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "mx%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_mixdesign_job,
+                         args=(job_id, resources, idea, n, engine, aspect), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_gallery_clear(self, body):
         """DỌN SẠCH kho gallery (ảnh gốc + thumbnail + file rác) — GIỮ LẠI ảnh mà các bài

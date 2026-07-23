@@ -55,6 +55,7 @@
     <button class="app-tab" data-app="design" data-group="design">✨ Tạo design</button>
     <button class="app-tab" data-app="psn" data-group="design">🎁 Personalized</button>
     <button class="app-tab" data-app="namedes" data-group="design">✍️ Design tên</button>
+    <button class="app-tab" data-app="mixd" data-group="design">🧪 Mix Design</button>
     <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
@@ -1858,6 +1859,40 @@
       <p class="gen-note" id="adpostNote" style="margin:8px 0 0"></p>
       <div id="adpostList" style="margin-top:10px;overflow:auto"></div>
       <div class="gallery-empty" id="adpostEmpty">Chưa có bài nào. Vào tab 📣 FB Ads tạo ảnh → bấm "➕ Bài Ads" để đưa sang đây.</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-mixd">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🧪 Mix Design</h2>
+        <p class="panel-desc" style="margin:0 0 12px">Đưa 2–3 ảnh <b>resource</b>, gán mỗi ảnh 1 <b>vai trò</b> → 🧠 Claude phân tích và viết công thức trộn → ra <b>FINAL DESIGN</b> mới (print-ready).</p>
+        <div id="mixdSlots"></div>
+        <label class="fp-label" style="margin-top:12px">💡 Ý TƯỞNG THÊM (tuỳ chọn)</label>
+        <textarea id="mixdIdea" class="input" rows="2" placeholder="VD: câu chữ muốn giữ, chủ đề, màu chủ đạo…"></textarea>
+        <label class="fp-label" style="margin-top:12px">MODEL gen ảnh</label>
+        <select id="mixdEngine" class="input"></select>
+        <label class="fp-label" style="margin-top:10px">📐 Tỉ lệ</label>
+        <select id="mixdAspect" class="input">
+          <option value="3:4" selected>Dọc 3:4 (poster áo)</option>
+          <option value="4:5">Dọc 4:5</option>
+          <option value="1:1">Vuông 1:1</option>
+        </select>
+        <label class="fp-label" style="margin-top:10px">🖼️ Số biến thể</label>
+        <select id="mixdCount" class="input">
+          <option value="1">1 design</option>
+          <option value="2" selected>2 design</option>
+          <option value="3">3 design</option>
+          <option value="4">4 design</option>
+        </select>
+        <button class="btn-primary" id="mixdRunBtn" style="margin-top:14px">🧪 Trộn design</button>
+        <p class="gen-note" id="mixdNote"></p>
+      </aside>
+      <section class="panel fp-main">
+        <div class="gallery-head"><h3 style="margin:0">🧪 Final Design <span id="mixdCountLbl" class="fp-count"></span></h3></div>
+        <div id="mixdResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="mixdEmpty">Chưa có design. Đưa 2–3 ảnh resource + gán vai trò rồi bấm Trộn.</div>
+      </section>
     </div>
   </section>
 
