@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: "🔎 Kiểm tra code (chặn lỗi trước khi Dokploy deploy)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: "Python: cú pháp + import an toàn server.py"
+        run: |
+          python -m py_compile server.py
+          # import module (server chỉ chạy trong __main__) — bắt lỗi mức module: tên biến, %-format hằng, v.v.
+          python - <<'EOF'
+          import ast, importlib.util, sys
+          ast.parse(open("server.py", encoding="utf-8").read())
+          spec = importlib.util.spec_from_file_location("server", "server.py")
+          mod = importlib.util.module_from_spec(spec)
+          sys.modules["server"] = mod
+          spec.loader.exec_module(mod)
+          # sanity: các mảnh sống còn của pipeline phải tồn tại
+          for name in ("run_fbpost_job", "fbpost_prompts_ai", "fbp_plate_prompt", "fbp_plate_check",
+                       "gen_shot_retry", "gemini_edit", "run_tiktok_job", "run_mixdesign_job",
+                       "APP_VERSION", "PRODUCT_PROMPT_SYSTEM"):
+              assert hasattr(mod, name), "THIẾU %s trong server.py" % name
+          print("server.py OK — APP_VERSION:", mod.APP_VERSION)
+          EOF
+
+      - name: "JS: cú pháp app.js"
+        run: node --check public/app.js
+
+      - name: "Nhắc bump APP_VERSION (cảnh báo, không chặn)"
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --depth=1
+          if git diff origin/main -- server.py | grep -q "APP_VERSION"; then
+            echo "✓ APP_VERSION có thay đổi."
+          else
+            if git diff origin/main --name-only | grep -q "server.py"; then
+              echo "::warning::server.py đổi nhưng APP_VERSION chưa bump — khó biết deploy đã live chưa."
+            fi
+          fi
+
+  verify-live:
+    name: "🌐 Xác minh riengvnapp.cloud sống sau deploy"
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Đợi Dokploy deploy rồi kiểm tra /api/version (tối đa ~6 phút)"
+        run: |
+          echo "Đợi 60s cho Dokploy bắt đầu build…"
+          sleep 60
+          for i in $(seq 1 30); do
+            body=$(curl -s -m 10 https://riengvnapp.cloud/api/version || true)
+            if echo "$body" | grep -q '"version"'; then
+              echo "✓ Site sống: $body"
+              exit 0
+            fi
+            echo "thử $i/30 — chưa lên, đợi 10s…"
+            sleep 10
+          done
+          echo "::error::Site KHÔNG phản hồi /api/version sau ~6 phút — kiểm tra Dokploy ngay!"
+          exit 1
