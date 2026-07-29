@@ -2496,12 +2496,7 @@ function dsMakeCard(key, it) {
     card.querySelector(".b-cut").onclick = async (e) => {
       const b = e.currentTarget; b.disabled = true;
       const im = await dsB64(it); b.disabled = false;
-      // mở editor tách nền thủ công; xong -> đưa sang tab Tách nền
-      cutOpenManual(im, -1, (b64) => {
-        cutItems.unshift({ image: b64 });
-        showApp("cutout"); cutoutRender();
-        const n = $("cutNote"); if (n) { n.className = "gen-note ok"; n.textContent = "✓ Đã tách nền thủ công design — ở đây bạn có thể lên áo / đổi màu / tải."; }
-      });
+      cutFromAnywhere("data:image/png;base64," + im);   // chuyển sang tab Tách nền + tách tự động
     };
     card.querySelector(".b-use").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; const im = await dsB64(it); b.disabled = false; showApp("clone"); showDesign(im); document.querySelector('.rtab[data-rtab="design"]').click(); };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(dsSrc(it), e.currentTarget);
@@ -3390,7 +3385,7 @@ function psnRender() {
     card.querySelector(".b-use").onclick = async () => { const d = await b64(); showApp("lenao"); if (typeof lenaoAddDesigns === "function") lenaoAddDesigns(["data:image/png;base64," + d]); };
     card.querySelector(".b-cut").onclick = async () => {
       const d = await b64();
-      cutOpenManual(d, -1, (out) => { cutItems.unshift({ image: out }); showApp("cutout"); cutoutRender(); });
+      cutFromAnywhere("data:image/png;base64," + d);   // chuyển sang tab Tách nền + tách tự động
     };
     card.querySelector(".b-del").onclick = async () => {
       if (!confirm("Xoá mẫu này?")) return;
@@ -6810,6 +6805,14 @@ async function addCutFiles(files) {
 }
 // dán ảnh khi đang ở tab Tách nền (router paste của app gọi addCutFiles nếu có)
 window.cutoutPaste = (durl) => { if (durl) { cutInputs.push(durl); cutRenderThumbs(); } };
+// Nhận ảnh từ tab khác (Tạo design, Personalized...) -> mở tab Tách nền và TÁCH LUÔN
+async function cutFromAnywhere(durl) {
+  showApp("cutout");                       // cutoutInit tự chạy, UI sẵn sàng
+  cutInputs.push(durl);
+  cutRenderThumbs();
+  await cutoutRun();                       // tách ngay bằng phương pháp đang chọn (mặc định AI kiểu Canva)
+}
+
 async function cutoutRun() {
   const note = $("cutNote");
   if (!cutInputs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải/dán ít nhất 1 ảnh."; return; }
