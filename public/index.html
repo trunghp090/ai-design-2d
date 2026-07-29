@@ -889,17 +889,18 @@
         <!-- Nội dung áo lên đầu -->
         <label class="fp-label">Chủ đề / ngách (tuỳ chọn)</label>
         <input type="text" id="dsTheme" class="input" value="Custom name T-shirt niche" placeholder="VD: tình yêu, mèo, gym, Đà Lạt…" />
-        <label class="fp-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn) <button type="button" id="dsSuggestName" class="btn-ghost sm" style="padding:2px 8px;font-size:12px">🎲 AI gợi ý tên + năm</button></label>
-        <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
-        <label class="fp-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
-        <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995…" />
-        <label class="ds-check" style="display:flex;align-items:center;gap:7px;margin-top:7px;font-size:13px;color:var(--muted);cursor:pointer">
-          <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng
-        </label>
-
-        <!-- Prompt yêu cầu ngay dưới -->
-        <label class="fp-label" style="margin-top:12px">✏️ Prompt yêu cầu (tuỳ chọn)</label>
-        <textarea id="dsExtra" class="input" rows="2" placeholder="Mô tả design bạn muốn… (trống + chọn style = AI tự vẽ theo style; điền prompt + bỏ hết style = vẽ theo prompt của bạn)"></textarea>
+        <!-- Đã ẨN theo yêu cầu user (giữ input để JS không vỡ — trống = AI tự nghĩ) -->
+        <div style="display:none">
+          <label class="fp-label" style="margin-top:10px">Chữ trên áo (tuỳ chọn) <button type="button" id="dsSuggestName" class="btn-ghost sm" style="padding:2px 8px;font-size:12px">🎲 AI gợi ý tên + năm</button></label>
+          <input type="text" id="dsText" class="input" placeholder="VD: YÊU · tên brand… (trống = AI tự nghĩ)" />
+          <label class="fp-label" style="margin-top:10px">Dòng năm / số (tuỳ chọn)</label>
+          <input type="text" id="dsYear" class="input" placeholder="VD: 2026 · EST. 1995…" />
+          <label class="ds-check">
+            <input type="checkbox" id="dsSameLine" checked /> Tên/chữ 2 từ xếp CÙNG 1 dòng
+          </label>
+          <label class="fp-label" style="margin-top:12px">✏️ Prompt yêu cầu (tuỳ chọn)</label>
+          <textarea id="dsExtra" class="input" rows="2"></textarea>
+        </div>
 
         <button type="button" id="dsAutoStyle" class="btn-auto-style" style="margin-top:10px">🎯 Để AI tự chọn style đẹp nhất</button>
         <p class="hint" id="dsAutoHint" style="margin-top:4px">AI tự chọn phong cách hợp &amp; dễ bán nhất — chỉ cần nhập chủ đề/chữ (hoặc để trống).</p>
@@ -932,14 +933,16 @@
             </label>
             <div class="thumb-row" id="dsRefThumbs"></div>
 
-            <label class="fp-label" style="margin-top:10px">👥 Tệp khách — tạo nguyên 1 BỘ đồng bộ</label>
-            <div class="color-chips" id="dsSegments"></div>
-            <p class="hint" id="dsSegHint" style="margin-top:4px"></p>
-
-            <label class="fp-label" style="margin-top:10px">🎁 Style tốt cho cá nhân hoá TÊN</label>
-            <div class="color-chips" id="dsNameStyles"></div>
-            <label class="fp-label" style="margin-top:8px">🎁 Mix combo cho TÊN (2 style)</label>
-            <div class="color-chips" id="dsNameCombos"></div>
+            <!-- Đã ẨN theo yêu cầu user (JS vẫn render vào đây, không hại) -->
+            <div style="display:none">
+              <label class="fp-label" style="margin-top:10px">👥 Tệp khách — tạo nguyên 1 BỘ đồng bộ</label>
+              <div class="color-chips" id="dsSegments"></div>
+              <p class="hint" id="dsSegHint" style="margin-top:4px"></p>
+              <label class="fp-label" style="margin-top:10px">🎁 Style tốt cho cá nhân hoá TÊN</label>
+              <div class="color-chips" id="dsNameStyles"></div>
+              <label class="fp-label" style="margin-top:8px">🎁 Mix combo cho TÊN (2 style)</label>
+              <div class="color-chips" id="dsNameCombos"></div>
+            </div>
           </div>
         </details>
 
