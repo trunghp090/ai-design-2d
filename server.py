@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-design-lean"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-layout-variety"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4467,6 +4467,8 @@ def design_concepts_custom(prompt, theme, text, n, year="", same_line=False):
         parts.append('theme/niche: %s' % theme.strip())
     if same_line and (text or "").strip():
         parts.append("keep the words on ONE single line (do not stack)")
+    elif (text or "").strip():
+        parts.append("vary the text layout naturally (stacked, arched or mixed-size lockups are welcome)")
     ctx = (" — " + "; ".join(parts) + "." if parts else "")
     suffix = (" Render as a FLAT VECTOR t-shirt PRINT design, ARTWORK ONLY (NOT a mockup, NOT a "
               "person, NOT a photo of a shirt), centered on a PLAIN PURE WHITE background, crisp "
@@ -4503,6 +4505,8 @@ def design_concepts(styles, theme, text, n, year="", same_line=False):
         parts.append("Thêm 1 DÒNG NĂM/SỐ riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, đặt tách khỏi dòng chữ chính (vd phía dưới/góc), cỡ nhỏ hơn, hợp bố cục." % year.strip())
     if same_line:
         parts.append("BẮT BUỘC bố cục chữ: chữ/tên chính phải nằm trên MỘT HÀNG NGANG DUY NHẤT — TUYỆT ĐỐI KHÔNG xếp chồng 2 tầng, KHÔNG tách mỗi từ một dòng, KHÔNG bố cục arched 2 dòng. Trong MỖI image prompt phải ghi rõ 'all words on one single horizontal line, single-line lockup, not stacked'.")
+    else:
+        parts.append("BỐ CỤC CHỮ ĐA DẠNG giữa các design: trộn xếp chồng nhiều tầng (stacked lockup), chữ cong arched, chữ to nhỏ xen kẽ, badge/emblem, chéo góc… — TRÁNH tất cả design cùng kiểu 1 hàng ngang.")
     parts.append(_variety_hint(styles, n))
     messages = [{"role": "system", "content": DESIGN_SYSTEM % sd},
                 {"role": "user", "content": " ".join(parts) + " Chỉ trả JSON."}]
@@ -4587,6 +4591,8 @@ def design_concepts_from_ref(ref_bytes, theme, text, n, year="", same_line=False
         parts.append("Thêm 1 dòng năm/số riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, tách khỏi dòng chữ chính, cỡ nhỏ hơn." % year.strip())
     if same_line:
         parts.append("BẮT BUỘC bố cục chữ: chữ/tên chính nằm trên MỘT HÀNG NGANG DUY NHẤT — KHÔNG xếp chồng, KHÔNG tách mỗi từ một dòng, KHÔNG arched 2 tầng. Mỗi image prompt ghi rõ 'all words on one single horizontal line, single-line lockup, not stacked'.")
+    else:
+        parts.append("BỐ CỤC CHỮ ĐA DẠNG giữa các design: trộn stacked nhiều tầng, chữ cong arched, to nhỏ xen kẽ, badge/emblem — tránh tất cả cùng kiểu 1 hàng ngang.")
     if not (theme or "").strip():
         _p = _CHAR_POOL[:]; random.shuffle(_p)
         parts.append("Nếu phong cách có nhân vật/mascot: mỗi design dùng MỘT nhân vật KHÁC NHAU, đa dạng (gợi ý ngẫu nhiên: %s), KHÔNG lặp lại con giống nhau." % ", ".join(_p[:max(int(n or 3) + 2, 5)]))
@@ -4678,6 +4684,8 @@ def design_concepts_auto(theme, text, n, year="", same_line=False, palette_keys=
         parts.append("Thêm 1 DÒNG NĂM/SỐ riêng \"%s\" (đúng nguyên văn) làm chi tiết phụ, tách khỏi dòng chữ chính, cỡ nhỏ hơn." % year.strip())
     if same_line:
         parts.append("Nếu tên/chữ chính có 2 từ thì đặt CẢ 2 TỪ trên MỘT HÀNG NGANG DUY NHẤT, không xếp chồng; mỗi image prompt ghi rõ 'single-line lockup, not stacked'.")
+    else:
+        parts.append("BỐ CỤC CHỮ ĐA DẠNG giữa các design: trộn stacked nhiều tầng, arched cong, to nhỏ xen kẽ, badge/emblem — tránh tất cả cùng kiểu 1 hàng ngang.")
     parts.append("Mỗi design CHỦ THỂ/phong cách KHÁC NHAU, đa dạng, tránh trùng lặp.")
     sys = DESIGN_AUTO_SYSTEM % palette
     user = " ".join(parts) + " Chỉ trả JSON."
