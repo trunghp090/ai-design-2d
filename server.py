@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-cutout-pro"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-cutout-anybg"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5511,16 +5511,19 @@ def remove_flat_bg(raw, thresh=45):
         mg = gb.point(lambda v: 255 if v == SENT[1] else 0)
         mb = bb.point(lambda v: 255 if v == SENT[2] else 0)
         bgmask = ImageChops.multiply(ImageChops.multiply(mr, mg), mb)   # 255 = nền (nối từ mép)
-        # ALPHA MỀM (anti-alias) — hết răng cưa + viền trắng:
-        # rìa design là pixel sáng dần về trắng -> tạo dốc alpha theo độ sáng ảnh GỐC,
-        # CHỈ áp trong vùng NỀN (bgmask); phần design giữ alpha 255 (kể cả trắng trong bụng chữ).
+        # ALPHA MỀM (anti-alias) theo KHOẢNG CÁCH MÀU tới màu nền — đúng cho MỌI màu nền
+        # (trắng, ĐEN, kem, xám...), không còn giả định "nền sáng hơn design" như bản cũ.
+        # CHỈ áp trong vùng NỀN (bgmask); phần design giữ alpha 255 (kể cả vùng cùng màu nền trong bụng chữ).
         from PIL import ImageFilter
         orig = Image.open(io.BytesIO(raw)).convert("RGB")
-        gray = orig.convert("L")
-        # ngưỡng ramp THEO độ sáng nền đo được (hết phụ thuộc nền trắng tinh; nền kem/xám vẫn chuẩn)
-        bglum = (avg[0] * 299 + avg[1] * 587 + avg[2] * 114) // 1000
-        hi, lo = max(bglum - 2, 40), max(bglum - 34, 20)
-        soft = gray.point(lambda v: 0 if v >= hi else (255 if v <= lo else int((hi - v) * 255 / max(hi - lo, 1))))
+        orb, ogb, obb = orig.split()
+        car, cag, cab = avg
+        dr = orb.point(lambda v, c=car: abs(v - c))
+        dg = ogb.point(lambda v, c=cag: abs(v - c))
+        db2 = obb.point(lambda v, c=cab: abs(v - c))
+        dist = ImageChops.lighter(ImageChops.lighter(dr, dg), db2)
+        tin, tout = 10, 60   # gần màu nền = trong suốt, xa dần = đặc dần (rìa anti-alias mượt)
+        soft = dist.point(lambda v: 0 if v <= tin else (255 if v >= tout else int((v - tin) * 255 / (tout - tin))))
         alpha = Image.composite(soft, Image.new("L", (w, h), 255), bgmask)
         # DESPECKLE: median 3x3 CHỈ trong vùng nền (giết hạt nhiễu 1-2px do JPEG), design không đụng
         med = alpha.filter(ImageFilter.MedianFilter(3))
