@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-cutout-anybg"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-cutout-canva"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5461,7 +5461,28 @@ def remove_flat_bg(raw, thresh=45):
     """
     if not HAS_PIL:
         return raw
-    from PIL import ImageDraw, ImageChops
+    from PIL import ImageDraw, ImageChops, ImageFilter as _IF
+    # BÓC LỚP KẾ TIẾP: ảnh ĐÃ trong suốt (tách lần 2) -> nền mới = màu lớp đặc sát mép trong
+    # suốt (vd panel ĐEN của poster) -> trải phẳng về màu đó rồi tách như thường => bóc được
+    # từng lớp một (chạy 'Tách nền' lần nữa trên kết quả là bóc tiếp).
+    im_rgba = Image.open(io.BytesIO(raw)).convert("RGBA")
+    a0 = im_rgba.getchannel("A")
+    if a0.getextrema()[0] < 10:
+        trans = a0.point(lambda v: 255 if v < 10 else 0)
+        ring = ImageChops.subtract(trans.filter(_IF.MaxFilter(7)), trans)  # pixel đặc sát mép trong suốt
+        bgc = (0, 0, 0)
+        if HAS_NP:
+            arr = np.asarray(im_rgba)
+            sel = arr[(np.asarray(ring) > 0) & (arr[..., 3] > 200)][:, :3]
+            if len(sel):
+                bgc = tuple(int(x) for x in np.median(sel, 0))
+        base = Image.new("RGB", im_rgba.size, bgc)
+        # CHỈ paste pixel ĐẶC (α>=140): pixel rim mờ (feather của lần tách trước) nhập về màu
+        # nền — nếu paste cả rim sẽ tạo VÒNG XÁM chặn floodfill không với tới lớp cần bóc
+        base.paste(im_rgba.convert("RGB"), mask=a0.point(lambda v: 255 if v >= 140 else 0))
+        b0 = io.BytesIO()
+        base.save(b0, "PNG")
+        raw = b0.getvalue()
     im = Image.open(io.BytesIO(raw)).convert("RGB")
     w, h = im.size
     px = im.load()

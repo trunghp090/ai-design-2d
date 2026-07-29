@@ -6839,9 +6839,20 @@ function cutoutRender() {
     const card = document.createElement("div"); card.className = "fp-card";
     card.innerHTML =
       '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;background-color:#fff"><img src="' + src + '" loading="lazy" alt=""></div>' +
-      '<div class="fp-card-acts"><button class="b-edit">🖱️ Sửa</button><button class="b-shirt">👕 Lên áo</button><button class="b-recolor">🎨 Đổi màu</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>' +
+      '<div class="fp-card-acts"><button class="b-peel" title="Bóc TIẾP lớp nền kế (vd panel đen/màu còn sót giữa design)">✂️ Tách tiếp</button><button class="b-edit">🖱️ Sửa</button><button class="b-shirt">👕 Lên áo</button><button class="b-recolor">🎨 Đổi màu</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>' +
       '<div class="cut-recolor-bar" style="display:none;flex-wrap:wrap;gap:5px;padding:6px 8px;border-top:1px solid var(--line)"></div>';
     card.querySelector(".fp-card-img img").onclick = () => openZoom(src);
+    card.querySelector(".b-peel").onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = "⏳…";
+      try {
+        const img = "data:image/png;base64," + await cutB64(c);
+        const r = await fetch("/api/remove-bg", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: img, method: "flat", matting: false }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+        cutItems[idx] = { image: d.image, url: (d.gallery || {}).url, id: (d.gallery || {}).id };
+        cutoutRender();
+      } catch (err) { alert("✗ " + err.message); b.disabled = false; b.textContent = "✂️ Tách tiếp"; }
+    };
     card.querySelector(".b-edit").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; cutOpenManual(await cutB64(c), idx); b.disabled = false; };
     card.querySelector(".b-shirt").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; await cutToShirt(await cutB64(c)); b.disabled = false; };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
