@@ -1260,7 +1260,7 @@
     <div class="layout">
       <aside class="panel">
         <h2 class="panel-title">✂️ Tách nền ảnh</h2>
-        <p class="panel-desc">Xoá nền phẳng — mép sạch, giữ đúng chi tiết design (hợp ảnh nền trắng/trơn). Tải / kéo-thả / dán nhiều ảnh.</p>
+        <p class="panel-desc">Tách nền chuẩn tool xịn: nền trơn → mép sạch tuyệt đối; ảnh phức tạp → AI (ISNet/BiRefNet) + khử quầng viền kiểu Photoshop. Tải / kéo-thả / dán nhiều ảnh.</p>
 
         <label class="dropzone" id="cutDrop">
           <input type="file" id="cutFile" accept="image/*" multiple hidden />
@@ -1269,6 +1269,16 @@
         </label>
         <button type="button" class="btn-ghost sm paste-btn" id="cutPaste" style="margin-top:8px;width:100%">📋 Dán ảnh từ clipboard</button>
         <div id="cutThumbs" class="thumb-row" style="margin-top:8px"></div>
+
+        <label class="field-label" style="margin-top:12px">🧠 Phương pháp tách nền</label>
+        <select id="cutMethod" class="input">
+          <option value="smart" selected>🪄 Thông minh — tự chọn (khuyên dùng)</option>
+          <option value="flat">⚡ Nền phẳng — mép sạch (design nền trơn)</option>
+          <option value="isnet-general-use">💎 AI ISNet — ảnh phức tạp, nét cao</option>
+          <option value="birefnet-general-lite">🏆 AI BiRefNet — tốt nhất (chậm hơn)</option>
+          <option value="u2net">AI u2net (cũ)</option>
+          <option value="cutoutpro">☁️ Cutout.pro (API trả phí)</option>
+        </select>
 
         <label class="field-label" style="margin-top:12px">🎨 Số bản khi đổi màu</label>
         <select id="cutRecolorCount" class="input">

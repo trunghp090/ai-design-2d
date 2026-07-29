@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-layout-variety"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-cutout-pro"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -66,9 +66,15 @@ try:
 except Exception:
     HAS_ONNX = False
 
+try:
+    import numpy as np
+    HAS_NP = True
+except Exception:
+    HAS_NP = False
+
 _REMBG_SESSIONS = {}            # cache theo từng model
-REMBG_MODELS = {"u2net", "isnet-general-use", "birefnet-general", "bria-rmbg",
-                "u2netp", "silueta"}
+REMBG_MODELS = {"u2net", "isnet-general-use", "birefnet-general", "birefnet-general-lite",
+                "bria-rmbg", "u2netp", "silueta"}
 
 
 def rembg_session(model="u2net"):
@@ -5413,6 +5419,41 @@ def run_pipe_recolor(job_id, designs, colors, size):
 # --------------------------------------------------------------------------- #
 #  Upscale (Pillow)
 # --------------------------------------------------------------------------- #
+def _border_bg_color(im):
+    """Màu nền ước lượng = TRUNG VỊ pixel viền 1px (bền hơn 4 góc khi nền có noise/gradient nhẹ)."""
+    w, h = im.size
+    edges = [im.crop((0, 0, w, 1)), im.crop((0, h - 1, w, h)),
+             im.crop((0, 0, 1, h)), im.crop((w - 1, 0, w, h))]
+    if HAS_NP:
+        allpx = np.concatenate([np.asarray(e.convert("RGB")).reshape(-1, 3) for e in edges], 0)
+        return tuple(int(x) for x in np.median(allpx, 0))
+    px = im.convert("RGB").load()
+    return px[0, 0]
+
+
+def defringe_rgba(raw_png, bg):
+    """'Decontaminate Colors' kiểu Photoshop: rìa bán trong suốt là pixel design TRỘN màu nền
+    -> giải ngược C_design = (C - (1-α)·C_nền)/α để hết QUẦNG TRẮNG/ám màu nền khi đặt lên áo tối."""
+    if not (HAS_PIL and HAS_NP):
+        return raw_png
+    try:
+        im = Image.open(io.BytesIO(raw_png)).convert("RGBA")
+        arr = np.asarray(im).astype(np.float32)
+        a = arr[..., 3:4] / 255.0
+        rim = (a > 0.02) & (a < 0.98)
+        if not rim.any():
+            return raw_png
+        bgv = np.array(bg, dtype=np.float32).reshape(1, 1, 3)
+        un = (arr[..., :3] - (1.0 - a) * bgv) / np.maximum(a, 0.10)
+        arr[..., :3] = np.where(rim, np.clip(un, 0, 255), arr[..., :3])
+        out = Image.fromarray(arr.astype(np.uint8), "RGBA")
+        buf = io.BytesIO()
+        out.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        return raw_png
+
+
 def remove_flat_bg(raw, thresh=45):
     """Xoá nền phẳng (BẤT KỲ màu gì) -> trong suốt bằng flood-fill từ viền.
     Tự lấy màu nền ở các góc nên dùng được cho nền trắng, magenta, xám...
@@ -5476,8 +5517,14 @@ def remove_flat_bg(raw, thresh=45):
         from PIL import ImageFilter
         orig = Image.open(io.BytesIO(raw)).convert("RGB")
         gray = orig.convert("L")
-        soft = gray.point(lambda v: 0 if v >= 246 else (255 if v <= 214 else int((246 - v) * 255 / 32)))
+        # ngưỡng ramp THEO độ sáng nền đo được (hết phụ thuộc nền trắng tinh; nền kem/xám vẫn chuẩn)
+        bglum = (avg[0] * 299 + avg[1] * 587 + avg[2] * 114) // 1000
+        hi, lo = max(bglum - 2, 40), max(bglum - 34, 20)
+        soft = gray.point(lambda v: 0 if v >= hi else (255 if v <= lo else int((hi - v) * 255 / max(hi - lo, 1))))
         alpha = Image.composite(soft, Image.new("L", (w, h), 255), bgmask)
+        # DESPECKLE: median 3x3 CHỈ trong vùng nền (giết hạt nhiễu 1-2px do JPEG), design không đụng
+        med = alpha.filter(ImageFilter.MedianFilter(3))
+        alpha = Image.composite(med, alpha, bgmask)
         # feather nhẹ rìa floodfill cứng -> anti-alias, hết răng cưa
         alpha = alpha.filter(ImageFilter.GaussianBlur(0.7))
         out = orig.convert("RGBA")
@@ -5485,16 +5532,23 @@ def remove_flat_bg(raw, thresh=45):
 
     buf = io.BytesIO()
     out.save(buf, "PNG")
-    return buf.getvalue()
+    png = buf.getvalue()
+    if sat < 55:
+        # DEFRINGE (Photoshop 'Decontaminate Colors'): khử quầng trắng/màu nền bám rìa design
+        png = defringe_rgba(png, avg)
+    return png
 
 
-def remove_bg_ai(raw, model="u2net", matting=True):
-    """Xoá nền bằng rembg. matting=True bật alpha matting (viền mịn, khử halo)."""
+def remove_bg_ai(raw, model="isnet-general-use", matting=True):
+    """Xoá nền bằng rembg (mặc định ISNet — nét hơn hẳn u2net đời 2020).
+    matting=True bật alpha matting (pymatting, viền tóc/mép mịn); kết quả luôn qua
+    DEFRINGE (khử quầng màu nền bám rìa — chuẩn 'Decontaminate Colors' của Photoshop)."""
     if not HAS_REMBG:
         return None
+    res = None
     if matting:
         try:
-            return _rembg_remove(
+            res = _rembg_remove(
                 raw, session=rembg_session(model), post_process_mask=True,
                 alpha_matting=True,
                 alpha_matting_foreground_threshold=240,
@@ -5502,8 +5556,15 @@ def remove_bg_ai(raw, model="u2net", matting=True):
                 alpha_matting_erode_size=8,
             )
         except Exception:
-            pass  # pymatting lỗi với vài ảnh -> rớt xuống bản thường
-    return _rembg_remove(raw, session=rembg_session(model), post_process_mask=True)
+            res = None  # pymatting lỗi với vài ảnh -> rớt xuống bản thường
+    if not res:
+        res = _rembg_remove(raw, session=rembg_session(model), post_process_mask=True)
+    if res:
+        try:
+            res = defringe_rgba(res, _border_bg_color(Image.open(io.BytesIO(raw))))
+        except Exception:
+            pass
+    return res
 
 
 def strip_bg_strong(raw):
@@ -5557,17 +5618,32 @@ def remove_bg_cutoutpro(raw):
 
 
 def strip_background(raw, method, matting=True):
-    """method: 'flat' (theo màu nền) | 'cutoutpro' | 'none' | tên model rembg.
+    """method: 'smart' (tự chọn) | 'flat' (theo màu nền) | 'cutoutpro' | 'none' | tên model rembg.
     matting: bật alpha matting cho các model rembg (viền mịn hơn)."""
     if method == "none":
         return raw
+    if method == "smart":
+        # NỀN PHẲNG đồng nhất (design/nền trơn) -> flood-fill mép sạch tuyệt đối;
+        # ảnh PHỨC TẠP (ảnh chụp, nền lộn xộn) -> AI ISNet. Đây là cách các tool xịn route.
+        flatish = True
+        try:
+            if HAS_PIL:
+                im = Image.open(io.BytesIO(raw)).convert("RGB")
+                w, h = im.size
+                px = im.load()
+                cs = [px[0, 0], px[w - 1, 0], px[0, h - 1], px[w - 1, h - 1],
+                      px[w // 2, 0], px[w // 2, h - 1], px[0, h // 2], px[w - 1, h // 2]]
+                flatish = all(max(abs(cs[0][i] - c[i]) for i in range(3)) <= 26 for c in cs)
+        except Exception:
+            flatish = True
+        method = "flat" if flatish else "isnet-general-use"
     if method == "flat":
         return remove_flat_bg(raw)
     if method == "cutoutpro":
         return remove_bg_cutoutpro(raw)
-    # còn lại coi là model rembg
+    # còn lại coi là model rembg (mặc định ISNet — u2net đã lỗi thời)
     if HAS_REMBG:
-        model = method if method in REMBG_MODELS else "u2net"
+        model = method if method in REMBG_MODELS else "isnet-general-use"
         try:
             out = remove_bg_ai(raw, model, matting)
             if out:

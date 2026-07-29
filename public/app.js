@@ -6813,7 +6813,8 @@ window.cutoutPaste = (durl) => { if (durl) { cutInputs.push(durl); cutRenderThum
 async function cutoutRun() {
   const note = $("cutNote");
   if (!cutInputs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Tải/dán ít nhất 1 ảnh."; return; }
-  const method = "flat", matting = false;   // 1 kiểu duy nhất: tách nền phẳng (mép sạch)
+  const method = ($("cutMethod") && $("cutMethod").value) || "smart";
+  const matting = true;   // alpha matting cho các model AI (viền mịn); flat/cutoutpro tự bỏ qua
   const batch = cutInputs.slice(); cutInputs = []; cutRenderThumbs();   // nhả ngay -> up ảnh mới chạy tiếp được
   note.className = "gen-note"; note.textContent = "⏳ Đang tách nền " + batch.length + " ảnh (song song)…";
   // chạy SONG SONG, mỗi ảnh 1 ô loading riêng
