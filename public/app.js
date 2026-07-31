@@ -6199,19 +6199,35 @@ function adpostUpWire() {
   const btn = $("adpostUpBtn"); if (!btn) return;
   btn.onclick = () => $("adpostUpPanel").classList.toggle("hidden");
   if ($("adpostUpClose")) $("adpostUpClose").onclick = () => $("adpostUpPanel").classList.add("hidden");
-  const setMedia = async (f) => {
-    if (!f) return;
-    adpostUpType = f.type.startsWith("video") ? "video" : "image";
-    adpostUpMedia = await fileToDataURL(f);
-    $("adpostUpName").textContent = (adpostUpType === "video" ? "🎬 " : "🖼️ ") + f.name;
-    $("adpostUpPrev").innerHTML = adpostUpType === "video"
-      ? '<video src="' + adpostUpMedia + '" controls style="max-width:100%;max-height:180px;border-radius:8px"></video>'
-      : '<img src="' + adpostUpMedia + '" style="max-width:100%;max-height:180px;border-radius:8px">';
+  // NHIỀU media 1 lần: mỗi ảnh/video = 1 bài ads riêng
+  window.adpostUpList = window.adpostUpList || [];
+  const upRender = () => {
+    const list = window.adpostUpList;
+    $("adpostUpName").textContent = list.length
+      ? ("✓ Đã chọn " + list.length + " media — bấm thêm để nạp tiếp")
+      : "📁 Bấm / kéo-thả NHIỀU ảnh hoặc video vào đây — mỗi ảnh = 1 bài ads";
+    $("adpostUpPrev").innerHTML = list.map((m, i) =>
+      '<span style="position:relative;display:inline-block;margin:0 6px 6px 0">' +
+      (m.type === "video"
+        ? '<video src="' + m.durl + '" style="width:74px;height:92px;object-fit:cover;border-radius:8px;background:#000"></video>'
+        : '<img src="' + m.durl + '" style="width:74px;height:92px;object-fit:cover;border-radius:8px">') +
+      '<button data-i="' + i + '" class="adpostUpX" style="position:absolute;top:-6px;right:-6px;border:none;border-radius:50%;width:20px;height:20px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:11px">×</button></span>'
+    ).join("");
+    $("adpostUpPrev").querySelectorAll(".adpostUpX").forEach(b => {
+      b.onclick = () => { window.adpostUpList.splice(parseInt(b.dataset.i, 10), 1); upRender(); };
+    });
   };
-  if ($("adpostUpFile")) $("adpostUpFile").onchange = (e) => { setMedia(e.target.files[0]); e.target.value = ""; };
+  const addMedias = async (files) => {
+    for (const f of files) {
+      if (!f || (!f.type.startsWith("image") && !f.type.startsWith("video"))) continue;
+      window.adpostUpList.push({ durl: await fileToDataURL(f), type: f.type.startsWith("video") ? "video" : "image", name: f.name });
+    }
+    upRender();
+  };
+  if ($("adpostUpFile")) $("adpostUpFile").onchange = (e) => { addMedias([...e.target.files]); e.target.value = ""; };
   if ($("adpostUpDrop")) {
     $("adpostUpDrop").ondragover = (e) => e.preventDefault();
-    $("adpostUpDrop").ondrop = (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) setMedia(e.dataTransfer.files[0]); };
+    $("adpostUpDrop").ondrop = (e) => { e.preventDefault(); addMedias([...e.dataTransfer.files]); };
   }
   if ($("adpostUpPick")) $("adpostUpPick").onclick = () => openSpPicker((p) => {
     adpostUpProduct = { title: p.title || "", link: p.store_url || "", image: p.image || "" };
@@ -6220,19 +6236,26 @@ function adpostUpWire() {
   });
   if ($("adpostUpAdd")) $("adpostUpAdd").onclick = async () => {
     const note = $("adpostUpNote");
-    if (!adpostUpMedia) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ảnh hoặc video trước."; return; }
+    const list = window.adpostUpList || [];
+    if (!list.length) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 ảnh/video trước."; return; }
     if (!adpostUpProduct || !adpostUpProduct.link) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn sản phẩm (để có link) trước."; return; }
-    const b = $("adpostUpAdd"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo bài…";
-    note.className = "gen-note"; note.textContent = "⏳ Đang up media + AI viết bài…";
-    try {
-      const r = await fetch("/api/adpost-upload-media", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media: adpostUpMedia, product: adpostUpProduct, caption: ($("adpostUpCaption").value || "").trim() }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-      note.className = "gen-note ok"; note.textContent = "✓ Đã tạo bài (" + adpostUpType + ") + thêm vào bảng. Tick chọn rồi đẩy lên Ads.";
-      adpostUpMedia = null; adpostUpType = null; $("adpostUpName").textContent = "📁 Bấm / kéo-thả ảnh hoặc VIDEO vào đây";
-      $("adpostUpPrev").innerHTML = ""; $("adpostUpCaption").value = "";
-      adpostLoad();
-    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+    const b = $("adpostUpAdd"); b.disabled = true; const o = b.textContent;
+    let ok = 0, fail = 0;
+    // tạo TUẦN TỰ: mỗi media = 1 bài ads riêng (AI viết bài cho từng bài nếu caption trống)
+    for (let i = 0; i < list.length; i++) {
+      b.textContent = "⏳ Bài " + (i + 1) + "/" + list.length + "…";
+      note.className = "gen-note"; note.textContent = "⏳ Đang up media " + (i + 1) + "/" + list.length + " + AI viết bài…";
+      try {
+        const r = await fetch("/api/adpost-upload-media", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ media: list[i].durl, product: adpostUpProduct, caption: ($("adpostUpCaption").value || "").trim() }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+        ok++;
+        adpostLoad();   // bài nào xong hiện bài đó trong bảng
+      } catch (e) { fail++; note.className = "gen-note err"; note.textContent = "✗ Media " + (i + 1) + ": " + e.message; }
+    }
+    note.className = fail ? "gen-note err" : "gen-note ok";
+    note.textContent = (fail ? "⚠️ " : "✓ ") + "Đã tạo " + ok + "/" + list.length + " bài từ ảnh up ngoài. Tick chọn rồi 🚀 đẩy lên Ads.";
+    if (!fail) { window.adpostUpList = []; $("adpostUpPrev").innerHTML = ""; $("adpostUpCaption").value = ""; $("adpostUpName").textContent = "📁 Bấm / kéo-thả NHIỀU ảnh hoặc video vào đây — mỗi ảnh = 1 bài ads"; }
     b.disabled = false; b.textContent = o;
   };
 }
