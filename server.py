@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-ads-upmulti"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-design-quote"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4460,6 +4460,42 @@ def _variety_hint(styles, n):
     return "Mỗi design có CHỦ THỂ/bố cục KHÁC NHAU, đa dạng, tránh trùng lặp giữa các mẫu."
 
 
+def design_concepts_quote(quote, n, styles=None):
+    """💬 QUOTE MODE: design theo ĐÚNG NGUYÊN VĂN quote user gửi.
+    AI phân tích nghĩa/cảm xúc quote -> chọn minh hoạ/hoạ tiết + typography hợp mood;
+    chữ phải đúng TỪNG KÝ TỰ (giữ đủ dấu tiếng Việt), không thêm chữ nào khác."""
+    sd = ""
+    if styles:
+        names = [DESIGN_STYLES[s][0] for s in styles if s in DESIGN_STYLES]
+        if names:
+            sd = " Phong cách ưu tiên: " + ", ".join(names) + "."
+    sys = (
+        "Bạn là designer áo thun POD chuyên TYPOGRAPHY + MINH HOẠ theo quote. Nhận 1 QUOTE, hãy PHÂN TÍCH "
+        "ý nghĩa / cảm xúc / đối tượng của nó, rồi nghĩ N mẫu design KHÁC NHAU RÕ RỆT. Mỗi mẫu: chọn 1 "
+        "hướng MINH HOẠ hoặc HOẠ TIẾT hợp ý nghĩa quote (icon, linh vật, cảnh nhỏ, hoa văn, khung viền, "
+        "doodle, biểu tượng ẩn dụ...) + kiểu typography hợp mood (script mềm, serif cổ điển, bold hiện đại, "
+        "handwritten, retro...). BỐ CỤC CHỮ ĐA DẠNG giữa các mẫu (stacked, arched, xen kẽ to nhỏ, badge).\n"
+        "QUY TẮC SẮT VỀ CHỮ: quote xuất hiện NGUYÊN VĂN TỪNG KÝ TỰ — kể cả DẤU tiếng Việt, không dịch, "
+        "không viết lại, không thêm bất kỳ chữ nào khác ngoài quote (được ngắt dòng tự nhiên theo nhịp đọc).\n"
+        "Mỗi image prompt TIẾNG ANH phải có: (1) câu 'render the EXACT text \"…quote…\" verbatim, every "
+        "character and Vietnamese diacritic preserved, no other words'; (2) mô tả minh hoạ/hoạ tiết đã chọn "
+        "và vị trí so với chữ; (3) kiểu typography + màu sắc hài hoà; (4) kết thúc bằng 'isolated t-shirt "
+        "print graphic on a plain solid white background, no mockup, no shirt, no watermark'.\n"
+        "Trả JSON THUẦN: {\"concepts\":[{\"title\":\"tên ngắn tiếng Việt\",\"style\":\"hướng minh hoạ đã "
+        "chọn (ngắn)\",\"prompt\":\"image prompt tiếng Anh\"}]}")
+    user = "QUOTE (giữ nguyên văn): \"%s\". Nghĩ %d mẫu.%s Chỉ trả JSON." % (quote, n, sd)
+    for _attempt in range(2):
+        try:
+            raw = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
+                              json_mode=True, max_tokens=2600, model=BEST_TEXT_MODEL)
+            cs = [c for c in (json.loads(raw).get("concepts") or []) if (c.get("prompt") or "").strip()]
+            if cs:
+                return cs[:n]
+        except Exception as e:
+            print("design_concepts_quote fail: %s" % e)
+    return []
+
+
 def design_concepts_custom(prompt, theme, text, n, year="", same_line=False):
     """Không chọn style — dùng PROMPT user tự điền làm mô tả design."""
     n = max(1, min(int(n or 3), 8))
@@ -4920,15 +4956,20 @@ DESIGN_MAX_TOTAL = 24      # trần tổng số mẫu / lần (tránh đốt cre
 DESIGN_WORKERS = 5         # số luồng gen ảnh song song
 
 
-def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False, segment="", extra=""):
-    # Bước 1: AI nghĩ n design. segment -> bộ đồng bộ; auto_style -> AI tự chọn; ref -> từ ảnh; else theo style
+def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, year="", same_line=False, auto_style=False, segment="", extra="", quote=""):
+    # Bước 1: AI nghĩ n design. quote -> theo NGUYÊN VĂN quote; segment -> bộ đồng bộ;
+    # auto_style -> AI tự chọn; ref -> từ ảnh; else theo style
     err_msg = None
     style_tag = ""          # None = tag theo từng concept (auto)
     extra = (extra or "").strip()
+    quote = (quote or "").strip()
     # KHÔNG chọn style + có prompt tự điền -> dùng prompt đó làm design
-    custom_mode = bool(extra) and not segment and not auto_style and not ref and not styles
+    custom_mode = bool(extra) and not segment and not auto_style and not ref and not styles and not quote
     try:
-        if custom_mode:
+        if quote:
+            concepts = design_concepts_quote(quote, n, styles)
+            style_tag = None   # tag theo hướng minh hoạ AI chọn cho từng mẫu
+        elif custom_mode:
             concepts = design_concepts_custom(extra, theme, text, n, year, same_line)
             style_tag = "Prompt tự điền"
         elif segment in SEGMENTS:
@@ -8799,8 +8840,10 @@ class Handler(BaseHTTPRequestHandler):
         ref_src = body.get("ref", "")
         if ref_src:
             ref_bytes, _ = fetch_image_bytes(ref_src)
-        if not segment and not auto_style and not styles and not ref_bytes and not (body.get("extra") or "").strip():
-            return self.json(400, {"error": "Hãy chọn phong cách, bật 'AI tự chọn style', tải ảnh tham chiếu, HOẶC tự điền prompt ở ô bên dưới."})
+        quote = (body.get("quote") or "").strip()[:300]
+        if not segment and not auto_style and not styles and not ref_bytes and not quote \
+                and not (body.get("extra") or "").strip():
+            return self.json(400, {"error": "Nhập QUOTE, chọn phong cách, bật 'AI tự chọn style', tải ảnh tham chiếu, HOẶC tự điền prompt."})
         if segment:
             n = SEGMENTS[segment]["n"]      # bộ đồng bộ -> số mẫu cố định theo tệp
         else:
@@ -8817,7 +8860,8 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, styles, body.get("theme", ""),
                                    body.get("text", ""), n, size, transparent, ref_bytes,
                                    body.get("year", ""), bool(body.get("same_line")),
-                                   auto_style, segment, (body.get("extra") or "").strip()[:600]),
+                                   auto_style, segment, (body.get("extra") or "").strip()[:600],
+                                   quote),
                              daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": total_est})
