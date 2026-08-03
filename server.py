@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-stylecards"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-fast"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4483,6 +4483,7 @@ try:   # {style_id: [url ảnh design THẬT]} — gửi kèm làm reference khi
     LVT_REFS = json.load(open(os.path.join(_LVT_DIR, "style-refs.json"), encoding="utf-8"))
 except Exception:
     LVT_REFS = {}
+_LVT_REF_CACHE = {}   # {style_id: [(bytes 768px, mime)]} — cache ref đã thu nhỏ
 
 
 def lvt_quote_plan(quote, n, wordmark="", style_id=""):
@@ -4572,17 +4573,27 @@ def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
             return
         job["total"] = len(concepts)
 
-    # STYLE ĐÃ CHỌN -> tải 3 ảnh design THẬT cùng style làm REFERENCE cho gpt-image bắt chước
-    # (đúng lời khuyên trong brain: gửi ảnh thật sát chất hơn tả bằng chữ nhiều)
+    # STYLE ĐÃ CHỌN -> 3 ảnh design THẬT cùng style làm REFERENCE cho gpt-image bắt chước.
+    # TỐC ĐỘ: cache theo style (khỏi tải lại CDN mỗi lần) + thu nhỏ 768px JPEG (payload nhẹ ~20 lần)
     ref_imgs = []
     if style_id and LVT_REFS.get(style_id):
-        for u in random.sample(LVT_REFS[style_id], min(3, len(LVT_REFS[style_id]))):
-            try:
-                rb, rm = fetch_image_bytes(u)
-                if rb:
-                    ref_imgs.append((rb, rm or "image/png"))
-            except Exception:
-                pass
+        ref_imgs = _LVT_REF_CACHE.get(style_id) or []
+        if not ref_imgs:
+            for u in random.sample(LVT_REFS[style_id], min(3, len(LVT_REFS[style_id]))):
+                try:
+                    rb, _rm = fetch_image_bytes(u)
+                    if rb and HAS_PIL:
+                        im0 = Image.open(io.BytesIO(rb)).convert("RGB")
+                        im0.thumbnail((768, 768))
+                        bo = io.BytesIO()
+                        im0.save(bo, "JPEG", quality=85)
+                        rb = bo.getvalue()
+                    if rb:
+                        ref_imgs.append((rb, "image/jpeg"))
+                except Exception:
+                    pass
+            if ref_imgs:
+                _LVT_REF_CACHE[style_id] = ref_imgs
     _REF_CLAUSE = (" MATCH THE VISUAL STYLE of the attached reference designs — same typography "
                    "treatment, same illustration style, same colour vibe and print finish — but create "
                    "a COMPLETELY NEW original design with the exact text required; do NOT copy any "
@@ -4592,7 +4603,7 @@ def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
         try:
             if ref_imgs:
                 b64 = openai_edit(ref_imgs, c["prompt"] + _REF_CLAUSE, size,
-                                  native_transparent=False, quality="high")
+                                  native_transparent=False, quality="medium")
             else:
                 b64 = openai_generate(c["prompt"], size)
             if HAS_PIL:
