@@ -5437,10 +5437,48 @@ function fbpShotSet(key) {
 let lvtInited = false, lvtItems = [], lvtStyle = "";
 function lvtInit() {
   if (lvtInited) return; lvtInited = true;
-  $("lvtRunBtn").onclick = lvtGenerate;
+  $("lvtRunBtn").onclick = () => lvtGenerate();
   $("lvtSuggest").onclick = lvtDoSuggest;
+  $("lvtProposeBtn").onclick = lvtPropose;
   lvtLoadStyles();
   lvtRender();
+}
+// 🔎 BƯỚC 1: nghiên cứu quote -> đề xuất NHIỀU design thật hợp bố cục/style (nhanh, không gen)
+async function lvtPropose() {
+  const note = $("lvtNote"), btn = $("lvtProposeBtn");
+  const quote = $("lvtQuote").value.trim();
+  if (!quote) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập quote trước đã."; return; }
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "🔎 AI đang lục 3.310 design…";
+  note.className = "gen-note"; note.textContent = "⏳ Phân tích quote + tìm mẫu hợp bố cục…";
+  try {
+    const r = await fetch("/api/lvt-propose", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: quote, k: 6 }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    const box = $("lvtProps");
+    box.innerHTML = '<h4 style="margin:4px 0 8px">🔎 Đề xuất cho quote “' + quote.replace(/</g, "&lt;") +
+      '” — chọn mẫu ưng để gen theo <button class="btn-ghost sm" id="lvtPropClear" style="margin-left:6px">✕ Đóng</button></h4>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
+      (d.proposals || []).map((p, i) =>
+        '<div style="width:230px;border:1px solid var(--line,#ddd);border-radius:12px;overflow:hidden">' +
+          '<img src="' + p.img + '" loading="lazy" data-i="' + i + '" class="lvt-prop-img" style="width:100%;height:210px;object-fit:cover;object-position:center 28%;cursor:zoom-in;background:#f4f2f0">' +
+          '<div style="padding:8px 10px;line-height:1.35">' +
+            '<b style="font-size:12.5px">' + p.name + '</b> <span class="hint" style="font-size:10px">· ' + (p.style_ten || "") + '</span>' +
+            '<p class="hint" style="margin:4px 0;font-size:11px">💡 ' + (p.reason || "") + '</p>' +
+            '<p class="hint" style="margin:4px 0;font-size:11px;color:var(--violet,#7c3aed)">🎯 ' + (p.direction || "") + '</p>' +
+            '<button class="btn-primary sm lvt-prop-gen" data-i="' + i + '" style="width:100%;margin-top:4px;padding:6px">🎨 Gen theo mẫu này</button>' +
+          '</div></div>').join("") + '</div>';
+    box.querySelectorAll(".lvt-prop-img").forEach(im => { im.onclick = () => openZoom(im.src); });
+    box.querySelectorAll(".lvt-prop-gen").forEach(b => {
+      b.onclick = () => {
+        const p = d.proposals[parseInt(b.dataset.i, 10)];
+        lvtGenerate({ ref: p.img, direction: p.direction || p.reason || "", style: p.style || "" });
+      };
+    });
+    const cl = document.getElementById("lvtPropClear");
+    if (cl) cl.onclick = () => { box.innerHTML = ""; };
+    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " đề xuất — xem cột phải, ưng mẫu nào bấm 'Gen theo mẫu này'.";
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = o;
 }
 async function lvtLoadStyles() {
   try {
@@ -5498,17 +5536,21 @@ async function lvtDoSuggest() {
   b.disabled = false; b.textContent = o;
 }
 let lvtBusy = false;
-async function lvtGenerate() {
+async function lvtGenerate(extra) {
+  extra = (extra && extra.ref) ? extra : null;   // {ref, direction, style} khi gen theo mẫu đề xuất
   const note = $("lvtNote"), btn = $("lvtRunBtn");
   if (lvtBusy) { note.className = "gen-note err"; note.textContent = "⏳ Đang gen dở 1 lượt rồi — đợi xong đã nhé (tránh ra gấp đôi mẫu)."; return; }
   const quote = $("lvtQuote").value.trim();
   if (!quote) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập quote (hoặc 🎲 để AI nghĩ) trước."; return; }
   lvtBusy = true; btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = "⏳ Đang gen…";
   const unlock = () => { lvtBusy = false; btn.disabled = false; btn.textContent = oldTxt; };
-  note.className = "gen-note"; note.textContent = "⏳ AI đang phân tích quote theo bộ não meme…";
+  note.className = "gen-note"; note.textContent = extra
+    ? "⏳ Gen theo MẪU đã chọn (bám bố cục mẫu)…"
+    : "⏳ AI đang phân tích quote theo bộ não meme…";
   try {
     const r = await fetch("/api/lvt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quote: quote, n: $("lvtCount").value, size: $("lvtSize").value, wordmark: $("lvtWordmark").value.trim(), style: lvtStyle }) });
+      body: JSON.stringify({ quote: quote, n: $("lvtCount").value, size: $("lvtSize").value, wordmark: $("lvtWordmark").value.trim(),
+        style: (extra && extra.style) || lvtStyle, ref: (extra && extra.ref) || "", direction: (extra && extra.direction) || "" }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     let have = 0;
     const timer = setInterval(async () => {

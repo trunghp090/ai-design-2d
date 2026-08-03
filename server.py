@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-oneclick"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-propose"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4484,9 +4484,61 @@ try:   # {style_id: [url ảnh design THẬT]} — gửi kèm làm reference khi
 except Exception:
     LVT_REFS = {}
 _LVT_REF_CACHE = {}   # {style_id: [(bytes 768px, mime)]} — cache ref đã thu nhỏ
+try:   # index đầy đủ 3.310 design: {n: tên, s: style, c: công thức, t: theme, i: img url}
+    LVT_INDEX = json.load(open(os.path.join(_LVT_DIR, "design-index.json"), encoding="utf-8"))
+except Exception:
+    LVT_INDEX = []
 
 
-def lvt_quote_plan(quote, n, wordmark="", style_id=""):
+def lvt_propose(quote, k=6):
+    """🔎 Nghiên cứu quote -> TÌM trong 3.310 design thật các mẫu có bố cục/style HỢP để đề xuất.
+    Trả [{name, img, style, style_ten, reason, direction}] — nhanh (chỉ text, không gen ảnh)."""
+    # B1: phân tích quote -> 3 style hợp + keywords chủ đề
+    cat_brief = "\n".join("%s: %s — %s; hợp: %s" % (s["id"], s["ten"], s.get("typo", ""), s.get("khi_nao", ""))
+                          for s in LVT_STYLES)
+    s1 = openai_chat([
+        {"role": "system", "content": LVT_BRAIN[:8000] + "\n\nSTYLE CATALOG:\n" + cat_brief +
+         "\nNHIỆM VỤ: phân tích quote (tầng nghĩa, mood, chủ đề, công thức chơi chữ) rồi chọn 3 style "
+         "id HỢP NHẤT + 5-8 keyword chủ đề (tiếng Việt, ngắn). Trả JSON "
+         "{\"styles\":[\"id\"...],\"keywords\":[...],\"mood\":\"...\"}"},
+        {"role": "user", "content": "QUOTE: \"%s\". Chỉ trả JSON." % quote}],
+        json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
+    d1 = json.loads(s1)
+    style_ids = [x for x in (d1.get("styles") or []) if any(s["id"] == x for s in LVT_STYLES)][:3]
+    kws = [str(x).lower() for x in (d1.get("keywords") or [])]
+    # B2: gom ứng viên theo style (+ ưu tiên trùng keyword trong tên/theme) -> tối đa 80
+    pool = [x for x in LVT_INDEX if x.get("s") in style_ids] or LVT_INDEX
+    scored = []
+    for x in pool:
+        txt = (x["n"] + " " + x.get("t", "")).lower()
+        scored.append((sum(1 for w in kws if w and w in txt), x))
+    scored.sort(key=lambda p: -p[0])
+    cands = [x for _sc, x in scored[:40]] + [x for _sc, x in random.sample(scored[40:], min(40, max(0, len(scored) - 40)))]
+    lst = "\n".join("%d|%s|%s|%s" % (i + 1, x["n"], x.get("s", ""), x.get("t", "")) for i, x in enumerate(cands))
+    # B3: chọn k mẫu hợp nhất + lý do + hướng áp dụng
+    s2 = openai_chat([
+        {"role": "system", "content":
+         "Bạn là art director. Quote cần làm design: \"%s\" (mood: %s). Dưới đây là danh sách design THẬT "
+         "'số|tên|style|bộ sưu tập'. Chọn %d design mà BỐ CỤC/STYLE/TINH THẦN hợp quote NHẤT (đa dạng style, "
+         "không chọn trùng ý). Với mỗi cái: lý do hợp (1 câu, tiếng Việt) + hướng áp dụng bố cục mẫu đó cho "
+         "quote (1-2 câu). Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\",\"direction\":\"...\"}]}"
+         % (quote, d1.get("mood", ""), k)},
+        {"role": "user", "content": lst + "\nChỉ trả JSON."}],
+        json_mode=True, max_tokens=1400, model=BEST_TEXT_MODEL)
+    out = []
+    ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
+    for p in (json.loads(s2).get("picks") or [])[:k]:
+        try:
+            x = cands[int(p.get("i", 0)) - 1]
+        except Exception:
+            continue
+        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                    "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+                    "reason": p.get("reason", ""), "direction": p.get("direction", "")})
+    return out
+
+
+def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
     """Phân tích quote theo chất LVT -> N concept design artwork (typo + minh hoạ + palette)."""
     wm = (" Kèm wordmark nhỏ '%s' dưới cùng." % wordmark) if (wordmark or "").strip() else \
          " KHÔNG thêm wordmark/chữ ký nào."
@@ -4499,6 +4551,10 @@ def lvt_quote_plan(quote, n, wordmark="", style_id=""):
                       "nhúng nguyên đoạn: \"%s\".\n"
                       % (st.get("ten", style_id), st.get("typo", ""), st.get("illus", ""),
                          st.get("colors", ""), st.get("layout", ""), st.get("prompt_hint", "")))
+    if (ref_direction or "").strip():
+        style_lock += ("\nBÁM MẪU THAM CHIẾU (user đã chọn 1 design thật làm mẫu — ảnh đính kèm khi gen): "
+                       "BỐ CỤC + tinh thần theo đúng hướng này: %s. Các mẫu chỉ biến tấu nhẹ quanh hướng đó."
+                       % ref_direction.strip()[:400])
     sys = (LVT_BRAIN + style_lock + "\n\n"
            "NHIỆM VỤ: bạn là Art Director theo BỘ NÃO trên. Nhận 1 QUOTE tiếng Việt của user, PHÂN TÍCH "
            "chất hài / tầng nghĩa / công thức chơi chữ gần nhất, rồi nghĩ N mẫu DESIGN ARTWORK ĐỂ IN "
@@ -4556,10 +4612,10 @@ def lvt_quote_suggest(topic, k=8):
     return []
 
 
-def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
-    """Job: plan theo brain LVT (+ style user chọn) -> render gpt-image -> tách nền."""
+def run_lvt_job(job_id, quote, n, size, wordmark, style_id="", ref_url="", direction=""):
+    """Job: plan theo brain LVT (+ style / + design mẫu user chọn) -> render gpt-image -> tách nền."""
     try:
-        concepts = lvt_quote_plan(quote, n, wordmark, style_id)
+        concepts = lvt_quote_plan(quote, n, wordmark, style_id, direction if ref_url else "")
     except Exception as e:
         concepts = []
         print("lvt plan err: %s" % e)
@@ -4573,10 +4629,23 @@ def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
             return
         job["total"] = len(concepts)
 
-    # STYLE ĐÃ CHỌN -> 3 ảnh design THẬT cùng style làm REFERENCE cho gpt-image bắt chước.
-    # TỐC ĐỘ: cache theo style (khỏi tải lại CDN mỗi lần) + thu nhỏ 768px JPEG (payload nhẹ ~20 lần)
+    # ƯU TIÊN 1: user đã CHỌN 1 DESIGN MẪU từ đề xuất -> dùng đúng ảnh đó làm reference bố cục
     ref_imgs = []
-    if style_id and LVT_REFS.get(style_id):
+    if ref_url:
+        try:
+            rb, _rm = fetch_image_bytes(ref_url)
+            if rb and HAS_PIL:
+                im0 = Image.open(io.BytesIO(rb)).convert("RGB")
+                im0.thumbnail((768, 768))
+                bo = io.BytesIO()
+                im0.save(bo, "JPEG", quality=85)
+                rb = bo.getvalue()
+            if rb:
+                ref_imgs = [(rb, "image/jpeg")]
+        except Exception as e:
+            print("lvt ref_url fail: %s" % e)
+    # ƯU TIÊN 2: chọn style -> 3 ảnh thật cùng style (cache + thu nhỏ 768px)
+    if not ref_imgs and style_id and LVT_REFS.get(style_id):
         ref_imgs = _LVT_REF_CACHE.get(style_id) or []
         if not ref_imgs:
             for u in random.sample(LVT_REFS[style_id], min(3, len(LVT_REFS[style_id]))):
@@ -8421,12 +8490,27 @@ class Handler(BaseHTTPRequestHandler):
             size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
             wordmark = (body.get("wordmark") or "").strip()[:40]
             style_id = (body.get("style") or "").strip()[:60]
+            ref_url = (body.get("ref") or "").strip()[:500]
+            direction = (body.get("direction") or "").strip()[:400]
             with _batch_lock:
                 _batch_seq[0] += 1
                 job_id = "lv%d_%d" % (int(time.time()), _batch_seq[0])
                 BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
-            threading.Thread(target=run_lvt_job, args=(job_id, quote, n, size, wordmark, style_id), daemon=True).start()
+            threading.Thread(target=run_lvt_job,
+                             args=(job_id, quote, n, size, wordmark, style_id, ref_url, direction),
+                             daemon=True).start()
             return self.json(200, {"job_id": job_id, "total": n})
+        if path == "/api/lvt-propose":
+            quote = (body.get("quote") or "").strip()[:200]
+            if not quote:
+                return self.json(400, {"error": "Nhập quote trước đã."})
+            try:
+                props = lvt_propose(quote, max(4, min(8, int(body.get("k") or 6))))
+            except Exception as e:
+                return self.json(502, {"error": "Đề xuất lỗi: %s" % e})
+            if not props:
+                return self.json(502, {"error": "AI chưa tìm được mẫu hợp — thử lại."})
+            return self.json(200, {"proposals": props})
         if path == "/api/lvt-styles":
             out = []
             for s in LVT_STYLES:

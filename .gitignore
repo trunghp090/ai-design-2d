@@ -16,3 +16,4 @@ luonvuituoi/*.html
 luonvuituoi/*LITE*
 !luonvuituoi/style-catalog.json
 !luonvuituoi/style-refs.json
+!luonvuituoi/design-index.json
