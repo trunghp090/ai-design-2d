@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-quote"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-styles"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4474,11 +4474,27 @@ except Exception:
     LVT_NAMES = []
 
 
-def lvt_quote_plan(quote, n, wordmark=""):
+try:
+    LVT_STYLES = json.load(open(os.path.join(_LVT_DIR, "style-catalog.json"),
+                                encoding="utf-8")).get("styles") or []
+except Exception:
+    LVT_STYLES = []
+
+
+def lvt_quote_plan(quote, n, wordmark="", style_id=""):
     """Phân tích quote theo chất LVT -> N concept design artwork (typo + minh hoạ + palette)."""
     wm = (" Kèm wordmark nhỏ '%s' dưới cùng." % wordmark) if (wordmark or "").strip() else \
          " KHÔNG thêm wordmark/chữ ký nào."
-    sys = (LVT_BRAIN + "\n\n"
+    # user CHỌN 1 style từ CATALOG (phân tích từ 3.310 design thật) -> mọi mẫu bám đúng style đó
+    style_lock = ""
+    st = next((s for s in LVT_STYLES if s.get("id") == style_id), None)
+    if st:
+        style_lock = ("\nSTYLE BẮT BUỘC (user đã chọn '%s'): typo: %s; minh hoạ: %s; màu: %s; bố cục: %s. "
+                      "TẤT CẢ các mẫu đều theo style này (chỉ biến tấu chi tiết); trong image prompt PHẢI "
+                      "nhúng nguyên đoạn: \"%s\".\n"
+                      % (st.get("ten", style_id), st.get("typo", ""), st.get("illus", ""),
+                         st.get("colors", ""), st.get("layout", ""), st.get("prompt_hint", "")))
+    sys = (LVT_BRAIN + style_lock + "\n\n"
            "NHIỆM VỤ: bạn là Art Director theo BỘ NÃO trên. Nhận 1 QUOTE tiếng Việt của user, PHÂN TÍCH "
            "chất hài / tầng nghĩa / công thức chơi chữ gần nhất, rồi nghĩ N mẫu DESIGN ARTWORK ĐỂ IN "
            "(artwork rời — KHÔNG phải mockup áo).\n"
@@ -4534,10 +4550,10 @@ def lvt_quote_suggest(topic, k=8):
     return []
 
 
-def run_lvt_job(job_id, quote, n, size, wordmark):
-    """Job: plan theo brain LVT -> render từng mẫu bằng gpt-image -> tách nền."""
+def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
+    """Job: plan theo brain LVT (+ style user chọn) -> render gpt-image -> tách nền."""
     try:
-        concepts = lvt_quote_plan(quote, n, wordmark)
+        concepts = lvt_quote_plan(quote, n, wordmark, style_id)
     except Exception as e:
         concepts = []
         print("lvt plan err: %s" % e)
@@ -8368,12 +8384,16 @@ class Handler(BaseHTTPRequestHandler):
                 n = 3
             size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
             wordmark = (body.get("wordmark") or "").strip()[:40]
+            style_id = (body.get("style") or "").strip()[:60]
             with _batch_lock:
                 _batch_seq[0] += 1
                 job_id = "lv%d_%d" % (int(time.time()), _batch_seq[0])
                 BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
-            threading.Thread(target=run_lvt_job, args=(job_id, quote, n, size, wordmark), daemon=True).start()
+            threading.Thread(target=run_lvt_job, args=(job_id, quote, n, size, wordmark, style_id), daemon=True).start()
             return self.json(200, {"job_id": job_id, "total": n})
+        if path == "/api/lvt-styles":
+            return self.json(200, {"styles": [{k: s.get(k, "") for k in ("id", "ten", "typo", "illus", "colors", "khi_nao")}
+                                              for s in LVT_STYLES]})
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":

@@ -14,3 +14,4 @@ luonvuituoi/*.json
 luonvuituoi/*.xlsx
 luonvuituoi/*.html
 luonvuituoi/*LITE*
+!luonvuituoi/style-catalog.json

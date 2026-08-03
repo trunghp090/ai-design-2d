@@ -5434,12 +5434,28 @@ function fbpShotSet(key) {
 }
 
 /* ============ 😆 QUOTE MEME (học 3.310 design LUON VUITUOI) — quote Việt -> design gpt-image ============ */
-let lvtInited = false, lvtItems = [];
+let lvtInited = false, lvtItems = [], lvtStyle = "";
 function lvtInit() {
   if (lvtInited) return; lvtInited = true;
   $("lvtRunBtn").onclick = lvtGenerate;
   $("lvtSuggest").onclick = lvtDoSuggest;
+  lvtLoadStyles();
   lvtRender();
+}
+async function lvtLoadStyles() {
+  try {
+    const d = await (await fetch("/api/lvt-styles", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
+    const box = $("lvtStyles"); box.innerHTML = "";
+    const mk = (id, label, tip) => {
+      const b = document.createElement("button");
+      b.className = "chip" + (lvtStyle === id ? " active" : "");
+      b.textContent = label; b.title = tip || ""; b.dataset.id = id;
+      b.onclick = () => { lvtStyle = id; [...box.children].forEach(c => c.classList.toggle("active", c.dataset.id === id)); };
+      box.appendChild(b);
+    };
+    mk("", "🤖 AI tự chọn theo quote", "AI đọc quote rồi tự chọn style hợp nhất");
+    (d.styles || []).forEach(s => mk(s.id, s.ten, (s.typo || "") + " · " + (s.illus || "") + " · " + (s.colors || "") + "\nHợp: " + (s.khi_nao || "")));
+  } catch (e) {}
 }
 async function lvtDoSuggest() {
   const b = $("lvtSuggest"), note = $("lvtNote");
@@ -5464,7 +5480,7 @@ async function lvtGenerate() {
   note.className = "gen-note"; note.textContent = "⏳ AI đang phân tích quote theo bộ não meme…";
   try {
     const r = await fetch("/api/lvt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quote: quote, n: $("lvtCount").value, size: $("lvtSize").value, wordmark: $("lvtWordmark").value.trim() }) });
+      body: JSON.stringify({ quote: quote, n: $("lvtCount").value, size: $("lvtSize").value, wordmark: $("lvtWordmark").value.trim(), style: lvtStyle }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     let have = 0;
     const timer = setInterval(async () => {

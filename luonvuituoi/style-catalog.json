@@ -1,0 +1,124 @@
+{
+ "styles": [
+  {
+   "id": "sans-dam-khoi-minimal",
+   "ten": "Chữ Đậm Tối Giản",
+   "typo": "sans đậm khối",
+   "illus": "không có hoặc viền dày",
+   "colors": "đen, trắng, đỏ",
+   "layout": "trung tâm, text-based",
+   "khi_nao": "quote tối giản, lời khẳng định",
+   "prompt_hint": "A minimalistic design featuring bold sans text, often centered with no illustrations, emphasizing simplicity and clarity with a stark color palette."
+  },
+  {
+   "id": "halftone-retro",
+   "ten": "Retro Halftone",
+   "typo": "sans đậm",
+   "illus": "halftone retro",
+   "colors": "đen, đỏ, xanh",
+   "layout": "trung tâm, cân đối",
+   "khi_nao": "quote liên quan đến sự trở lại của xu hướng cũ",
+   "prompt_hint": "A vintage-inspired design with bold sans typography and halftone illustrations, creating a nostalgic feel with vibrant colors."
+  },
+  {
+   "id": "mascot-fun",
+   "ten": "Mascot Vui Nhộn",
+   "typo": "sans đậm khối",
+   "illus": "mascot",
+   "colors": "vàng, đỏ, xanh biển",
+   "layout": "trung tâm, hài hước",
+   "khi_nao": "quote hài hước, châm biếm",
+   "prompt_hint": "A humorous design featuring a bold sans text and a funny mascot illustration, usually in a playful and colorful layout."
+  },
+  {
+   "id": "cutout-real-image",
+   "ten": "Ảnh Thật",
+   "typo": "grunge hoặc sans",
+   "illus": "cutout ảnh thật",
+   "colors": "đen, trắng, hồng",
+   "layout": "trung tâm, đối xứng ngang",
+   "khi_nao": "quote có tính chân thực, châm biếm",
+   "prompt_hint": "A gritty design with real image cutouts alongside grunge or clean typography, often laid out symmetrically with a serious tone."
+  },
+  {
+   "id": "bubble-cursive",
+   "ten": "Chữ Nổi",
+   "typo": "bubble hoặc cursive",
+   "illus": "không có hoặc nhỏ",
+   "colors": "đỏ, vàng, xanh",
+   "layout": "trung tâm, nổi bật",
+   "khi_nao": "quote vui nhộn, nhẹ nhàng",
+   "prompt_hint": "A vibrant design with bubble or cursive lettering, focusing on bold, eye-catching layout and vivid colors to enliven the message."
+  },
+  {
+   "id": "script-serif",
+   "ten": "Chữ Viết Tay",
+   "typo": "script hoặc serif",
+   "illus": "không có hoặc tối giản",
+   "colors": "đỏ, trắng",
+   "layout": "cổ điển, trang nhã",
+   "khi_nao": "quote nghiêm túc, cổ điển",
+   "prompt_hint": "An elegant design with script or serif fonts, emphasizing a classic and refined tone with a minimalistic layout."
+  },
+  {
+   "id": "illustrative-humor",
+   "ten": "Minh Hoạ Vui",
+   "typo": "sans hoặc micro-text",
+   "illus": "minh hoạ hài hước hoặc động vật",
+   "colors": "vàng, xanh, đỏ",
+   "layout": "trung tâm, vui tươi",
+   "khi_nao": "quote hài hước, trẻ trung",
+   "prompt_hint": "A playful design featuring lighthearted illustrations, often involving bold sans text or micro-text to accentuate humor."
+  },
+  {
+   "id": "micro-text-organized",
+   "ten": "Ký Tự Nhỏ Gọn",
+   "typo": "micro-text",
+   "illus": "không có",
+   "colors": "đen, trắng, rainbow",
+   "layout": "trung tâm, tổ chức tốt",
+   "khi_nao": "quote chi tiết, dạng danh sách",
+   "prompt_hint": "A meticulous design focusing on micro-text, lacking illustrations but highly organized, often with a monochrome or diverse color scheme."
+  },
+  {
+   "id": "vintage-badge",
+   "ten": "Huy Hiệu Cổ",
+   "typo": "retro",
+   "illus": "huy hiệu",
+   "colors": "vintage warm, đỏ",
+   "layout": "trung tâm, giống huy hiệu",
+   "khi_nao": "quote truyền thống, cảm hứng",
+   "prompt_hint": "A traditional design with retro typography and badge-like illustrations, using a warm and vintage color palette to evoke nostalgia."
+  },
+  {
+   "id": "multicolor-vibrant",
+   "ten": "Sắc Màu Rực Rỡ",
+   "typo": "màu sắc đa dạng",
+   "illus": "không hoặc flat",
+   "colors": "nhiều màu",
+   "layout": "phía trước, nổi bật",
+   "khi_nao": "quote sống động, táo bạo",
+   "prompt_hint": "A lively design featuring multicolored typography against a plain background, emphasizing boldness and vibrancy."
+  },
+  {
+   "id": "bold-central-flat",
+   "ten": "Đậm Trung Tâm",
+   "typo": "sans đậm",
+   "illus": "vector phẳng",
+   "colors": "trắng, đen, xanh",
+   "layout": "trung tâm, blocky",
+   "khi_nao": "quote mạnh mẽ, dứt khoát",
+   "prompt_hint": "A straightforward design with bold san serif typography and flat vectors, arranged centrally to assert clarity and impact."
+  },
+  {
+   "id": "realistic-humor",
+   "ten": "Thực Tế Hài",
+   "typo": "handwritten hoặc serif",
+   "illus": "cutout ảnh thật vui nhộn",
+   "colors": "đen, trắng, nhiều màu",
+   "layout": "giữa áo, không đối xứng",
+   "khi_nao": "quote chân thật hài hước",
+   "prompt_hint": "A design combining realistic image cutouts with playful handwritten or serif typography, often creating a humorous juxtaposition."
+  }
+ ]
+}
