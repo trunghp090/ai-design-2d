@@ -5445,16 +5445,40 @@ function lvtInit() {
 async function lvtLoadStyles() {
   try {
     const d = await (await fetch("/api/lvt-styles", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
-    const box = $("lvtStyles"); box.innerHTML = "";
-    const mk = (id, label, tip) => {
-      const b = document.createElement("button");
-      b.className = "chip" + (lvtStyle === id ? " active" : "");
-      b.textContent = label; b.title = tip || ""; b.dataset.id = id;
-      b.onclick = () => { lvtStyle = id; [...box.children].forEach(c => c.classList.toggle("active", c.dataset.id === id)); };
-      box.appendChild(b);
+    const box = $("lvtStyles");
+    box.innerHTML = "";
+    box.className = "";   // bỏ CSS chips ngang — danh sách này là CỘT dọc
+    box.style.cssText = "display:flex;flex-direction:column;gap:10px;max-height:520px;overflow-y:auto;overflow-x:hidden;padding-right:3px";
+    const paint = () => {
+      [...box.children].forEach(r => {
+        const on = r.dataset.id === lvtStyle;
+        r.style.border = on ? "3px solid var(--violet,#7c3aed)" : "1px solid var(--line,#ddd)";
+        r.style.background = on ? "rgba(124,58,237,.07)" : "transparent";
+        const t = r.querySelector(".lvt-tick");
+        if (t) t.style.display = on ? "flex" : "none";
+      });
     };
-    mk("", "🤖 AI tự chọn theo quote", "AI đọc quote rồi tự chọn style hợp nhất");
-    (d.styles || []).forEach(s => mk(s.id, s.ten, (s.typo || "") + " · " + (s.illus || "") + " · " + (s.colors || "") + "\nHợp: " + (s.khi_nao || "")));
+    const mk = (id, ten, desc, sample) => {
+      const r = document.createElement("div");
+      r.dataset.id = id;
+      r.style.cssText = "border-radius:12px;overflow:hidden;cursor:pointer;position:relative;flex:0 0 auto";
+      r.innerHTML =
+        (sample
+          ? '<img src="' + sample + '" loading="lazy" style="width:100%;height:175px;object-fit:cover;object-position:center 30%;display:block;background:#f4f2f0">' +
+            '<span class="lvt-zoom" title="Phóng to xem design mẫu" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;border-radius:8px;padding:3px 8px;font-size:13px">🔍</span>'
+          : '<div style="height:56px;display:flex;align-items:center;justify-content:center;font-size:26px">🤖</div>') +
+        '<span class="lvt-tick" style="position:absolute;top:6px;left:6px;background:var(--violet,#7c3aed);color:#fff;border-radius:50%;width:26px;height:26px;display:none;align-items:center;justify-content:center;font-weight:800">✓</span>' +
+        '<div style="padding:7px 10px 8px;line-height:1.3"><b style="font-size:13px">' + ten + '</b><br>' +
+        '<span class="hint" style="font-size:10.5px;white-space:normal">' + desc + '</span></div>';
+      r.onclick = () => { lvtStyle = id; paint(); };
+      const z = r.querySelector(".lvt-zoom");
+      if (z && sample) z.onclick = (e) => { e.stopPropagation(); openZoom(sample); };
+      box.appendChild(r);
+    };
+    mk("", "🤖 AI tự chọn theo quote", "AI đọc quote rồi tự chọn style hợp nhất", "");
+    (d.styles || []).forEach(s => mk(s.id, s.ten,
+      ((s.typo || "") + " · " + (s.illus || "")).slice(0, 90), s.sample || ""));
+    paint();
   } catch (e) {}
 }
 async function lvtDoSuggest() {

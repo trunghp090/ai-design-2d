@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-refs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-stylecards"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8417,8 +8417,13 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=run_lvt_job, args=(job_id, quote, n, size, wordmark, style_id), daemon=True).start()
             return self.json(200, {"job_id": job_id, "total": n})
         if path == "/api/lvt-styles":
-            return self.json(200, {"styles": [{k: s.get(k, "") for k in ("id", "ten", "typo", "illus", "colors", "khi_nao")}
-                                              for s in LVT_STYLES]})
+            out = []
+            for s in LVT_STYLES:
+                d = {k: s.get(k, "") for k in ("id", "ten", "typo", "illus", "colors", "khi_nao")}
+                refs = LVT_REFS.get(s.get("id")) or []
+                d["sample"] = refs[0] if refs else ""   # 1 ảnh design THẬT minh hoạ style
+                out.append(d)
+            return self.json(200, {"styles": out})
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":
