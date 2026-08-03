@@ -5497,10 +5497,14 @@ async function lvtDoSuggest() {
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   b.disabled = false; b.textContent = o;
 }
+let lvtBusy = false;
 async function lvtGenerate() {
-  const note = $("lvtNote");
+  const note = $("lvtNote"), btn = $("lvtRunBtn");
+  if (lvtBusy) { note.className = "gen-note err"; note.textContent = "⏳ Đang gen dở 1 lượt rồi — đợi xong đã nhé (tránh ra gấp đôi mẫu)."; return; }
   const quote = $("lvtQuote").value.trim();
   if (!quote) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập quote (hoặc 🎲 để AI nghĩ) trước."; return; }
+  lvtBusy = true; btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = "⏳ Đang gen…";
+  const unlock = () => { lvtBusy = false; btn.disabled = false; btn.textContent = oldTxt; };
   note.className = "gen-note"; note.textContent = "⏳ AI đang phân tích quote theo bộ não meme…";
   try {
     const r = await fetch("/api/lvt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -5514,14 +5518,14 @@ async function lvtGenerate() {
         if (s.items && s.items.length) lvtRender();
         note.className = "gen-note"; note.textContent = "⏳ Đang vẽ " + s.done + "/" + s.total + " mẫu (gpt-image)…";
         if (s.finished) {
-          clearInterval(timer);
+          clearInterval(timer); unlock();
           if ((s.errors || []).length) { note.className = "gen-note err"; note.textContent = "⚠️ " + s.errors[0]; }
           else { note.className = "gen-note ok"; note.textContent = "✓ Xong " + s.done + " mẫu!"; }
           if (typeof loadGallery === "function") loadGallery();
         }
       } catch (e) {}
     }, 3000);
-  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  } catch (e) { unlock(); note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
 function lvtRender() {
   const grid = $("lvtResults");
