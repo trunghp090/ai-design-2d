@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-design-quote"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-quote"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4460,6 +4460,126 @@ def _variety_hint(styles, n):
     return "Mỗi design có CHỦ THỂ/bố cục KHÁC NHAU, đa dạng, tránh trùng lặp giữa các mẫu."
 
 
+# ==== 😆 QUOTE MEME theo bộ não LUON VUITUOI (streetwear meme Việt — 3.310 design học được) ====
+_LVT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "luonvuituoi")
+try:
+    LVT_BRAIN = open(os.path.join(_LVT_DIR, "LUONVUITUOI-AI-Design-Brain.md"), encoding="utf-8").read()[:17000]
+except Exception:
+    LVT_BRAIN = ""
+try:
+    LVT_NAMES = [ln.split("\t")[0].strip() for ln in
+                 open(os.path.join(_LVT_DIR, "luonvuituoi-designs.tsv"), encoding="utf-8-sig")][1:]
+    LVT_NAMES = [x for x in LVT_NAMES if x]
+except Exception:
+    LVT_NAMES = []
+
+
+def lvt_quote_plan(quote, n, wordmark=""):
+    """Phân tích quote theo chất LVT -> N concept design artwork (typo + minh hoạ + palette)."""
+    wm = (" Kèm wordmark nhỏ '%s' dưới cùng." % wordmark) if (wordmark or "").strip() else \
+         " KHÔNG thêm wordmark/chữ ký nào."
+    sys = (LVT_BRAIN + "\n\n"
+           "NHIỆM VỤ: bạn là Art Director theo BỘ NÃO trên. Nhận 1 QUOTE tiếng Việt của user, PHÂN TÍCH "
+           "chất hài / tầng nghĩa / công thức chơi chữ gần nhất, rồi nghĩ N mẫu DESIGN ARTWORK ĐỂ IN "
+           "(artwork rời — KHÔNG phải mockup áo).\n"
+           "MỖI MẪU KHÁC NHAU RÕ: chọn 1 nhóm typography đúng brand (A script viết tay nghiêng mảnh / "
+           "B sans-serif đậm in hoa xếp khối 2-4 dòng / C micro-text block) hợp mood quote; 1 hướng minh "
+           "hoạ flat vector viền dày ít chi tiết hợp NGHĨA quote (mèo/vịt/ếch/capybara/khủng long/trái "
+           "cây/đồ vật ẩn dụ — tự vẽ nhân vật riêng, cấm nhại nhân vật có bản quyền) hoặc typo-only; "
+           "bảng in 1-3 màu (trắng-trên-đen, hoặc đen + 1 màu nhấn đỏ/hồng/vàng).\n"
+           "QUY TẮC CHỮ SẮT: quote lên design NGUYÊN VĂN TỪNG KÝ TỰ đủ dấu tiếng Việt — không dịch, "
+           "không viết lại, không thêm chữ nào khác." + wm + " CẤM chữ 'luonvuituoi'.\n"
+           "IMAGE PROMPT tiếng Anh (cho gpt-image) mỗi mẫu PHẢI có: câu 'render the EXACT Vietnamese "
+           "text \"<quote>\" verbatim, every character and diacritic preserved'; mô tả kiểu chữ + minh "
+           "hoạ + bố cục + palette; kết thúc bằng: 'isolated t-shirt print graphic, flat vector, thick "
+           "outlines, screen-print look, maximum 3 ink colors, on a plain solid white background, no "
+           "shirt, no mockup, no watermark'.\n"
+           "Trả JSON THUẦN: {\"concepts\":[{\"title\":\"câu quote\",\"style\":\"typo + minh hoạ (ngắn, "
+           "tiếng Việt)\",\"prompt\":\"image prompt tiếng Anh\"}]}")
+    user = "QUOTE: \"%s\". Nghĩ %d mẫu. Chỉ trả JSON." % (quote, n)
+    for _a in range(2):
+        try:
+            raw = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
+                              json_mode=True, max_tokens=2800, model=BEST_TEXT_MODEL)
+            cs = [c for c in (json.loads(raw).get("concepts") or []) if (c.get("prompt") or "").strip()]
+            if cs:
+                return cs[:n]
+        except Exception as e:
+            print("lvt_quote_plan fail: %s" % e)
+    return []
+
+
+def lvt_quote_suggest(topic, k=8):
+    """🎲 AI nghĩ quote MỚI đúng chất brand theo 10 công thức, tránh trùng 3.310 design đã có."""
+    sample = ""
+    if LVT_NAMES:
+        sample = " | ".join(random.sample(LVT_NAMES, min(140, len(LVT_NAMES))))
+    sys = (LVT_BRAIN + "\n\n"
+           "NHIỆM VỤ: nghĩ %d CÂU QUOTE MỚI đúng chất brand, áp 10 CÔNG THỨC (đa dạng công thức, mỗi câu "
+           "ghi rõ công thức nào). Câu ≤8 chữ, BẮT BUỘC có tầng nghĩa thứ 2. KHÔNG TRÙNG hoặc na ná các "
+           "design đã có (mẫu danh sách: %s).\n"
+           "Trả JSON THUẦN: {\"quotes\":[{\"text\":\"câu\",\"formula\":\"CT số + tên\",\"explain\":\"tầng "
+           "nghĩa 2 (1 câu)\",\"pair\":\"bản cặp đôi nếu hợp (hoặc rỗng)\"}]}" % (k, sample))
+    user = ("Chủ đề: %s. Chỉ trả JSON." % topic) if (topic or "").strip() else \
+        "Tự chọn chủ đề từ KHOẢNG TRỐNG CƠ HỘI trong bộ não. Chỉ trả JSON."
+    for _a in range(2):
+        try:
+            raw = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
+                              json_mode=True, max_tokens=1800, model=BEST_TEXT_MODEL)
+            qs = [q for q in (json.loads(raw).get("quotes") or []) if (q.get("text") or "").strip()]
+            if qs:
+                return qs[:k]
+        except Exception as e:
+            print("lvt_quote_suggest fail: %s" % e)
+    return []
+
+
+def run_lvt_job(job_id, quote, n, size, wordmark):
+    """Job: plan theo brain LVT -> render từng mẫu bằng gpt-image -> tách nền."""
+    try:
+        concepts = lvt_quote_plan(quote, n, wordmark)
+    except Exception as e:
+        concepts = []
+        print("lvt plan err: %s" % e)
+    with _batch_lock:
+        job = BATCH_JOBS.get(job_id)
+        if not job:
+            return
+        if not concepts:
+            job["errors"].append("AI chưa nghĩ được mẫu từ quote này — thử lại hoặc đổi quote.")
+            job["finished"] = True
+            return
+        job["total"] = len(concepts)
+
+    def work(c):
+        try:
+            b64 = openai_generate(c["prompt"], size)
+            if HAS_PIL:
+                b64 = strip_bg_strong_b64(b64)
+            g = gallery_add(b64, {"mode": "lvtquote", "prompt": c.get("title", quote)})
+            return {"image": b64, "title": "[%s] %s" % ((c.get("style") or "LVT").strip()[:48], c.get("title", quote)),
+                    "prompt": c["prompt"], "gallery": g}
+        except urllib.error.HTTPError as e:
+            return {"error": openai_error_message(e), "title": c.get("title", quote)}
+        except Exception as e:
+            return {"error": str(e), "title": c.get("title", quote)}
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        for res in ex.map(work, concepts):
+            with _batch_lock:
+                job = BATCH_JOBS.get(job_id)
+                if not job:
+                    return
+                job["done"] += 1
+                if res.get("error"):
+                    job["errors"].append("%s: %s" % (res.get("title", ""), res["error"]))
+                else:
+                    job["items"].append(res)
+    with _batch_lock:
+        if BATCH_JOBS.get(job_id):
+            BATCH_JOBS[job_id]["finished"] = True
+
+
 def design_concepts_quote(quote, n, styles=None):
     """💬 QUOTE MODE: design theo ĐÚNG NGUYÊN VĂN quote user gửi.
     AI phân tích nghĩa/cảm xúc quote -> chọn minh hoạ/hoạ tiết + typography hợp mood;
@@ -8226,6 +8346,34 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_gallery_clear(body)
         if path == "/api/mixdesign-gen":
             return self.handle_mixdesign_gen(body)
+        if path == "/api/lvt-suggest":
+            topic = (body.get("topic") or "").strip()[:100]
+            try:
+                k = max(4, min(12, int(body.get("k") or 8)))
+            except Exception:
+                k = 8
+            qs = lvt_quote_suggest(topic, k)
+            if not qs:
+                return self.json(502, {"error": "AI chưa nghĩ được quote — thử lại."})
+            return self.json(200, {"quotes": qs})
+        if path == "/api/lvt-gen":
+            if not API_KEY:
+                return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+            quote = (body.get("quote") or "").strip()[:200]
+            if not quote:
+                return self.json(400, {"error": "Nhập quote trước đã."})
+            try:
+                n = max(1, min(6, int(body.get("n") or 3)))
+            except Exception:
+                n = 3
+            size = SIZE_MAP.get(body.get("size", "portrait"), "1024x1536")
+            wordmark = (body.get("wordmark") or "").strip()[:40]
+            with _batch_lock:
+                _batch_seq[0] += 1
+                job_id = "lv%d_%d" % (int(time.time()), _batch_seq[0])
+                BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False}
+            threading.Thread(target=run_lvt_job, args=(job_id, quote, n, size, wordmark), daemon=True).start()
+            return self.json(200, {"job_id": job_id, "total": n})
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
         if path == "/api/prod-generate":

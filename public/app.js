@@ -768,6 +768,7 @@ function showApp(app) {
   document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
   document.getElementById("view-mixd").classList.toggle("hidden", app !== "mixd");
+  document.getElementById("view-lvt").classList.toggle("hidden", app !== "lvt");
   document.getElementById("view-cutout").classList.toggle("hidden", app !== "cutout");
   document.getElementById("view-autopipe").classList.toggle("hidden", app !== "autopipe");
   document.getElementById("view-post").classList.toggle("hidden", app !== "post");
@@ -795,6 +796,7 @@ function showApp(app) {
   if (app === "tiktok") ttInit();
   if (app === "namedes") namedesInit();
   if (app === "mixd") mixdInit();
+  if (app === "lvt") lvtInit();
   if (app === "cutout") cutoutInit();
   if (app === "shopify") shopInit();
   if (app === "shoplist") shoplistInit();
@@ -5429,6 +5431,82 @@ function fbpShotSet(key) {
     fbpShots[key] = new Set(c ? c.shots.map((_, i) => i) : []);
   }
   return fbpShots[key];
+}
+
+/* ============ 😆 QUOTE MEME (học 3.310 design LUON VUITUOI) — quote Việt -> design gpt-image ============ */
+let lvtInited = false, lvtItems = [];
+function lvtInit() {
+  if (lvtInited) return; lvtInited = true;
+  $("lvtRunBtn").onclick = lvtGenerate;
+  $("lvtSuggest").onclick = lvtDoSuggest;
+  lvtRender();
+}
+async function lvtDoSuggest() {
+  const b = $("lvtSuggest"), note = $("lvtNote");
+  b.disabled = true; const o = b.textContent; b.textContent = "⏳ AI đang nghĩ…";
+  try {
+    const r = await fetch("/api/lvt-suggest", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: $("lvtTopic").value.trim(), k: 8 }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    $("lvtSugList").innerHTML = (d.quotes || []).map(q =>
+      '<button class="btn-ghost sm lvt-sug" data-q="' + (q.text || "").replace(/"/g, "&quot;") + '" ' +
+      'title="' + ((q.formula || "") + " — " + (q.explain || "") + (q.pair ? " · Cặp: " + q.pair : "")).replace(/"/g, "&quot;") + '" ' +
+      'style="margin:0 4px 4px 0;font-size:12px">' + (q.text || "") + '</button>').join("") +
+      '<p class="hint" style="font-size:10px;margin:2px 0 0">Di chuột xem công thức + tầng nghĩa · bấm để chọn</p>';
+    $("lvtSugList").querySelectorAll(".lvt-sug").forEach(x => { x.onclick = () => { $("lvtQuote").value = x.dataset.q; }; });
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  b.disabled = false; b.textContent = o;
+}
+async function lvtGenerate() {
+  const note = $("lvtNote");
+  const quote = $("lvtQuote").value.trim();
+  if (!quote) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập quote (hoặc 🎲 để AI nghĩ) trước."; return; }
+  note.className = "gen-note"; note.textContent = "⏳ AI đang phân tích quote theo bộ não meme…";
+  try {
+    const r = await fetch("/api/lvt-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quote: quote, n: $("lvtCount").value, size: $("lvtSize").value, wordmark: $("lvtWordmark").value.trim() }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    let have = 0;
+    const timer = setInterval(async () => {
+      try {
+        const s = await (await fetch("/api/batch-status?id=" + encodeURIComponent(d.job_id) + "&have=" + have)).json();
+        (s.items || []).forEach(it => { lvtItems.unshift(it); have++; });
+        if (s.items && s.items.length) lvtRender();
+        note.className = "gen-note"; note.textContent = "⏳ Đang vẽ " + s.done + "/" + s.total + " mẫu (gpt-image)…";
+        if (s.finished) {
+          clearInterval(timer);
+          if ((s.errors || []).length) { note.className = "gen-note err"; note.textContent = "⚠️ " + s.errors[0]; }
+          else { note.className = "gen-note ok"; note.textContent = "✓ Xong " + s.done + " mẫu!"; }
+          if (typeof loadGallery === "function") loadGallery();
+        }
+      } catch (e) {}
+    }, 3000);
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+function lvtRender() {
+  const grid = $("lvtResults");
+  $("lvtCountLbl").textContent = lvtItems.length ? "(" + lvtItems.length + ")" : "";
+  $("lvtEmpty").classList.toggle("hidden", lvtItems.length > 0);
+  grid.innerHTML = "";
+  lvtItems.forEach(it => {
+    const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery || {}).url || "");
+    const card = document.createElement("div"); card.className = "fp-card";
+    card.innerHTML =
+      '<div class="fp-card-img" style="background:linear-gradient(45deg,#eee 25%,transparent 25%),linear-gradient(-45deg,#eee 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#eee 75%),linear-gradient(-45deg,transparent 75%,#eee 75%);background-size:20px 20px;background-color:#fff"><img src="' + src + '" loading="lazy"></div>' +
+      '<div class="fp-card-prompt" style="font-size:11px">' + (it.title || "") + '</div>' +
+      '<details style="margin:2px 0"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">✏️ Prompt</summary><pre style="white-space:pre-wrap;font-size:10px;max-height:120px;overflow:auto;background:rgba(127,127,127,.1);padding:6px;border-radius:6px">' + (it.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></details>' +
+      '<div class="fp-card-acts"><button class="b-shirt">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>';
+    card.querySelector("img").onclick = () => openZoom(src);
+    card.querySelector(".b-shirt").onclick = () => { showApp("clone"); showDesign(src); const t = document.querySelector('.rtab[data-rtab="design"]'); if (t) t.click(); };
+    card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
+    card.querySelector(".b-dl").onclick = () => { if (it.image) autoDownload(it.image, "quote-meme"); };
+    card.querySelector(".b-del").onclick = () => {
+      const gid = (it.gallery || {}).id;
+      if (gid) fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }).catch(() => {});
+      lvtItems = lvtItems.filter(x => x !== it); lvtRender();
+    };
+    grid.appendChild(card);
+  });
 }
 
 /* ============ 🧪 MIX DESIGN: 2-3 resource + vai trò -> Claude viết công thức -> final design ============ */

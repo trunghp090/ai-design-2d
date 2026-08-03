@@ -56,6 +56,7 @@
     <button class="app-tab" data-app="psn" data-group="design">🎁 Personalized</button>
     <button class="app-tab" data-app="namedes" data-group="design">✍️ Design tên</button>
     <button class="app-tab" data-app="mixd" data-group="design">🧪 Mix Design</button>
+    <button class="app-tab" data-app="lvt" data-group="design">😆 Quote Meme</button>
     <button class="app-tab" data-app="cutout" data-group="design">✂️ Tách nền</button>
     <button class="app-tab" data-app="product" data-group="product">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="autopipe" data-group="product">🚀 Trọn gói</button>
@@ -1877,6 +1878,46 @@
       <p class="gen-note" id="adpostNote" style="margin:8px 0 0"></p>
       <div id="adpostList" style="margin-top:10px;overflow:auto"></div>
       <div class="gallery-empty" id="adpostEmpty">Chưa có bài nào. Vào tab 📣 FB Ads tạo ảnh → bấm "➕ Bài Ads" để đưa sang đây.</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-lvt">
+    <div class="fp-layout">
+      <aside class="panel fp-side">
+        <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">😆 Quote Meme</h2>
+        <p class="panel-desc" style="margin:0 0 12px">Học từ <b>3.310 design streetwear meme Việt</b> (10 công thức chơi chữ). Nhập quote → AI phân tích tầng nghĩa → gen design bằng <b>gpt-image</b>, chữ đúng nguyên văn.</p>
+
+        <label class="fp-label">💬 QUOTE TIẾNG VIỆT</label>
+        <textarea id="lvtQuote" class="input" rows="2" placeholder="VD: Ở hiền gặp phiền · Bỏ nhậu rồi · Sống nay stress mai…"></textarea>
+
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <input type="text" id="lvtTopic" class="input" placeholder="Chủ đề gợi ý (trống = AI tự chọn)" style="flex:1;min-width:130px;font-size:12px;padding:6px 8px">
+          <button class="btn-ghost sm" id="lvtSuggest">🎲 AI nghĩ quote</button>
+        </div>
+        <div id="lvtSugList" style="margin-top:6px"></div>
+
+        <label class="fp-label" style="margin-top:12px">🏷️ Wordmark nhỏ (tuỳ chọn)</label>
+        <input type="text" id="lvtWordmark" class="input" placeholder="VD: rieng.vn (trống = không in)" style="font-size:12px">
+
+        <div class="auto-row" style="margin-top:12px">
+          <div>
+            <label class="fp-label">🖼️ Số mẫu</label>
+            <select id="lvtCount" class="input"><option value="3" selected>3 mẫu</option><option value="1">1</option><option value="2">2</option><option value="4">4</option><option value="6">6</option></select>
+          </div>
+          <div>
+            <label class="fp-label">📐 Tỉ lệ</label>
+            <select id="lvtSize" class="input"><option value="portrait">Dọc (in áo)</option><option value="square">Vuông</option></select>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="lvtRunBtn" style="margin-top:14px">😆 Tạo design quote</button>
+        <p class="gen-note" id="lvtNote"></p>
+      </aside>
+      <section class="panel fp-main">
+        <div class="gallery-head"><h3 style="margin:0">😆 Mẫu quote <span id="lvtCountLbl" class="fp-count"></span></h3></div>
+        <div id="lvtResults" class="fp-creations list"></div>
+        <div class="gallery-empty" id="lvtEmpty">Nhập quote (hoặc 🎲 để AI nghĩ) rồi bấm Tạo.</div>
+      </section>
     </div>
   </section>
 

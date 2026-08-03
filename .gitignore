@@ -9,3 +9,8 @@ __pycache__/
 File áo/
 .DS_Store
 .claude/
+# luonvuituoi: chỉ commit brain .md + danh sách .tsv (file nặng bỏ qua)
+luonvuituoi/*.json
+luonvuituoi/*.xlsx
+luonvuituoi/*.html
+luonvuituoi/*LITE*
