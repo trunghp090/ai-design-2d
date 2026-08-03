@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-styles"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.07.18-lvt-refs"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4479,6 +4479,10 @@ try:
                                 encoding="utf-8")).get("styles") or []
 except Exception:
     LVT_STYLES = []
+try:   # {style_id: [url ảnh design THẬT]} — gửi kèm làm reference khi gen cho SÁT chất brand
+    LVT_REFS = json.load(open(os.path.join(_LVT_DIR, "style-refs.json"), encoding="utf-8"))
+except Exception:
+    LVT_REFS = {}
 
 
 def lvt_quote_plan(quote, n, wordmark="", style_id=""):
@@ -4507,8 +4511,9 @@ def lvt_quote_plan(quote, n, wordmark="", style_id=""):
            "không viết lại, không thêm chữ nào khác." + wm + " CẤM chữ 'luonvuituoi'.\n"
            "IMAGE PROMPT tiếng Anh (cho gpt-image) mỗi mẫu PHẢI có: câu 'render the EXACT Vietnamese "
            "text \"<quote>\" verbatim, every character and diacritic preserved'; mô tả kiểu chữ + minh "
-           "hoạ + bố cục + palette; kết thúc bằng: 'isolated t-shirt print graphic, flat vector, thick "
-           "outlines, screen-print look, maximum 3 ink colors, on a plain solid white background, no "
+           "hoạ + bố cục + PALETTE MÀU theo đúng chất style đã chọn (style rực rỡ/bubble/cutout thì "
+           "thoải mái nhiều màu; style tối giản thì 1-3 màu — đừng ép mọi mẫu về ít màu); kết thúc bằng: "
+           "'isolated t-shirt print graphic, screen-print look, on a plain solid white background, no "
            "shirt, no mockup, no watermark'.\n"
            "Trả JSON THUẦN: {\"concepts\":[{\"title\":\"câu quote\",\"style\":\"typo + minh hoạ (ngắn, "
            "tiếng Việt)\",\"prompt\":\"image prompt tiếng Anh\"}]}")
@@ -4567,9 +4572,29 @@ def run_lvt_job(job_id, quote, n, size, wordmark, style_id=""):
             return
         job["total"] = len(concepts)
 
+    # STYLE ĐÃ CHỌN -> tải 3 ảnh design THẬT cùng style làm REFERENCE cho gpt-image bắt chước
+    # (đúng lời khuyên trong brain: gửi ảnh thật sát chất hơn tả bằng chữ nhiều)
+    ref_imgs = []
+    if style_id and LVT_REFS.get(style_id):
+        for u in random.sample(LVT_REFS[style_id], min(3, len(LVT_REFS[style_id]))):
+            try:
+                rb, rm = fetch_image_bytes(u)
+                if rb:
+                    ref_imgs.append((rb, rm or "image/png"))
+            except Exception:
+                pass
+    _REF_CLAUSE = (" MATCH THE VISUAL STYLE of the attached reference designs — same typography "
+                   "treatment, same illustration style, same colour vibe and print finish — but create "
+                   "a COMPLETELY NEW original design with the exact text required; do NOT copy any "
+                   "specific artwork, character or wording from the references.")
+
     def work(c):
         try:
-            b64 = openai_generate(c["prompt"], size)
+            if ref_imgs:
+                b64 = openai_edit(ref_imgs, c["prompt"] + _REF_CLAUSE, size,
+                                  native_transparent=False, quality="high")
+            else:
+                b64 = openai_generate(c["prompt"], size)
             if HAS_PIL:
                 b64 = strip_bg_strong_b64(b64)
             g = gallery_add(b64, {"mode": "lvtquote", "prompt": c.get("title", quote)})
