@@ -5454,7 +5454,7 @@ async function lvtPropose() {
   note.className = "gen-note"; note.textContent = "⏳ Phân tích quote + tìm mẫu hợp bố cục…";
   try {
     const r = await fetch("/api/lvt-propose", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quote: quote, k: 6 }) });
+      body: JSON.stringify({ quote: quote, k: 6, illus_only: !$("lvtIllusOnly") || $("lvtIllusOnly").checked }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     lvtShowProps('🔎 Đề xuất cho quote “' + quote.replace(/</g, "&lt;") + '” — chọn mẫu ưng để gen theo', d.proposals || []);
     note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " đề xuất — xem cột phải, ưng mẫu nào bấm 'Gen theo mẫu này'.";

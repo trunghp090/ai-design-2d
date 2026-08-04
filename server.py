@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-by-image2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-illus"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4566,8 +4566,14 @@ def _lvt_vnorm(s):
     return [w for w in re.sub(r"[^a-z0-9 ]+", " ", s.lower()).split() if w]
 
 
-def lvt_propose(quote, k=6):
+# style CÓ HÌNH minh hoạ/kiểu vẽ (đối chiếu mặc định) vs style TOÀN CHỮ
+_LVT_ILLUS_STYLES = {"mascot-fun", "illustrative-humor", "cutout-real-image", "realistic-humor",
+                     "halftone-retro", "vintage-badge", "multicolor-vibrant"}
+
+
+def lvt_propose(quote, k=6, illus_only=True):
     """🔎 Nghiên cứu quote -> TÌM trong 3.310 design thật các mẫu có bố cục/style HỢP để đề xuất.
+    illus_only=True: CHỈ đối chiếu design CÓ HÌNH minh hoạ/kiểu vẽ (bỏ mẫu toàn text).
     Trả [{name, img, style, style_ten, reason, direction}] — nhanh (chỉ text, không gen ảnh)."""
     # B0: MATCH THẲNG TÊN — design trùng/na ná CHÍNH CÂU QUOTE luôn đứng đầu đề xuất
     # (trước đây chỉ lọc theo style AI đoán + keyword mood -> design trùng tên vẫn lọt lưới)
@@ -4604,8 +4610,9 @@ def _lvt_exact_pick(x):
 
 
 def _lvt_propose_ai(quote, k, exact, exact_names):
+    styles_pool = [s for s in LVT_STYLES if (not illus_only or s["id"] in _LVT_ILLUS_STYLES)]
     cat_brief = "\n".join("%s: %s — %s; hợp: %s" % (s["id"], s["ten"], s.get("typo", ""), s.get("khi_nao", ""))
-                          for s in LVT_STYLES)
+                          for s in styles_pool)
     s1 = openai_chat([
         {"role": "system", "content": LVT_BRAIN[:8000] + "\n\nSTYLE CATALOG:\n" + cat_brief +
          "\nNHIỆM VỤ: phân tích quote (tầng nghĩa, mood, chủ đề, công thức chơi chữ) rồi chọn 3 style "
@@ -4613,11 +4620,13 @@ def _lvt_propose_ai(quote, k, exact, exact_names):
          "{\"styles\":[\"id\"...],\"keywords\":[...],\"mood\":\"...\"}"},
         {"role": "user", "content": "QUOTE: \"%s\". Chỉ trả JSON." % quote}],
         json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
-    d1 = json.loads(s1)
-    style_ids = [x for x in (d1.get("styles") or []) if any(s["id"] == x for s in LVT_STYLES)][:3]
+    d1 = json.loads(s1 or "{}")
+    allowed = {s["id"] for s in styles_pool}
+    style_ids = [x for x in (d1.get("styles") or []) if x in allowed][:3]
     kws = [str(x).lower() for x in (d1.get("keywords") or [])]
     # B2: gom ứng viên theo style (+ ưu tiên trùng keyword trong tên/theme) -> tối đa 80
-    pool = [x for x in LVT_INDEX if x.get("s") in style_ids] or LVT_INDEX
+    base_pool = [x for x in LVT_INDEX if x.get("s") in allowed] if illus_only else LVT_INDEX
+    pool = [x for x in base_pool if x.get("s") in style_ids] or base_pool
     pool = [x for x in pool if x.get("n") not in exact_names]
     scored = []
     for x in pool:
@@ -4630,9 +4639,11 @@ def _lvt_propose_ai(quote, k, exact, exact_names):
     s2 = openai_chat([
         {"role": "system", "content":
          "Bạn là art director. Quote cần làm design: \"%s\" (mood: %s). Dưới đây là danh sách design THẬT "
-         "'số|tên|style|bộ sưu tập'. Chọn %d design mà BỐ CỤC/STYLE/TINH THẦN hợp quote NHẤT (đa dạng style, "
-         "không chọn trùng ý). Với mỗi cái: lý do hợp (1 câu, tiếng Việt) + hướng áp dụng bố cục mẫu đó cho "
-         "quote (1-2 câu). Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\",\"direction\":\"...\"}]}"
+         "'số|tên|style|bộ sưu tập'. Chọn %d design mà BỐ CỤC/STYLE/TINH THẦN hợp quote NHẤT — ƯU TIÊN mẫu "
+         "có HÌNH MINH HOẠ/nhân vật/kiểu vẽ rõ (mascot, minh hoạ, cutout, badge, retro), TRÁNH mẫu chỉ toàn "
+         "chữ (đa dạng style, không chọn trùng ý). Với mỗi cái: lý do hợp (1 câu, tiếng Việt) + hướng áp "
+         "dụng bố cục + HÌNH của mẫu đó cho quote (1-2 câu). "
+         "Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\",\"direction\":\"...\"}]}"
          % (quote, d1.get("mood", ""), k)},
         {"role": "user", "content": lst + "\nChỉ trả JSON."}],
         json_mode=True, max_tokens=1400, model=BEST_TEXT_MODEL)
@@ -4662,17 +4673,19 @@ def lvt_propose_by_image(img_url, k=6):
          "vd \"ếch\",\"cười\",\"meme\"],\"styles\":[2-3 id style hợp]}"},
         {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]}],
         json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
-    d1 = json.loads(s1)
+    d1 = json.loads(s1 or "{}")
     kws = [str(x).lower() for x in (d1.get("keywords") or [])]
     kws += [str(d1.get("subject", "")).lower(), str(d1.get("emotion", "")).lower()]
     kwn = set()
     for w in kws:
         kwn.update(_lvt_vnorm(w))
     style_ids = [x for x in (d1.get("styles") or []) if any(st["id"] == x for st in LVT_STYLES)]
-    # B2: chấm điểm TOÀN BỘ index theo keyword (tên + theme + chữ OCR trên áo), boost style hợp
+    # B2: chấm điểm theo keyword (tên + theme + chữ OCR) — CHỈ trong các design CÓ HÌNH minh hoạ/
+    # kiểu vẽ (đối chiếu ẢNH thì so với mẫu có hình; mẫu toàn chữ không có gì để so nhân vật)
     ocr = lvt_quotes_load()
     scored = []
-    for x in LVT_INDEX:
+    illus_pool = [x for x in LVT_INDEX if x.get("s") in _LVT_ILLUS_STYLES] or LVT_INDEX
+    for x in illus_pool:
         n = x.get("n") or ""
         if not (n and x.get("i")):
             continue
@@ -4684,8 +4697,9 @@ def lvt_propose_by_image(img_url, k=6):
     # B3: AI NHÌN ảnh gốc + 48 ảnh ứng viên -> chọn k mẫu giống nhân vật/biểu cảm nhất
     content = [{"type": "text", "text":
                 "Ảnh ĐẦU TIÊN là icon khách gửi (nhân vật: %s, biểu cảm: %s). %d ảnh sau là design THẬT đánh số "
-                "1..%d theo thứ tự. Chọn %d design GIỐNG ảnh khách nhất về NHÂN VẬT + BIỂU CẢM + tinh thần (ưu tiên "
-                "cùng con vật/nhân vật, rồi tới cùng biểu cảm). Mỗi cái: lý do giống (1 câu tiếng Việt). "
+                "1..%d theo thứ tự. Chọn %d design GIỐNG ảnh khách nhất về NHÂN VẬT + BIỂU CẢM + KIỂU VẼ (ưu tiên "
+                "cùng con vật/nhân vật, rồi tới cùng biểu cảm, rồi tới cùng nét vẽ). TUYỆT ĐỐI KHÔNG chọn design "
+                "chỉ có chữ không có hình minh hoạ. Mỗi cái: lý do giống (1 câu tiếng Việt). "
                 "Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\"}]}"
                 % (d1.get("subject", "?"), d1.get("emotion", "?"), len(cands), len(cands), k)},
                {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]
@@ -4693,6 +4707,7 @@ def lvt_propose_by_image(img_url, k=6):
         content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "low"}})
     s2 = openai_chat([{"role": "user", "content": content}], json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
     out = []
+    s2 = s2 or "{}"
     ten_map = {st["id"]: st["ten"] for st in LVT_STYLES}
     for p in (json.loads(s2).get("picks") or [])[:k]:
         try:
@@ -8706,7 +8721,8 @@ class Handler(BaseHTTPRequestHandler):
             if not quote:
                 return self.json(400, {"error": "Nhập quote trước đã."})
             try:
-                props = lvt_propose(quote, max(4, min(8, int(body.get("k") or 6))))
+                props = lvt_propose(quote, max(4, min(8, int(body.get("k") or 6))),
+                                    illus_only=bool(body.get("illus_only", True)))
             except Exception as e:
                 return self.json(502, {"error": "Đề xuất lỗi: %s" % e})
             if not props:
