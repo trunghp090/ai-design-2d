@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-lvt-propose-exact"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-lvt-propose-exact2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4519,6 +4519,23 @@ def lvt_propose(quote, k=6):
     exact = [x for _sc, x in exact[:3]]
     exact_names = set(x.get("n") for x in exact)
     # B1: phân tích quote -> 3 style hợp + keywords chủ đề
+    # (AI lỗi/billing cạn -> vẫn trả các mẫu trùng tên ở B0, không chết cả đề xuất)
+    try:
+        return [_lvt_exact_pick(x) for x in exact] + _lvt_propose_ai(quote, k, exact, exact_names)
+    except Exception as e:
+        print("lvt_propose AI fail (%s) — trả %d mẫu trùng tên" % (e, len(exact)), flush=True)
+        return [_lvt_exact_pick(x) for x in exact]
+
+
+def _lvt_exact_pick(x):
+    ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
+    return {"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+            "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+            "reason": "Trùng/na ná CHÍNH câu quote này trong 3.310 design — mẫu chuẩn nhất để tham khảo.",
+            "direction": "Bám nguyên bố cục + style mẫu này, giữ đúng nguyên văn quote của bạn."}
+
+
+def _lvt_propose_ai(quote, k, exact, exact_names):
     cat_brief = "\n".join("%s: %s — %s; hợp: %s" % (s["id"], s["ten"], s.get("typo", ""), s.get("khi_nao", ""))
                           for s in LVT_STYLES)
     s1 = openai_chat([
@@ -4553,12 +4570,7 @@ def lvt_propose(quote, k=6):
         json_mode=True, max_tokens=1400, model=BEST_TEXT_MODEL)
     out = []
     ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
-    for x in exact:
-        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
-                    "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
-                    "reason": "Trùng/na ná CHÍNH câu quote này trong 3.310 design — mẫu chuẩn nhất để tham khảo.",
-                    "direction": "Bám nguyên bố cục + style mẫu này, giữ đúng nguyên văn quote của bạn."})
-    for p in (json.loads(s2).get("picks") or [])[:max(0, k - len(out))]:
+    for p in (json.loads(s2).get("picks") or [])[:max(0, k - len(exact))]:
         try:
             x = cands[int(p.get("i", 0)) - 1]
         except Exception:
