@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-quote-tu-data-ocr2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-by-image"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4643,6 +4643,63 @@ def _lvt_propose_ai(quote, k, exact, exact_names):
     return out
 
 
+def lvt_propose_by_image(img_url, k=6):
+    """🖼 Up ảnh icon/nhân vật -> đối chiếu 3.310 design THẬT -> đề xuất mẫu cùng nhân vật/biểu cảm.
+    img_url = data URL từ FE. 2 bước vision: (1) tả ảnh -> keywords; (2) so ảnh gốc với ~48 ảnh ứng viên."""
+    cat_brief = "\n".join("%s: %s" % (st["id"], st["ten"]) for st in LVT_STYLES)
+    # B1: tả ảnh icon -> nhân vật + biểu cảm + keywords tiếng Việt
+    s1 = openai_chat([{"role": "user", "content": [
+        {"type": "text", "text":
+         "Tả ảnh icon/nhân vật này để tìm design áo thun tương đồng. STYLE CATALOG:\n" + cat_brief + "\n"
+         "Trả JSON {\"subject\":\"nhân vật/con vật (vd: ếch Pepe, mèo, capybara)\",\"emotion\":\"biểu cảm "
+         "(cười/khóc/chill/cà khịa...)\",\"keywords\":[8-12 từ khoá tiếng Việt NGẮN về nhân vật + biểu cảm + chủ đề, "
+         "vd \"ếch\",\"cười\",\"meme\"],\"styles\":[2-3 id style hợp]}"},
+        {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]}],
+        json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
+    d1 = json.loads(s1)
+    kws = [str(x).lower() for x in (d1.get("keywords") or [])]
+    kws += [str(d1.get("subject", "")).lower(), str(d1.get("emotion", "")).lower()]
+    kwn = set()
+    for w in kws:
+        kwn.update(_lvt_vnorm(w))
+    style_ids = [x for x in (d1.get("styles") or []) if any(st["id"] == x for st in LVT_STYLES)]
+    # B2: chấm điểm TOÀN BỘ index theo keyword (tên + theme + chữ OCR trên áo), boost style hợp
+    ocr = lvt_quotes_load()
+    scored = []
+    for x in LVT_INDEX:
+        n = x.get("n") or ""
+        if not (n and x.get("i")):
+            continue
+        txt = set(_lvt_vnorm(n + " " + (x.get("t") or "") + " " + (ocr.get(n) or "")))
+        sc = len(kwn & txt) + (1 if x.get("s") in style_ids else 0)
+        scored.append((sc, x))
+    scored.sort(key=lambda p: -p[0])
+    cands = [x for _sc, x in scored[:36]] + [x for _sc, x in random.sample(scored[36:], min(12, max(0, len(scored) - 36)))]
+    # B3: AI NHÌN ảnh gốc + 48 ảnh ứng viên -> chọn k mẫu giống nhân vật/biểu cảm nhất
+    content = [{"type": "text", "text":
+                "Ảnh ĐẦU TIÊN là icon khách gửi (nhân vật: %s, biểu cảm: %s). %d ảnh sau là design THẬT đánh số "
+                "1..%d theo thứ tự. Chọn %d design GIỐNG ảnh khách nhất về NHÂN VẬT + BIỂU CẢM + tinh thần (ưu tiên "
+                "cùng con vật/nhân vật, rồi tới cùng biểu cảm). Mỗi cái: lý do giống (1 câu tiếng Việt). "
+                "Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\"}]}"
+                % (d1.get("subject", "?"), d1.get("emotion", "?"), len(cands), len(cands), k)},
+               {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]
+    for x in cands:
+        content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "low"}})
+    s2 = openai_chat([{"role": "user", "content": content}], json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
+    out = []
+    ten_map = {st["id"]: st["ten"] for st in LVT_STYLES}
+    for p in (json.loads(s2).get("picks") or [])[:k]:
+        try:
+            x = cands[int(p.get("i", 0)) - 1]
+        except Exception:
+            continue
+        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                    "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+                    "reason": p.get("reason", ""),
+                    "direction": "Bám bố cục + nhân vật mẫu này, đổi theo ý bạn."})
+    return out
+
+
 def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
     """Phân tích quote theo chất LVT -> N concept design artwork (typo + minh hoạ + palette)."""
     wm = (" Kèm wordmark nhỏ '%s' dưới cùng." % wordmark) if (wordmark or "").strip() else \
@@ -8626,6 +8683,18 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, quote, n, size, wordmark, style_id, ref_url, direction),
                              daemon=True).start()
             return self.json(200, {"job_id": job_id, "total": n})
+        if path == "/api/lvt-propose-img":
+            img = (body.get("img") or "").strip()
+            if not img.startswith("data:image/"):
+                return self.json(400, {"error": "Up ảnh icon trước đã."})
+            try:
+                props = lvt_propose_by_image(img, max(4, min(8, int(body.get("k") or 6))))
+            except Exception as e:
+                print("lvt-propose-img err: %s" % e, flush=True)
+                return self.json(502, {"error": "AI chưa đối chiếu được ảnh — thử lại."})
+            if not props:
+                return self.json(502, {"error": "Không tìm được mẫu tương đồng — thử ảnh khác."})
+            return self.json(200, {"proposals": props})
         if path == "/api/lvt-propose":
             quote = (body.get("quote") or "").strip()[:200]
             if not quote:

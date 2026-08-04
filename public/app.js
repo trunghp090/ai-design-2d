@@ -5440,6 +5440,8 @@ function lvtInit() {
   $("lvtRunBtn").onclick = () => lvtGenerate();
   $("lvtSuggest").onclick = lvtDoSuggest;
   $("lvtProposeBtn").onclick = lvtPropose;
+  $("lvtProposeImgBtn").onclick = () => $("lvtProposeImgFile").click();
+  $("lvtProposeImgFile").onchange = lvtProposeImg;
   lvtLoadStyles();
   lvtRender();
 }
@@ -5454,11 +5456,18 @@ async function lvtPropose() {
     const r = await fetch("/api/lvt-propose", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quote: quote, k: 6 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    lvtShowProps('🔎 Đề xuất cho quote “' + quote.replace(/</g, "&lt;") + '” — chọn mẫu ưng để gen theo', d.proposals || []);
+    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " đề xuất — xem cột phải, ưng mẫu nào bấm 'Gen theo mẫu này'.";
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  btn.disabled = false; btn.textContent = o;
+}
+// Vẽ khối đề xuất (dùng chung cho đề xuất theo QUOTE và theo ẢNH icon)
+function lvtShowProps(title, proposals) {
     const box = $("lvtProps");
-    box.innerHTML = '<h4 style="margin:4px 0 8px">🔎 Đề xuất cho quote “' + quote.replace(/</g, "&lt;") +
-      '” — chọn mẫu ưng để gen theo <button class="btn-ghost sm" id="lvtPropClear" style="margin-left:6px">✕ Đóng</button></h4>' +
+    box.innerHTML = '<h4 style="margin:4px 0 8px">' + title +
+      ' <button class="btn-ghost sm" id="lvtPropClear" style="margin-left:6px">✕ Đóng</button></h4>' +
       '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
-      (d.proposals || []).map((p, i) =>
+      proposals.map((p, i) =>
         '<div style="width:230px;border:1px solid var(--line,#ddd);border-radius:12px;overflow:hidden">' +
           '<img src="' + p.img + '" loading="lazy" data-i="' + i + '" class="lvt-prop-img" style="width:100%;height:210px;object-fit:cover;object-position:center 28%;cursor:zoom-in;background:#f4f2f0">' +
           '<div style="padding:8px 10px;line-height:1.35">' +
@@ -5470,13 +5479,35 @@ async function lvtPropose() {
     box.querySelectorAll(".lvt-prop-img").forEach(im => { im.onclick = () => openZoom(im.src); });
     box.querySelectorAll(".lvt-prop-gen").forEach(b => {
       b.onclick = () => {
-        const p = d.proposals[parseInt(b.dataset.i, 10)];
+        const p = proposals[parseInt(b.dataset.i, 10)];
         lvtGenerate({ ref: p.img, direction: p.direction || p.reason || "", style: p.style || "" });
       };
     });
     const cl = document.getElementById("lvtPropClear");
     if (cl) cl.onclick = () => { box.innerHTML = ""; };
-    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " đề xuất — xem cột phải, ưng mẫu nào bấm 'Gen theo mẫu này'.";
+}
+// 🖼 Up ảnh icon -> AI đối chiếu 3.310 design -> đề xuất mẫu cùng nhân vật/biểu cảm
+async function lvtProposeImg() {
+  const inp = $("lvtProposeImgFile"), f = inp.files && inp.files[0];
+  inp.value = "";
+  if (!f) return;
+  const note = $("lvtNote"), btn = $("lvtProposeImgBtn");
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "🖼 AI đang soi ảnh + lục 3.310 design…";
+  note.className = "gen-note"; note.textContent = "⏳ Đối chiếu nhân vật/biểu cảm với thư viện…";
+  try {
+    // thu nhỏ ảnh về ≤512px cho nhẹ request
+    const raw = await fileToDataURL(f);
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = raw; });
+    const sc = Math.min(1, 512 / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    const dataUrl = cv.toDataURL("image/png");
+    const r = await fetch("/api/lvt-propose-img", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ img: dataUrl, k: 6 }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    lvtShowProps('🖼 Đề xuất theo ảnh icon của bạn — chọn mẫu ưng để gen theo', d.proposals || []);
+    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " mẫu cùng nhân vật/biểu cảm — xem cột phải.";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = o;
 }
