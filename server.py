@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-artstyle"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-full"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4696,6 +4696,20 @@ def lvt_propose_by_image(img_url, k=6):
         scored.append((sc, x))
     scored.sort(key=lambda p: -p[0])
     cands = [x for _sc, x in scored[:40]] + [x for _sc, x in random.sample(scored[40:], min(8, max(0, len(scored) - 40)))]
+    # B2.5: VISION LỌC — nhìn thẳng 48 ảnh, LOẠI mẫu CHỈ CÓ CHỮ (phân loại theo tên có thể gắn nhầm nhãn)
+    try:
+        vc = [{"type": "text", "text":
+               "%d ảnh design đánh số 1..%d theo thứ tự. Ảnh nào CHỈ CÓ CHỮ/typography, KHÔNG có hình minh "
+               "hoạ/nhân vật/con vật/icon nào? Trả JSON {\"text_only\":[các số đó]}" % (len(cands), len(cands))}]
+        for x in cands:
+            vc.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "low"}})
+        vres = openai_chat([{"role": "user", "content": vc}], json_mode=True, max_tokens=300, model=BEST_TEXT_MODEL)
+        bad = {int(i) for i in (json.loads(vres or "{}").get("text_only") or [])}
+        kept = [x for j, x in enumerate(cands) if (j + 1) not in bad]
+        if len(kept) >= max(6, k):
+            cands = kept
+    except Exception as e:
+        print("lvt img vision-filter skip: %s" % e)
     # B3: AI NHÌN ảnh gốc + ảnh ứng viên -> ưu tiên CÙNG NÉT VẼ/STYLE trước, rồi mới tới nhân vật/biểu cảm
     def _b3(cs, mt):
         content = [{"type": "text", "text":
@@ -4723,16 +4737,22 @@ def lvt_propose_by_image(img_url, k=6):
     out = []
     s2 = s2 or "{}"
     ten_map = {st["id"]: st["ten"] for st in LVT_STYLES}
+    picked_names = set()
     for p in (json.loads(s2).get("picks") or [])[:k]:
         try:
             x = cands[int(p.get("i", 0)) - 1]
         except Exception:
             continue
+        picked_names.add(x["n"])
         out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
                     "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                     "reason": p.get("reason", ""),
                     "direction": "Bám bố cục + nhân vật mẫu này, đổi theo ý bạn."})
-    return out
+    # HIỆN HẾT: kèm toàn bộ ứng viên còn lại (đã qua vision lọc chỉ-chữ) để user tự duyệt
+    more = [{"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+             "style_ten": ten_map.get(x.get("s", ""), x.get("s", ""))}
+            for x in cands if x["n"] not in picked_names]
+    return out, more
 
 
 def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
@@ -8723,13 +8743,13 @@ class Handler(BaseHTTPRequestHandler):
             if not img.startswith("data:image/"):
                 return self.json(400, {"error": "Up ảnh icon trước đã."})
             try:
-                props = lvt_propose_by_image(img, max(4, min(15, int(body.get("k") or 12))))
+                props, more = lvt_propose_by_image(img, max(4, min(15, int(body.get("k") or 12))))
             except Exception as e:
                 print("lvt-propose-img err: %s" % e, flush=True)
                 return self.json(502, {"error": "AI chưa đối chiếu được ảnh — thử lại."})
-            if not props:
+            if not props and not more:
                 return self.json(502, {"error": "Không tìm được mẫu tương đồng — thử ảnh khác."})
-            return self.json(200, {"proposals": props})
+            return self.json(200, {"proposals": props, "more": more})
         if path == "/api/lvt-propose":
             quote = (body.get("quote") or "").strip()[:200]
             if not quote:

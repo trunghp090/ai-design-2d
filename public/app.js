@@ -5462,8 +5462,9 @@ async function lvtPropose() {
   btn.disabled = false; btn.textContent = o;
 }
 // Vẽ khối đề xuất (dùng chung cho đề xuất theo QUOTE và theo ẢNH icon)
-function lvtShowProps(title, proposals) {
+function lvtShowProps(title, proposals, more) {
     const box = $("lvtProps");
+    more = more || [];
     box.innerHTML = '<h4 style="margin:4px 0 8px">' + title +
       ' <button class="btn-ghost sm" id="lvtPropClear" style="margin-left:6px">✕ Đóng</button></h4>' +
       '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
@@ -5475,12 +5476,26 @@ function lvtShowProps(title, proposals) {
             '<p class="hint" style="margin:4px 0;font-size:11px">💡 ' + (p.reason || "") + '</p>' +
             '<p class="hint" style="margin:4px 0;font-size:11px;color:var(--violet,#7c3aed)">🎯 ' + (p.direction || "") + '</p>' +
             '<button class="btn-primary sm lvt-prop-gen" data-i="' + i + '" style="width:100%;margin-top:4px;padding:6px">🎨 Gen theo mẫu này</button>' +
-          '</div></div>').join("") + '</div>';
+          '</div></div>').join("") + '</div>' +
+      (more.length ? '<h4 style="margin:4px 0 8px">🗂 Toàn bộ ứng viên cùng nét còn lại (' + more.length + ') — bấm ảnh phóng to, bấm nút để gen</h4>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">' +
+        more.map((p, i) =>
+          '<div style="width:128px;border:1px solid var(--line,#ddd);border-radius:10px;overflow:hidden">' +
+            '<img src="' + p.img + '" loading="lazy" data-i="' + i + '" class="lvt-more-img" style="width:100%;height:120px;object-fit:cover;object-position:center 28%;cursor:zoom-in;background:#f4f2f0">' +
+            '<div style="padding:4px 6px;line-height:1.25"><span style="font-size:10.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + p.name + '">' + p.name + '</span>' +
+            '<button class="btn-ghost sm lvt-more-gen" data-i="' + i + '" style="width:100%;margin-top:3px;padding:3px;font-size:11px">🎨 Gen</button></div></div>').join("") + '</div>' : '');
     box.querySelectorAll(".lvt-prop-img").forEach(im => { im.onclick = () => openZoom(im.src); });
+    box.querySelectorAll(".lvt-more-img").forEach(im => { im.onclick = () => openZoom(im.src); });
     box.querySelectorAll(".lvt-prop-gen").forEach(b => {
       b.onclick = () => {
         const p = proposals[parseInt(b.dataset.i, 10)];
         lvtGenerate({ ref: p.img, direction: p.direction || p.reason || "", style: p.style || "" });
+      };
+    });
+    box.querySelectorAll(".lvt-more-gen").forEach(b => {
+      b.onclick = () => {
+        const p = more[parseInt(b.dataset.i, 10)];
+        lvtGenerate({ ref: p.img, direction: "Bám bố cục + nét vẽ mẫu này, đổi nội dung theo quote.", style: p.style || "" });
       };
     });
     const cl = document.getElementById("lvtPropClear");
@@ -5506,8 +5521,8 @@ async function lvtProposeImg() {
     const r = await fetch("/api/lvt-propose-img", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ img: dataUrl, k: 12 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    lvtShowProps('🖼 Đề xuất theo ảnh icon của bạn — chọn mẫu ưng để gen theo', d.proposals || []);
-    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " mẫu CÙNG NÉT VẼ/style — xem cột phải, chọn mẫu ưng.";
+    lvtShowProps('🖼 Đề xuất theo ảnh icon của bạn — chọn mẫu ưng để gen theo', d.proposals || [], d.more || []);
+    note.className = "gen-note ok"; note.textContent = "✓ " + (d.proposals || []).length + " mẫu AI chấm + " + (d.more || []).length + " ứng viên cùng nét — xem HẾT ở cột phải.";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = o;
 }
