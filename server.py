@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-quote-suggest-hoc-tu-design"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-quote-tu-data-ocr"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4490,6 +4490,59 @@ except Exception:
     LVT_INDEX = []
 
 
+LVT_QUOTES_PATH = os.path.join(DATA_DIR, "design-quotes.json")     # OCR chữ thật trên ảnh (bền qua deploy)
+LVT_QUOTES_REPO = os.path.join(ROOT, "luonvuituoi", "design-quotes.json")  # bản commit trong repo (fallback)
+_lvt_quotes_lock = threading.Lock()
+
+
+def lvt_quotes_load():
+    """name -> chữ THẬT in trên áo (đã OCR). Ưu tiên bản data/ (mới), fallback bản repo."""
+    for p in (LVT_QUOTES_PATH, LVT_QUOTES_REPO):
+        try:
+            if os.path.exists(p):
+                return json.load(open(p, encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
+    """Đọc chữ in trên TOÀN BỘ ảnh design bằng AI vision -> data/design-quotes.json.
+    Resume-safe (bỏ qua design đã có). Chạy detached: docker exec -d ... server.lvt_ocr_job()"""
+    done = lvt_quotes_load()
+    todo = [x for x in LVT_INDEX if x.get("n") and x.get("i") and x["n"] not in done]
+    if limit:
+        todo = todo[:limit]
+    print("lvt_ocr: %d đã có, %d cần đọc" % (len(done), len(todo)), flush=True)
+    for bi in range(0, len(todo), batch):
+        chunk = todo[bi:bi + batch]
+        content = [{"type": "text", "text":
+                    "Đọc CHÍNH XÁC toàn bộ chữ in trên áo trong TỪNG ảnh theo thứ tự (giữ nguyên dấu tiếng Việt, "
+                    "hoa/thường theo nghĩa, nhiều dòng nối bằng ' / ', không mô tả hình). Ảnh nào không có chữ trả \"\". "
+                    "Trả JSON {\"quotes\":[\"chữ ảnh 1\", \"chữ ảnh 2\", ...]} đủ %d phần tử." % len(chunk)}]
+        for x in chunk:
+            content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "high"}})
+        try:
+            d = json.loads(openai_chat([{"role": "user", "content": content}],
+                                       json_mode=True, max_tokens=800, model=model))
+            qs = d.get("quotes") or []
+        except Exception as e:
+            print("lvt_ocr batch %d lỗi: %s" % (bi, e), flush=True)
+            time.sleep(5)
+            continue
+        for x, q in zip(chunk, qs):
+            q = (q or "").strip()[:200]
+            if q:
+                done[x["n"]] = q
+        with _lvt_quotes_lock:
+            tmp = LVT_QUOTES_PATH + ".tmp"
+            json.dump(done, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
+            os.replace(tmp, LVT_QUOTES_PATH)
+        print("lvt_ocr: %d/%d" % (min(bi + batch, len(todo)), len(todo)), flush=True)
+    print("lvt_ocr XONG: %d quote" % len(done), flush=True)
+    return len(done)
+
+
 def _lvt_vnorm(s):
     """Bỏ dấu tiếng Việt + thường hoá -> list từ, để so TÊN design với quote."""
     import unicodedata
@@ -4632,43 +4685,49 @@ def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
 
 
 def lvt_quote_suggest(topic, k=8):
-    """🎲 AI nghĩ quote MỚI: HỌC chất đặt câu từ chính 3.310 design thật (ưu tiên design cùng chủ đề),
-    áp 10 công thức, tránh trùng nguyên văn."""
-    tw = _lvt_vnorm(topic)
-    src = LVT_INDEX or [{"n": n} for n in LVT_NAMES]
-    rel, rest = [], []
-    for x in src:
+    """🎲 Trả quote CÓ THẬT trong 3.310 design (ưu tiên chữ OCR từ ảnh, fallback tên design).
+    AI chỉ CHỌN theo chỉ số + chú giải — KHÔNG được bịa câu ngoài data."""
+    ocr = lvt_quotes_load()
+    pool = []
+    seen = set()
+    for x in LVT_INDEX:
         n = (x.get("n") or "").strip()
         if not n:
             continue
-        nx = set(_lvt_vnorm(n + " " + (x.get("t") or "")))
-        (rel if (tw and set(tw) & nx) else rest).append(n)
-    random.shuffle(rel)
-    random.shuffle(rest)
-    vd = rel[:60] + rest[:max(0, 130 - min(60, len(rel)))]
-    sample = " | ".join(vd)
-    sys = (LVT_BRAIN + "\n\n"
-           "VÍ DỤ THẬT TỪ THƯ VIỆN 3.310 DESIGN ĐANG BÁN (chất brand CHUẨN — học kiểu chơi chữ, nhịp câu, "
-           "độ đời, tự trào từ đây" + ("; các câu ĐẦU danh sách cùng chủ đề đang cần" if rel else "") + "):\n"
-           + sample + "\n\n"
-           "NHIỆM VỤ: nghĩ %d CÂU QUOTE MỚI CÙNG CHẤT với ví dụ trên, áp 10 CÔNG THỨC (đa dạng công thức, "
-           "mỗi câu ghi rõ công thức nào). Câu ≤8 chữ, BẮT BUỘC có tầng nghĩa thứ 2 kiểu ví dụ thật "
-           "(vd \"Hứa Cho Lắm Tắm Cũng Trôi\", \"Tuy Không Làm Được Nhưng Hứa Được\"). "
-           "KHÔNG TRÙNG hoặc na ná nguyên văn các design đã có.\n"
-           "Trả JSON THUẦN: {\"quotes\":[{\"text\":\"câu\",\"formula\":\"CT số + tên\",\"explain\":\"tầng "
-           "nghĩa 2 (1 câu)\",\"pair\":\"bản cặp đôi nếu hợp (hoặc rỗng)\"}]}" % k)
-    user = ("Chủ đề: %s. Chỉ trả JSON." % topic) if (topic or "").strip() else \
-        "Tự chọn chủ đề từ KHOẢNG TRỐNG CƠ HỘI trong bộ não. Chỉ trả JSON."
-    for _a in range(2):
-        try:
-            raw = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
-                              json_mode=True, max_tokens=1800, model=BEST_TEXT_MODEL)
-            qs = [q for q in (json.loads(raw).get("quotes") or []) if (q.get("text") or "").strip()]
-            if qs:
-                return qs[:k]
-        except Exception as e:
-            print("lvt_quote_suggest fail: %s" % e)
-    return []
+        q = (ocr.get(n) or n).strip()
+        key = " ".join(_lvt_vnorm(q))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        pool.append({"q": q, "n": n, "c": x.get("c", ""), "t": x.get("t", "")})
+    tw = set(_lvt_vnorm(topic))
+    rel = [p for p in pool if tw & set(_lvt_vnorm(p["q"] + " " + p["n"] + " " + p["t"]))] if tw else []
+    base = rel if rel else pool
+    cands = base[:220] if len(base) <= 220 else random.sample(base, 220)
+    fallback = [{"text": p["q"], "formula": p["c"], "explain": "Quote thật trong thư viện (%s)." % (p["t"] or p["n"]),
+                 "pair": ""} for p in (cands[:k])]
+    lst = "\n".join("%d|%s|%s|%s" % (i + 1, p["q"], p["c"], p["t"]) for i, p in enumerate(cands))
+    try:
+        raw = openai_chat([
+            {"role": "system", "content":
+             "Danh sách quote THẬT đang bán 'số|quote|công thức|bộ sưu tập'. Chọn %d quote %s— đa dạng, "
+             "hay nhất. CHỈ trả chỉ số, KHÔNG viết lại câu. Với mỗi cái giải thích tầng nghĩa/vì sao hay (1 câu "
+             "tiếng Việt). Trả JSON {\"picks\":[{\"i\":số,\"explain\":\"...\"}]}"
+             % (k, ("hợp chủ đề \"%s\" nhất " % topic) if (topic or "").strip() else "")},
+            {"role": "user", "content": lst + "\nChỉ trả JSON."}],
+            json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
+        out = []
+        for pk in (json.loads(raw).get("picks") or [])[:k]:
+            try:
+                p = cands[int(pk.get("i", 0)) - 1]
+            except Exception:
+                continue
+            out.append({"text": p["q"], "formula": p["c"], "explain": pk.get("explain", ""), "pair": ""})
+        if out:
+            return out
+    except Exception as e:
+        print("lvt_quote_suggest fail: %s" % e)
+    return fallback
 
 
 def run_lvt_job(job_id, quote, n, size, wordmark, style_id="", ref_url="", direction=""):
