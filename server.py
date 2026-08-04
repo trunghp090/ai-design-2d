@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-robust"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-links"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4608,7 +4608,7 @@ def lvt_propose(quote, k=6, illus_only=True):
             pool = [x for x in LVT_INDEX if x.get("s") in _LVT_ILLUS_STYLES and x.get("n") not in exact_names]
             ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
             for x in random.sample(pool, min(k - len(base), len(pool))):
-                base.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                base.append({"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
                              "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                              "reason": "Mẫu có hình cùng chất brand (AI chấm đang lỗi, chọn tạm).",
                              "direction": "Bám bố cục + tinh thần mẫu này, thay chữ bằng quote của bạn."})
@@ -4617,7 +4617,7 @@ def lvt_propose(quote, k=6, illus_only=True):
 
 def _lvt_exact_pick(x):
     ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
-    return {"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+    return {"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
             "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
             "reason": "Trùng/na ná CHÍNH câu quote này trong 3.310 design — mẫu chuẩn nhất để tham khảo.",
             "direction": "Bám nguyên bố cục + style mẫu này, giữ đúng nguyên văn quote của bạn."}
@@ -4672,7 +4672,7 @@ def _lvt_propose_ai(quote, k, exact, exact_names, illus_only=True):
             x = cands[int(p.get("i", 0)) - 1]
         except Exception:
             continue
-        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+        out.append({"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
                     "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                     "reason": p.get("reason", ""), "direction": p.get("direction", "")})
     # KHÔNG BAO GIỜ TRẮNG TAY: AI chấm rỗng/lỗi -> tự lấy top ứng viên điểm cao làm đề xuất
@@ -4684,12 +4684,12 @@ def _lvt_propose_ai(quote, k, exact, exact_names, illus_only=True):
             if x["n"] in have:
                 continue
             have.add(x["n"])
-            out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+            out.append({"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
                         "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                         "reason": "Ứng viên điểm cao cùng chủ đề/style.",
                         "direction": "Bám bố cục + tinh thần mẫu này, thay chữ bằng quote của bạn."})
     # HIỆN HẾT: kèm toàn bộ ứng viên còn lại để user tự duyệt
-    more = [{"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+    more = [{"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
              "style_ten": ten_map.get(x.get("s", ""), x.get("s", ""))}
             for x in cands if x["n"] not in have]
     return out, more
@@ -4779,12 +4779,12 @@ def lvt_propose_by_image(img_url, k=6):
         except Exception:
             continue
         picked_names.add(x["n"])
-        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+        out.append({"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
                     "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                     "reason": p.get("reason", ""),
                     "direction": "Bám bố cục + nhân vật mẫu này, đổi theo ý bạn."})
     # HIỆN HẾT: kèm toàn bộ ứng viên còn lại (đã qua vision lọc chỉ-chữ) để user tự duyệt
-    more = [{"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+    more = [{"name": x["n"], "img": x["i"], "url": x.get("u", ""), "style": x.get("s", ""),
              "style_ten": ten_map.get(x.get("s", ""), x.get("s", ""))}
             for x in cands if x["n"] not in picked_names]
     return out, more

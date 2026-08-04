@@ -5472,7 +5472,9 @@ function lvtShowProps(title, proposals, more) {
         '<div style="width:230px;border:1px solid var(--line,#ddd);border-radius:12px;overflow:hidden">' +
           '<img src="' + p.img + '" loading="lazy" data-i="' + i + '" class="lvt-prop-img" style="width:100%;height:210px;object-fit:cover;object-position:center 28%;cursor:zoom-in;background:#f4f2f0">' +
           '<div style="padding:8px 10px;line-height:1.35">' +
-            '<b style="font-size:12.5px">' + p.name + '</b> <span class="hint" style="font-size:10px">· ' + (p.style_ten || "") + '</span>' +
+            (p.url ? '<a href="' + p.url + '" target="_blank" style="font-size:12.5px;font-weight:700;color:inherit;text-decoration:underline dotted" title="Mở trang sản phẩm thật">' + p.name + ' 🔗</a>'
+                   : '<b style="font-size:12.5px">' + p.name + '</b>') +
+            ' <span class="hint" style="font-size:10px">· ' + (p.style_ten || "") + '</span>' +
             '<p class="hint" style="margin:4px 0;font-size:11px">💡 ' + (p.reason || "") + '</p>' +
             '<p class="hint" style="margin:4px 0;font-size:11px;color:var(--violet,#7c3aed)">🎯 ' + (p.direction || "") + '</p>' +
             '<button class="btn-primary sm lvt-prop-gen" data-i="' + i + '" style="width:100%;margin-top:4px;padding:6px">🎨 Gen theo mẫu này</button>' +
@@ -5482,7 +5484,9 @@ function lvtShowProps(title, proposals, more) {
         more.map((p, i) =>
           '<div style="width:128px;border:1px solid var(--line,#ddd);border-radius:10px;overflow:hidden">' +
             '<img src="' + p.img + '" loading="lazy" data-i="' + i + '" class="lvt-more-img" style="width:100%;height:120px;object-fit:cover;object-position:center 28%;cursor:zoom-in;background:#f4f2f0">' +
-            '<div style="padding:4px 6px;line-height:1.25"><span style="font-size:10.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + p.name + '">' + p.name + '</span>' +
+            '<div style="padding:4px 6px;line-height:1.25">' +
+            (p.url ? '<a href="' + p.url + '" target="_blank" style="font-size:10.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:underline dotted" title="' + p.name + ' — mở trang SP">' + p.name + '</a>'
+                   : '<span style="font-size:10.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + p.name + '">' + p.name + '</span>') +
             '<button class="btn-ghost sm lvt-more-gen" data-i="' + i + '" style="width:100%;margin-top:3px;padding:3px;font-size:11px">🎨 Gen</button></div></div>').join("") + '</div>' : '');
     box.querySelectorAll(".lvt-prop-img").forEach(im => { im.onclick = () => openZoom(im.src); });
     box.querySelectorAll(".lvt-more-img").forEach(im => { im.onclick = () => openZoom(im.src); });
