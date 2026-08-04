@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-lvt-propose-exact2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-lvt-propose-exact3"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4514,9 +4514,10 @@ def lvt_propose(quote, k=6):
                 continue
             inter = len(qset & set(nw))
             if " ".join(qw) in " ".join(nw) or inter >= max(2, int(round(len(qset) * 0.7))):
-                exact.append((inter, x))
-        exact.sort(key=lambda p: -p[0])
-    exact = [x for _sc, x in exact[:3]]
+                exact.append((inter, len(nw), x))
+        # nhiều từ trùng nhất trước; bằng nhau thì tên NGẮN hơn (sát quote hơn) trước
+        exact.sort(key=lambda p: (-p[0], p[1]))
+    exact = [x for _sc, _ln, x in exact[:3]]
     exact_names = set(x.get("n") for x in exact)
     # B1: phân tích quote -> 3 style hợp + keywords chủ đề
     # (AI lỗi/billing cạn -> vẫn trả các mẫu trùng tên ở B0, không chết cả đề xuất)
