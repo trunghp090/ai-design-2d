@@ -3593,7 +3593,7 @@ def _wait_video_ready(video_id, tries=40, gap=4):
 
 def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, age_max,
                      genders, countries, cta, campaign_id="", adset_id="",
-                     campaign_name="", adset_name="", status="PAUSED", video_url=""):
+                     campaign_name="", adset_name="", status="PAUSED", video_url="", description=""):
     """Tạo Campaign/AdSet/Creative/Ad. status=ACTIVE để CHẠY NGAY (tiêu tiền) hoặc PAUSED.
     Trả {ok, ad_id, campaign_id, adset_id, manager_url|error}."""
     status = "ACTIVE" if str(status).upper() == "ACTIVE" else "PAUSED"
@@ -3608,6 +3608,8 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
         link = "https://" + link
     message = (message or "").strip() or "Áo thun in tên cá nhân hoá theo tên riêng."
     headline = (headline or "").strip() or "Áo Thun In Tên"
+    # "Mô tả" của ad (hiện dưới headline cạnh nút CTA) — không truyền riêng thì dùng luôn văn bản chính
+    description = (description or "").strip() or message
     adname = "[AI] " + ((name or "").strip() or headline)[:60]
     try:
         budget = max(1, int(float(daily_budget or 50000)))
@@ -3656,6 +3658,7 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
         aid = adset_id
         if video_id:
             vdata = {"video_id": video_id, "message": message, "title": headline,
+                     "link_description": description,
                      "call_to_action": {"type": cta, "value": {"link": link}}}
             if image_hash:
                 vdata["image_hash"] = image_hash    # thumbnail (ảnh SP)
@@ -3663,6 +3666,7 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
         else:
             story = {"page_id": FB_PAGE_ID, "link_data": {
                 "image_hash": image_hash, "link": link, "message": message, "name": headline,
+                "description": description,
                 "call_to_action": {"type": cta, "value": {"link": link}}}}
         st, cr = fb_graph("POST", "act_%s/adcreatives" % FB_AD_ACCOUNT_ID,
                           {"name": adname, "object_story_spec": json.dumps(story)})
@@ -10178,7 +10182,8 @@ class Handler(BaseHTTPRequestHandler):
             body.get("daily_budget"), body.get("age_min"), body.get("age_max"),
             body.get("genders") or [], body.get("countries") or ["VN"], body.get("cta"),
             (body.get("campaign_id") or "").strip(), (body.get("adset_id") or "").strip(),
-            (body.get("campaign_name") or "").strip(), (body.get("adset_name") or "").strip())
+            (body.get("campaign_name") or "").strip(), (body.get("adset_name") or "").strip(),
+            description=(body.get("description") or "").strip())
         if not r.get("ok"):
             return self.json(400, {"error": r.get("error")})
         return self.json(200, r)
