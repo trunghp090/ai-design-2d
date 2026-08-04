@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.07.18-lvt-propose"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-lvt-propose-exact"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4490,9 +4490,34 @@ except Exception:
     LVT_INDEX = []
 
 
+def _lvt_vnorm(s):
+    """Bỏ dấu tiếng Việt + thường hoá -> list từ, để so TÊN design với quote."""
+    import unicodedata
+    s = (s or "").replace("Đ", "D").replace("đ", "d")
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return [w for w in re.sub(r"[^a-z0-9 ]+", " ", s.lower()).split() if w]
+
+
 def lvt_propose(quote, k=6):
     """🔎 Nghiên cứu quote -> TÌM trong 3.310 design thật các mẫu có bố cục/style HỢP để đề xuất.
     Trả [{name, img, style, style_ten, reason, direction}] — nhanh (chỉ text, không gen ảnh)."""
+    # B0: MATCH THẲNG TÊN — design trùng/na ná CHÍNH CÂU QUOTE luôn đứng đầu đề xuất
+    # (trước đây chỉ lọc theo style AI đoán + keyword mood -> design trùng tên vẫn lọt lưới)
+    qw = _lvt_vnorm(quote)
+    qset = set(qw)
+    exact = []
+    if len(qw) >= 2:
+        for x in LVT_INDEX:
+            nw = _lvt_vnorm(x.get("n", ""))
+            if not nw:
+                continue
+            inter = len(qset & set(nw))
+            if " ".join(qw) in " ".join(nw) or inter >= max(2, int(round(len(qset) * 0.7))):
+                exact.append((inter, x))
+        exact.sort(key=lambda p: -p[0])
+    exact = [x for _sc, x in exact[:3]]
+    exact_names = set(x.get("n") for x in exact)
     # B1: phân tích quote -> 3 style hợp + keywords chủ đề
     cat_brief = "\n".join("%s: %s — %s; hợp: %s" % (s["id"], s["ten"], s.get("typo", ""), s.get("khi_nao", ""))
                           for s in LVT_STYLES)
@@ -4508,6 +4533,7 @@ def lvt_propose(quote, k=6):
     kws = [str(x).lower() for x in (d1.get("keywords") or [])]
     # B2: gom ứng viên theo style (+ ưu tiên trùng keyword trong tên/theme) -> tối đa 80
     pool = [x for x in LVT_INDEX if x.get("s") in style_ids] or LVT_INDEX
+    pool = [x for x in pool if x.get("n") not in exact_names]
     scored = []
     for x in pool:
         txt = (x["n"] + " " + x.get("t", "")).lower()
@@ -4527,7 +4553,12 @@ def lvt_propose(quote, k=6):
         json_mode=True, max_tokens=1400, model=BEST_TEXT_MODEL)
     out = []
     ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
-    for p in (json.loads(s2).get("picks") or [])[:k]:
+    for x in exact:
+        out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                    "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+                    "reason": "Trùng/na ná CHÍNH câu quote này trong 3.310 design — mẫu chuẩn nhất để tham khảo.",
+                    "direction": "Bám nguyên bố cục + style mẫu này, giữ đúng nguyên văn quote của bạn."})
+    for p in (json.loads(s2).get("picks") or [])[:max(0, k - len(out))]:
         try:
             x = cands[int(p.get("i", 0)) - 1]
         except Exception:
