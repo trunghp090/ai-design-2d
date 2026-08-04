@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-lvt-propose-exact3"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-quote-suggest-hoc-tu-design"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4632,16 +4632,31 @@ def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
 
 
 def lvt_quote_suggest(topic, k=8):
-    """🎲 AI nghĩ quote MỚI đúng chất brand theo 10 công thức, tránh trùng 3.310 design đã có."""
-    sample = ""
-    if LVT_NAMES:
-        sample = " | ".join(random.sample(LVT_NAMES, min(140, len(LVT_NAMES))))
+    """🎲 AI nghĩ quote MỚI: HỌC chất đặt câu từ chính 3.310 design thật (ưu tiên design cùng chủ đề),
+    áp 10 công thức, tránh trùng nguyên văn."""
+    tw = _lvt_vnorm(topic)
+    src = LVT_INDEX or [{"n": n} for n in LVT_NAMES]
+    rel, rest = [], []
+    for x in src:
+        n = (x.get("n") or "").strip()
+        if not n:
+            continue
+        nx = set(_lvt_vnorm(n + " " + (x.get("t") or "")))
+        (rel if (tw and set(tw) & nx) else rest).append(n)
+    random.shuffle(rel)
+    random.shuffle(rest)
+    vd = rel[:60] + rest[:max(0, 130 - min(60, len(rel)))]
+    sample = " | ".join(vd)
     sys = (LVT_BRAIN + "\n\n"
-           "NHIỆM VỤ: nghĩ %d CÂU QUOTE MỚI đúng chất brand, áp 10 CÔNG THỨC (đa dạng công thức, mỗi câu "
-           "ghi rõ công thức nào). Câu ≤8 chữ, BẮT BUỘC có tầng nghĩa thứ 2. KHÔNG TRÙNG hoặc na ná các "
-           "design đã có (mẫu danh sách: %s).\n"
+           "VÍ DỤ THẬT TỪ THƯ VIỆN 3.310 DESIGN ĐANG BÁN (chất brand CHUẨN — học kiểu chơi chữ, nhịp câu, "
+           "độ đời, tự trào từ đây" + ("; các câu ĐẦU danh sách cùng chủ đề đang cần" if rel else "") + "):\n"
+           + sample + "\n\n"
+           "NHIỆM VỤ: nghĩ %d CÂU QUOTE MỚI CÙNG CHẤT với ví dụ trên, áp 10 CÔNG THỨC (đa dạng công thức, "
+           "mỗi câu ghi rõ công thức nào). Câu ≤8 chữ, BẮT BUỘC có tầng nghĩa thứ 2 kiểu ví dụ thật "
+           "(vd \"Hứa Cho Lắm Tắm Cũng Trôi\", \"Tuy Không Làm Được Nhưng Hứa Được\"). "
+           "KHÔNG TRÙNG hoặc na ná nguyên văn các design đã có.\n"
            "Trả JSON THUẦN: {\"quotes\":[{\"text\":\"câu\",\"formula\":\"CT số + tên\",\"explain\":\"tầng "
-           "nghĩa 2 (1 câu)\",\"pair\":\"bản cặp đôi nếu hợp (hoặc rỗng)\"}]}" % (k, sample))
+           "nghĩa 2 (1 câu)\",\"pair\":\"bản cặp đôi nếu hợp (hoặc rỗng)\"}]}" % k)
     user = ("Chủ đề: %s. Chỉ trả JSON." % topic) if (topic or "").strip() else \
         "Tự chọn chủ đề từ KHOẢNG TRỐNG CƠ HỘI trong bộ não. Chỉ trả JSON."
     for _a in range(2):
