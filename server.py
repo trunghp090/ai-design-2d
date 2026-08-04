@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-by-image"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-by-image2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4506,7 +4506,7 @@ def lvt_quotes_load():
     return {}
 
 
-def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
+def lvt_ocr_job(batch=4, model="gpt-4o-mini", limit=0):
     """Đọc chữ in trên TOÀN BỘ ảnh design bằng AI vision -> data/design-quotes.json.
     Resume-safe (bỏ qua design đã có). Chạy detached: docker exec -d ... server.lvt_ocr_job()"""
     done = lvt_quotes_load()
@@ -4525,13 +4525,18 @@ def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
                     "Ảnh không có chữ trả \"\". Trả JSON {\"quotes\":[\"chữ ảnh 1\", ...]} đủ %d phần tử." % len(chunk)}]
         for x in chunk:
             content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "high"}})
-        try:
-            d = json.loads(openai_chat([{"role": "user", "content": content}],
-                                       json_mode=True, max_tokens=800, model=model))
-            qs = d.get("quotes") or []
-        except Exception as e:
-            print("lvt_ocr batch %d lỗi: %s" % (bi, e), flush=True)
-            time.sleep(5)
+        qs = None
+        for _att in range(5):
+            try:
+                d = json.loads(openai_chat([{"role": "user", "content": content}],
+                                           json_mode=True, max_tokens=800, model=model))
+                qs = d.get("quotes") or []
+                break
+            except Exception as e:
+                w = 45 if "429" in str(e) else 10
+                print("lvt_ocr batch %d lỗi (%s) — chờ %ds thử lại" % (bi, e, w), flush=True)
+                time.sleep(w)
+        if qs is None:
             continue
         for x, q in zip(chunk, qs):
             segs = [t.strip() for t in (q or "").split("/")]
@@ -4547,6 +4552,7 @@ def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
             json.dump(done, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
             os.replace(tmp, LVT_QUOTES_PATH)
         print("lvt_ocr: %d/%d" % (min(bi + batch, len(todo)), len(todo)), flush=True)
+        time.sleep(4)   # giãn nhịp — nhường rate limit cho request người dùng
     print("lvt_ocr XONG: %d quote" % len(done), flush=True)
     return len(done)
 
