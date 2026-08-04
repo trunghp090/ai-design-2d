@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-full"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-robust"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4593,12 +4593,22 @@ def lvt_propose(quote, k=6, illus_only=True):
     exact = [x for _sc, _ln, x in exact[:3]]
     exact_names = set(x.get("n") for x in exact)
     # B1: phân tích quote -> 3 style hợp + keywords chủ đề
-    # (AI lỗi/billing cạn -> vẫn trả các mẫu trùng tên ở B0, không chết cả đề xuất)
+    # (AI lỗi/billing cạn -> vẫn trả mẫu trùng tên + top mẫu có hình, không bao giờ trắng tay)
     try:
-        return [_lvt_exact_pick(x) for x in exact] + _lvt_propose_ai(quote, k, exact, exact_names)
+        ai_out, more = _lvt_propose_ai(quote, k, exact, exact_names, illus_only)
+        return [_lvt_exact_pick(x) for x in exact] + ai_out, more
     except Exception as e:
-        print("lvt_propose AI fail (%s) — trả %d mẫu trùng tên" % (e, len(exact)), flush=True)
-        return [_lvt_exact_pick(x) for x in exact]
+        print("lvt_propose AI fail (%s) — fallback" % e, flush=True)
+        base = [_lvt_exact_pick(x) for x in exact]
+        if len(base) < k:
+            pool = [x for x in LVT_INDEX if x.get("s") in _LVT_ILLUS_STYLES and x.get("n") not in exact_names]
+            ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
+            for x in random.sample(pool, min(k - len(base), len(pool))):
+                base.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                             "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+                             "reason": "Mẫu có hình cùng chất brand (AI chấm đang lỗi, chọn tạm).",
+                             "direction": "Bám bố cục + tinh thần mẫu này, thay chữ bằng quote của bạn."})
+        return base, []
 
 
 def _lvt_exact_pick(x):
@@ -4609,7 +4619,7 @@ def _lvt_exact_pick(x):
             "direction": "Bám nguyên bố cục + style mẫu này, giữ đúng nguyên văn quote của bạn."}
 
 
-def _lvt_propose_ai(quote, k, exact, exact_names):
+def _lvt_propose_ai(quote, k, exact, exact_names, illus_only=True):
     styles_pool = [s for s in LVT_STYLES if (not illus_only or s["id"] in _LVT_ILLUS_STYLES)]
     cat_brief = "\n".join("%s: %s — %s; hợp: %s" % (s["id"], s["ten"], s.get("typo", ""), s.get("khi_nao", ""))
                           for s in styles_pool)
@@ -4649,7 +4659,11 @@ def _lvt_propose_ai(quote, k, exact, exact_names):
         json_mode=True, max_tokens=1400, model=BEST_TEXT_MODEL)
     out = []
     ten_map = {s["id"]: s["ten"] for s in LVT_STYLES}
-    for p in (json.loads(s2).get("picks") or [])[:max(0, k - len(exact))]:
+    try:
+        picks = json.loads(s2 or "{}").get("picks") or []
+    except Exception:
+        picks = []
+    for p in picks[:max(0, k - len(exact))]:
         try:
             x = cands[int(p.get("i", 0)) - 1]
         except Exception:
@@ -4657,7 +4671,24 @@ def _lvt_propose_ai(quote, k, exact, exact_names):
         out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
                     "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
                     "reason": p.get("reason", ""), "direction": p.get("direction", "")})
-    return out
+    # KHÔNG BAO GIỜ TRẮNG TAY: AI chấm rỗng/lỗi -> tự lấy top ứng viên điểm cao làm đề xuất
+    have = {o["name"] for o in out}
+    if len(out) < k:
+        for x in cands:
+            if len(out) >= k:
+                break
+            if x["n"] in have:
+                continue
+            have.add(x["n"])
+            out.append({"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+                        "style_ten": ten_map.get(x.get("s", ""), x.get("s", "")),
+                        "reason": "Ứng viên điểm cao cùng chủ đề/style.",
+                        "direction": "Bám bố cục + tinh thần mẫu này, thay chữ bằng quote của bạn."})
+    # HIỆN HẾT: kèm toàn bộ ứng viên còn lại để user tự duyệt
+    more = [{"name": x["n"], "img": x["i"], "style": x.get("s", ""),
+             "style_ten": ten_map.get(x.get("s", ""), x.get("s", ""))}
+            for x in cands if x["n"] not in have]
+    return out, more
 
 
 def lvt_propose_by_image(img_url, k=6):
@@ -8755,13 +8786,13 @@ class Handler(BaseHTTPRequestHandler):
             if not quote:
                 return self.json(400, {"error": "Nhập quote trước đã."})
             try:
-                props = lvt_propose(quote, max(4, min(8, int(body.get("k") or 6))),
-                                    illus_only=bool(body.get("illus_only", True)))
+                props, more = lvt_propose(quote, max(4, min(12, int(body.get("k") or 8))),
+                                          illus_only=bool(body.get("illus_only", True)))
             except Exception as e:
                 return self.json(502, {"error": "Đề xuất lỗi: %s" % e})
-            if not props:
+            if not props and not more:
                 return self.json(502, {"error": "AI chưa tìm được mẫu hợp — thử lại."})
-            return self.json(200, {"proposals": props})
+            return self.json(200, {"proposals": props, "more": more})
         if path == "/api/lvt-styles":
             out = []
             for s in LVT_STYLES:
