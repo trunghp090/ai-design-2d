@@ -5504,10 +5504,10 @@ async function lvtProposeImg() {
     cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
     const dataUrl = cv.toDataURL("image/png");
     const r = await fetch("/api/lvt-propose-img", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ img: dataUrl, k: 6 }) });
+      body: JSON.stringify({ img: dataUrl, k: 12 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     lvtShowProps('🖼 Đề xuất theo ảnh icon của bạn — chọn mẫu ưng để gen theo', d.proposals || []);
-    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " mẫu cùng nhân vật/biểu cảm — xem cột phải.";
+    note.className = "gen-note ok"; note.textContent = "✓ Có " + (d.proposals || []).length + " mẫu CÙNG NÉT VẼ/style — xem cột phải, chọn mẫu ưng.";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = o;
 }

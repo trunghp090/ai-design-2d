@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-illus"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-propose-artstyle"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4667,12 +4667,14 @@ def lvt_propose_by_image(img_url, k=6):
     # B1: tả ảnh icon -> nhân vật + biểu cảm + keywords tiếng Việt
     s1 = openai_chat([{"role": "user", "content": [
         {"type": "text", "text":
-         "Tả ảnh icon/nhân vật này để tìm design áo thun tương đồng. STYLE CATALOG:\n" + cat_brief + "\n"
+         "Tả ảnh icon/nhân vật này để tìm design áo thun CÙNG NÉT VẼ/STYLE. STYLE CATALOG:\n" + cat_brief + "\n"
          "Trả JSON {\"subject\":\"nhân vật/con vật (vd: ếch Pepe, mèo, capybara)\",\"emotion\":\"biểu cảm "
-         "(cười/khóc/chill/cà khịa...)\",\"keywords\":[8-12 từ khoá tiếng Việt NGẮN về nhân vật + biểu cảm + chủ đề, "
-         "vd \"ếch\",\"cười\",\"meme\"],\"styles\":[2-3 id style hợp]}"},
+         "(cười/khóc/chill/cà khịa...)\",\"art\":\"NÉT VẼ của ảnh — mô tả ngắn (vd: flat vector viền dày, "
+         "doodle nét mảnh, chibi bo tròn, cutout ảnh thật, pixel, halftone retro, sticker bóng...)\","
+         "\"keywords\":[8-12 từ khoá tiếng Việt NGẮN về nhân vật + biểu cảm + chủ đề],"
+         "\"styles\":[2-3 id style hợp NÉT VẼ nhất]}"},
         {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]}],
-        json_mode=True, max_tokens=400, model=BEST_TEXT_MODEL)
+        json_mode=True, max_tokens=450, model=BEST_TEXT_MODEL)
     d1 = json.loads(s1 or "{}")
     kws = [str(x).lower() for x in (d1.get("keywords") or [])]
     kws += [str(d1.get("subject", "")).lower(), str(d1.get("emotion", "")).lower()]
@@ -4693,19 +4695,31 @@ def lvt_propose_by_image(img_url, k=6):
         sc = len(kwn & txt) + (1 if x.get("s") in style_ids else 0)
         scored.append((sc, x))
     scored.sort(key=lambda p: -p[0])
-    cands = [x for _sc, x in scored[:36]] + [x for _sc, x in random.sample(scored[36:], min(12, max(0, len(scored) - 36)))]
-    # B3: AI NHÌN ảnh gốc + 48 ảnh ứng viên -> chọn k mẫu giống nhân vật/biểu cảm nhất
-    content = [{"type": "text", "text":
-                "Ảnh ĐẦU TIÊN là icon khách gửi (nhân vật: %s, biểu cảm: %s). %d ảnh sau là design THẬT đánh số "
-                "1..%d theo thứ tự. Chọn %d design GIỐNG ảnh khách nhất về NHÂN VẬT + BIỂU CẢM + KIỂU VẼ (ưu tiên "
-                "cùng con vật/nhân vật, rồi tới cùng biểu cảm, rồi tới cùng nét vẽ). TUYỆT ĐỐI KHÔNG chọn design "
-                "chỉ có chữ không có hình minh hoạ. Mỗi cái: lý do giống (1 câu tiếng Việt). "
-                "Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\"}]}"
-                % (d1.get("subject", "?"), d1.get("emotion", "?"), len(cands), len(cands), k)},
-               {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]
-    for x in cands:
-        content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "low"}})
-    s2 = openai_chat([{"role": "user", "content": content}], json_mode=True, max_tokens=900, model=BEST_TEXT_MODEL)
+    cands = [x for _sc, x in scored[:40]] + [x for _sc, x in random.sample(scored[40:], min(8, max(0, len(scored) - 40)))]
+    # B3: AI NHÌN ảnh gốc + ảnh ứng viên -> ưu tiên CÙNG NÉT VẼ/STYLE trước, rồi mới tới nhân vật/biểu cảm
+    def _b3(cs, mt):
+        content = [{"type": "text", "text":
+                    "Ảnh ĐẦU TIÊN là icon khách gửi (nhân vật: %s, biểu cảm: %s, NÉT VẼ: %s). %d ảnh sau là "
+                    "design THẬT đánh số 1..%d theo thứ tự. Chọn %d design theo thứ tự ưu tiên: (1) CÙNG NÉT "
+                    "VẼ / STYLE kiểu đó nhất (độ dày viền, cách tô màu, độ chi tiết, vibe tổng thể), (2) cùng "
+                    "nhân vật/con vật, (3) cùng biểu cảm. Chọn RỘNG RÃI đủ %d mẫu để khách lựa — miễn nét vẽ "
+                    "tương đồng là lấy. TUYỆT ĐỐI KHÔNG chọn design chỉ có chữ không có hình minh hoạ. "
+                    "Mỗi cái: lý do giống (1 câu tiếng Việt, nói rõ giống ở NÉT VẼ hay nhân vật). "
+                    "Trả JSON {\"picks\":[{\"i\":số,\"reason\":\"...\"}]}"
+                    % (d1.get("subject", "?"), d1.get("emotion", "?"), d1.get("art", "?"),
+                       len(cs), len(cs), k, k)},
+                   {"type": "image_url", "image_url": {"url": img_url, "detail": "low"}}]
+        for x in cs:
+            content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "low"}})
+        return openai_chat([{"role": "user", "content": content}], json_mode=True,
+                           max_tokens=mt, model=BEST_TEXT_MODEL)
+    try:
+        s2 = _b3(cands, 1500)
+    except Exception as e:
+        # 1 URL ảnh hỏng / request quá tải -> rút còn 24 ứng viên đầu thử lại
+        print("lvt img B3 retry gọn: %s" % e)
+        cands = cands[:24]
+        s2 = _b3(cands, 1200)
     out = []
     s2 = s2 or "{}"
     ten_map = {st["id"]: st["ten"] for st in LVT_STYLES}
@@ -8709,7 +8723,7 @@ class Handler(BaseHTTPRequestHandler):
             if not img.startswith("data:image/"):
                 return self.json(400, {"error": "Up ảnh icon trước đã."})
             try:
-                props = lvt_propose_by_image(img, max(4, min(8, int(body.get("k") or 6))))
+                props = lvt_propose_by_image(img, max(4, min(15, int(body.get("k") or 12))))
             except Exception as e:
                 print("lvt-propose-img err: %s" % e, flush=True)
                 return self.json(502, {"error": "AI chưa đối chiếu được ảnh — thử lại."})
