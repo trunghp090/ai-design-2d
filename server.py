@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-quote-tu-data-ocr"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-quote-tu-data-ocr2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4516,10 +4516,13 @@ def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
     print("lvt_ocr: %d đã có, %d cần đọc" % (len(done), len(todo)), flush=True)
     for bi in range(0, len(todo), batch):
         chunk = todo[bi:bi + batch]
+        hints = "\n".join("Ảnh %d — tên design: \"%s\"" % (i + 1, x["n"]) for i, x in enumerate(chunk))
         content = [{"type": "text", "text":
-                    "Đọc CHÍNH XÁC toàn bộ chữ in trên áo trong TỪNG ảnh theo thứ tự (giữ nguyên dấu tiếng Việt, "
-                    "hoa/thường theo nghĩa, nhiều dòng nối bằng ' / ', không mô tả hình). Ảnh nào không có chữ trả \"\". "
-                    "Trả JSON {\"quotes\":[\"chữ ảnh 1\", \"chữ ảnh 2\", ...]} đủ %d phần tử." % len(chunk)}]
+                    "Đọc CHÍNH XÁC câu chữ in trên áo trong TỪNG ảnh theo thứ tự. Tên design (thường CHÍNH LÀ câu "
+                    "quote, dấu tiếng Việt chuẩn) để đối chiếu sửa dấu:\n" + hints + "\n"
+                    "Quy tắc: ghi mỗi câu MỘT lần (chữ trang trí lặp lại không ghi lại), nhiều dòng nối bằng ' / ', "
+                    "giữ đúng dấu tiếng Việt (ưu tiên chính tả theo tên design nếu khớp), không mô tả hình. "
+                    "Ảnh không có chữ trả \"\". Trả JSON {\"quotes\":[\"chữ ảnh 1\", ...]} đủ %d phần tử." % len(chunk)}]
         for x in chunk:
             content.append({"type": "image_url", "image_url": {"url": x["i"], "detail": "high"}})
         try:
@@ -4531,7 +4534,12 @@ def lvt_ocr_job(batch=6, model="gpt-4o-mini", limit=0):
             time.sleep(5)
             continue
         for x, q in zip(chunk, qs):
-            q = (q or "").strip()[:200]
+            segs = [t.strip() for t in (q or "").split("/")]
+            dedup = []
+            for t in segs:
+                if t and (not dedup or _lvt_vnorm(t) != _lvt_vnorm(dedup[-1])):
+                    dedup.append(t)
+            q = " / ".join(dedup)[:200]
             if q:
                 done[x["n"]] = q
         with _lvt_quotes_lock:
