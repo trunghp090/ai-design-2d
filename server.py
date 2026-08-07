@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-grant-revenue"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-top-products"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8194,8 +8194,19 @@ def _pnl_shopify_orders(since_iso, until_iso):
                 rev = float(o.get("current_total_price") or o.get("total_price") or 0)
             except Exception:
                 rev = 0.0
-            units = sum(int(li.get("quantity") or 0) for li in (o.get("line_items") or []))
-            out.append({"d": (o.get("created_at") or "")[:10], "rev": rev, "units": units})
+            items = []
+            units = 0
+            for li in (o.get("line_items") or []):
+                q = int(li.get("quantity") or 0)
+                units += q
+                try:
+                    pr = float(li.get("price") or 0)
+                except Exception:
+                    pr = 0.0
+                items.append({"pid": li.get("product_id"), "t": (li.get("title") or "")[:120],
+                              "q": q, "p": pr})
+            out.append({"d": (o.get("created_at") or "")[:10], "rev": rev, "units": units,
+                        "items": items})
         if len(rows) < 250:
             break
     return out
@@ -8288,8 +8299,44 @@ def pnl_report(since_d, until_d, force=False):
         share = (r / cur["revenue"]) if cur["revenue"] else 0          # phân bổ chi phí cố định theo tỉ trọng doanh thu
         fixed = (cur["cogs"] + cur["ship"] + cur["fee"] + cur["other"]) * share
         daily.append({"d": dy, "rev": round(r), "spend": round(s), "profit": round(r - fixed - s)})
+    # ---- TOP SẢN PHẨM ĐƯỢC MUA (kỳ hiện tại) ----
+    agg = {}
+    for o in cur_orders:
+        seen = set()
+        for it in (o.get("items") or []):
+            k = it.get("pid") or it.get("t")
+            if k is None:
+                continue
+            a = agg.setdefault(k, {"pid": it.get("pid"), "title": it.get("t"),
+                                   "price": 0.0, "orders": 0, "units": 0, "revenue": 0.0})
+            a["units"] += it["q"]
+            a["revenue"] += it["q"] * it["p"]
+            a["price"] = max(a["price"], it["p"])
+            if k not in seen:
+                a["orders"] += 1
+                seen.add(k)
+    top = sorted(agg.values(), key=lambda x: (-x["units"], -x["revenue"]))[:10]
+    pids = [str(t["pid"]) for t in top if t.get("pid")]
+    imgs = {}
+    if pids and shopify_configured():
+        try:
+            st, dd = shopify_api("GET", "products.json?ids=%s&fields=id,image,handle" % ",".join(pids))
+            if st == 200:
+                for p in (dd.get("products") or []):
+                    imgs[p.get("id")] = ((p.get("image") or {}).get("src") or "")
+        except Exception:
+            pass
+    top_products = []
+    for t in top:
+        top_products.append({
+            "title": t["title"], "img": imgs.get(t.get("pid"), ""),
+            "price": round(t["price"]), "orders": t["orders"], "units": t["units"],
+            "per_order": round(t["units"] / t["orders"], 1) if t["orders"] else 0,
+            "revenue": round(t["revenue"]),
+            "url": shop_admin_url(t["pid"]) if t.get("pid") else ""})
+
     data = {"ok": True, "days": days, "since": cur_days[0], "until": cur_days[-1],
-            "cur": cur, "prev": prev, "daily": daily,
+            "cur": cur, "prev": prev, "daily": daily, "top_products": top_products,
             "settings": cfg, "notes": notes,
             "shopify": shopify_configured(), "fb": fb_configured()}
     with _pnl_lock:

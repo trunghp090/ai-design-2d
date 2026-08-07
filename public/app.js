@@ -6509,6 +6509,7 @@ async function pnlLoad(force) {
     note.textContent = (d.notes || []).join(" · ");
     pnlRenderCards(d);
     pnlRenderChart(d);
+    pnlRenderTop(d);
   } catch (e) {
     note.className = "gen-note err";
     note.textContent = "✗ " + e.message;
@@ -6583,6 +6584,27 @@ function pnlRenderChart(d) {
     '<line x1="0" x2="' + W + '" y1="' + y(0) + '" y2="' + y(0) + '" class="pnl-zero"/>' +
     bars + spendBars +
     '<path d="' + line + '" class="pnl-line"/>' + labels + '</svg></div>';
+}
+function pnlRenderTop(d) {
+  const box = $("pnlTop");
+  if (!box) return;
+  const tp = d.top_products || [];
+  if (!tp.length) { box.innerHTML = ""; return; }
+  const rows = tp.map((p, i) =>
+    '<tr>' +
+    '<td class="pt-rank">' + (i + 1) + '</td>' +
+    '<td>' + (p.img ? '<img class="pt-img" src="' + p.img + '" loading="lazy">' : '<span class="pt-img pt-noimg">👕</span>') + '</td>' +
+    '<td class="pt-name">' + (p.url ? '<a href="' + p.url + '" target="_blank">' + p.title + '</a>' : p.title) + '</td>' +
+    '<td class="num">' + pnlMoney(p.price) + '</td>' +
+    '<td class="num"><b>' + fmtNum(p.orders) + '</b></td>' +
+    '<td class="num">' + fmtNum(p.units) + ' <span class="pt-sub">(' + p.per_order + '/đơn)</span></td>' +
+    '<td class="num">' + pnlMoney(p.revenue) + '</td>' +
+    '</tr>').join("");
+  box.innerHTML =
+    '<div class="pnl-chart-box" style="margin-top:14px"><div class="pnl-chart-head"><b>🏆 Top sản phẩm được mua</b></div>' +
+    '<div style="overflow-x:auto"><table class="pt-tbl"><thead><tr>' +
+    '<th></th><th>Ảnh</th><th style="text-align:left">Sản phẩm</th><th>Giá</th><th>Số đơn</th><th>Số item</th><th>Doanh thu</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
 async function pnlCfgSave() {
   const btn = $("pnlCfgSave"); btn.disabled = true; btn.textContent = "⏳ Đang lưu…";
