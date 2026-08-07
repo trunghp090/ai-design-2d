@@ -9,15 +9,16 @@ window.MY_TABS = null;   // null = chưa biết -> không ẩn gì ngoài nhóm 
 function applyAdminNav() {
   // nhóm "Quản lý Ads" (chỉ số + doanh thu + thành viên) chỉ hiện với tài khoản quản trị
   document.querySelectorAll('.app-group[data-group="ads"], .app-tab[data-group="ads"], ' +
+      '.app-group[data-group="revenue"], .app-tab[data-group="revenue"], ' +
       '.app-group[data-group="team"], .app-tab[data-group="team"]')
     .forEach(el => el.classList.toggle("hidden", !window.IS_ADMIN));
   // tab thường: ẩn tab ngoài quyền của thành viên
   if (!window.IS_ADMIN && Array.isArray(window.MY_TABS)) {
-    document.querySelectorAll('.app-tab:not([data-group="ads"]):not([data-group="team"])').forEach(t =>
+    document.querySelectorAll('.app-tab:not([data-group="ads"]):not([data-group="revenue"]):not([data-group="team"])').forEach(t =>
       t.classList.toggle("hidden", !window.MY_TABS.includes(t.dataset.app)));
     // ẩn luôn nhóm không còn tab nào
     document.querySelectorAll(".app-group[data-group]").forEach(g => {
-      if (g.dataset.group === "ads" || g.dataset.group === "team" || g.id === "tabEditBtn") return;
+      if (g.dataset.group === "ads" || g.dataset.group === "revenue" || g.dataset.group === "team" || g.id === "tabEditBtn") return;
       const any = [...document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]')]
         .some(t => !t.classList.contains("hidden"));
       g.classList.toggle("hidden", !any);
