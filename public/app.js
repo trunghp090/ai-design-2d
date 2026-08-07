@@ -5,10 +5,29 @@ let lastCloneSource = null; // ảnh GỐC (data URL/url) dùng để clone -> �
 
 /* ---------- kiểm tra đăng nhập (chưa thì sang /auth.html) ---------- */
 window.IS_ADMIN = false;
+window.MY_TABS = null;   // null = chưa biết -> không ẩn gì ngoài nhóm ads
 function applyAdminNav() {
-  // nhóm "Quản lý Ads" (chỉ số + doanh thu) chỉ hiện với tài khoản quản trị
+  // nhóm "Quản lý Ads" (chỉ số + doanh thu + thành viên) chỉ hiện với tài khoản quản trị
   document.querySelectorAll('.app-group[data-group="ads"], .app-tab[data-group="ads"]')
     .forEach(el => el.classList.toggle("hidden", !window.IS_ADMIN));
+  // tab thường: ẩn tab ngoài quyền của thành viên
+  if (!window.IS_ADMIN && Array.isArray(window.MY_TABS)) {
+    document.querySelectorAll('.app-tab:not([data-group="ads"])').forEach(t =>
+      t.classList.toggle("hidden", !window.MY_TABS.includes(t.dataset.app)));
+    // ẩn luôn nhóm không còn tab nào
+    document.querySelectorAll(".app-group[data-group]").forEach(g => {
+      if (g.dataset.group === "ads" || g.id === "tabEditBtn") return;
+      const any = [...document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]')]
+        .some(t => !t.classList.contains("hidden"));
+      g.classList.toggle("hidden", !any);
+    });
+    // nếu tab đang mở bị ẩn -> nhảy sang tab đầu tiên còn quyền
+    const act = document.querySelector(".app-tab.active");
+    if (act && act.classList.contains("hidden")) {
+      const first = document.querySelector(".app-tab:not(.hidden)");
+      if (first) { showGroup(first.dataset.group, true); first.click(); }
+    }
+  }
 }
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
   fetch("/api/status").then(r => r.json()).then(s => {
@@ -21,6 +40,7 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
       }
     }
     window.IS_ADMIN = !!(ok && d.admin);
+    window.MY_TABS = (ok && Array.isArray(d.tabs)) ? d.tabs : null;
     applyAdminNav();
   });
 }).catch(() => {});
@@ -785,6 +805,7 @@ function showApp(app) {
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
   document.getElementById("view-pnl").classList.toggle("hidden", app !== "pnl");
+  document.getElementById("view-members").classList.toggle("hidden", app !== "members");
   document.getElementById("view-agent").classList.toggle("hidden", app !== "agent");
   document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
   document.getElementById("view-pgpost").classList.toggle("hidden", app !== "pgpost");
@@ -795,6 +816,7 @@ function showApp(app) {
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
   if (app === "pnl") pnlInit();
+  if (app === "members") membersInit();
   if (app === "agent") agentInit();
   if (app === "adpost") adpostInit();
   if (app === "pgpost") pgpostInit();
@@ -6339,6 +6361,7 @@ async function pnlLoad(force) {
     $("pnlCogsUnit").value = s.cogs_per_unit || "";
     $("pnlCogsPct").value = s.cogs_pct || "";
     $("pnlShip").value = s.ship_per_order || "";
+    $("pnlFreeship").value = s.freeship_min || "";
     $("pnlFeePct").value = s.fee_pct || "";
     $("pnlOther").value = s.other_per_order || "";
     note.textContent = (d.notes || []).join(" · ");
@@ -6374,7 +6397,8 @@ function pnlRenderCards(d) {
     roas:     [c.roas ? c.roas + "x" : "—", p.roas ? "kỳ trước " + p.roas + "x" : ""],
     cpp:      [c.orders ? pnlMoney(cppC) : "—", pnlDelta(cppC, cppP, false)],
     cogs:     [pnlMoney(c.cogs), pnlDelta(c.cogs, p.cogs, false)],
-    ship:     [pnlMoney(c.ship), ""],
+    ship:     [pnlMoney(c.ship), c.ship_orders !== undefined && d.settings && d.settings.freeship_min > 0
+                 ? fmtNum(c.ship_orders) + " đơn freeship shop chịu" : ""],
     fee_other: [pnlMoney(c.fee + c.other), ""],
     margin:   [c.margin + "%", p.margin ? "kỳ trước " + p.margin + "%" : ""]
   };
@@ -6425,6 +6449,7 @@ async function pnlCfgSave() {
       cogs_per_unit: parseFloat($("pnlCogsUnit").value) || 0,
       cogs_pct: parseFloat($("pnlCogsPct").value) || 0,
       ship_per_order: parseFloat($("pnlShip").value) || 0,
+      freeship_min: parseFloat($("pnlFreeship").value) || 0,
       fee_pct: parseFloat($("pnlFeePct").value) || 0,
       other_per_order: parseFloat($("pnlOther").value) || 0
     };
@@ -6434,6 +6459,113 @@ async function pnlCfgSave() {
     pnlLoad(true);
   } catch (e) { alert("✗ " + e.message); }
   btn.disabled = false; btn.textContent = "💾 Lưu & tính lại";
+}
+
+/* =====================================================================
+   👥 THÀNH VIÊN & PHÂN QUYỀN TAB (admin)
+   ===================================================================== */
+let membersInited = false;
+function membersInit() {
+  if (!membersInited) {
+    membersInited = true;
+    $("membersRefresh").onclick = membersLoad;
+  }
+  membersLoad();
+}
+function membersTabLabel(app) {
+  const t = document.querySelector('.app-tab[data-app="' + app + '"]');
+  return t ? t.textContent.trim() : app;
+}
+function membersGroupOf(app) {
+  const t = document.querySelector('.app-tab[data-app="' + app + '"]');
+  return t ? t.dataset.group : "";
+}
+async function membersLoad() {
+  const note = $("membersNote"), list = $("membersList");
+  note.className = "gen-note"; note.textContent = "⏳ Đang tải danh sách…";
+  list.innerHTML = "";
+  try {
+    const r = await fetch("/api/admin-users");
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi tải");
+    note.textContent = d.users.length + " thành viên.";
+    d.users.forEach(u => list.appendChild(membersCard(u, d.all_tabs)));
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+function membersCard(u, allTabs) {
+  const card = document.createElement("div");
+  card.className = "mem-card";
+  const when = u.ts ? new Date(u.ts * 1000).toLocaleDateString("vi-VN") : "";
+  if (u.admin) {
+    card.innerHTML = '<div class="mem-head"><b>👑 ' + u.email + '</b>' +
+      '<span class="mem-badge">Quản trị — full quyền</span></div>';
+    return card;
+  }
+  const nTabs = u.tabs.length;
+  card.innerHTML =
+    '<div class="mem-head"><b>👤 ' + u.email + '</b>' +
+    '<span class="mem-sub">' + (when ? "tham gia " + when + " · " : "") +
+    '<span class="mem-count">' + nTabs + "/" + allTabs.length + ' tab</span></span></div>';
+  const det = document.createElement("details");
+  det.innerHTML = "<summary>🎛 Chỉnh quyền tab</summary>";
+  const groupNames = { design: "🎨 Thiết kế", product: "📸 Sản phẩm", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
+  const body = document.createElement("div");
+  body.className = "mem-perm-body";
+  const sel = new Set(u.tabs);
+  ["design", "product", "marketing", "shopify"].forEach(g => {
+    const tabs = allTabs.filter(a => membersGroupOf(a) === g);
+    if (!tabs.length) return;
+    const h = document.createElement("div");
+    h.className = "mem-perm-group";
+    h.innerHTML = '<b>' + (groupNames[g] || g) + '</b> <a href="#" data-act="all">chọn hết</a> · <a href="#" data-act="none">bỏ hết</a>';
+    body.appendChild(h);
+    const wrap = document.createElement("div");
+    wrap.className = "mem-perm-list";
+    tabs.forEach(a => {
+      const lb = document.createElement("label");
+      lb.className = "pnl-metric-item" + (sel.has(a) ? " on" : "");
+      lb.innerHTML = '<input type="checkbox" data-app="' + a + '"' + (sel.has(a) ? " checked" : "") + '> ' + membersTabLabel(a);
+      lb.querySelector("input").onchange = (e) => lb.classList.toggle("on", e.target.checked);
+      wrap.appendChild(lb);
+    });
+    body.appendChild(wrap);
+    h.querySelectorAll("a").forEach(a2 => a2.onclick = (e) => {
+      e.preventDefault();
+      wrap.querySelectorAll("input").forEach(i => {
+        i.checked = a2.dataset.act === "all";
+        i.closest("label").classList.toggle("on", i.checked);
+      });
+    });
+  });
+  const foot = document.createElement("div");
+  foot.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap";
+  const save = document.createElement("button");
+  save.className = "btn-primary sm"; save.textContent = "💾 Lưu quyền";
+  save.onclick = async () => {
+    save.disabled = true; save.textContent = "⏳…";
+    const tabs = [...body.querySelectorAll("input:checked")].map(i => i.dataset.app);
+    try {
+      const r = await fetch("/api/admin-perms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: u.email, tabs: tabs }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      save.textContent = "✓ Đã lưu";
+      card.querySelector(".mem-count").textContent = tabs.length + " tab";
+      setTimeout(() => { save.textContent = "💾 Lưu quyền"; save.disabled = false; }, 1200);
+    } catch (e) { alert("✗ " + e.message); save.disabled = false; save.textContent = "💾 Lưu quyền"; }
+  };
+  const del = document.createElement("button");
+  del.className = "btn-ghost sm"; del.textContent = "🗑️ Xoá thành viên";
+  del.onclick = async () => {
+    if (!confirm("Xoá tài khoản " + u.email + "? Người này sẽ không đăng nhập được nữa.")) return;
+    try {
+      const r = await fetch("/api/admin-user-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: u.email }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      card.remove();
+    } catch (e) { alert("✗ " + e.message); }
+  };
+  foot.appendChild(save); foot.appendChild(del);
+  det.appendChild(body); det.appendChild(foot);
+  card.appendChild(det);
+  return card;
 }
 
 /* =====================================================================

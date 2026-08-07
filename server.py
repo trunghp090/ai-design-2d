@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-pnl-custom-admin"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-members-freeship"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8070,6 +8070,42 @@ def user_is_admin(u):
     return bool(u) and ((u.get("email") or "").strip().lower() in ADMIN_EMAILS)
 
 
+# ---- phân quyền TAB cho từng thành viên (admin tick trong trang 👥 Thành viên) ----
+USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
+_perms_lock = threading.Lock()
+# mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
+ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "namedes", "mixd", "lvt",
+                "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
+                "adpost", "pgpost", "sched", "shopify", "shoplist"]
+ADMIN_ONLY_TABS = ["admgr", "pnl", "members"]
+
+
+def user_perms_load():
+    try:
+        with open(USER_PERMS_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def user_perms_save(d):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with _perms_lock:
+        with open(USER_PERMS_FILE, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+
+
+def user_allowed_tabs(u):
+    """Danh sách tab user được dùng. Admin = tất cả. Chưa cấu hình = mọi tab thường."""
+    if user_is_admin(u):
+        return ALL_APP_TABS + ADMIN_ONLY_TABS
+    p = user_perms_load().get((u.get("email") or "").strip().lower()) if u else None
+    if isinstance(p, list):
+        return [t for t in p if t in ALL_APP_TABS]
+    return list(ALL_APP_TABS)
+
+
 # ============ 💰 PHÂN TÍCH DOANH THU & LỢI NHUẬN (Shopify orders + FB Ads spend) ============
 PNL_FILE = os.path.join(DATA_DIR, "pnl-settings.json")
 _pnl_cache = {}          # days -> {"t": ts, "data": {...}}
@@ -8089,8 +8125,8 @@ def pnl_settings_load():
         except Exception:
             return 0.0
     return {"cogs_per_unit": f("cogs_per_unit"), "cogs_pct": f("cogs_pct"),
-            "ship_per_order": f("ship_per_order"), "fee_pct": f("fee_pct"),
-            "other_per_order": f("other_per_order")}
+            "ship_per_order": f("ship_per_order"), "freeship_min": f("freeship_min"),
+            "fee_pct": f("fee_pct"), "other_per_order": f("other_per_order")}
 
 
 def pnl_settings_save(d):
@@ -8158,12 +8194,18 @@ def _pnl_sum(orders, spend_by_day, days_list, cfg):
     units = sum(o["units"] for o in orders)
     spend = sum(spend_by_day.get(dy, 0) for dy in days_list)
     cogs = units * cfg["cogs_per_unit"] if cfg["cogs_per_unit"] > 0 else rev * cfg["cogs_pct"] / 100.0
-    ship = n_orders * cfg["ship_per_order"]
+    if cfg["freeship_min"] > 0:
+        # đơn >= mức freeship: shop chịu ship; đơn nhỏ hơn: khách trả (đã nằm trong doanh thu)
+        ship_orders = sum(1 for o in orders if o["rev"] >= cfg["freeship_min"])
+    else:
+        ship_orders = n_orders
+    ship = ship_orders * cfg["ship_per_order"]
     fee = rev * cfg["fee_pct"] / 100.0
     other = n_orders * cfg["other_per_order"]
     net = rev - cogs - ship - fee - other - spend
     return {"revenue": round(rev), "orders": n_orders, "units": units,
             "ad_spend": round(spend), "cogs": round(cogs), "ship": round(ship),
+            "ship_orders": ship_orders,
             "fee": round(fee), "other": round(other), "net": round(net),
             "margin": round(net / rev * 100, 1) if rev else 0,
             "roas": round(rev / spend, 2) if spend else 0}
@@ -8449,11 +8491,27 @@ class Handler(BaseHTTPRequestHandler):
             if st != 200:
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"adsets": d.get("data") or []})
+        if path == "/api/admin-users":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            con = sqlite3.connect(AUTH_DB)
+            rows = con.execute("SELECT email, ts FROM users ORDER BY id").fetchall()
+            con.close()
+            perms = user_perms_load()
+            out = []
+            for em, ts in rows:
+                em = (em or "").lower()
+                out.append({"email": em, "ts": ts,
+                            "admin": em in ADMIN_EMAILS,
+                            "tabs": perms.get(em) if isinstance(perms.get(em), list) else list(ALL_APP_TABS)})
+            return self.json(200, {"users": out, "all_tabs": ALL_APP_TABS,
+                                   "admin_tabs": ADMIN_ONLY_TABS})
         if path == "/api/me":
             u = self.current_user()
             if not u:
                 return self.json(401, {"error": "Chưa đăng nhập"})
-            return self.json(200, {"user": u, "admin": user_is_admin(u)})
+            return self.json(200, {"user": u, "admin": user_is_admin(u),
+                                   "tabs": user_allowed_tabs(u)})
         if path == "/api/gallery":
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
@@ -8661,11 +8719,47 @@ class Handler(BaseHTTPRequestHandler):
         if AUTH_REQUIRED and not self.current_user():
             return self.json(401, {"error": "Vui lòng đăng nhập để dùng tính năng này."})
 
+        if path == "/api/admin-perms":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            em = (body.get("email") or "").strip().lower()
+            tabs = body.get("tabs")
+            if not em or not isinstance(tabs, list):
+                return self.json(400, {"error": "Thiếu email hoặc tabs."})
+            if em in ADMIN_EMAILS:
+                return self.json(400, {"error": "Tài khoản quản trị luôn full quyền."})
+            d = user_perms_load()
+            d[em] = [t for t in tabs if t in ALL_APP_TABS]
+            user_perms_save(d)
+            return self.json(200, {"ok": True, "tabs": d[em]})
+        if path == "/api/admin-user-delete":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            em = (body.get("email") or "").strip().lower()
+            if not em:
+                return self.json(400, {"error": "Thiếu email."})
+            if em in ADMIN_EMAILS:
+                return self.json(400, {"error": "Không thể xoá tài khoản quản trị."})
+            with _auth_lock:
+                con = sqlite3.connect(AUTH_DB)
+                row = con.execute("SELECT id FROM users WHERE email=?", (em,)).fetchone()
+                if not row:
+                    con.close()
+                    return self.json(404, {"error": "Không tìm thấy thành viên."})
+                con.execute("DELETE FROM sessions WHERE uid=?", (row[0],))
+                con.execute("DELETE FROM users WHERE id=?", (row[0],))
+                con.commit()
+                con.close()
+            d = user_perms_load()
+            if em in d:
+                del d[em]
+                user_perms_save(d)
+            return self.json(200, {"ok": True})
         if path == "/api/pnl-settings":
             if not user_is_admin(self.current_user()):
                 return self.json(403, {"error": "Chỉ tài khoản quản trị."})
             keep = {}
-            for k in ("cogs_per_unit", "cogs_pct", "ship_per_order", "fee_pct", "other_per_order"):
+            for k in ("cogs_per_unit", "cogs_pct", "ship_per_order", "freeship_min", "fee_pct", "other_per_order"):
                 try:
                     keep[k] = float(body.get(k) or 0)
                 except Exception:

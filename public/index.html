@@ -68,6 +68,7 @@
     <button class="app-tab" data-app="tiktok" data-group="marketing">🎵 TikTok Quà tặng</button>
     <button class="app-tab" data-app="admgr" data-group="ads">📊 Chỉ số & chiến dịch</button>
     <button class="app-tab" data-app="pnl" data-group="ads">💰 Doanh thu & Lợi nhuận</button>
+    <button class="app-tab" data-app="members" data-group="ads">👥 Thành viên & quyền</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
     <button class="app-tab" data-app="sched" data-group="marketing">🗓️ Lịch content</button>
@@ -1852,11 +1853,12 @@
         <div class="pnl-cfg-grid">
           <label>Giá vốn / sản phẩm (đ)<input class="input" id="pnlCogsUnit" type="number" min="0" placeholder="vd 65000"></label>
           <label>… hoặc giá vốn theo % doanh thu<input class="input" id="pnlCogsPct" type="number" min="0" max="100" placeholder="vd 35"></label>
-          <label>Phí ship / đơn (đ)<input class="input" id="pnlShip" type="number" min="0" placeholder="vd 20000"></label>
-          <label>Phí thanh toán / sàn (% doanh thu)<input class="input" id="pnlFeePct" type="number" min="0" max="100" placeholder="vd 3"></label>
+          <label>Phí ship / đơn (đ)<input class="input" id="pnlShip" type="number" min="0" placeholder="vd 30000"></label>
+          <label>Freeship từ (đ) — đơn ≥ mức này SHOP chịu ship<input class="input" id="pnlFreeship" type="number" min="0" placeholder="vd 500000"></label>
+          <label>Phí thanh toán / sàn (% doanh thu — COD để 0)<input class="input" id="pnlFeePct" type="number" min="0" max="100" placeholder="vd 3"></label>
           <label>Chi phí khác / đơn (đ)<input class="input" id="pnlOther" type="number" min="0" placeholder="vd 5000"></label>
         </div>
-        <p class="gen-note" style="margin:6px 0">Nếu điền <b>Giá vốn / sản phẩm</b> thì dùng số đó (× số áo bán); để 0 thì dùng % doanh thu.</p>
+        <p class="gen-note" style="margin:6px 0">Nếu điền <b>Giá vốn / sản phẩm</b> thì dùng số đó (× số áo bán); để 0 thì dùng % doanh thu. <b>Phí ship:</b> nếu điền mức Freeship thì chỉ đơn ≥ mức đó mới tính phí ship (đơn nhỏ khách tự trả, tiền ship đã nằm trong doanh thu); để Freeship = 0 thì mọi đơn đều tính.</p>
         <button class="btn-primary sm" id="pnlCfgSave">💾 Lưu &amp; tính lại</button>
       </div>
 
@@ -1864,6 +1866,18 @@
       <div id="pnlCards"></div>
       <div id="pnlChart"></div>
       <div class="gallery-empty hidden" id="pnlEmpty">Chưa có dữ liệu (kiểm tra cấu hình Shopify / FB Ads).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-members">
+    <div class="panel" style="max-width:900px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+        <h2 class="panel-title" style="font-size:18px;margin:0">👥 Thành viên &amp; phân quyền tab</h2>
+        <button class="btn-ghost sm" id="membersRefresh">🔄 Tải lại</button>
+      </div>
+      <p class="panel-desc" style="margin:0 0 12px">Tick tab nào thì thành viên đó dùng được tab đó. Nhóm <b>📊 Quản lý Ads</b> (chỉ số, doanh thu, trang này) luôn chỉ dành cho quản trị. Thành viên mới đăng ký mặc định được dùng mọi tab thường.</p>
+      <p class="gen-note" id="membersNote"></p>
+      <div id="membersList"></div>
     </div>
   </section>
 
