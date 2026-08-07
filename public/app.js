@@ -6352,16 +6352,32 @@ async function admgrLoad() {
       card("💵", "CPM", tot.impr ? fmtNum(Math.round(tot.spend / tot.impr * 1000)) + "đ" : "—",
            tot.clicks ? "CPC " + fmtNum(Math.round(tot.spend / tot.clicks)) + "đ" : "") +
       '</div>';
-    // DANH SÁCH CHIẾN DỊCH — dạng thẻ card
-    const maxSpend = Math.max(1, ...cs.map(c => parseFloat(c.spend || 0)));
-    let html = cardsHtml + '<div class="adc-list">';
-    cs.forEach(c => { html += admgrCampCard(c, maxSpend); });
-    html += '</div>';
-    tbl.innerHTML = html;
-    tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
-    tbl.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
-    tbl.querySelectorAll(".adc-expand").forEach(b => b.onclick = () => admgrExpand(b));
+    // TAB LỌC: đang chạy / không chạy / tất cả — mặc định ĐANG CHẠY
+    window.admgrCS = cs;
+    const nAct = cs.filter(c => c.status === "ACTIVE").length;
+    const ftabs = '<div class="adm-ftabs">' +
+      '<button class="adm-ftab" data-f="ACTIVE">● Đang chạy <span>' + nAct + '</span></button>' +
+      '<button class="adm-ftab" data-f="PAUSED">‖ Không chạy <span>' + (cs.length - nAct) + '</span></button>' +
+      '<button class="adm-ftab" data-f="ALL">Tất cả <span>' + cs.length + '</span></button></div>';
+    tbl.innerHTML = cardsHtml + ftabs + '<div class="adc-list" id="admgrList"></div>';
+    tbl.querySelectorAll(".adm-ftab").forEach(b => b.onclick = () => { admgrFilter = b.dataset.f; admgrRenderList(); });
+    admgrRenderList();
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+let admgrFilter = "ACTIVE";
+function admgrRenderList() {
+  const cs = window.admgrCS || [];
+  const list = $("admgrList");
+  if (!list) return;
+  document.querySelectorAll(".adm-ftab").forEach(b => b.classList.toggle("active", b.dataset.f === admgrFilter));
+  const fil = cs.filter(c => admgrFilter === "ALL" ? true :
+    (admgrFilter === "ACTIVE" ? c.status === "ACTIVE" : c.status !== "ACTIVE"));
+  const maxSpend = Math.max(1, ...fil.map(c => parseFloat(c.spend || 0)));
+  list.innerHTML = fil.map(c => admgrCampCard(c, maxSpend)).join("") ||
+    '<p class="hint" style="padding:14px">Không có chiến dịch nào trong mục này.</p>';
+  list.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
+  list.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
+  list.querySelectorAll(".adc-expand").forEach(b => b.onclick = () => admgrExpand(b));
 }
 function admgrStateBits(o) {
   const active = o.status === "ACTIVE";
@@ -6452,6 +6468,8 @@ async function admgrToggleInline(btn) {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     btn.dataset.st = to;
     btn.textContent = to === "ACTIVE" ? "⏸ Dừng" : "▶ Bật";
+    const item = (window.admgrCS || []).find(c => c.id === id);
+    if (item) item.status = to;
     const stateBox = btn.closest(".adc-state") || btn.closest("tr");
     const pill = stateBox ? stateBox.querySelector(".adm-pill") : null;
     if (pill) {

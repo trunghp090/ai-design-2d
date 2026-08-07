@@ -909,3 +909,10 @@ textarea.input{resize:vertical;line-height:1.5}
   .adc-top { gap: 8px; }
   .adc-spend { order: 3; }
 }
+
+/* tab lọc campaign đang chạy / không chạy */
+.adm-ftabs { display: flex; gap: 8px; margin: 4px 0 14px; flex-wrap: wrap; }
+.adm-ftab { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--muted); }
+.adm-ftab span { background: #f3e9ec; border-radius: 10px; padding: 1px 8px; font-size: 11.5px; margin-left: 4px; }
+.adm-ftab.active { background: #8a1f3d; border-color: #8a1f3d; color: #fff; }
+.adm-ftab.active span { background: rgba(255,255,255,0.25); color: #fff; }
