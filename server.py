@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-members-freeship"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-admin-single"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8063,7 +8063,7 @@ def make_mock_png(w=512, h=640):
 # --------------------------------------------------------------------------- #
 # ---- quyền ADMIN cho nhóm Quản lý Ads (chỉ số + doanh thu): chỉ email trong danh sách ----
 ADMIN_EMAILS = set(e.strip().lower() for e in os.environ.get(
-    "ADMIN_EMAILS", "trunghp0909@gmail.com,trunghp090@gmail.com").split(",") if e.strip())
+    "ADMIN_EMAILS", "trunghp090@gmail.com").split(",") if e.strip())
 
 
 def user_is_admin(u):
