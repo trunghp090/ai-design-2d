@@ -27,6 +27,18 @@ function applyAdminNav() {
       const first = document.querySelector(".app-tab:not(.hidden)");
       if (first) { showGroup(first.dataset.group, true); first.click(); }
     }
+    // chưa được cấp tab nào -> ẩn hết view, hiện thông báo chờ admin cấp quyền
+    if (!document.querySelector(".app-tab:not(.hidden)")) {
+      document.querySelectorAll(".app-view").forEach(v => v.classList.add("hidden"));
+      if (!document.getElementById("noPermNote")) {
+        const n = document.createElement("div");
+        n.id = "noPermNote";
+        n.style.cssText = "max-width:520px;margin:60px auto;text-align:center;padding:30px;border:1px solid var(--line);border-radius:14px;background:#fff";
+        n.innerHTML = "<div style='font-size:40px'>🔒</div><h3 style='margin:10px 0 6px'>Tài khoản chưa được cấp quyền</h3>" +
+          "<p style='color:var(--muted);font-size:14px'>Liên hệ quản trị viên để được mở các tab làm việc.</p>";
+        document.body.appendChild(n);
+      }
+    }
   }
 }
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {

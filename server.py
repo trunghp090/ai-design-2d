@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-admin-single"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-perms-default-none"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8097,13 +8097,13 @@ def user_perms_save(d):
 
 
 def user_allowed_tabs(u):
-    """Danh sách tab user được dùng. Admin = tất cả. Chưa cấu hình = mọi tab thường."""
+    """Danh sách tab user được dùng. Admin = TOÀN QUYỀN. Chưa được cấp = KHÔNG có tab nào."""
     if user_is_admin(u):
         return ALL_APP_TABS + ADMIN_ONLY_TABS
     p = user_perms_load().get((u.get("email") or "").strip().lower()) if u else None
     if isinstance(p, list):
         return [t for t in p if t in ALL_APP_TABS]
-    return list(ALL_APP_TABS)
+    return []
 
 
 # ============ 💰 PHÂN TÍCH DOANH THU & LỢI NHUẬN (Shopify orders + FB Ads spend) ============
@@ -8503,7 +8503,7 @@ class Handler(BaseHTTPRequestHandler):
                 em = (em or "").lower()
                 out.append({"email": em, "ts": ts,
                             "admin": em in ADMIN_EMAILS,
-                            "tabs": perms.get(em) if isinstance(perms.get(em), list) else list(ALL_APP_TABS)})
+                            "tabs": perms.get(em) if isinstance(perms.get(em), list) else []})
             return self.json(200, {"users": out, "all_tabs": ALL_APP_TABS,
                                    "admin_tabs": ADMIN_ONLY_TABS})
         if path == "/api/me":
