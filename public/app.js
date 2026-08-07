@@ -7,22 +7,22 @@ let lastCloneSource = null; // ảnh GỐC (data URL/url) dùng để clone -> �
 window.IS_ADMIN = false;
 window.MY_TABS = null;   // null = chưa biết -> không ẩn gì ngoài nhóm ads
 function applyAdminNav() {
-  // nhóm "Quản lý Ads" (chỉ số + doanh thu + thành viên) chỉ hiện với tài khoản quản trị
-  document.querySelectorAll('.app-group[data-group="revenue"], .app-tab[data-group="revenue"], ' +
-      '.app-group[data-group="team"], .app-tab[data-group="team"]')
-    .forEach(el => el.classList.toggle("hidden", !window.IS_ADMIN));
   // nút sửa vị trí tab + nút Trang admin: chỉ admin
   const teb = document.getElementById("tabEditBtn");
   if (teb) teb.classList.toggle("hidden", !window.IS_ADMIN);
   const apb = document.getElementById("adminPageBtn");
   if (apb) apb.classList.toggle("hidden", !window.IS_ADMIN);
-  // tab thường: ẩn tab ngoài quyền của thành viên
-  if (!window.IS_ADMIN && Array.isArray(window.MY_TABS)) {
-    document.querySelectorAll('.app-tab:not([data-group="revenue"]):not([data-group="team"])').forEach(t =>
+  if (window.IS_ADMIN) {
+    // admin: mở hết
+    document.querySelectorAll(".app-tab, .app-group[data-group]").forEach(el => el.classList.remove("hidden"));
+    return;
+  }
+  // thành viên: chỉ hiện tab được cấp (kể cả pnl/admgr nếu admin tick)
+  if (Array.isArray(window.MY_TABS)) {
+    document.querySelectorAll(".app-tab").forEach(t =>
       t.classList.toggle("hidden", !window.MY_TABS.includes(t.dataset.app)));
     // ẩn luôn nhóm không còn tab nào
     document.querySelectorAll(".app-group[data-group]").forEach(g => {
-      if (g.dataset.group === "revenue" || g.dataset.group === "team" || g.id === "tabEditBtn") return;
       const any = [...document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]')]
         .some(t => !t.classList.contains("hidden"));
       g.classList.toggle("hidden", !any);

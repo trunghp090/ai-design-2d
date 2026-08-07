@@ -22,7 +22,7 @@
       </span>
     </div>
     <div class="panel">
-      <p class="panel-desc" style="margin:0 0 12px">Tick tab nào thì thành viên đó dùng được tab đó — <b>chưa tick gì thì thành viên không thấy tab nào</b> (màn 🔒 chờ cấp quyền). Nhóm Doanh thu &amp; Lợi nhuận, Chỉ số Ads và trang admin này vĩnh viễn chỉ dành cho quản trị.</p>
+      <p class="panel-desc" style="margin:0 0 12px">Tick tab nào thì thành viên đó dùng được tab đó — <b>chưa tick gì thì thành viên không thấy tab nào</b> (màn 🔒 chờ cấp quyền). Tick được cả 💰 Doanh thu &amp; Lợi nhuận / 📊 Chỉ số Ads nếu muốn chia sẻ. Riêng trang admin này vĩnh viễn chỉ dành cho quản trị; sửa chi phí P&L cũng chỉ admin.</p>
       <p class="gen-note" id="membersNote"></p>
       <div id="membersList"></div>
     </div>
@@ -40,9 +40,10 @@ const TAB_META = {
   agent: ["marketing", "🤖 Trợ lý AI"], ads: ["marketing", "📣 Tạo Ảnh FB ADS"], fbpost: ["marketing", "📘 Tạo Ảnh FB post"],
   tiktok: ["marketing", "🎵 TikTok Quà tặng"], adpost: ["marketing", "📋 Bài FB Ads"], pgpost: ["marketing", "📋 Bài FB/IG"],
   sched: ["marketing", "🗓️ Lịch content"],
-  shopify: ["shopify", "🛍️ Đẩy Shopify"], shoplist: ["shopify", "📦 SP Shopify"]
+  shopify: ["shopify", "🛍️ Đẩy Shopify"], shoplist: ["shopify", "📦 SP Shopify"],
+  pnl: ["revenue", "💰 Doanh thu & Lợi nhuận"], admgr: ["revenue", "📊 Chỉ số & chiến dịch"]
 };
-const GROUP_NAMES = { work: "🛠 Tác vụ", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
+const GROUP_NAMES = { revenue: "💰 Doanh thu & Lợi nhuận", work: "🛠 Tác vụ", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
 
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
   if (!ok || !d.admin) { location.href = "/"; return; }
@@ -81,7 +82,7 @@ function membersCard(u, allTabs) {
   const body = document.createElement("div");
   body.className = "mem-perm-body";
   const sel = new Set(u.tabs);
-  ["work", "marketing", "shopify"].forEach(g => {
+  ["revenue", "work", "marketing", "shopify"].forEach(g => {
     const tabs = allTabs.filter(a => (TAB_META[a] || [""])[0] === g);
     if (!tabs.length) return;
     const h = document.createElement("div");

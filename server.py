@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-fix-boot-crash"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-grant-revenue"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8076,8 +8076,16 @@ _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
 ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "namedes", "mixd", "lvt",
                 "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
-                "adpost", "pgpost", "sched", "shopify", "shoplist"]
-ADMIN_ONLY_TABS = ["admgr", "pnl", "members"]
+                "adpost", "pgpost", "sched", "shopify", "shoplist", "pnl", "admgr"]
+ADMIN_ONLY_TABS = ["members"]
+
+
+def user_has_tab(u, tab):
+    """User có được dùng tab này không (admin luôn có)."""
+    if user_is_admin(u):
+        return True
+    p = user_perms_load().get((u.get("email") or "").strip().lower()) if u else None
+    return isinstance(p, list) and tab in p
 
 
 def user_perms_load():
@@ -8425,8 +8433,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"connected": bool(igid), "ig_id": igid or "",
                                    "username": uname, "can_publish": can_pub})
         if path == "/api/pnl-report":
-            if not user_is_admin(self.current_user()):
-                return self.json(403, {"error": "Chỉ tài khoản quản trị mới xem được doanh thu."})
+            if not user_has_tab(self.current_user(), "pnl"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền xem doanh thu."})
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             force = (qs.get("force") or ["0"])[0] == "1"
             today = datetime.date.today()
@@ -8463,12 +8471,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self.json(500, {"error": str(e)[:300]})
         if path == "/api/pnl-settings":
-            if not user_is_admin(self.current_user()):
-                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            if not user_has_tab(self.current_user(), "pnl"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền."})
             return self.json(200, {"ok": True, "settings": pnl_settings_load()})
         if path == "/api/fb-ads-list":
-            if not user_is_admin(self.current_user()):
-                return self.json(403, {"error": "Chỉ tài khoản quản trị mới xem được chỉ số Ads."})
+            if not user_has_tab(self.current_user(), "admgr"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền xem chỉ số Ads."})
             if not fb_configured():
                 return self.json(200, {"campaigns": [], "configured": False})
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
@@ -8846,8 +8854,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fb-ads-push":
             return self.handle_fb_ads_push(body)
         if path == "/api/fb-ad-update":
-            if not user_is_admin(self.current_user()):
-                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            if not user_has_tab(self.current_user(), "admgr"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền."})
             if not fb_configured():
                 return self.json(400, {"error": "Chưa cấu hình Facebook."})
             oid = (body.get("id") or "").strip()
@@ -8868,8 +8876,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"ok": True})
         if path == "/api/fb-ad-delete":
-            if not user_is_admin(self.current_user()):
-                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            if not user_has_tab(self.current_user(), "admgr"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền."})
             if not fb_configured():
                 return self.json(400, {"error": "Chưa cấu hình Facebook."})
             oid = (body.get("id") or "").strip()
