@@ -6352,32 +6352,96 @@ async function admgrLoad() {
       card("💵", "CPM", tot.impr ? fmtNum(Math.round(tot.spend / tot.impr * 1000)) + "đ" : "—",
            tot.clicks ? "CPC " + fmtNum(Math.round(tot.spend / tot.clicks)) + "đ" : "") +
       '</div>';
-    // TAB LỌC: đang chạy / không chạy / tất cả — mặc định ĐANG CHẠY
+    // 3 TAB KIỂU FB ADS MANAGER: Chiến dịch / Nhóm quảng cáo / Quảng cáo
     window.admgrCS = cs;
-    const nAct = cs.filter(c => c.status === "ACTIVE").length;
+    admgrTreeCache = {};
+    const fbmTabs = '<div class="fbm-tabs">' +
+      '<button class="fbm-tab" data-lv="camp">📁 Chiến dịch <span>' + cs.length + '</span></button>' +
+      '<button class="fbm-tab" data-lv="set">▦ Nhóm quảng cáo</button>' +
+      '<button class="fbm-tab" data-lv="ad">▶ Quảng cáo</button></div>' +
+      '<div id="admgrCrumbs" class="fbm-crumbs"></div>';
     const ftabs = '<div class="adm-ftabs">' +
-      '<button class="adm-ftab" data-f="ACTIVE">● Đang chạy <span>' + nAct + '</span></button>' +
-      '<button class="adm-ftab" data-f="PAUSED">‖ Không chạy <span>' + (cs.length - nAct) + '</span></button>' +
-      '<button class="adm-ftab" data-f="ALL">Tất cả <span>' + cs.length + '</span></button></div>';
-    tbl.innerHTML = cardsHtml + ftabs + '<div class="adc-list" id="admgrList"></div>';
+      '<button class="adm-ftab" data-f="ACTIVE">● Đang chạy</button>' +
+      '<button class="adm-ftab" data-f="PAUSED">‖ Không chạy</button>' +
+      '<button class="adm-ftab" data-f="ALL">Tất cả</button></div>';
+    tbl.innerHTML = cardsHtml + fbmTabs + ftabs + '<div class="adc-list" id="admgrList"></div>';
+    tbl.querySelectorAll(".fbm-tab").forEach(b => b.onclick = () => { admgrLevel = b.dataset.lv; admgrRenderList(); });
     tbl.querySelectorAll(".adm-ftab").forEach(b => b.onclick = () => { admgrFilter = b.dataset.f; admgrRenderList(); });
+    if (admgrSelCamp && admgrLevel !== "camp") admgrFetchTree(admgrSelCamp.id);
     admgrRenderList();
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
-let admgrFilter = "ACTIVE";
+let admgrFilter = "ACTIVE", admgrLevel = "camp", admgrSelCamp = null, admgrSelSet = null, admgrTreeCache = {};
+function admgrStatusFilter(arr) {
+  return (arr || []).filter(x => admgrFilter === "ALL" ? true :
+    (admgrFilter === "ACTIVE" ? x.status === "ACTIVE" : x.status !== "ACTIVE"));
+}
 function admgrRenderList() {
-  const cs = window.admgrCS || [];
   const list = $("admgrList");
   if (!list) return;
+  document.querySelectorAll(".fbm-tab").forEach(b => b.classList.toggle("active", b.dataset.lv === admgrLevel));
   document.querySelectorAll(".adm-ftab").forEach(b => b.classList.toggle("active", b.dataset.f === admgrFilter));
-  const fil = cs.filter(c => admgrFilter === "ALL" ? true :
-    (admgrFilter === "ACTIVE" ? c.status === "ACTIVE" : c.status !== "ACTIVE"));
-  const maxSpend = Math.max(1, ...fil.map(c => parseFloat(c.spend || 0)));
-  list.innerHTML = fil.map(c => admgrCampCard(c, maxSpend)).join("") ||
-    '<p class="hint" style="padding:14px">Không có chiến dịch nào trong mục này.</p>';
+  const cr = $("admgrCrumbs");
+  if (cr) {
+    let h = "";
+    if (admgrSelCamp) h += '<span class="fbm-crumb">📁 ' + admgrSelCamp.name + ' <a data-x="camp" title="Bỏ chọn">✕</a></span>';
+    if (admgrSelSet) h += '<span class="fbm-crumb">▦ ' + admgrSelSet.name + ' <a data-x="set" title="Bỏ chọn">✕</a></span>';
+    cr.innerHTML = h;
+    cr.querySelectorAll("a").forEach(a => a.onclick = () => {
+      if (a.dataset.x === "camp") { admgrSelCamp = null; admgrSelSet = null; admgrLevel = "camp"; }
+      else { admgrSelSet = null; admgrLevel = "set"; }
+      admgrRenderList();
+    });
+  }
+  let html = "";
+  if (admgrLevel === "camp") {
+    const fil = admgrStatusFilter(window.admgrCS || []);
+    const maxSpend = Math.max(1, ...fil.map(c => parseFloat(c.spend || 0)));
+    html = fil.map(c => admgrCampCard(c, maxSpend)).join("");
+  } else if (!admgrSelCamp) {
+    html = '<p class="hint" style="padding:14px">👉 Chọn chiến dịch trước: sang tab <b>📁 Chiến dịch</b> rồi bấm "▦ Xem nhóm quảng cáo".</p>';
+  } else {
+    const tree = admgrTreeCache[admgrSelCamp.id];
+    if (!tree) {
+      html = '<p class="hint" style="padding:14px">⏳ Đang tải dữ liệu của "' + admgrSelCamp.name + '"…</p>';
+    } else if (tree.err) {
+      html = '<p class="hint" style="padding:14px">✗ ' + tree.err + '</p>';
+    } else if (admgrLevel === "set") {
+      html = admgrStatusFilter(tree.adsets).map(admgrSetCard).join("");
+    } else {
+      let ads = admgrSelSet
+        ? (((tree.adsets || []).find(s => s.id === admgrSelSet.id) || {}).ads || [])
+        : (tree.adsets || []).flatMap(s => s.ads || []);
+      html = admgrStatusFilter(ads).map(admgrAdCard).join("");
+    }
+  }
+  list.innerHTML = html || '<p class="hint" style="padding:14px">Không có mục nào trong bộ lọc này.</p>';
   list.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
   list.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
-  list.querySelectorAll(".adc-expand").forEach(b => b.onclick = () => admgrExpand(b));
+  list.querySelectorAll(".fbm-open-set").forEach(b => b.onclick = () => {
+    admgrSelCamp = { id: b.dataset.id, name: b.dataset.nm };
+    admgrSelSet = null; admgrLevel = "set";
+    admgrFetchTree(b.dataset.id);
+    admgrRenderList();
+  });
+  list.querySelectorAll(".fbm-open-ads").forEach(b => b.onclick = () => {
+    admgrSelSet = { id: b.dataset.id, name: b.dataset.nm };
+    admgrLevel = "ad";
+    admgrRenderList();
+  });
+}
+async function admgrFetchTree(cid) {
+  if (admgrTreeCache[cid]) return;
+  try {
+    const rng = $("admgrRange").value;
+    const r = await fetch("/api/fb-ads-tree?campaign_id=" + encodeURIComponent(cid) + "&range=" + encodeURIComponent(rng));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi tải");
+    admgrTreeCache[cid] = d;
+  } catch (e) {
+    admgrTreeCache[cid] = { adsets: [], err: e.message };
+  }
+  admgrRenderList();
 }
 function admgrStateBits(o) {
   const active = o.status === "ACTIVE";
@@ -6402,7 +6466,7 @@ function admgrStatsRow(o) {
 }
 function admgrCampCard(c, maxSpend) {
   const sp = parseFloat(c.spend || 0);
-  return '<div class="adc" data-cid="' + c.id + '">' +
+  return '<div class="adc">' +
     '<div class="adc-top">' +
       '<div class="adc-info"><b>' + (c.name || "") + '</b>' +
         '<span class="adc-sub">' + (c.objective || "").replace("OUTCOME_", "") +
@@ -6413,50 +6477,31 @@ function admgrCampCard(c, maxSpend) {
       '<button class="btn-ghost sm admgr-del" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '" title="Xoá chiến dịch">🗑️</button>' +
     '</div>' +
     admgrStatsRow(c) +
-    '<button class="adc-expand" data-id="' + c.id + '">▸ Xem nhóm quảng cáo &amp; ads</button>' +
-    '<div class="adc-children hidden"></div>' +
+    '<button class="fbm-open-set" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '">▦ Xem nhóm quảng cáo →</button>' +
     '</div>';
 }
 function admgrSetCard(s) {
-  return '<div class="qcg-set">' +
-    '<div class="qcg-head"><span class="adm-chip c-set">NHÓM QC</span><b>' + (s.name || "") + '</b>' +
-    (s.daily_budget ? '<span class="adc-sub">' + fmtNum(parseInt(s.daily_budget, 10)) + 'đ/ngày</span>' : '') +
-    '<span class="spacer"></span>' +
-    (s.spend ? '<b class="qcg-spend">' + fmtNum(parseFloat(s.spend)) + 'đ</b>' : '') +
-    admgrStateBits(s) + '</div>' +
+  const nAds = (s.ads || []).length;
+  return '<div class="adc qcg-set">' +
+    '<div class="adc-top">' +
+      '<div class="adc-info"><b><span class="adm-chip c-set">NHÓM QC</span> ' + (s.name || "") + '</b>' +
+      (s.daily_budget ? '<span class="adc-sub">ngân sách ' + fmtNum(parseInt(s.daily_budget, 10)) + 'đ/ngày</span>' : '') + '</div>' +
+      '<div class="adc-spend"><b>' + (s.spend ? fmtNum(parseFloat(s.spend)) + 'đ' : '0đ') + '</b><span>chi tiêu</span></div>' +
+      admgrStateBits(s) +
+    '</div>' +
     admgrStatsRow(s) +
-    (s.ads || []).map(admgrAdRow).join("") +
+    '<button class="fbm-open-ads" data-id="' + s.id + '" data-nm="' + (s.name || "").replace(/"/g, "&quot;") + '">▶ Xem quảng cáo (' + nAds + ') →</button>' +
     '</div>';
 }
-function admgrAdRow(a) {
-  return '<div class="qcg-ad">' +
-    '<div class="qcg-head"><span class="adm-chip c-ad">AD</span><b>' + (a.name || "") + '</b>' +
-    '<span class="spacer"></span>' +
-    (a.spend ? '<b class="qcg-spend">' + fmtNum(parseFloat(a.spend)) + 'đ</b>' : '') +
-    admgrStateBits(a) + '</div>' +
+function admgrAdCard(a) {
+  return '<div class="adc qcg-ad">' +
+    '<div class="adc-top">' +
+      '<div class="adc-info"><b><span class="adm-chip c-ad">AD</span> ' + (a.name || "") + '</b></div>' +
+      '<div class="adc-spend"><b>' + (a.spend ? fmtNum(parseFloat(a.spend)) + 'đ' : '0đ') + '</b><span>chi tiêu</span></div>' +
+      admgrStateBits(a) +
+    '</div>' +
     admgrStatsRow(a) +
     '</div>';
-}
-async function admgrExpand(btn) {
-  const card = btn.closest(".adc");
-  const box = card.querySelector(".adc-children");
-  if (btn.dataset.open === "1") {
-    box.classList.add("hidden"); box.innerHTML = "";
-    btn.dataset.open = "0"; btn.innerHTML = "▸ Xem nhóm quảng cáo &amp; ads";
-    return;
-  }
-  btn.disabled = true; btn.textContent = "⏳ Đang tải nhóm quảng cáo…";
-  try {
-    const rng = $("admgrRange").value;
-    const r = await fetch("/api/fb-ads-tree?campaign_id=" + encodeURIComponent(btn.dataset.id) + "&range=" + encodeURIComponent(rng));
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    box.innerHTML = (d.adsets || []).map(admgrSetCard).join("") ||
-      '<p class="hint" style="margin:8px 0">Chiến dịch này chưa có nhóm quảng cáo.</p>';
-    box.classList.remove("hidden");
-    box.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
-    btn.dataset.open = "1"; btn.innerHTML = "▾ Thu gọn";
-  } catch (e) { alert("✗ " + e.message); btn.innerHTML = "▸ Xem nhóm quảng cáo &amp; ads"; }
-  btn.disabled = false;
 }
 async function admgrToggleInline(btn) {
   const id = btn.dataset.id, cur = btn.dataset.st;
@@ -6470,6 +6515,10 @@ async function admgrToggleInline(btn) {
     btn.textContent = to === "ACTIVE" ? "⏸ Dừng" : "▶ Bật";
     const item = (window.admgrCS || []).find(c => c.id === id);
     if (item) item.status = to;
+    Object.values(admgrTreeCache || {}).forEach(t => (t.adsets || []).forEach(s => {
+      if (s.id === id) s.status = to;
+      (s.ads || []).forEach(a => { if (a.id === id) a.status = to; });
+    }));
     const stateBox = btn.closest(".adc-state") || btn.closest("tr");
     const pill = stateBox ? stateBox.querySelector(".adm-pill") : null;
     if (pill) {

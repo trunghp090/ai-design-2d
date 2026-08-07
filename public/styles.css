@@ -916,3 +916,16 @@ textarea.input{resize:vertical;line-height:1.5}
 .adm-ftab span { background: #f3e9ec; border-radius: 10px; padding: 1px 8px; font-size: 11.5px; margin-left: 4px; }
 .adm-ftab.active { background: #8a1f3d; border-color: #8a1f3d; color: #fff; }
 .adm-ftab.active span { background: rgba(255,255,255,0.25); color: #fff; }
+
+/* 3 tab kiểu FB Ads Manager */
+.fbm-tabs { display: flex; gap: 0; margin: 6px 0 0; border-bottom: 2px solid var(--line); }
+.fbm-tab { border: none; background: none; padding: 11px 18px; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.fbm-tab span { background: #f3e9ec; border-radius: 10px; padding: 1px 8px; font-size: 11.5px; margin-left: 4px; }
+.fbm-tab.active { color: #8a1f3d; border-bottom-color: #8a1f3d; }
+.fbm-crumbs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.fbm-crumb { background: #fdf0f4; border: 1px solid #e8b6c6; color: #8a1f3d; border-radius: 20px; padding: 5px 12px; font-size: 12.5px; font-weight: 600; }
+.fbm-crumb a { cursor: pointer; margin-left: 4px; font-weight: 800; text-decoration: none; }
+.fbm-open-set, .fbm-open-ads { margin-top: 10px; border: 1px dashed var(--line); background: #fff; border-radius: 10px; padding: 7px 14px; font-size: 12.5px; color: #8a1f3d; cursor: pointer; font-weight: 600; width: 100%; text-align: left; }
+.fbm-open-set:hover, .fbm-open-ads:hover { border-color: #8a1f3d; background: #fdf0f4; }
+.adc.qcg-set { border-left: 4px solid #6b3fa0; }
+.adc.qcg-ad { border-left: 4px solid #0b7a44; }
