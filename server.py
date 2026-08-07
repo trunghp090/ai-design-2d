@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-pnl-report"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-pnl-note"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8171,7 +8171,11 @@ def pnl_report(days, force=False):
         try:
             orders = _pnl_shopify_orders(prev_days[0] + "T00:00:00Z", cur_days[-1] + "T23:59:59Z")
         except Exception as e:
-            notes.append(str(e)[:180])
+            msg = str(e)
+            if "read_orders" in msg:
+                msg = ("Shopify chưa cấp quyền đọc ĐƠN HÀNG: vào Shopify Dev Dashboard → app của tool → "
+                       "API access scopes → tick 'read_orders' → Save. Doanh thu tạm = 0.")
+            notes.append(msg[:220])
     else:
         notes.append("Chưa cấu hình Shopify (SHOPIFY_DOMAIN/TOKEN) — doanh thu đang = 0.")
     spend_by_day = {}
