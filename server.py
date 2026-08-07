@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-ads-purchase"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-ads-maxconv"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -3679,15 +3679,10 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
                     "targeting": json.dumps(targeting), "status": status}
             if pixel:
                 base["promoted_object"] = json.dumps({"pixel_id": pixel, "custom_event_type": "PURCHASE"})
-                # VALUE = 'tối đa hoá GIÁ TRỊ chuyển đổi'; tài khoản chưa đủ điều kiện VALUE ->
-                # tự hạ về OFFSITE_CONVERSIONS (tối đa SỐ lượt mua) — vẫn là chuyển đổi, không phải click
-                a = None
-                for goal in ("VALUE", "OFFSITE_CONVERSIONS"):
-                    base["optimization_goal"] = goal
-                    st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID, base)
-                    if st == 200:
-                        break
-                    print("adset goal %s fail: %s" % (goal, fb_err(a)), flush=True)
+                # Setup CHUẨN user chốt: 'Tối đa hoá SỐ lượt chuyển đổi' (OFFSITE_CONVERSIONS)
+                # + pixel rieng.vn + sự kiện Lượt mua + mô hình ghi nhận tiêu chuẩn
+                base["optimization_goal"] = "OFFSITE_CONVERSIONS"
+                st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID, base)
             else:
                 base["optimization_goal"] = "LINK_CLICKS"   # không tìm thấy pixel -> fallback cũ
                 st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID, base)
