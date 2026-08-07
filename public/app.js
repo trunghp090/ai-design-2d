@@ -6352,87 +6352,94 @@ async function admgrLoad() {
       card("💵", "CPM", tot.impr ? fmtNum(Math.round(tot.spend / tot.impr * 1000)) + "đ" : "—",
            tot.clicks ? "CPC " + fmtNum(Math.round(tot.spend / tot.clicks)) + "đ" : "") +
       '</div>';
-    // BẢNG CHIẾN DỊCH
+    // DANH SÁCH CHIẾN DỊCH — dạng thẻ card
     const maxSpend = Math.max(1, ...cs.map(c => parseFloat(c.spend || 0)));
-    let html = cardsHtml +
-      '<div class="adm-wrap"><table class="adm-tbl"><thead><tr>' +
-      '<th>Chiến dịch</th><th>Trạng thái</th><th>Chi tiêu</th><th>🛒 Mua</th><th>ROAS</th>' +
-      '<th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th>CPM</th><th></th></tr></thead><tbody>';
-    cs.forEach(c => {
-      const active = c.status === "ACTIVE";
-      const sp = parseFloat(c.spend || 0);
-      const ro = parseFloat(c.roas || 0);
-      const roCls = ro >= 2 ? "good" : (ro >= 1 ? "mid" : "bad");
-      html += '<tr data-cid="' + c.id + '">' +
-        '<td style="max-width:250px" title="' + (c.name || "").replace(/"/g, "&quot;") + '">' +
-          '<button class="adm-exp" data-id="' + c.id + '" title="Xem nhóm quảng cáo + ads">▸</button> ' +
-          '<b style="font-size:12px">' + (c.name || "").slice(0, 42) + '</b><br>' +
-          '<span style="display:inline-block;width:22px"></span>' +
-          '<span class="hint" style="font-size:10px">' + (c.objective || "").replace("OUTCOME_", "") +
-          (c.daily_budget ? ' · ' + fmtNum(parseInt(c.daily_budget, 10)) + 'đ/ngày' : '') + '</span></td>' +
-        '<td><span class="adm-pill ' + (active ? "on" : "off") + '">' + (active ? "● Đang chạy" : "‖ Tạm dừng") + '</span></td>' +
-        '<td><b>' + fmtNum(sp) + 'đ</b><div class="adm-bar" style="width:' + Math.max(4, Math.round(sp / maxSpend * 100)) + '%"></div></td>' +
-        '<td>' + (c.purchases ? '<b>' + fmtNum(c.purchases) + '</b>' : '—') + '</td>' +
-        '<td>' + (ro ? '<span class="adm-roas ' + roCls + '">' + ro.toFixed(2) + 'x</span>' : '—') + '</td>' +
-        '<td>' + fmtNum(c.impressions) + '</td><td>' + fmtNum(c.clicks) + '</td>' +
-        '<td>' + (c.ctr ? parseFloat(c.ctr).toFixed(2) + "%" : "—") + '</td>' +
-        '<td>' + (c.cpc ? fmtNum(Math.round(parseFloat(c.cpc))) + "đ" : "—") + '</td>' +
-        '<td>' + (c.cpm ? fmtNum(Math.round(parseFloat(c.cpm))) + "đ" : "—") + '</td>' +
-        '<td style="white-space:nowrap"><button class="btn-ghost sm admgr-tog" data-id="' + c.id + '" data-st="' + c.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button> <button class="btn-ghost sm admgr-del" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '">🗑️</button></td>' +
-        '</tr>';
-    });
-    html += '</tbody></table></div>';
+    let html = cardsHtml + '<div class="adc-list">';
+    cs.forEach(c => { html += admgrCampCard(c, maxSpend); });
+    html += '</div>';
     tbl.innerHTML = html;
     tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
     tbl.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
-    tbl.querySelectorAll(".adm-exp").forEach(b => b.onclick = () => admgrExpand(b));
+    tbl.querySelectorAll(".adc-expand").forEach(b => b.onclick = () => admgrExpand(b));
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
 }
-function admgrSubRow(o, kind, cid) {
+function admgrStateBits(o) {
   const active = o.status === "ACTIVE";
+  return '<span class="adc-state"><span class="adm-pill ' + (active ? "on" : "off") + '">' +
+    (active ? "● Chạy" : "‖ Dừng") + '</span>' +
+    '<button class="btn-ghost sm admgr-tog" data-id="' + o.id + '" data-st="' + o.status + '">' +
+    (active ? "⏸ Dừng" : "▶ Bật") + '</button></span>';
+}
+function admgrStatsRow(o) {
   const ro = parseFloat(o.roas || 0);
   const roCls = ro >= 2 ? "good" : (ro >= 1 ? "mid" : "bad");
-  const chip = kind === "adset" ? '<span class="adm-chip set">NHÓM QC</span>' : '<span class="adm-chip ad">AD</span>';
-  const indent = kind === "adset" ? 26 : 48;
-  return '<tr class="adm-sub' + (kind === "ad" ? " adm-sub2" : "") + '" data-parent="' + cid + '">' +
-    '<td style="max-width:250px" title="' + (o.name || "").replace(/"/g, "&quot;") + '">' +
-      '<span style="display:inline-block;width:' + indent + 'px"></span>' + chip + ' ' +
-      '<span style="font-size:12px;font-weight:600">' + (o.name || "").slice(0, 38) + '</span>' +
-      (o.daily_budget ? '<br><span class="hint" style="font-size:10px;padding-left:' + (indent + 4) + 'px">' + fmtNum(parseInt(o.daily_budget, 10)) + 'đ/ngày</span>' : '') + '</td>' +
-    '<td><span class="adm-pill ' + (active ? "on" : "off") + '">' + (active ? "● Chạy" : "‖ Dừng") + '</span></td>' +
-    '<td>' + (o.spend ? '<b>' + fmtNum(parseFloat(o.spend)) + 'đ</b>' : '—') + '</td>' +
-    '<td>' + (o.purchases ? '<b>' + fmtNum(o.purchases) + '</b>' : '—') + '</td>' +
-    '<td>' + (ro ? '<span class="adm-roas ' + roCls + '">' + ro.toFixed(2) + 'x</span>' : '—') + '</td>' +
-    '<td>' + fmtNum(o.impressions) + '</td><td>' + fmtNum(o.clicks) + '</td>' +
-    '<td>' + (o.ctr ? parseFloat(o.ctr).toFixed(2) + "%" : "—") + '</td>' +
-    '<td>' + (o.cpc ? fmtNum(Math.round(parseFloat(o.cpc))) + "đ" : "—") + '</td>' +
-    '<td>' + (o.cpm ? fmtNum(Math.round(parseFloat(o.cpm))) + "đ" : "—") + '</td>' +
-    '<td style="white-space:nowrap"><button class="btn-ghost sm admgr-tog" data-id="' + o.id + '" data-st="' + o.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button></td>' +
-    '</tr>';
+  const chip = (label, val, cls) => val ?
+    '<div class="adc-stat' + (cls ? " " + cls : "") + '"><span>' + label + '</span><b>' + val + '</b></div>' : "";
+  return '<div class="adc-stats">' +
+    chip("🛒 Mua", o.purchases ? fmtNum(o.purchases) : "", "hl") +
+    (ro ? '<div class="adc-stat"><span>ROAS</span><b class="adm-roas ' + roCls + '">' + ro.toFixed(2) + 'x</b></div>' : "") +
+    chip("👁 Hiển thị", o.impressions ? fmtNum(o.impressions) : "") +
+    chip("🖱 Click", o.clicks ? fmtNum(o.clicks) + (o.ctr ? " · " + parseFloat(o.ctr).toFixed(2) + "%" : "") : "") +
+    chip("CPC", o.cpc ? fmtNum(Math.round(parseFloat(o.cpc))) + "đ" : "") +
+    chip("CPM", o.cpm ? fmtNum(Math.round(parseFloat(o.cpm))) + "đ" : "") +
+    '</div>';
+}
+function admgrCampCard(c, maxSpend) {
+  const sp = parseFloat(c.spend || 0);
+  return '<div class="adc" data-cid="' + c.id + '">' +
+    '<div class="adc-top">' +
+      '<div class="adc-info"><b>' + (c.name || "") + '</b>' +
+        '<span class="adc-sub">' + (c.objective || "").replace("OUTCOME_", "") +
+        (c.daily_budget ? ' · ngân sách ' + fmtNum(parseInt(c.daily_budget, 10)) + 'đ/ngày' : '') + '</span>' +
+        '<div class="adm-bar" style="width:' + Math.max(4, Math.round(sp / maxSpend * 100)) + '%"></div></div>' +
+      '<div class="adc-spend"><b>' + fmtNum(sp) + 'đ</b><span>chi tiêu</span></div>' +
+      admgrStateBits(c) +
+      '<button class="btn-ghost sm admgr-del" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '" title="Xoá chiến dịch">🗑️</button>' +
+    '</div>' +
+    admgrStatsRow(c) +
+    '<button class="adc-expand" data-id="' + c.id + '">▸ Xem nhóm quảng cáo &amp; ads</button>' +
+    '<div class="adc-children hidden"></div>' +
+    '</div>';
+}
+function admgrSetCard(s) {
+  return '<div class="ads-card">' +
+    '<div class="ads-head"><span class="adm-chip set">NHÓM QC</span><b>' + (s.name || "") + '</b>' +
+    (s.daily_budget ? '<span class="adc-sub">' + fmtNum(parseInt(s.daily_budget, 10)) + 'đ/ngày</span>' : '') +
+    '<span class="spacer"></span>' +
+    (s.spend ? '<b class="ads-spend">' + fmtNum(parseFloat(s.spend)) + 'đ</b>' : '') +
+    admgrStateBits(s) + '</div>' +
+    admgrStatsRow(s) +
+    (s.ads || []).map(admgrAdRow).join("") +
+    '</div>';
+}
+function admgrAdRow(a) {
+  return '<div class="ad-row">' +
+    '<div class="ads-head"><span class="adm-chip ad">AD</span><b>' + (a.name || "") + '</b>' +
+    '<span class="spacer"></span>' +
+    (a.spend ? '<b class="ads-spend">' + fmtNum(parseFloat(a.spend)) + 'đ</b>' : '') +
+    admgrStateBits(a) + '</div>' +
+    admgrStatsRow(a) +
+    '</div>';
 }
 async function admgrExpand(btn) {
-  const cid = btn.dataset.id;
+  const card = btn.closest(".adc");
+  const box = card.querySelector(".adc-children");
   if (btn.dataset.open === "1") {
-    document.querySelectorAll('tr[data-parent="' + cid + '"]').forEach(r => r.remove());
-    btn.dataset.open = "0"; btn.textContent = "▸";
+    box.classList.add("hidden"); box.innerHTML = "";
+    btn.dataset.open = "0"; btn.innerHTML = "▸ Xem nhóm quảng cáo &amp; ads";
     return;
   }
-  btn.textContent = "⏳"; btn.disabled = true;
+  btn.disabled = true; btn.textContent = "⏳ Đang tải nhóm quảng cáo…";
   try {
     const rng = $("admgrRange").value;
-    const r = await fetch("/api/fb-ads-tree?campaign_id=" + encodeURIComponent(cid) + "&range=" + encodeURIComponent(rng));
+    const r = await fetch("/api/fb-ads-tree?campaign_id=" + encodeURIComponent(btn.dataset.id) + "&range=" + encodeURIComponent(rng));
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    let html = "";
-    (d.adsets || []).forEach(s => {
-      html += admgrSubRow(s, "adset", cid);
-      (s.ads || []).forEach(a => { html += admgrSubRow(a, "ad", cid); });
-    });
-    if (!html) html = '<tr class="adm-sub" data-parent="' + cid + '"><td colspan="11" class="hint" style="padding:10px 14px">Chiến dịch này chưa có nhóm quảng cáo.</td></tr>';
-    const tr = document.querySelector('tr[data-cid="' + cid + '"]');
-    tr.insertAdjacentHTML("afterend", html);
-    document.querySelectorAll('tr[data-parent="' + cid + '"] .admgr-tog').forEach(b => b.onclick = () => admgrToggleInline(b));
-    btn.dataset.open = "1"; btn.textContent = "▾";
-  } catch (e) { alert("✗ " + e.message); btn.textContent = "▸"; }
+    box.innerHTML = (d.adsets || []).map(admgrSetCard).join("") ||
+      '<p class="hint" style="margin:8px 0">Chiến dịch này chưa có nhóm quảng cáo.</p>';
+    box.classList.remove("hidden");
+    box.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
+    btn.dataset.open = "1"; btn.innerHTML = "▾ Thu gọn";
+  } catch (e) { alert("✗ " + e.message); btn.innerHTML = "▸ Xem nhóm quảng cáo &amp; ads"; }
   btn.disabled = false;
 }
 async function admgrToggleInline(btn) {
@@ -6445,11 +6452,12 @@ async function admgrToggleInline(btn) {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     btn.dataset.st = to;
     btn.textContent = to === "ACTIVE" ? "⏸ Dừng" : "▶ Bật";
-    const pill = btn.closest("tr").querySelector(".adm-pill");
+    const stateBox = btn.closest(".adc-state") || btn.closest("tr");
+    const pill = stateBox ? stateBox.querySelector(".adm-pill") : null;
     if (pill) {
       const on = to === "ACTIVE";
       pill.className = "adm-pill " + (on ? "on" : "off");
-      pill.textContent = pill.textContent.length > 8 ? (on ? "● Đang chạy" : "‖ Tạm dừng") : (on ? "● Chạy" : "‖ Dừng");
+      pill.textContent = on ? "● Chạy" : "‖ Dừng";
     }
   } catch (e) { alert("✗ " + e.message); btn.textContent = o; }
   btn.disabled = false;
