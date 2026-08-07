@@ -67,6 +67,7 @@
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
     <button class="app-tab" data-app="tiktok" data-group="marketing">🎵 TikTok Quà tặng</button>
     <button class="app-tab" data-app="admgr" data-group="ads">📊 Chỉ số & chiến dịch</button>
+    <button class="app-tab" data-app="pnl" data-group="ads">💰 Doanh thu & Lợi nhuận</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
     <button class="app-tab" data-app="sched" data-group="marketing">🗓️ Lịch content</button>
@@ -1815,6 +1816,42 @@
       <p class="gen-note" id="admgrNote"></p>
       <div id="admgrTable" style="overflow:auto"></div>
       <div class="gallery-empty" id="admgrEmpty">Chưa có chiến dịch nào (hoặc chưa cấu hình Facebook).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-pnl">
+    <div class="panel" style="max-width:1100px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 class="panel-title" style="font-size:18px;margin:0">💰 Doanh thu &amp; Lợi nhuận</h2>
+        <select id="pnlRange" class="input" style="width:auto;padding:6px 10px">
+          <option value="7" selected>7 ngày</option>
+          <option value="14">14 ngày</option>
+          <option value="30">30 ngày</option>
+          <option value="60">60 ngày</option>
+          <option value="90">90 ngày</option>
+        </select>
+        <button class="btn-ghost sm" id="pnlRefresh">🔄 Tải lại</button>
+        <button class="btn-ghost sm" id="pnlCfgBtn">⚙️ Chi phí</button>
+      </div>
+      <p class="panel-desc" style="margin:0 0 10px">Gộp <b>đơn hàng Shopify</b> + <b>chi tiêu FB Ads</b> → lợi nhuận ròng thật. Khai báo giá vốn / phí ở nút ⚙️ Chi phí.</p>
+
+      <div id="pnlCfgPanel" class="hidden" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:#fdf8f9">
+        <b style="font-size:14px">⚙️ Khai báo chi phí (để tính lợi nhuận ròng)</b>
+        <div class="pnl-cfg-grid">
+          <label>Giá vốn / sản phẩm (đ)<input class="input" id="pnlCogsUnit" type="number" min="0" placeholder="vd 65000"></label>
+          <label>… hoặc giá vốn theo % doanh thu<input class="input" id="pnlCogsPct" type="number" min="0" max="100" placeholder="vd 35"></label>
+          <label>Phí ship / đơn (đ)<input class="input" id="pnlShip" type="number" min="0" placeholder="vd 20000"></label>
+          <label>Phí thanh toán / sàn (% doanh thu)<input class="input" id="pnlFeePct" type="number" min="0" max="100" placeholder="vd 3"></label>
+          <label>Chi phí khác / đơn (đ)<input class="input" id="pnlOther" type="number" min="0" placeholder="vd 5000"></label>
+        </div>
+        <p class="gen-note" style="margin:6px 0">Nếu điền <b>Giá vốn / sản phẩm</b> thì dùng số đó (× số áo bán); để 0 thì dùng % doanh thu.</p>
+        <button class="btn-primary sm" id="pnlCfgSave">💾 Lưu &amp; tính lại</button>
+      </div>
+
+      <p class="gen-note" id="pnlNote"></p>
+      <div id="pnlCards"></div>
+      <div id="pnlChart"></div>
+      <div class="gallery-empty hidden" id="pnlEmpty">Chưa có dữ liệu (kiểm tra cấu hình Shopify / FB Ads).</div>
     </div>
   </section>
 

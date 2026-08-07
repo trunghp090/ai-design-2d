@@ -12,6 +12,7 @@ Cấu hình .env:  OPENAI_API_KEY, OPENAI_IMAGE_MODEL, PORT
 """
 
 import base64
+import datetime
 import hashlib
 import io
 import json
@@ -32,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-ads-tab-mobile"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-pnl-report"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8060,6 +8061,150 @@ def make_mock_png(w=512, h=640):
 # --------------------------------------------------------------------------- #
 #  HTTP
 # --------------------------------------------------------------------------- #
+# ============ 💰 PHÂN TÍCH DOANH THU & LỢI NHUẬN (Shopify orders + FB Ads spend) ============
+PNL_FILE = os.path.join(DATA_DIR, "pnl-settings.json")
+_pnl_cache = {}          # days -> {"t": ts, "data": {...}}
+_pnl_lock = threading.Lock()
+
+
+def pnl_settings_load():
+    try:
+        with open(PNL_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f) or {}
+    except Exception:
+        d = {}
+
+    def f(k):
+        try:
+            return float(d.get(k) or 0)
+        except Exception:
+            return 0.0
+    return {"cogs_per_unit": f("cogs_per_unit"), "cogs_pct": f("cogs_pct"),
+            "ship_per_order": f("ship_per_order"), "fee_pct": f("fee_pct"),
+            "other_per_order": f("other_per_order")}
+
+
+def pnl_settings_save(d):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(PNL_FILE, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False)
+    with _pnl_lock:
+        _pnl_cache.clear()
+
+
+def _pnl_shopify_orders(since_iso, until_iso):
+    """Đơn Shopify trong khoảng (REST, phân trang since_id). Trả list rút gọn."""
+    out, since_id = [], 0
+    for _ in range(20):                                   # tối đa 5000 đơn / lần tính
+        qs = ("orders.json?status=any&limit=250&since_id=%d"
+              "&created_at_min=%s&created_at_max=%s"
+              "&fields=id,created_at,current_total_price,total_price,cancelled_at,test,line_items"
+              % (since_id, urllib.parse.quote(since_iso), urllib.parse.quote(until_iso)))
+        st, d = shopify_api("GET", qs)
+        if st != 200:
+            raise RuntimeError("Shopify orders lỗi %s: %s" % (st, str(d)[:200]))
+        rows = d.get("orders") or []
+        if not rows:
+            break
+        for o in rows:
+            since_id = max(since_id, int(o.get("id") or 0))
+            if o.get("test") or o.get("cancelled_at"):
+                continue
+            try:
+                rev = float(o.get("current_total_price") or o.get("total_price") or 0)
+            except Exception:
+                rev = 0.0
+            units = sum(int(li.get("quantity") or 0) for li in (o.get("line_items") or []))
+            out.append({"d": (o.get("created_at") or "")[:10], "rev": rev, "units": units})
+        if len(rows) < 250:
+            break
+    return out
+
+
+def _pnl_fb_spend_daily(since_day, until_day):
+    """Chi tiêu FB Ads theo ngày (account level). Trả dict {ngày: spend}."""
+    if not fb_configured():
+        return {}
+    st, d = fb_graph("GET", "act_%s/insights" % FB_AD_ACCOUNT_ID,
+                     {"fields": "spend", "time_increment": "1", "limit": "200",
+                      "time_range": json.dumps({"since": since_day, "until": until_day})})
+    if st != 200:
+        raise RuntimeError("FB insights lỗi: " + fb_err(d))
+    out = {}
+    for r in (d.get("data") or []):
+        try:
+            out[r.get("date_start") or ""] = out.get(r.get("date_start") or "", 0) + float(r.get("spend") or 0)
+        except Exception:
+            pass
+    return out
+
+
+def _pnl_sum(orders, spend_by_day, days_list, cfg):
+    rev = sum(o["rev"] for o in orders)
+    n_orders = len(orders)
+    units = sum(o["units"] for o in orders)
+    spend = sum(spend_by_day.get(dy, 0) for dy in days_list)
+    cogs = units * cfg["cogs_per_unit"] if cfg["cogs_per_unit"] > 0 else rev * cfg["cogs_pct"] / 100.0
+    ship = n_orders * cfg["ship_per_order"]
+    fee = rev * cfg["fee_pct"] / 100.0
+    other = n_orders * cfg["other_per_order"]
+    net = rev - cogs - ship - fee - other - spend
+    return {"revenue": round(rev), "orders": n_orders, "units": units,
+            "ad_spend": round(spend), "cogs": round(cogs), "ship": round(ship),
+            "fee": round(fee), "other": round(other), "net": round(net),
+            "margin": round(net / rev * 100, 1) if rev else 0,
+            "roas": round(rev / spend, 2) if spend else 0}
+
+
+def pnl_report(days, force=False):
+    days = max(1, min(90, int(days or 7)))
+    with _pnl_lock:
+        c = _pnl_cache.get(days)
+        if c and not force and time.time() - c["t"] < 600:
+            return c["data"]
+    today = datetime.date.today()
+    cur_days = [(today - datetime.timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
+    prev_days = [(today - datetime.timedelta(days=i)).isoformat() for i in range(2 * days - 1, days - 1, -1)]
+    notes = []
+    orders = []
+    if shopify_configured():
+        try:
+            orders = _pnl_shopify_orders(prev_days[0] + "T00:00:00Z", cur_days[-1] + "T23:59:59Z")
+        except Exception as e:
+            notes.append(str(e)[:180])
+    else:
+        notes.append("Chưa cấu hình Shopify (SHOPIFY_DOMAIN/TOKEN) — doanh thu đang = 0.")
+    spend_by_day = {}
+    if fb_configured():
+        try:
+            spend_by_day = _pnl_fb_spend_daily(prev_days[0], cur_days[-1])
+        except Exception as e:
+            notes.append(str(e)[:180])
+    else:
+        notes.append("Chưa cấu hình FB Ads — chi tiêu ads đang = 0.")
+    cfg = pnl_settings_load()
+    cur_orders = [o for o in orders if o["d"] in set(cur_days)]
+    prev_orders = [o for o in orders if o["d"] in set(prev_days)]
+    cur = _pnl_sum(cur_orders, spend_by_day, cur_days, cfg)
+    prev = _pnl_sum(prev_orders, spend_by_day, prev_days, cfg)
+    rev_by_day = {}
+    for o in cur_orders:
+        rev_by_day[o["d"]] = rev_by_day.get(o["d"], 0) + o["rev"]
+    daily = []
+    for dy in cur_days:
+        r = rev_by_day.get(dy, 0)
+        s = spend_by_day.get(dy, 0)
+        share = (r / cur["revenue"]) if cur["revenue"] else 0          # phân bổ chi phí cố định theo tỉ trọng doanh thu
+        fixed = (cur["cogs"] + cur["ship"] + cur["fee"] + cur["other"]) * share
+        daily.append({"d": dy, "rev": round(r), "spend": round(s), "profit": round(r - fixed - s)})
+    data = {"ok": True, "days": days, "cur": cur, "prev": prev, "daily": daily,
+            "settings": cfg, "notes": notes,
+            "shopify": shopify_configured(), "fb": fb_configured()}
+    with _pnl_lock:
+        _pnl_cache[days] = {"t": time.time(), "data": data}
+    return data
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "AIDesign2D/2.0"
 
@@ -8190,6 +8335,19 @@ class Handler(BaseHTTPRequestHandler):
             can_pub = "instagram_content_publish" in perms
             return self.json(200, {"connected": bool(igid), "ig_id": igid or "",
                                    "username": uname, "can_publish": can_pub})
+        if path == "/api/pnl-report":
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            try:
+                days = int((qs.get("days") or ["7"])[0])
+            except Exception:
+                days = 7
+            force = (qs.get("force") or ["0"])[0] == "1"
+            try:
+                return self.json(200, pnl_report(days, force=force))
+            except Exception as e:
+                return self.json(500, {"error": str(e)[:300]})
+        if path == "/api/pnl-settings":
+            return self.json(200, {"ok": True, "settings": pnl_settings_load()})
         if path == "/api/fb-ads-list":
             if not fb_configured():
                 return self.json(200, {"campaigns": [], "configured": False})
@@ -8453,6 +8611,15 @@ class Handler(BaseHTTPRequestHandler):
         if AUTH_REQUIRED and not self.current_user():
             return self.json(401, {"error": "Vui lòng đăng nhập để dùng tính năng này."})
 
+        if path == "/api/pnl-settings":
+            keep = {}
+            for k in ("cogs_per_unit", "cogs_pct", "ship_per_order", "fee_pct", "other_per_order"):
+                try:
+                    keep[k] = float(body.get(k) or 0)
+                except Exception:
+                    keep[k] = 0
+            pnl_settings_save(keep)
+            return self.json(200, {"ok": True, "settings": pnl_settings_load()})
         if path == "/api/generate":
             return self.handle_generate(body)
         if path == "/api/generate-async":

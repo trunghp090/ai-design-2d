@@ -775,6 +775,7 @@ function showApp(app) {
   document.getElementById("view-ads").classList.toggle("hidden", app !== "ads");
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
+  document.getElementById("view-pnl").classList.toggle("hidden", app !== "pnl");
   document.getElementById("view-agent").classList.toggle("hidden", app !== "agent");
   document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
   document.getElementById("view-pgpost").classList.toggle("hidden", app !== "pgpost");
@@ -784,6 +785,7 @@ function showApp(app) {
   if (app === "ads") adsInit();
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
+  if (app === "pnl") pnlInit();
   if (app === "agent") agentInit();
   if (app === "adpost") adpostInit();
   if (app === "pgpost") pgpostInit();
@@ -6174,6 +6176,130 @@ async function admgrToggle(id, cur, btn) {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     admgrLoad();
   } catch (e) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = o; }
+}
+
+/* =====================================================================
+   💰 DOANH THU & LỢI NHUẬN — Shopify orders + FB Ads spend
+   ===================================================================== */
+let pnlInited = false;
+function pnlInit() {
+  if (!pnlInited) {
+    pnlInited = true;
+    $("pnlRefresh").onclick = () => pnlLoad(true);
+    $("pnlRange").onchange = () => pnlLoad(false);
+    $("pnlCfgBtn").onclick = () => $("pnlCfgPanel").classList.toggle("hidden");
+    $("pnlCfgSave").onclick = pnlCfgSave;
+  }
+  pnlLoad(false);
+}
+function pnlMoney(n) { return fmtNum(Math.round(n)) + "đ"; }
+function pnlDelta(cur, prev, goodUp) {
+  if (!prev) return "";
+  const pct = (cur - prev) / Math.abs(prev) * 100;
+  if (!isFinite(pct)) return "";
+  const up = pct >= 0;
+  const good = goodUp ? up : !up;
+  return '<span class="pnl-delta ' + (good ? "good" : "bad") + '">' + (up ? "↑" : "↓") + " " +
+         Math.abs(pct).toFixed(1) + "%</span>";
+}
+async function pnlLoad(force) {
+  const cards = $("pnlCards"), chart = $("pnlChart"), note = $("pnlNote");
+  note.className = "gen-note"; note.textContent = "⏳ Đang gộp đơn Shopify + chi tiêu Ads…";
+  cards.innerHTML = ""; chart.innerHTML = "";
+  try {
+    const days = $("pnlRange").value;
+    const r = await fetch("/api/pnl-report?days=" + days + (force ? "&force=1" : ""));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi tải báo cáo");
+    // fill settings vào panel chi phí
+    const s = d.settings || {};
+    $("pnlCogsUnit").value = s.cogs_per_unit || "";
+    $("pnlCogsPct").value = s.cogs_pct || "";
+    $("pnlShip").value = s.ship_per_order || "";
+    $("pnlFeePct").value = s.fee_pct || "";
+    $("pnlOther").value = s.other_per_order || "";
+    note.textContent = (d.notes || []).join(" · ");
+    pnlRenderCards(d);
+    pnlRenderChart(d);
+  } catch (e) {
+    note.className = "gen-note err";
+    note.textContent = "✗ " + e.message;
+  }
+}
+function pnlRenderCards(d) {
+  const c = d.cur, p = d.prev;
+  const net = c.net, netCls = net >= 0 ? "good" : "bad";
+  const hero =
+    '<div class="pnl-hero ' + netCls + '">' +
+      '<div class="pnl-hero-label">Lợi nhuận ròng (' + d.days + ' ngày)</div>' +
+      '<div class="pnl-hero-num">' + pnlMoney(net) + '</div>' +
+      '<div class="pnl-hero-sub">' + pnlDelta(c.net, p.net, true) +
+        (p.net ? ' so với kỳ trước (' + pnlMoney(p.net) + ')' : '') +
+        ' · Biên LN ' + c.margin + '%' + '</div>' +
+    '</div>';
+  const card = (icon, label, val, sub) =>
+    '<div class="pnl-card"><div class="pnl-card-label">' + icon + ' ' + label + '</div>' +
+    '<div class="pnl-card-num">' + val + '</div>' +
+    (sub ? '<div class="pnl-card-sub">' + sub + '</div>' : '') + '</div>';
+  $("pnlCards").innerHTML = hero + '<div class="pnl-cards">' +
+    card("🏷", "Doanh thu", pnlMoney(c.revenue), pnlDelta(c.revenue, p.revenue, true)) +
+    card("📦", "Đơn hàng", fmtNum(c.orders),
+         fmtNum(c.units) + " sản phẩm " + pnlDelta(c.orders, p.orders, true)) +
+    card("📣", "Chi tiêu Ads", pnlMoney(c.ad_spend),
+         (c.roas ? "ROAS " + c.roas + "x " : "") + pnlDelta(c.ad_spend, p.ad_spend, false)) +
+    card("🏭", "Giá vốn", pnlMoney(c.cogs), pnlDelta(c.cogs, p.cogs, false)) +
+    card("🚚", "Phí ship", pnlMoney(c.ship), "") +
+    card("💳", "Phí TT/sàn + khác", pnlMoney(c.fee + c.other), "") +
+    '</div>';
+}
+function pnlRenderChart(d) {
+  const daily = d.daily || [];
+  if (!daily.length) return;
+  const W = 900, H = 260, padL = 8, padB = 22, padT = 14;
+  const n = daily.length;
+  const maxRev = Math.max(1, ...daily.map(x => x.rev));
+  const maxAbs = Math.max(maxRev, ...daily.map(x => Math.abs(x.profit)), ...daily.map(x => x.spend));
+  const minProfit = Math.min(0, ...daily.map(x => x.profit));
+  const top = maxAbs, bot = minProfit;                    // scale chung
+  const y = v => padT + (top - v) / (top - bot || 1) * (H - padT - padB);
+  const bw = (W - padL * 2) / n;
+  let bars = "", spendBars = "", line = "", labels = "";
+  daily.forEach((x, i) => {
+    const cx = padL + bw * i;
+    bars += '<rect x="' + (cx + bw * 0.12) + '" y="' + y(Math.max(0, x.rev)) + '" width="' + (bw * 0.42) +
+            '" height="' + Math.max(1, Math.abs(y(0) - y(x.rev))) + '" rx="3" class="pnl-bar-rev"><title>' +
+            x.d + " — Doanh thu " + pnlMoney(x.rev) + '</title></rect>';
+    spendBars += '<rect x="' + (cx + bw * 0.56) + '" y="' + y(Math.max(0, x.spend)) + '" width="' + (bw * 0.3) +
+            '" height="' + Math.max(1, Math.abs(y(0) - y(x.spend))) + '" rx="3" class="pnl-bar-spend"><title>' +
+            x.d + " — Ads " + pnlMoney(x.spend) + '</title></rect>';
+    line += (i ? " L" : "M") + (cx + bw / 2).toFixed(1) + " " + y(x.profit).toFixed(1);
+    if (n <= 16 || i % Math.ceil(n / 12) === 0)
+      labels += '<text x="' + (cx + bw / 2) + '" y="' + (H - 6) + '" class="pnl-ax">' + x.d.slice(5) + '</text>';
+  });
+  $("pnlChart").innerHTML =
+    '<div class="pnl-chart-box"><div class="pnl-chart-head"><b>Hiệu suất theo ngày</b>' +
+    '<span class="pnl-leg"><i class="l-rev"></i> Doanh thu <i class="l-spend"></i> Ads <i class="l-profit"></i> Lợi nhuận</span></div>' +
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" class="pnl-svg">' +
+    '<line x1="0" x2="' + W + '" y1="' + y(0) + '" y2="' + y(0) + '" class="pnl-zero"/>' +
+    bars + spendBars +
+    '<path d="' + line + '" class="pnl-line"/>' + labels + '</svg></div>';
+}
+async function pnlCfgSave() {
+  const btn = $("pnlCfgSave"); btn.disabled = true; btn.textContent = "⏳ Đang lưu…";
+  try {
+    const body = {
+      cogs_per_unit: parseFloat($("pnlCogsUnit").value) || 0,
+      cogs_pct: parseFloat($("pnlCogsPct").value) || 0,
+      ship_per_order: parseFloat($("pnlShip").value) || 0,
+      fee_pct: parseFloat($("pnlFeePct").value) || 0,
+      other_per_order: parseFloat($("pnlOther").value) || 0
+    };
+    const r = await fetch("/api/pnl-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi lưu");
+    $("pnlCfgPanel").classList.add("hidden");
+    pnlLoad(true);
+  } catch (e) { alert("✗ " + e.message); }
+  btn.disabled = false; btn.textContent = "💾 Lưu & tính lại";
 }
 
 /* =====================================================================

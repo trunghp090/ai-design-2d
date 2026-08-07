@@ -767,3 +767,41 @@ textarea.input{resize:vertical;line-height:1.5}
   .adm-cards{grid-template-columns:repeat(2,1fr)}
   .dropzone{min-height:80px}
 }
+
+/* ============ 💰 DOANH THU & LỢI NHUẬN ============ */
+.pnl-cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 10px 0; }
+.pnl-cfg-grid label { font-size: 12.5px; font-weight: 600; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.pnl-hero { border-radius: 14px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid var(--line); background: #fff; }
+.pnl-hero.good { background: linear-gradient(135deg, #f0fdf6, #fff); border-color: #b7ecd0; }
+.pnl-hero.bad { background: linear-gradient(135deg, #fef2f2, #fff); border-color: #f5c8c8; }
+.pnl-hero-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.pnl-hero-num { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+.pnl-hero.good .pnl-hero-num { color: #0b7a44; }
+.pnl-hero.bad .pnl-hero-num { color: #c02626; }
+.pnl-hero-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.pnl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.pnl-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: #fff; }
+.pnl-card-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.pnl-card-num { font-size: 19px; font-weight: 800; margin-top: 2px; }
+.pnl-card-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.pnl-delta { font-weight: 700; }
+.pnl-delta.good { color: #0b7a44; }
+.pnl-delta.bad { color: #c02626; }
+.pnl-chart-box { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; }
+.pnl-chart-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13.5px; margin-bottom: 6px; }
+.pnl-leg { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.pnl-leg i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
+.pnl-leg .l-rev { background: #7fc8a9; }
+.pnl-leg .l-spend { background: #e4a3b1; }
+.pnl-leg .l-profit { background: none; border-top: 2.5px solid #8a1f3d; height: 0; }
+.pnl-svg { width: 100%; height: auto; display: block; }
+.pnl-bar-rev { fill: #7fc8a9; }
+.pnl-bar-spend { fill: #e4a3b1; }
+.pnl-line { fill: none; stroke: #8a1f3d; stroke-width: 2.5; stroke-linejoin: round; }
+.pnl-zero { stroke: #d9cfd3; stroke-width: 1; stroke-dasharray: 3 3; }
+.pnl-ax { font-size: 10px; fill: #9a8b90; text-anchor: middle; }
+@media (max-width: 820px) {
+  .pnl-hero-num { font-size: 26px; }
+  .pnl-cards { grid-template-columns: 1fr 1fr; }
+  .pnl-cfg-grid { grid-template-columns: 1fr 1fr; }
+}
