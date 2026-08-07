@@ -59,6 +59,19 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
     }
     window.IS_ADMIN = !!(ok && d.admin);
     window.MY_TABS = (ok && Array.isArray(d.tabs)) ? d.tabs : null;
+    if (ok && d.ui_order) {
+      const uo = d.ui_order;
+      if (Array.isArray(uo.tabs) && uo.tabs.length) {
+        try { localStorage.setItem("tabOrder", JSON.stringify(uo.tabs)); } catch (e) {}
+        applyTabOrder(uo.tabs);
+      }
+      if (Array.isArray(uo.groups) && uo.groups.length) {
+        try { localStorage.setItem("groupOrder", JSON.stringify(uo.groups)); } catch (e) {}
+        applyGroupOrder(uo.groups);
+        const firstG = document.querySelector(".app-groups .app-group:not(#tabEditBtn)");
+        if (firstG) showGroup(firstG.dataset.group, false);
+      }
+    }
     applyAdminNav();
   });
 }).catch(() => {});
@@ -867,9 +880,11 @@ document.querySelectorAll(".app-tab").forEach(t => t.onclick = () => showApp(t.d
 document.querySelectorAll(".app-group").forEach(b => { if (b.id !== "tabEditBtn") b.onclick = () => showGroup(b.dataset.group); });
 
 /* ---- Sửa vị trí tab: kéo-thả, lưu localStorage ---- */
-function applyTabOrder() {
-  let order = [];
-  try { order = JSON.parse(localStorage.getItem("tabOrder") || "[]"); } catch (e) {}
+function applyTabOrder(order) {
+  if (!Array.isArray(order) || !order.length) {
+    order = [];
+    try { order = JSON.parse(localStorage.getItem("tabOrder") || "[]"); } catch (e) {}
+  }
   if (!order.length) return;
   const nav = document.querySelector(".app-tabs"); if (!nav) return;
   order.forEach(app => { const el = nav.querySelector('.app-tab[data-app="' + app + '"]'); if (el) nav.appendChild(el); });
@@ -877,6 +892,15 @@ function applyTabOrder() {
 function saveTabOrder() {
   const order = [...document.querySelectorAll(".app-tabs .app-tab")].map(t => t.dataset.app);
   try { localStorage.setItem("tabOrder", JSON.stringify(order)); } catch (e) {}
+  pushUiOrder();
+}
+function pushUiOrder() {
+  // lưu thứ tự lên server theo tài khoản -> điện thoại/máy khác tự theo
+  let g = [], t = [];
+  try { g = JSON.parse(localStorage.getItem("groupOrder") || "[]"); } catch (e) {}
+  try { t = JSON.parse(localStorage.getItem("tabOrder") || "[]"); } catch (e) {}
+  fetch("/api/ui-order", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ groups: g, tabs: t }) }).catch(() => {});
 }
 let tabEditOn = false, tabDragEl = null, tabDragMoved = false;
 function tabPointerDown(e) {
@@ -939,10 +963,13 @@ function saveGroupOrder() {
   const order = [...document.querySelectorAll(".app-groups .app-group")]
     .filter(g => g.id !== "tabEditBtn").map(g => g.dataset.group);
   try { localStorage.setItem("groupOrder", JSON.stringify(order)); } catch (e) {}
+  pushUiOrder();
 }
-function applyGroupOrder() {
-  let order = [];
-  try { order = JSON.parse(localStorage.getItem("groupOrder") || "[]"); } catch (e) {}
+function applyGroupOrder(order) {
+  if (!Array.isArray(order) || !order.length) {
+    order = [];
+    try { order = JSON.parse(localStorage.getItem("groupOrder") || "[]"); } catch (e) {}
+  }
   if (!order.length) return;
   const nav = document.querySelector(".app-groups"); if (!nav) return;
   const spacer = nav.querySelector("span");

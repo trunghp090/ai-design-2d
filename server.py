@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-first-tab-default"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-taborder-sync"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8106,6 +8106,29 @@ def user_allowed_tabs(u):
     return []
 
 
+# ---- thứ tự tab (kéo-thả) lưu THEO TÀI KHOẢN -> đồng bộ mọi thiết bị ----
+UI_ORDER_FILE = os.path.join(DATA_DIR, "ui-order.json")
+_ui_order_lock = threading.Lock()
+
+
+def ui_order_load():
+    try:
+        with open(UI_ORDER_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def ui_order_save(email, groups, tabs):
+    with _ui_order_lock:
+        d = ui_order_load()
+        d[email] = {"groups": groups, "tabs": tabs}
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(UI_ORDER_FILE, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+
+
 # ============ 💰 PHÂN TÍCH DOANH THU & LỢI NHUẬN (Shopify orders + FB Ads spend) ============
 PNL_FILE = os.path.join(DATA_DIR, "pnl-settings.json")
 _pnl_cache = {}          # days -> {"t": ts, "data": {...}}
@@ -8516,7 +8539,8 @@ class Handler(BaseHTTPRequestHandler):
             if not u:
                 return self.json(401, {"error": "Chưa đăng nhập"})
             return self.json(200, {"user": u, "admin": user_is_admin(u),
-                                   "tabs": user_allowed_tabs(u)})
+                                   "tabs": user_allowed_tabs(u),
+                                   "ui_order": ui_order_load().get((u.get("email") or "").lower())})
         if path == "/api/gallery":
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
@@ -8726,6 +8750,14 @@ class Handler(BaseHTTPRequestHandler):
         if AUTH_REQUIRED and not self.current_user():
             return self.json(401, {"error": "Vui lòng đăng nhập để dùng tính năng này."})
 
+        if path == "/api/ui-order":
+            u = self.current_user()
+            if not u:
+                return self.json(401, {"error": "Chưa đăng nhập"})
+            groups = [g for g in (body.get("groups") or []) if isinstance(g, str)][:20]
+            tabs = [t for t in (body.get("tabs") or []) if isinstance(t, str)][:60]
+            ui_order_save((u.get("email") or "").lower(), groups, tabs)
+            return self.json(200, {"ok": True})
         if path == "/api/admin-perms":
             if not user_is_admin(self.current_user()):
                 return self.json(403, {"error": "Chỉ tài khoản quản trị."})
