@@ -907,6 +907,50 @@ function tabPointerDown(e) {
   document.addEventListener("pointerup", up);
   document.addEventListener("pointercancel", up);
 }
+// kéo TAB TO (nhóm) — cùng cơ chế pointer-drag
+function groupPointerDown(e) {
+  if (!tabEditOn) return;
+  const t = e.currentTarget;
+  e.preventDefault();
+  let moved = false;
+  t.style.opacity = ".4"; t.style.cursor = "grabbing";
+  const mv = (ev) => {
+    moved = true;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const tgt = el && el.closest ? el.closest(".app-group") : null;
+    if (tgt && tgt !== t && tgt.id !== "tabEditBtn") {
+      const r = tgt.getBoundingClientRect();
+      const after = ev.clientX > r.left + r.width / 2;
+      tgt.parentNode.insertBefore(t, after ? tgt.nextSibling : tgt);
+    }
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", mv);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", up);
+    t.style.opacity = ""; t.style.cursor = "grab";
+    if (moved) saveGroupOrder();
+  };
+  document.addEventListener("pointermove", mv);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", up);
+}
+function saveGroupOrder() {
+  const order = [...document.querySelectorAll(".app-groups .app-group")]
+    .filter(g => g.id !== "tabEditBtn").map(g => g.dataset.group);
+  try { localStorage.setItem("groupOrder", JSON.stringify(order)); } catch (e) {}
+}
+function applyGroupOrder() {
+  let order = [];
+  try { order = JSON.parse(localStorage.getItem("groupOrder") || "[]"); } catch (e) {}
+  if (!order.length) return;
+  const nav = document.querySelector(".app-groups"); if (!nav) return;
+  const spacer = nav.querySelector("span");
+  order.forEach(g => {
+    const el = nav.querySelector('.app-group[data-group="' + g + '"]');
+    if (el) nav.insertBefore(el, spacer || null);
+  });
+}
 function setTabEdit(on) {
   tabEditOn = on;
   const btn = $("tabEditBtn"); if (btn) { btn.classList.toggle("active", on); btn.textContent = on ? "✓ Xong (kéo để đổi)" : "✎ Sửa vị trí tab"; }
@@ -915,9 +959,16 @@ function setTabEdit(on) {
     t.style.touchAction = on ? "none" : "";
     t.onpointerdown = on ? tabPointerDown : null;
   });
+  document.querySelectorAll(".app-groups .app-group").forEach(g => {
+    if (g.id === "tabEditBtn") return;
+    g.style.cursor = on ? "grab" : "";
+    g.style.touchAction = on ? "none" : "";
+    g.onpointerdown = on ? groupPointerDown : null;
+  });
 }
 if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
 applyTabOrder();
+applyGroupOrder();
 showGroup("work", true);
 
 /* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
@@ -938,20 +989,32 @@ showGroup("work", true);
   function build() {
     const body = drawer.querySelector("#navDrawerBody");
     body.innerHTML = "";
+    const activeGroup = (document.querySelector(".app-tab.active") || {}).dataset ?
+      (document.querySelector(".app-tab.active") || {}).dataset.group : "";
     document.querySelectorAll(".app-group").forEach(g => {
       if (g.id === "tabEditBtn" || g.classList.contains("hidden")) return;
-      const h = document.createElement("div");
-      h.className = "nav-d-group";
-      h.textContent = g.textContent;
-      body.appendChild(h);
-      document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]').forEach(t => {
-        if (t.classList.contains("hidden")) return;
+      const tabs = [...document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]')]
+        .filter(t => !t.classList.contains("hidden"));
+      if (!tabs.length) return;
+      const isOpen = g.dataset.group === activeGroup;
+      const gb = document.createElement("button");
+      gb.className = "nav-d-gbtn" + (isOpen ? " open" : "");
+      gb.innerHTML = "<span>" + g.textContent + "</span><span class='nav-d-arrow'>▾</span>";
+      body.appendChild(gb);
+      const box = document.createElement("div");
+      box.className = "nav-d-box" + (isOpen ? "" : " hidden");
+      tabs.forEach(t => {
         const row = document.createElement("button");
         row.className = "nav-d-tab" + (t.classList.contains("active") ? " active" : "");
         row.textContent = t.textContent;
         row.onclick = () => { showGroup(t.dataset.group, true); t.click(); close(); };
-        body.appendChild(row);
+        box.appendChild(row);
       });
+      body.appendChild(box);
+      gb.onclick = () => {
+        box.classList.toggle("hidden");
+        gb.classList.toggle("open", !box.classList.contains("hidden"));
+      };
     });
   }
   function open() { build(); drawer.classList.add("open"); backdrop.classList.add("show"); }

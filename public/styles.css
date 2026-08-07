@@ -849,3 +849,10 @@ textarea.input{resize:vertical;line-height:1.5}
 @media (max-width: 820px) {
   .app-group { padding: 9px 16px; font-size: 14px; }
 }
+
+/* drawer accordion: tab to sổ xuống */
+.nav-d-gbtn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 12px 14px; border: 2px solid var(--line); border-radius: 12px; background: #fff; margin: 10px 0 6px; font-size: 15px; font-weight: 800; cursor: pointer; }
+.nav-d-gbtn .nav-d-arrow { transition: transform 0.2s; font-size: 13px; color: var(--muted); }
+.nav-d-gbtn.open { border-color: #8a1f3d; color: #8a1f3d; }
+.nav-d-gbtn.open .nav-d-arrow { transform: rotate(180deg); }
+.nav-d-box { padding-left: 8px; }
