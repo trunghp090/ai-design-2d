@@ -6100,23 +6100,57 @@ async function admgrLoad() {
     $("admgrEmpty").classList.toggle("hidden", cs.length > 0);
     if (!cs.length) { note.textContent = ""; return; }
     // tổng
-    const tot = cs.reduce((a, c) => { a.spend += parseFloat(c.spend || 0); a.reach += parseFloat(c.reach || 0); a.clicks += parseFloat(c.clicks || 0); a.impr += parseFloat(c.impressions || 0); return a; }, { spend: 0, reach: 0, clicks: 0, impr: 0 });
-    note.className = "gen-note ok"; note.innerHTML = "💰 Tổng chi tiêu: <b>" + fmtNum(tot.spend) + "đ</b> · 👁 Reach " + fmtNum(tot.reach) + " · 🖱 Click " + fmtNum(tot.clicks) + " · " + cs.length + " chiến dịch";
-    let html = '<table class="admgr-tbl"><thead><tr><th>Chiến dịch</th><th>Trạng thái</th><th>Chi tiêu</th><th>Reach</th><th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th></th></tr></thead><tbody>';
-    cs.forEach((c, i) => {
+    const tot = cs.reduce((a, c) => {
+      a.spend += parseFloat(c.spend || 0); a.reach += parseFloat(c.reach || 0);
+      a.clicks += parseFloat(c.clicks || 0); a.impr += parseFloat(c.impressions || 0);
+      a.pur += parseInt(c.purchases || 0, 10);
+      const ro = parseFloat(c.roas || 0), sp = parseFloat(c.spend || 0);
+      if (ro > 0 && sp > 0) { a.roasV += ro * sp; a.roasS += sp; }
+      return a;
+    }, { spend: 0, reach: 0, clicks: 0, impr: 0, pur: 0, roasV: 0, roasS: 0 });
+    const roasAvg = tot.roasS ? (tot.roasV / tot.roasS) : 0;
+    note.className = "gen-note"; note.textContent = "";
+    // HÀNG CARD TỔNG QUAN
+    const card = (icon, label, val, sub) =>
+      '<div class="adm-card"><span>' + icon + ' ' + label + '</span><b>' + val + '</b>' +
+      (sub ? '<span>' + sub + '</span>' : '') + '</div>';
+    const cardsHtml = '<div class="adm-cards">' +
+      card("💰", "Chi tiêu", fmtNum(tot.spend) + "đ", cs.length + " chiến dịch") +
+      card("🛒", "Mua hàng", fmtNum(tot.pur), tot.pur ? fmtNum(Math.round(tot.spend / tot.pur)) + "đ/đơn" : "—") +
+      card("📈", "ROAS TB", roasAvg ? roasAvg.toFixed(2) + "x" : "—", "theo chi tiêu") +
+      card("👁", "Hiển thị", fmtNum(tot.impr), "Reach " + fmtNum(tot.reach)) +
+      card("🖱", "Click", fmtNum(tot.clicks), tot.impr ? "CTR " + (tot.clicks / tot.impr * 100).toFixed(2) + "%" : "") +
+      card("💵", "CPM", tot.impr ? fmtNum(Math.round(tot.spend / tot.impr * 1000)) + "đ" : "—",
+           tot.clicks ? "CPC " + fmtNum(Math.round(tot.spend / tot.clicks)) + "đ" : "") +
+      '</div>';
+    // BẢNG CHIẾN DỊCH
+    const maxSpend = Math.max(1, ...cs.map(c => parseFloat(c.spend || 0)));
+    let html = cardsHtml +
+      '<div class="adm-wrap"><table class="adm-tbl"><thead><tr>' +
+      '<th>Chiến dịch</th><th>Trạng thái</th><th>Chi tiêu</th><th>🛒 Mua</th><th>ROAS</th>' +
+      '<th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th>CPM</th><th></th></tr></thead><tbody>';
+    cs.forEach(c => {
       const active = c.status === "ACTIVE";
-      const badge = active ? '<span class="sl-badge on">Đang chạy</span>' : '<span class="sl-badge">Tạm dừng</span>';
+      const sp = parseFloat(c.spend || 0);
+      const ro = parseFloat(c.roas || 0);
+      const roCls = ro >= 2 ? "good" : (ro >= 1 ? "mid" : "bad");
       html += '<tr>' +
-        '<td title="' + (c.name || "").replace(/"/g, "&quot;") + '">' + (c.name || "").slice(0, 38) + '<br><span class="hint">' + (c.objective || "") + '</span></td>' +
-        '<td>' + badge + '</td>' +
-        '<td><b>' + fmtNum(c.spend) + 'đ</b></td>' +
-        '<td>' + fmtNum(c.reach) + '</td><td>' + fmtNum(c.impressions) + '</td><td>' + fmtNum(c.clicks) + '</td>' +
+        '<td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || "").replace(/"/g, "&quot;") + '">' +
+          '<b style="font-size:12px">' + (c.name || "").slice(0, 42) + '</b><br>' +
+          '<span class="hint" style="font-size:10px">' + (c.objective || "").replace("OUTCOME_", "") +
+          (c.daily_budget ? ' · ' + fmtNum(parseInt(c.daily_budget, 10)) + 'đ/ngày' : '') + '</span></td>' +
+        '<td><span class="adm-pill ' + (active ? "on" : "off") + '">' + (active ? "● Đang chạy" : "‖ Tạm dừng") + '</span></td>' +
+        '<td><b>' + fmtNum(sp) + 'đ</b><div class="adm-bar" style="width:' + Math.max(4, Math.round(sp / maxSpend * 100)) + '%"></div></td>' +
+        '<td>' + (c.purchases ? '<b>' + fmtNum(c.purchases) + '</b>' : '—') + '</td>' +
+        '<td>' + (ro ? '<span class="adm-roas ' + roCls + '">' + ro.toFixed(2) + 'x</span>' : '—') + '</td>' +
+        '<td>' + fmtNum(c.impressions) + '</td><td>' + fmtNum(c.clicks) + '</td>' +
         '<td>' + (c.ctr ? parseFloat(c.ctr).toFixed(2) + "%" : "—") + '</td>' +
-        '<td>' + (c.cpc ? fmtNum(c.cpc) + "đ" : "—") + '</td>' +
+        '<td>' + (c.cpc ? fmtNum(Math.round(parseFloat(c.cpc))) + "đ" : "—") + '</td>' +
+        '<td>' + (c.cpm ? fmtNum(Math.round(parseFloat(c.cpm))) + "đ" : "—") + '</td>' +
         '<td style="white-space:nowrap"><button class="btn-ghost sm admgr-tog" data-id="' + c.id + '" data-st="' + c.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button> <button class="btn-ghost sm admgr-del" data-id="' + c.id + '" data-nm="' + (c.name || "").replace(/"/g, "&quot;") + '">🗑️</button></td>' +
         '</tr>';
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     tbl.innerHTML = html;
     tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggle(b.dataset.id, b.dataset.st, b));
     tbl.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
@@ -6706,8 +6740,55 @@ function pgpostInit() {
     $("pgpostPushBtn").onclick = pgpostBatchPush;
     $("pgpostAll").onchange = (e) => { document.querySelectorAll(".pgpost-tick").forEach(t => t.checked = e.target.checked); };
     pgpostCheckIg();
+    pgpostUpWire();
   }
   pgpostLoad();
+}
+// ⬆️ Up ảnh/VIDEO từ máy -> tạo bài đăng Page/IG (ảnh gộp 1 bài, mỗi video 1 bài)
+window.pgpostUpList = window.pgpostUpList || [];
+function pgpostUpWire() {
+  const btn = $("pgpostUpBtn");
+  if (!btn) return;
+  btn.onclick = () => $("pgpostUpPanel").classList.toggle("hidden");
+  $("pgpostUpClose").onclick = () => $("pgpostUpPanel").classList.add("hidden");
+  const render = () => {
+    const l = window.pgpostUpList;
+    $("pgpostUpName").textContent = l.length ? ("✓ Đã chọn " + l.length + " media — bấm thêm để nạp tiếp")
+      : "📁 Bấm / kéo-thả NHIỀU ảnh hoặc video — ảnh gộp 1 bài, mỗi video 1 bài";
+    $("pgpostUpPrev").innerHTML = l.map((m, i) =>
+      '<span style="position:relative;display:inline-block;margin:0 6px 6px 0">' +
+      (m.type === "video"
+        ? '<video src="' + m.durl + '" style="width:74px;height:92px;object-fit:cover;border-radius:8px;background:#000"></video>'
+        : '<img src="' + m.durl + '" style="width:74px;height:92px;object-fit:cover;border-radius:8px">') +
+      '<button data-i="' + i + '" class="pgUpX" style="position:absolute;top:-6px;right:-6px;border:none;border-radius:50%;width:20px;height:20px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:11px">×</button></span>').join("");
+    $("pgpostUpPrev").querySelectorAll(".pgUpX").forEach(b => {
+      b.onclick = () => { window.pgpostUpList.splice(parseInt(b.dataset.i, 10), 1); render(); };
+    });
+  };
+  const add = async (files) => {
+    for (const f of files) {
+      if (!f || (!f.type.startsWith("image") && !f.type.startsWith("video"))) continue;
+      window.pgpostUpList.push({ durl: await fileToDataURL(f), type: f.type.startsWith("video") ? "video" : "image" });
+    }
+    render();
+  };
+  $("pgpostUpFile").onchange = (e) => { add([...e.target.files]); e.target.value = ""; };
+  $("pgpostUpDrop").ondragover = (e) => e.preventDefault();
+  $("pgpostUpDrop").ondrop = (e) => { e.preventDefault(); add([...e.dataTransfer.files]); };
+  $("pgpostUpAdd").onclick = async () => {
+    const note = $("pgpostUpNote"), l = window.pgpostUpList;
+    if (!l.length) { note.className = "gen-note err"; note.textContent = "⚠️ Chọn ít nhất 1 ảnh/video."; return; }
+    const b = $("pgpostUpAdd"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang up…";
+    try {
+      const r = await fetch("/api/pgpost-upload", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ medias: l.map(m => m.durl), caption: $("pgpostUpCaption").value.trim() }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      note.className = "gen-note ok"; note.textContent = "✓ Đã tạo " + d.created + " bài — kéo xuống bảng, 🤖 AI viết bài rồi tick đăng.";
+      window.pgpostUpList = []; render(); $("pgpostUpCaption").value = "";
+      pgpostLoad();
+    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+    b.disabled = false; b.textContent = o;
+  };
 }
 async function pgpostCheckIg() {
   try {
@@ -6788,8 +6869,12 @@ function pgpostRender(items) {
           '<button class="pg-pv-ig" style="border:none;padding:3px 8px;font-size:11px;cursor:pointer;background:' + (pv === "ig" ? "var(--violet,#7c3aed)" : "transparent") + ';color:' + (pv === "ig" ? "#fff" : "inherit") + '">📷 IG</button>' +
         '</div>' +
       '</div>' +
-      // vùng ảnh: FB album layout / IG carousel crop
-      '<div class="pg-imgs">' + (pv === "fb" ? pgFbGrid(urls) : pgIgCarousel(urls, igr)) + '</div>' +
+      // vùng media: VIDEO -> player; ảnh -> FB album layout / IG carousel crop
+      '<div class="pg-imgs">' +
+        (it.video_url
+          ? '<video src="' + it.video_url + '" controls preload="metadata" style="width:100%;max-height:420px;background:#000;display:block"></video>' +
+            '<p class="hint" style="margin:3px 8px;font-size:10px">🎬 Bài VIDEO — đăng lên Page dạng video, IG dạng Reels</p>'
+          : (pv === "fb" ? pgFbGrid(urls) : pgIgCarousel(urls, igr))) + '</div>' +
       (pv === "ig" ? '<div style="display:flex;gap:6px;align-items:center;padding:5px 10px 0"><span class="hint" style="font-size:10px">Tỉ lệ IG:</span>' +
         '<button class="pg-igr" data-r="4/5" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "4/5" ? "var(--violet)" : "transparent") + ';color:' + (igr === "4/5" ? "#fff" : "inherit") + '">4:5 dọc</button>' +
         '<button class="pg-igr" data-r="1/1" style="font-size:10px;padding:2px 7px;border-radius:6px;border:1px solid var(--line,#ccc);cursor:pointer;background:' + (igr === "1/1" ? "var(--violet)" : "transparent") + ';color:' + (igr === "1/1" ? "#fff" : "inherit") + '">1:1 vuông</button>' +

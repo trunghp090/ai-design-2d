@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-ads-maxconv"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-ads-tab-mobile"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -2793,15 +2793,53 @@ def fb_post_core(urls_abs, message):
     return {"ok": True, "id": d["id"], "url": "https://www.facebook.com/%s" % d["id"]}
 
 
+def fb_video_post_core(video_url_abs, message):
+    """Đăng 1 VIDEO lên Fanpage (file_url công khai). Trả {ok,url|error}."""
+    if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+        return {"ok": False, "error": "Chưa cấu hình Facebook."}
+    ptok = fb_page_token()
+    if not ptok:
+        return {"ok": False, "error": "Không lấy được Page token (cần pages_manage_posts)."}
+    st, d = fb_graph("POST", "%s/videos" % FB_PAGE_ID,
+                     {"file_url": video_url_abs, "description": message or ""}, ptok)
+    vid = (d or {}).get("id")
+    if not vid:
+        return {"ok": False, "error": "Đăng video Trang lỗi: " + fb_err(d)}
+    return {"ok": True, "id": vid, "url": "https://www.facebook.com/%s" % vid}
+
+
+def ig_video_post_core(video_url_abs, caption):
+    """Đăng 1 VIDEO lên Instagram (REELS — hiện IG API đăng video feed qua Reels).
+    Video nên là mp4 dọc 9:16 hoặc 4:5, <=90s. Trả {ok,url|error}."""
+    if not (FB_ACCESS_TOKEN and FB_PAGE_ID):
+        return {"ok": False, "error": "Chưa cấu hình Facebook."}
+    igid = ig_user_id()
+    if not igid:
+        return {"ok": False, "error": "Trang chưa nối Instagram Business (hoặc token thiếu quyền)."}
+    st, d = fb_graph("POST", "%s/media" % igid,
+                     {"media_type": "REELS", "video_url": video_url_abs,
+                      "caption": caption or "", "share_to_feed": "true"})
+    cid = (d or {}).get("id")
+    if not cid:
+        return {"ok": False, "error": "Tạo video IG lỗi: " + fb_err(d)}
+    if not _ig_wait_ready(cid, tries=60):   # video xử lý lâu hơn ảnh nhiều
+        return {"ok": False, "error": "Video IG xử lý quá lâu/lỗi — thử video ngắn hơn (<=90s, mp4)."}
+    st, d = fb_graph("POST", "%s/media_publish" % igid, {"creation_id": cid})
+    mid = (d or {}).get("id")
+    if not mid:
+        return {"ok": False, "error": "Đăng video IG lỗi: " + fb_err(d)}
+    return {"ok": True, "id": mid, "url": "https://www.instagram.com/"}
+
+
 def ig_user_id():
     """ID tài khoản Instagram Business nối với Trang (None nếu chưa nối)."""
     st, d = fb_graph("GET", "%s" % FB_PAGE_ID, {"fields": "instagram_business_account"})
     return ((d or {}).get("instagram_business_account") or {}).get("id")
 
 
-def _ig_wait_ready(cid):
+def _ig_wait_ready(cid, tries=25):
     """Chờ media container IG xử lý xong (FINISHED) trước khi publish."""
-    for _ in range(25):
+    for _ in range(tries):
         st, d = fb_graph("GET", "%s" % cid, {"fields": "status_code"})
         sc = (d or {}).get("status_code")
         if sc == "FINISHED":
@@ -4036,12 +4074,19 @@ def _pgpost_push_worker(ids, gap, channels):
             continue
         _pgpost_set(pid, status="posting")
         urls = it.get("image_urls") or []
+        vid = (it.get("video_url") or "").strip()
         cap = it.get("caption") or ""
         res = {}
-        if "fb" in channels:
-            res["fb"] = fb_post_core(urls, cap)
-        if "ig" in channels:
-            res["ig"] = ig_post_core(urls, cap)
+        if vid:   # bài VIDEO -> đăng video Trang + Reels IG
+            if "fb" in channels:
+                res["fb"] = fb_video_post_core(vid, cap)
+            if "ig" in channels:
+                res["ig"] = ig_video_post_core(vid, cap)
+        else:
+            if "fb" in channels:
+                res["fb"] = fb_post_core(urls, cap)
+            if "ig" in channels:
+                res["ig"] = ig_post_core(urls, cap)
         ok = bool(res) and all(r.get("ok") for r in res.values())
         _pgpost_set(pid, status=("posted" if ok else "error"),
                     result={k: (v.get("url") if v.get("ok") else v.get("error")) for k, v in res.items()})
@@ -8152,8 +8197,8 @@ class Handler(BaseHTTPRequestHandler):
             rng = (qs.get("range") or ["last_7d"])[0]
             if rng not in ("today", "yesterday", "last_7d", "last_14d", "last_30d", "maximum"):
                 rng = "last_7d"
-            fields = ("id,name,status,effective_status,objective,"
-                      "insights.date_preset(%s){spend,reach,impressions,clicks,ctr,cpc}" % rng)
+            fields = ("id,name,status,effective_status,objective,daily_budget,"
+                      "insights.date_preset(%s){spend,reach,impressions,clicks,ctr,cpc,cpm,actions,purchase_roas}" % rng)
             st, d = fb_graph("GET", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
                              {"fields": fields, "limit": "100"})
             if st != 200:
@@ -8162,11 +8207,28 @@ class Handler(BaseHTTPRequestHandler):
             for c in (d.get("data") or []):
                 ins = ((c.get("insights") or {}).get("data") or [{}])
                 ins = ins[0] if ins else {}
+                purchases = 0
+                for a in (ins.get("actions") or []):
+                    if a.get("action_type") in ("purchase", "omni_purchase",
+                                                "offsite_conversion.fb_pixel_purchase"):
+                        try:
+                            purchases = max(purchases, int(float(a.get("value") or 0)))
+                        except Exception:
+                            pass
+                roas = ""
+                pr = ins.get("purchase_roas") or []
+                if pr:
+                    try:
+                        roas = "%.2f" % float(pr[0].get("value") or 0)
+                    except Exception:
+                        roas = ""
                 out.append({"id": c.get("id"), "name": c.get("name"), "status": c.get("status"),
                             "effective_status": c.get("effective_status"), "objective": c.get("objective"),
+                            "daily_budget": c.get("daily_budget"),
                             "spend": ins.get("spend"), "reach": ins.get("reach"),
                             "impressions": ins.get("impressions"), "clicks": ins.get("clicks"),
-                            "ctr": ins.get("ctr"), "cpc": ins.get("cpc")})
+                            "ctr": ins.get("ctr"), "cpc": ins.get("cpc"), "cpm": ins.get("cpm"),
+                            "purchases": purchases, "roas": roas})
             mgr = "https://www.facebook.com/adsmanager/manage/campaigns?act=%s" % FB_AD_ACCOUNT_ID
             return self.json(200, {"campaigns": out, "range": rng, "manager_url": mgr})
         if path == "/api/fb-adsets":
@@ -8559,6 +8621,41 @@ class Handler(BaseHTTPRequestHandler):
                 items.insert(0, item)
                 pgpost_save(items)
             return self.json(200, {"ok": True, "id": item["id"]})
+        if path == "/api/pgpost-upload":
+            # ⬆️ Up ảnh/VIDEO từ máy -> tạo bài Page/IG: mọi ẢNH gộp 1 bài (carousel), mỗi VIDEO 1 bài riêng
+            host = self.headers.get("Host") or ""
+
+            def absp(u):
+                if not u:
+                    return ""
+                return u if str(u).startswith("http") else "https://%s%s" % (host, u if u.startswith("/") else "/" + u)
+            medias = body.get("medias") or ([body["media"]] if body.get("media") else [])
+            caption = (body.get("caption") or "").strip()
+            img_urls, items = [], []
+            for m in medias[:12]:
+                rel, mtype, _raw = save_media_file(m or "")
+                if not rel:
+                    continue
+                if mtype == "video":
+                    items.append({"id": hashlib.md5(("%s%s" % (time.time(), rel)).encode()).hexdigest()[:12],
+                                  "caption": caption, "image_urls": [], "video_url": absp(rel),
+                                  "media_type": "video", "product": (body.get("product") or "").strip()[:200],
+                                  "status": "draft", "created": time.time(), "source": "upload"})
+                else:
+                    img_urls.append(absp(rel))
+            if img_urls:
+                items.insert(0, {"id": hashlib.md5(("%s%s" % (time.time(), img_urls[0])).encode()).hexdigest()[:12],
+                                 "caption": caption, "image_urls": img_urls, "media_type": "image",
+                                 "product": (body.get("product") or "").strip()[:200],
+                                 "status": "draft", "created": time.time(), "source": "upload"})
+            if not items:
+                return self.json(400, {"error": "Không nhận được ảnh/video hợp lệ."})
+            with _pgpost_lock:
+                cur = pgpost_load()
+                for it in items:
+                    cur.insert(0, it)
+                pgpost_save(cur)
+            return self.json(200, {"ok": True, "created": len(items)})
         if path == "/api/pgpost-update":
             pid = (body.get("id") or "").strip()
             fields = {}

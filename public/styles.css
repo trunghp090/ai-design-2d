@@ -727,3 +727,43 @@ textarea.input{resize:vertical;line-height:1.5}
 .rh-tl{left:-9px;top:-9px}
 .rh-tr{right:-9px;top:-9px}
 .rh-bl{left:-9px;bottom:-9px}
+
+/* ===== 📊 QUẢN LÝ ADS — bảng chỉ số mới ===== */
+.adm-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.adm-card{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:linear-gradient(180deg,rgba(140,29,50,.05),transparent)}
+.adm-card>span{font-size:11px;color:var(--muted);display:block}
+.adm-card>b{font-size:19px;display:block;margin:3px 0 1px;letter-spacing:-.3px}
+.adm-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+.adm-tbl{width:100%;border-collapse:collapse;font-size:12.5px;min-width:900px}
+.adm-tbl th{position:sticky;top:0;background:#fff;text-align:right;padding:10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:2px solid var(--line);white-space:nowrap}
+.adm-tbl th:first-child,.adm-tbl td:first-child{text-align:left}
+.adm-tbl td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:top}
+.adm-tbl tbody tr:nth-child(even) td{background:rgba(127,127,127,.035)}
+.adm-tbl tbody tr:hover td{background:rgba(140,29,50,.06)}
+.adm-pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.adm-pill.on{background:#e7f7ee;color:#0a7d3e}
+.adm-pill.off{background:rgba(127,127,127,.13);color:var(--muted)}
+.adm-roas.good{color:#0a7d3e}
+.adm-roas.mid{color:#b7791f}
+.adm-roas.bad{color:#c0392b}
+.adm-bar{height:4px;border-radius:3px;background:var(--violet,#8c1d32);opacity:.5;margin-top:4px}
+
+/* ===== 📱 MOBILE PASS toàn tool ===== */
+@media(max-width:820px){
+  .app-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 12px}
+  .app-tabs::-webkit-scrollbar{display:none}
+  .app-tab{flex:0 0 auto}
+  .fp-layout{padding:8px 10px 30px}
+  .fp-side{position:static!important}
+  .panel{padding:12px 12px 16px}
+  .gallery-head{flex-wrap:wrap;gap:6px}
+  table{font-size:11.5px}
+  .admgr-tbl{display:block;overflow-x:auto;white-space:nowrap}
+  #pgpostList>div{width:100%!important;max-width:430px}
+  #lvtProps img{height:150px!important}
+  #lvtProps>div>div{width:calc(50% - 8px)!important;min-width:140px}
+  #adpostList,#pgpostList{overflow-x:auto}
+  input,select,textarea{font-size:14px}
+  .adm-cards{grid-template-columns:repeat(2,1fr)}
+  .dropzone{min-height:80px}
+}
