@@ -1003,11 +1003,12 @@ function setTabEdit(on) {
 if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
 applyTabOrder();
 applyGroupOrder();
-// mở TAB TO ĐỨNG ĐẦU (theo thứ tự user đã kéo) làm mặc định khi vào trang
-(function () {
+// mở TAB TO ĐỨNG ĐẦU làm mặc định — chạy SAU khi toàn bộ file nạp xong
+// (mở thẳng pnl/admgr cần các biến module khai báo phía dưới; gọi ngay sẽ crash TDZ)
+setTimeout(function () {
   const firstG = document.querySelector(".app-groups .app-group:not(#tabEditBtn)");
   showGroup(firstG ? firstG.dataset.group : "work", false);
-})();
+}, 0);
 
 /* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
 (function navDrawerSetup() {
