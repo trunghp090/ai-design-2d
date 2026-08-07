@@ -837,3 +837,6 @@ textarea.input{resize:vertical;line-height:1.5}
 .mem-perm-group { font-size: 13px; margin: 10px 0 6px; }
 .mem-perm-group a { font-size: 12px; }
 .mem-perm-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* fix nút Sửa vị trí tab: active bị chữ trắng trên nền trắng -> ép nền đỏ */
+#tabEditBtn.active { background: #8a1f3d !important; color: #fff !important; border-color: #8a1f3d !important; }
