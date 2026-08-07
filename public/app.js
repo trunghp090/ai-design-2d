@@ -6418,21 +6418,21 @@ function admgrCampCard(c, maxSpend) {
     '</div>';
 }
 function admgrSetCard(s) {
-  return '<div class="ads-card">' +
-    '<div class="ads-head"><span class="adm-chip set">NHÓM QC</span><b>' + (s.name || "") + '</b>' +
+  return '<div class="qcg-set">' +
+    '<div class="qcg-head"><span class="adm-chip c-set">NHÓM QC</span><b>' + (s.name || "") + '</b>' +
     (s.daily_budget ? '<span class="adc-sub">' + fmtNum(parseInt(s.daily_budget, 10)) + 'đ/ngày</span>' : '') +
     '<span class="spacer"></span>' +
-    (s.spend ? '<b class="ads-spend">' + fmtNum(parseFloat(s.spend)) + 'đ</b>' : '') +
+    (s.spend ? '<b class="qcg-spend">' + fmtNum(parseFloat(s.spend)) + 'đ</b>' : '') +
     admgrStateBits(s) + '</div>' +
     admgrStatsRow(s) +
     (s.ads || []).map(admgrAdRow).join("") +
     '</div>';
 }
 function admgrAdRow(a) {
-  return '<div class="ad-row">' +
-    '<div class="ads-head"><span class="adm-chip ad">AD</span><b>' + (a.name || "") + '</b>' +
+  return '<div class="qcg-ad">' +
+    '<div class="qcg-head"><span class="adm-chip c-ad">AD</span><b>' + (a.name || "") + '</b>' +
     '<span class="spacer"></span>' +
-    (a.spend ? '<b class="ads-spend">' + fmtNum(parseFloat(a.spend)) + 'đ</b>' : '') +
+    (a.spend ? '<b class="qcg-spend">' + fmtNum(parseFloat(a.spend)) + 'đ</b>' : '') +
     admgrStateBits(a) + '</div>' +
     admgrStatsRow(a) +
     '</div>';

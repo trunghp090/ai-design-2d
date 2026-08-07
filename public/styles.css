@@ -876,8 +876,8 @@ textarea.input{resize:vertical;line-height:1.5}
 .adm-sub td { background: #fdf8fa; border-bottom: 1px solid #f3e6ea; }
 .adm-sub2 td { background: #fffcf7; }
 .adm-chip { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; border-radius: 5px; padding: 2px 6px; vertical-align: middle; }
-.adm-chip.set { background: #ede4f7; color: #6b3fa0; }
-.adm-chip.ad { background: #e2f2ec; color: #0b7a44; }
+.adm-chip.c-set { background: #ede4f7; color: #6b3fa0; }
+.adm-chip.c-ad { background: #e2f2ec; color: #0b7a44; }
 
 /* ============ 📊 ADS DẠNG THẺ CARD (giao diện mới) ============ */
 .adc-list { display: flex; flex-direction: column; gap: 14px; }
@@ -898,13 +898,13 @@ textarea.input{resize:vertical;line-height:1.5}
 .adc-expand { margin-top: 10px; border: 1px dashed var(--line); background: #fff; border-radius: 10px; padding: 7px 14px; font-size: 12.5px; color: #8a1f3d; cursor: pointer; font-weight: 600; width: 100%; text-align: left; }
 .adc-expand:hover { border-color: #8a1f3d; background: #fdf0f4; }
 .adc-children { margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
-.ads-card { border: 1px solid #e9dcf2; border-left: 4px solid #6b3fa0; border-radius: 12px; padding: 10px 14px; background: #fcfaff; }
-.ads-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
-.ads-head .spacer { flex: 1; }
-.ads-spend { font-weight: 800; font-size: 13.5px; }
-.ad-row { border: 1px solid #d9efe6; border-left: 4px solid #0b7a44; border-radius: 10px; padding: 8px 12px; background: #fbfefc; margin-top: 8px; }
-.ad-row .adc-stats { margin-top: 6px; }
-.ad-row .adc-stat { padding: 3px 9px; }
+.qcg-set { border: 1px solid #e9dcf2; border-left: 4px solid #6b3fa0; border-radius: 12px; padding: 10px 14px; background: #fcfaff; }
+.qcg-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.qcg-head .spacer { flex: 1; }
+.qcg-spend { font-weight: 800; font-size: 13.5px; }
+.qcg-ad { border: 1px solid #d9efe6; border-left: 4px solid #0b7a44; border-radius: 10px; padding: 8px 12px; background: #fbfefc; margin-top: 8px; }
+.qcg-ad .adc-stats { margin-top: 6px; }
+.qcg-ad .adc-stat { padding: 3px 9px; }
 @media (max-width: 820px) {
   .adc-top { gap: 8px; }
   .adc-spend { order: 3; }
