@@ -969,7 +969,11 @@ function setTabEdit(on) {
 if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
 applyTabOrder();
 applyGroupOrder();
-showGroup("work", true);
+// mở TAB TO ĐỨNG ĐẦU (theo thứ tự user đã kéo) làm mặc định khi vào trang
+(function () {
+  const firstG = document.querySelector(".app-groups .app-group:not(#tabEditBtn)");
+  showGroup(firstG ? firstG.dataset.group : "work", false);
+})();
 
 /* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
 (function navDrawerSetup() {
