@@ -59,7 +59,14 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
     }
     window.IS_ADMIN = !!(ok && d.admin);
     window.MY_TABS = (ok && Array.isArray(d.tabs)) ? d.tabs : null;
-    if (ok && d.ui_order) {
+    const uoHas = d.ui_order && ((d.ui_order.groups || []).length || (d.ui_order.tabs || []).length);
+    if (ok && !uoHas) {
+      // server chưa có thứ tự của tài khoản này -> đẩy thứ tự đang lưu ở máy này lên (di cư bản cũ)
+      let lg = [];
+      try { lg = JSON.parse(localStorage.getItem("groupOrder") || "[]"); } catch (e) {}
+      if (lg.length) pushUiOrder();
+    }
+    if (ok && uoHas) {
       const uo = d.ui_order;
       if (Array.isArray(uo.tabs) && uo.tabs.length) {
         try { localStorage.setItem("tabOrder", JSON.stringify(uo.tabs)); } catch (e) {}
