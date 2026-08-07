@@ -6363,9 +6363,11 @@ async function admgrLoad() {
       const sp = parseFloat(c.spend || 0);
       const ro = parseFloat(c.roas || 0);
       const roCls = ro >= 2 ? "good" : (ro >= 1 ? "mid" : "bad");
-      html += '<tr>' +
-        '<td style="max-width:230px;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || "").replace(/"/g, "&quot;") + '">' +
+      html += '<tr data-cid="' + c.id + '">' +
+        '<td style="max-width:250px" title="' + (c.name || "").replace(/"/g, "&quot;") + '">' +
+          '<button class="adm-exp" data-id="' + c.id + '" title="Xem nhóm quảng cáo + ads">▸</button> ' +
           '<b style="font-size:12px">' + (c.name || "").slice(0, 42) + '</b><br>' +
+          '<span style="display:inline-block;width:22px"></span>' +
           '<span class="hint" style="font-size:10px">' + (c.objective || "").replace("OUTCOME_", "") +
           (c.daily_budget ? ' · ' + fmtNum(parseInt(c.daily_budget, 10)) + 'đ/ngày' : '') + '</span></td>' +
         '<td><span class="adm-pill ' + (active ? "on" : "off") + '">' + (active ? "● Đang chạy" : "‖ Tạm dừng") + '</span></td>' +
@@ -6381,9 +6383,76 @@ async function admgrLoad() {
     });
     html += '</tbody></table></div>';
     tbl.innerHTML = html;
-    tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggle(b.dataset.id, b.dataset.st, b));
+    tbl.querySelectorAll(".admgr-tog").forEach(b => b.onclick = () => admgrToggleInline(b));
     tbl.querySelectorAll(".admgr-del").forEach(b => b.onclick = () => admgrDelete(b.dataset.id, b.dataset.nm, b));
+    tbl.querySelectorAll(".adm-exp").forEach(b => b.onclick = () => admgrExpand(b));
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+function admgrSubRow(o, kind, cid) {
+  const active = o.status === "ACTIVE";
+  const ro = parseFloat(o.roas || 0);
+  const roCls = ro >= 2 ? "good" : (ro >= 1 ? "mid" : "bad");
+  const chip = kind === "adset" ? '<span class="adm-chip set">NHÓM QC</span>' : '<span class="adm-chip ad">AD</span>';
+  const indent = kind === "adset" ? 26 : 48;
+  return '<tr class="adm-sub' + (kind === "ad" ? " adm-sub2" : "") + '" data-parent="' + cid + '">' +
+    '<td style="max-width:250px" title="' + (o.name || "").replace(/"/g, "&quot;") + '">' +
+      '<span style="display:inline-block;width:' + indent + 'px"></span>' + chip + ' ' +
+      '<span style="font-size:12px;font-weight:600">' + (o.name || "").slice(0, 38) + '</span>' +
+      (o.daily_budget ? '<br><span class="hint" style="font-size:10px;padding-left:' + (indent + 4) + 'px">' + fmtNum(parseInt(o.daily_budget, 10)) + 'đ/ngày</span>' : '') + '</td>' +
+    '<td><span class="adm-pill ' + (active ? "on" : "off") + '">' + (active ? "● Chạy" : "‖ Dừng") + '</span></td>' +
+    '<td>' + (o.spend ? '<b>' + fmtNum(parseFloat(o.spend)) + 'đ</b>' : '—') + '</td>' +
+    '<td>' + (o.purchases ? '<b>' + fmtNum(o.purchases) + '</b>' : '—') + '</td>' +
+    '<td>' + (ro ? '<span class="adm-roas ' + roCls + '">' + ro.toFixed(2) + 'x</span>' : '—') + '</td>' +
+    '<td>' + fmtNum(o.impressions) + '</td><td>' + fmtNum(o.clicks) + '</td>' +
+    '<td>' + (o.ctr ? parseFloat(o.ctr).toFixed(2) + "%" : "—") + '</td>' +
+    '<td>' + (o.cpc ? fmtNum(Math.round(parseFloat(o.cpc))) + "đ" : "—") + '</td>' +
+    '<td>' + (o.cpm ? fmtNum(Math.round(parseFloat(o.cpm))) + "đ" : "—") + '</td>' +
+    '<td style="white-space:nowrap"><button class="btn-ghost sm admgr-tog" data-id="' + o.id + '" data-st="' + o.status + '">' + (active ? "⏸ Dừng" : "▶ Bật") + '</button></td>' +
+    '</tr>';
+}
+async function admgrExpand(btn) {
+  const cid = btn.dataset.id;
+  if (btn.dataset.open === "1") {
+    document.querySelectorAll('tr[data-parent="' + cid + '"]').forEach(r => r.remove());
+    btn.dataset.open = "0"; btn.textContent = "▸";
+    return;
+  }
+  btn.textContent = "⏳"; btn.disabled = true;
+  try {
+    const rng = $("admgrRange").value;
+    const r = await fetch("/api/fb-ads-tree?campaign_id=" + encodeURIComponent(cid) + "&range=" + encodeURIComponent(rng));
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    let html = "";
+    (d.adsets || []).forEach(s => {
+      html += admgrSubRow(s, "adset", cid);
+      (s.ads || []).forEach(a => { html += admgrSubRow(a, "ad", cid); });
+    });
+    if (!html) html = '<tr class="adm-sub" data-parent="' + cid + '"><td colspan="11" class="hint" style="padding:10px 14px">Chiến dịch này chưa có nhóm quảng cáo.</td></tr>';
+    const tr = document.querySelector('tr[data-cid="' + cid + '"]');
+    tr.insertAdjacentHTML("afterend", html);
+    document.querySelectorAll('tr[data-parent="' + cid + '"] .admgr-tog').forEach(b => b.onclick = () => admgrToggleInline(b));
+    btn.dataset.open = "1"; btn.textContent = "▾";
+  } catch (e) { alert("✗ " + e.message); btn.textContent = "▸"; }
+  btn.disabled = false;
+}
+async function admgrToggleInline(btn) {
+  const id = btn.dataset.id, cur = btn.dataset.st;
+  const to = cur === "ACTIVE" ? "PAUSED" : "ACTIVE";
+  if (to === "ACTIVE" && !confirm("BẬT mục này = bắt đầu chạy + TIÊU TIỀN. Chắc chứ?")) return;
+  btn.disabled = true; const o = btn.textContent; btn.textContent = "⏳…";
+  try {
+    const r = await fetch("/api/fb-ad-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, status: to }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    btn.dataset.st = to;
+    btn.textContent = to === "ACTIVE" ? "⏸ Dừng" : "▶ Bật";
+    const pill = btn.closest("tr").querySelector(".adm-pill");
+    if (pill) {
+      const on = to === "ACTIVE";
+      pill.className = "adm-pill " + (on ? "on" : "off");
+      pill.textContent = pill.textContent.length > 8 ? (on ? "● Đang chạy" : "‖ Tạm dừng") : (on ? "● Chạy" : "‖ Dừng");
+    }
+  } catch (e) { alert("✗ " + e.message); btn.textContent = o; }
+  btn.disabled = false;
 }
 async function admgrDelete(id, name, btn) {
   if (!confirm("Xoá vĩnh viễn chiến dịch \"" + (name || id) + "\"? (không hoàn tác)")) return;

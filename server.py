@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-top-products"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-ads-tree"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8564,6 +8564,68 @@ class Handler(BaseHTTPRequestHandler):
                             "purchases": purchases, "roas": roas})
             mgr = "https://www.facebook.com/adsmanager/manage/campaigns?act=%s" % FB_AD_ACCOUNT_ID
             return self.json(200, {"campaigns": out, "range": rng, "manager_url": mgr})
+        if path == "/api/fb-ads-tree":
+            # adset + ad (kèm insights) của 1 campaign — cho bảng phân cấp
+            if not user_has_tab(self.current_user(), "admgr"):
+                return self.json(403, {"error": "Bạn chưa được cấp quyền."})
+            if not fb_configured():
+                return self.json(200, {"adsets": []})
+            qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+            cid = (qs.get("campaign_id") or [""])[0]
+            rng = (qs.get("range") or ["today"])[0]
+            if rng not in ("today", "yesterday", "last_7d", "last_14d", "last_30d", "maximum"):
+                rng = "today"
+            if not cid:
+                return self.json(400, {"error": "Thiếu campaign_id."})
+            ins_f = "insights.date_preset(%s){spend,impressions,clicks,ctr,cpc,cpm,actions,purchase_roas}" % rng
+
+            def parse_ins(o):
+                ins = ((o.get("insights") or {}).get("data") or [{}])
+                ins = ins[0] if ins else {}
+                pur = 0
+                for a in (ins.get("actions") or []):
+                    if a.get("action_type") in ("purchase", "omni_purchase",
+                                                "offsite_conversion.fb_pixel_purchase"):
+                        try:
+                            pur = max(pur, int(float(a.get("value") or 0)))
+                        except Exception:
+                            pass
+                roas = ""
+                pr = ins.get("purchase_roas") or []
+                if pr:
+                    try:
+                        roas = "%.2f" % float(pr[0].get("value") or 0)
+                    except Exception:
+                        pass
+                return {"spend": ins.get("spend"), "impressions": ins.get("impressions"),
+                        "clicks": ins.get("clicks"), "ctr": ins.get("ctr"),
+                        "cpc": ins.get("cpc"), "cpm": ins.get("cpm"),
+                        "purchases": pur, "roas": roas}
+
+            st, d1 = fb_graph("GET", "%s/adsets" % cid,
+                              {"fields": "id,name,status,effective_status,daily_budget," + ins_f,
+                               "limit": "100"})
+            if st != 200:
+                return self.json(400, {"error": fb_err(d1)})
+            st, d2 = fb_graph("GET", "%s/ads" % cid,
+                              {"fields": "id,name,status,effective_status,adset_id," + ins_f,
+                               "limit": "200"})
+            ads_by_set = {}
+            if st == 200:
+                for a in (d2.get("data") or []):
+                    row = {"id": a.get("id"), "name": a.get("name"), "status": a.get("status"),
+                           "effective_status": a.get("effective_status")}
+                    row.update(parse_ins(a))
+                    ads_by_set.setdefault(a.get("adset_id"), []).append(row)
+            out = []
+            for s in (d1.get("data") or []):
+                row = {"id": s.get("id"), "name": s.get("name"), "status": s.get("status"),
+                       "effective_status": s.get("effective_status"),
+                       "daily_budget": s.get("daily_budget"),
+                       "ads": ads_by_set.get(s.get("id"), [])}
+                row.update(parse_ins(s))
+                out.append(row)
+            return self.json(200, {"adsets": out, "range": rng})
         if path == "/api/fb-adsets":
             if not fb_configured():
                 return self.json(200, {"adsets": []})
