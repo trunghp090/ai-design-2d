@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-pnl-note"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-pnl-token-retry"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8101,6 +8101,10 @@ def _pnl_shopify_orders(since_iso, until_iso):
               "&fields=id,created_at,current_total_price,total_price,cancelled_at,test,line_items"
               % (since_id, urllib.parse.quote(since_iso), urllib.parse.quote(until_iso)))
         st, d = shopify_api("GET", qs)
+        if st == 403 and "read_orders" in str(d):
+            # scope vừa được cấp nhưng token cũ còn cache -> xin token mới thử lại 1 lần
+            _shopify_tok["token"], _shopify_tok["exp"] = "", 0
+            st, d = shopify_api("GET", qs)
         if st != 200:
             raise RuntimeError("Shopify orders lỗi %s: %s" % (st, str(d)[:200]))
         rows = d.get("orders") or []
