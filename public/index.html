@@ -1824,14 +1824,26 @@
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
         <h2 class="panel-title" style="font-size:18px;margin:0">💰 Doanh thu &amp; Lợi nhuận</h2>
         <select id="pnlRange" class="input" style="width:auto;padding:6px 10px">
+          <option value="today">Hôm nay</option>
+          <option value="yesterday">Hôm qua</option>
           <option value="7" selected>7 ngày</option>
           <option value="14">14 ngày</option>
           <option value="30">30 ngày</option>
-          <option value="60">60 ngày</option>
-          <option value="90">90 ngày</option>
+          <option value="custom">📅 Chọn theo lịch…</option>
         </select>
+        <span id="pnlCustom" class="hidden" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="pnlSince" class="input" style="width:auto;padding:6px 8px">
+          <span>→</span>
+          <input type="date" id="pnlUntil" class="input" style="width:auto;padding:6px 8px">
+          <button class="btn-primary sm" id="pnlGo">Xem</button>
+        </span>
         <button class="btn-ghost sm" id="pnlRefresh">🔄 Tải lại</button>
+        <button class="btn-ghost sm" id="pnlMetricBtn">🎛 Chỉ số</button>
         <button class="btn-ghost sm" id="pnlCfgBtn">⚙️ Chi phí</button>
+      </div>
+      <div id="pnlMetricPanel" class="hidden" style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;background:#fdf8f9">
+        <b style="font-size:14px">🎛 Chọn chỉ số hiển thị</b>
+        <div id="pnlMetricList" class="pnl-metric-list"></div>
       </div>
       <p class="panel-desc" style="margin:0 0 10px">Gộp <b>đơn hàng Shopify</b> + <b>chi tiêu FB Ads</b> → lợi nhuận ròng thật. Khai báo giá vốn / phí ở nút ⚙️ Chi phí.</p>
 

@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-pnl-token-retry"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-pnl-custom-admin"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8061,6 +8061,15 @@ def make_mock_png(w=512, h=640):
 # --------------------------------------------------------------------------- #
 #  HTTP
 # --------------------------------------------------------------------------- #
+# ---- quyền ADMIN cho nhóm Quản lý Ads (chỉ số + doanh thu): chỉ email trong danh sách ----
+ADMIN_EMAILS = set(e.strip().lower() for e in os.environ.get(
+    "ADMIN_EMAILS", "trunghp0909@gmail.com,trunghp090@gmail.com").split(",") if e.strip())
+
+
+def user_is_admin(u):
+    return bool(u) and ((u.get("email") or "").strip().lower() in ADMIN_EMAILS)
+
+
 # ============ 💰 PHÂN TÍCH DOANH THU & LỢI NHUẬN (Shopify orders + FB Ads spend) ============
 PNL_FILE = os.path.join(DATA_DIR, "pnl-settings.json")
 _pnl_cache = {}          # days -> {"t": ts, "data": {...}}
@@ -8160,15 +8169,16 @@ def _pnl_sum(orders, spend_by_day, days_list, cfg):
             "roas": round(rev / spend, 2) if spend else 0}
 
 
-def pnl_report(days, force=False):
-    days = max(1, min(90, int(days or 7)))
+def pnl_report(since_d, until_d, force=False):
+    """since_d/until_d: datetime.date (đã hợp lệ, since<=until, span<=120 ngày)."""
+    days = (until_d - since_d).days + 1
+    key = (since_d.isoformat(), until_d.isoformat())
     with _pnl_lock:
-        c = _pnl_cache.get(days)
+        c = _pnl_cache.get(key)
         if c and not force and time.time() - c["t"] < 600:
             return c["data"]
-    today = datetime.date.today()
-    cur_days = [(today - datetime.timedelta(days=i)).isoformat() for i in range(days - 1, -1, -1)]
-    prev_days = [(today - datetime.timedelta(days=i)).isoformat() for i in range(2 * days - 1, days - 1, -1)]
+    cur_days = [(since_d + datetime.timedelta(days=i)).isoformat() for i in range(days)]
+    prev_days = [(since_d - datetime.timedelta(days=days - i)).isoformat() for i in range(days)]
     notes = []
     orders = []
     if shopify_configured():
@@ -8205,11 +8215,12 @@ def pnl_report(days, force=False):
         share = (r / cur["revenue"]) if cur["revenue"] else 0          # phân bổ chi phí cố định theo tỉ trọng doanh thu
         fixed = (cur["cogs"] + cur["ship"] + cur["fee"] + cur["other"]) * share
         daily.append({"d": dy, "rev": round(r), "spend": round(s), "profit": round(r - fixed - s)})
-    data = {"ok": True, "days": days, "cur": cur, "prev": prev, "daily": daily,
+    data = {"ok": True, "days": days, "since": cur_days[0], "until": cur_days[-1],
+            "cur": cur, "prev": prev, "daily": daily,
             "settings": cfg, "notes": notes,
             "shopify": shopify_configured(), "fb": fb_configured()}
     with _pnl_lock:
-        _pnl_cache[days] = {"t": time.time(), "data": data}
+        _pnl_cache[key] = {"t": time.time(), "data": data}
     return data
 
 
@@ -8344,19 +8355,50 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"connected": bool(igid), "ig_id": igid or "",
                                    "username": uname, "can_publish": can_pub})
         if path == "/api/pnl-report":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị mới xem được doanh thu."})
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
-            try:
-                days = int((qs.get("days") or ["7"])[0])
-            except Exception:
-                days = 7
             force = (qs.get("force") or ["0"])[0] == "1"
+            today = datetime.date.today()
+            rng = (qs.get("range") or [""])[0]
+            since_s = (qs.get("since") or [""])[0]
+            until_s = (qs.get("until") or [""])[0]
+            if rng == "today":
+                since_d = until_d = today
+            elif rng == "yesterday":
+                since_d = until_d = today - datetime.timedelta(days=1)
+            elif since_s and until_s:
+                try:
+                    since_d = datetime.date.fromisoformat(since_s)
+                    until_d = datetime.date.fromisoformat(until_s)
+                except Exception:
+                    return self.json(400, {"error": "Ngày không hợp lệ (YYYY-MM-DD)."})
+                if since_d > until_d:
+                    since_d, until_d = until_d, since_d
+                if until_d > today:
+                    until_d = today
+                if since_d > until_d:
+                    since_d = until_d
+                if (until_d - since_d).days > 120:
+                    since_d = until_d - datetime.timedelta(days=120)
+            else:
+                try:
+                    days = max(1, min(90, int((qs.get("days") or ["7"])[0])))
+                except Exception:
+                    days = 7
+                until_d = today
+                since_d = today - datetime.timedelta(days=days - 1)
             try:
-                return self.json(200, pnl_report(days, force=force))
+                return self.json(200, pnl_report(since_d, until_d, force=force))
             except Exception as e:
                 return self.json(500, {"error": str(e)[:300]})
         if path == "/api/pnl-settings":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
             return self.json(200, {"ok": True, "settings": pnl_settings_load()})
         if path == "/api/fb-ads-list":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị mới xem được chỉ số Ads."})
             if not fb_configured():
                 return self.json(200, {"campaigns": [], "configured": False})
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
@@ -8411,7 +8453,7 @@ class Handler(BaseHTTPRequestHandler):
             u = self.current_user()
             if not u:
                 return self.json(401, {"error": "Chưa đăng nhập"})
-            return self.json(200, {"user": u})
+            return self.json(200, {"user": u, "admin": user_is_admin(u)})
         if path == "/api/gallery":
             return self.json(200, {"items": gallery_load()})
         if path == "/api/mockups":
@@ -8620,6 +8662,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(401, {"error": "Vui lòng đăng nhập để dùng tính năng này."})
 
         if path == "/api/pnl-settings":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
             keep = {}
             for k in ("cogs_per_unit", "cogs_pct", "ship_per_order", "fee_pct", "other_per_order"):
                 try:
@@ -8669,6 +8713,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fb-ads-push":
             return self.handle_fb_ads_push(body)
         if path == "/api/fb-ad-update":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
             if not fb_configured():
                 return self.json(400, {"error": "Chưa cấu hình Facebook."})
             oid = (body.get("id") or "").strip()
@@ -8689,6 +8735,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(400, {"error": fb_err(d)})
             return self.json(200, {"ok": True})
         if path == "/api/fb-ad-delete":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
             if not fb_configured():
                 return self.json(400, {"error": "Chưa cấu hình Facebook."})
             oid = (body.get("id") or "").strip()

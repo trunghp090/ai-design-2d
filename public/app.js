@@ -4,6 +4,12 @@ let currentDesign = null; // base64 (không data: prefix) của design hiện t�
 let lastCloneSource = null; // ảnh GỐC (data URL/url) dùng để clone -> đối chiếu
 
 /* ---------- kiểm tra đăng nhập (chưa thì sang /auth.html) ---------- */
+window.IS_ADMIN = false;
+function applyAdminNav() {
+  // nhóm "Quản lý Ads" (chỉ số + doanh thu) chỉ hiện với tài khoản quản trị
+  document.querySelectorAll('.app-group[data-group="ads"], .app-tab[data-group="ads"]')
+    .forEach(el => el.classList.toggle("hidden", !window.IS_ADMIN));
+}
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
   fetch("/api/status").then(r => r.json()).then(s => {
     if (s.auth_required && !ok) { location.href = "/auth.html"; return; }
@@ -14,8 +20,11 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
         document.getElementById("userEmail").textContent = d.user.email;
       }
     }
+    window.IS_ADMIN = !!(ok && d.admin);
+    applyAdminNav();
   });
 }).catch(() => {});
+applyAdminNav();
 $("logoutBtn") && ($("logoutBtn").onclick = async () => {
   await fetch("/api/logout", { method: "POST" });
   location.href = "/auth.html";
@@ -848,6 +857,60 @@ function setTabEdit(on) {
 if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
 applyTabOrder();
 showGroup("design", true);
+
+/* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
+(function navDrawerSetup() {
+  const burger = document.createElement("button");
+  burger.id = "navBurger";
+  burger.innerHTML = "☰";
+  burger.title = "Menu";
+  const header = document.querySelector("header");
+  if (header) header.insertBefore(burger, header.firstChild);
+  const backdrop = document.createElement("div");
+  backdrop.id = "navBackdrop";
+  const drawer = document.createElement("aside");
+  drawer.id = "navDrawer";
+  drawer.innerHTML = '<div class="nav-d-head"><b>📂 Menu</b><button id="navDrawerClose">✕</button></div><div id="navDrawerBody"></div>';
+  document.body.appendChild(backdrop);
+  document.body.appendChild(drawer);
+  function build() {
+    const body = drawer.querySelector("#navDrawerBody");
+    body.innerHTML = "";
+    document.querySelectorAll(".app-group").forEach(g => {
+      if (g.id === "tabEditBtn" || g.classList.contains("hidden")) return;
+      const h = document.createElement("div");
+      h.className = "nav-d-group";
+      h.textContent = g.textContent;
+      body.appendChild(h);
+      document.querySelectorAll('.app-tab[data-group="' + g.dataset.group + '"]').forEach(t => {
+        if (t.classList.contains("hidden")) return;
+        const row = document.createElement("button");
+        row.className = "nav-d-tab" + (t.classList.contains("active") ? " active" : "");
+        row.textContent = t.textContent;
+        row.onclick = () => { showGroup(t.dataset.group, true); t.click(); close(); };
+        body.appendChild(row);
+      });
+    });
+  }
+  function open() { build(); drawer.classList.add("open"); backdrop.classList.add("show"); }
+  function close() { drawer.classList.remove("open"); backdrop.classList.remove("show"); }
+  burger.onclick = open;
+  backdrop.onclick = close;
+  drawer.querySelector("#navDrawerClose").onclick = close;
+  // vuốt từ mép trái màn hình → mở menu; vuốt sang trái trong menu → đóng
+  let sx = null, sy = null, edge = false;
+  document.addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY;
+    edge = sx < 28 && !drawer.classList.contains("open");
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (sx === null) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = Math.abs(t.clientY - sy);
+    if (edge && dx > 55 && dy < 60) { open(); sx = null; }
+    else if (drawer.classList.contains("open") && dx < -55 && dy < 60) { close(); sx = null; }
+  }, { passive: true });
+})();
 
 /* =====================================================================
    TÍNH NĂNG: AUTO RESEARCH (độc lập — có upload/niche/kết quả riêng)
@@ -6181,16 +6244,66 @@ async function admgrToggle(id, cur, btn) {
 /* =====================================================================
    💰 DOANH THU & LỢI NHUẬN — Shopify orders + FB Ads spend
    ===================================================================== */
-let pnlInited = false;
+let pnlInited = false, pnlLastData = null;
+// ---- danh mục chỉ số: key -> {label, render(c,p) -> {val, sub}} ----
+const PNL_METRICS = [
+  { k: "revenue",  ic: "🏷", label: "Doanh thu",        def: true },
+  { k: "orders",   ic: "📦", label: "Đơn hàng",          def: true },
+  { k: "units",    ic: "👕", label: "Sản phẩm bán",      def: true },
+  { k: "aov",      ic: "🧾", label: "Giá trị TB / đơn",  def: true },
+  { k: "ad_spend", ic: "📣", label: "Chi tiêu Ads",      def: true },
+  { k: "roas",     ic: "📈", label: "ROAS",              def: true },
+  { k: "cpp",      ic: "🎯", label: "Chi phí Ads / đơn", def: false },
+  { k: "cogs",     ic: "🏭", label: "Giá vốn",           def: true },
+  { k: "ship",     ic: "🚚", label: "Phí ship",          def: false },
+  { k: "fee_other", ic: "💳", label: "Phí TT/sàn + khác", def: false },
+  { k: "margin",   ic: "📊", label: "Biên lợi nhuận %",  def: false }
+];
+function pnlMetricsSel() {
+  try {
+    const s = JSON.parse(localStorage.getItem("pnlMetrics") || "null");
+    if (Array.isArray(s) && s.length) return new Set(s);
+  } catch (e) {}
+  return new Set(PNL_METRICS.filter(m => m.def).map(m => m.k));
+}
+function pnlMetricsSave(set) { localStorage.setItem("pnlMetrics", JSON.stringify([...set])); }
 function pnlInit() {
   if (!pnlInited) {
     pnlInited = true;
     $("pnlRefresh").onclick = () => pnlLoad(true);
-    $("pnlRange").onchange = () => pnlLoad(false);
+    $("pnlRange").onchange = () => {
+      const custom = $("pnlRange").value === "custom";
+      $("pnlCustom").classList.toggle("hidden", !custom);
+      if (custom) {
+        const t = new Date(), p = n => String(n).padStart(2, "0");
+        const iso = d => d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+        if (!$("pnlUntil").value) $("pnlUntil").value = iso(t);
+        if (!$("pnlSince").value) { const s = new Date(t - 6 * 864e5); $("pnlSince").value = iso(s); }
+      } else pnlLoad(false);
+    };
+    $("pnlGo").onclick = () => pnlLoad(false);
     $("pnlCfgBtn").onclick = () => $("pnlCfgPanel").classList.toggle("hidden");
     $("pnlCfgSave").onclick = pnlCfgSave;
+    $("pnlMetricBtn").onclick = () => { $("pnlMetricPanel").classList.toggle("hidden"); pnlMetricPanelRender(); };
   }
   pnlLoad(false);
+}
+function pnlMetricPanelRender() {
+  const sel = pnlMetricsSel(), box = $("pnlMetricList");
+  box.innerHTML = "";
+  PNL_METRICS.forEach(m => {
+    const lb = document.createElement("label");
+    lb.className = "pnl-metric-item" + (sel.has(m.k) ? " on" : "");
+    lb.innerHTML = '<input type="checkbox"' + (sel.has(m.k) ? " checked" : "") + '> ' + m.ic + " " + m.label;
+    lb.querySelector("input").onchange = (e) => {
+      const s = pnlMetricsSel();
+      if (e.target.checked) s.add(m.k); else s.delete(m.k);
+      pnlMetricsSave(s);
+      lb.classList.toggle("on", e.target.checked);
+      if (pnlLastData) pnlRenderCards(pnlLastData);
+    };
+    box.appendChild(lb);
+  });
 }
 function pnlMoney(n) { return fmtNum(Math.round(n)) + "đ"; }
 function pnlDelta(cur, prev, goodUp) {
@@ -6207,8 +6320,18 @@ async function pnlLoad(force) {
   note.className = "gen-note"; note.textContent = "⏳ Đang gộp đơn Shopify + chi tiêu Ads…";
   cards.innerHTML = ""; chart.innerHTML = "";
   try {
-    const days = $("pnlRange").value;
-    const r = await fetch("/api/pnl-report?days=" + days + (force ? "&force=1" : ""));
+    const rv = $("pnlRange").value;
+    let q;
+    if (rv === "custom") {
+      const s = $("pnlSince").value, u = $("pnlUntil").value;
+      if (!s || !u) { note.textContent = "Chọn ngày bắt đầu và kết thúc rồi bấm Xem."; return; }
+      q = "since=" + s + "&until=" + u;
+    } else if (rv === "today" || rv === "yesterday") {
+      q = "range=" + rv;
+    } else {
+      q = "days=" + rv;
+    }
+    const r = await fetch("/api/pnl-report?" + q + (force ? "&force=1" : ""));
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi tải báo cáo");
     // fill settings vào panel chi phí
@@ -6227,30 +6350,41 @@ async function pnlLoad(force) {
   }
 }
 function pnlRenderCards(d) {
+  pnlLastData = d;
   const c = d.cur, p = d.prev;
+  const rangeLabel = d.days === 1 ? (d.since || "") : d.days + " ngày (" + (d.since || "").slice(5) + " → " + (d.until || "").slice(5) + ")";
   const net = c.net, netCls = net >= 0 ? "good" : "bad";
   const hero =
     '<div class="pnl-hero ' + netCls + '">' +
-      '<div class="pnl-hero-label">Lợi nhuận ròng (' + d.days + ' ngày)</div>' +
+      '<div class="pnl-hero-label">Lợi nhuận ròng · ' + rangeLabel + '</div>' +
       '<div class="pnl-hero-num">' + pnlMoney(net) + '</div>' +
       '<div class="pnl-hero-sub">' + pnlDelta(c.net, p.net, true) +
         (p.net ? ' so với kỳ trước (' + pnlMoney(p.net) + ')' : '') +
         ' · Biên LN ' + c.margin + '%' + '</div>' +
     '</div>';
-  const card = (icon, label, val, sub) =>
-    '<div class="pnl-card"><div class="pnl-card-label">' + icon + ' ' + label + '</div>' +
-    '<div class="pnl-card-num">' + val + '</div>' +
-    (sub ? '<div class="pnl-card-sub">' + sub + '</div>' : '') + '</div>';
+  // giá trị + sub cho từng chỉ số
+  const aovC = c.orders ? c.revenue / c.orders : 0, aovP = p.orders ? p.revenue / p.orders : 0;
+  const cppC = c.orders ? c.ad_spend / c.orders : 0, cppP = p.orders ? p.ad_spend / p.orders : 0;
+  const V = {
+    revenue:  [pnlMoney(c.revenue), pnlDelta(c.revenue, p.revenue, true)],
+    orders:   [fmtNum(c.orders), fmtNum(c.units) + " sản phẩm " + pnlDelta(c.orders, p.orders, true)],
+    units:    [fmtNum(c.units), "trong " + fmtNum(c.orders) + " đơn " + pnlDelta(c.units, p.units, true)],
+    aov:      [pnlMoney(aovC), pnlDelta(aovC, aovP, true)],
+    ad_spend: [pnlMoney(c.ad_spend), pnlDelta(c.ad_spend, p.ad_spend, false)],
+    roas:     [c.roas ? c.roas + "x" : "—", p.roas ? "kỳ trước " + p.roas + "x" : ""],
+    cpp:      [c.orders ? pnlMoney(cppC) : "—", pnlDelta(cppC, cppP, false)],
+    cogs:     [pnlMoney(c.cogs), pnlDelta(c.cogs, p.cogs, false)],
+    ship:     [pnlMoney(c.ship), ""],
+    fee_other: [pnlMoney(c.fee + c.other), ""],
+    margin:   [c.margin + "%", p.margin ? "kỳ trước " + p.margin + "%" : ""]
+  };
+  const sel = pnlMetricsSel();
+  const card = (m) =>
+    '<div class="pnl-card"><div class="pnl-card-label">' + m.ic + ' ' + m.label + '</div>' +
+    '<div class="pnl-card-num">' + V[m.k][0] + '</div>' +
+    (V[m.k][1] ? '<div class="pnl-card-sub">' + V[m.k][1] + '</div>' : '') + '</div>';
   $("pnlCards").innerHTML = hero + '<div class="pnl-cards">' +
-    card("🏷", "Doanh thu", pnlMoney(c.revenue), pnlDelta(c.revenue, p.revenue, true)) +
-    card("📦", "Đơn hàng", fmtNum(c.orders),
-         fmtNum(c.units) + " sản phẩm " + pnlDelta(c.orders, p.orders, true)) +
-    card("📣", "Chi tiêu Ads", pnlMoney(c.ad_spend),
-         (c.roas ? "ROAS " + c.roas + "x " : "") + pnlDelta(c.ad_spend, p.ad_spend, false)) +
-    card("🏭", "Giá vốn", pnlMoney(c.cogs), pnlDelta(c.cogs, p.cogs, false)) +
-    card("🚚", "Phí ship", pnlMoney(c.ship), "") +
-    card("💳", "Phí TT/sàn + khác", pnlMoney(c.fee + c.other), "") +
-    '</div>';
+    PNL_METRICS.filter(m => sel.has(m.k)).map(card).join("") + '</div>';
 }
 function pnlRenderChart(d) {
   const daily = d.daily || [];
