@@ -32,7 +32,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.03-propose-links"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.03-ads-purchase"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -898,6 +898,29 @@ def fb_graph(method, path, params, token=None):
 
 def fb_err(d):
     return ((d or {}).get("error") or {}).get("message") or json.dumps(d)[:200]
+
+
+_FB_PIXEL_CACHE = {"id": None, "checked": False}
+
+
+def fb_pixel_id():
+    """Pixel để tối ưu CHUYỂN ĐỔI (Lượt mua). Ưu tiên env FB_PIXEL_ID; không có thì tự dò
+    pixel đầu tiên của tài khoản ads (cache) — vd 'rieng.vn's pixel'."""
+    pid = os.environ.get("FB_PIXEL_ID", "").strip()
+    if pid:
+        return pid
+    if _FB_PIXEL_CACHE["checked"]:
+        return _FB_PIXEL_CACHE["id"]
+    _FB_PIXEL_CACHE["checked"] = True
+    try:
+        st, d = fb_graph("GET", "act_%s/adspixels" % FB_AD_ACCOUNT_ID, {"fields": "id,name"})
+        arr = (d or {}).get("data") or []
+        if arr:
+            _FB_PIXEL_CACHE["id"] = arr[0]["id"]
+            print("fb_pixel_id: dùng pixel '%s' (%s)" % (arr[0].get("name", "?"), arr[0]["id"]), flush=True)
+    except Exception as e:
+        print("fb_pixel_id fail: %s" % e, flush=True)
+    return _FB_PIXEL_CACHE["id"]
 
 
 def fb_upload_adimage(img_bytes):
@@ -3633,9 +3656,13 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
         if video_url:
             video_id = fb_upload_advideo(video_url)
             _wait_video_ready(video_id)
+        # CHUẨN SALE (theo yêu cầu user): Lượt CHUYỂN ĐỔI trên Trang web + pixel rieng.vn +
+        # sự kiện LƯỢT MUA + tối đa hoá GIÁ TRỊ — KHÔNG chạy tối đa link click nữa
+        pixel = fb_pixel_id()
         if not campaign_id:
             st, c = fb_graph("POST", "act_%s/campaigns" % FB_AD_ACCOUNT_ID,
-                             {"name": campaign_name, "objective": "OUTCOME_TRAFFIC",
+                             {"name": campaign_name,
+                              "objective": "OUTCOME_SALES" if pixel else "OUTCOME_TRAFFIC",
                               "special_ad_categories": "[]",
                               "is_adset_budget_sharing_enabled": "false", "status": status})
             if st != 200:
@@ -3647,11 +3674,23 @@ def fb_ads_push_core(img, link, message, headline, name, daily_budget, age_min, 
                          "age_max": age_max, "targeting_automation": {"advantage_audience": 0}}
             if genders:
                 targeting["genders"] = genders
-            st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID,
-                             {"name": adset_name, "campaign_id": cid, "daily_budget": budget,
-                              "billing_event": "IMPRESSIONS", "optimization_goal": "LINK_CLICKS",
-                              "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
-                              "targeting": json.dumps(targeting), "status": status})
+            base = {"name": adset_name, "campaign_id": cid, "daily_budget": budget,
+                    "billing_event": "IMPRESSIONS", "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+                    "targeting": json.dumps(targeting), "status": status}
+            if pixel:
+                base["promoted_object"] = json.dumps({"pixel_id": pixel, "custom_event_type": "PURCHASE"})
+                # VALUE = 'tối đa hoá GIÁ TRỊ chuyển đổi'; tài khoản chưa đủ điều kiện VALUE ->
+                # tự hạ về OFFSITE_CONVERSIONS (tối đa SỐ lượt mua) — vẫn là chuyển đổi, không phải click
+                a = None
+                for goal in ("VALUE", "OFFSITE_CONVERSIONS"):
+                    base["optimization_goal"] = goal
+                    st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID, base)
+                    if st == 200:
+                        break
+                    print("adset goal %s fail: %s" % (goal, fb_err(a)), flush=True)
+            else:
+                base["optimization_goal"] = "LINK_CLICKS"   # không tìm thấy pixel -> fallback cũ
+                st, a = fb_graph("POST", "act_%s/adsets" % FB_AD_ACCOUNT_ID, base)
             if st != 200:
                 raise RuntimeError("Tạo ad set lỗi: " + fb_err(a))
             adset_id = a["id"]
