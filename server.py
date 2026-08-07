@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.07-nav-5-big-tabs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.07-admin-page-drag"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8277,6 +8277,11 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/":
             path = "/index.html"
+        if path == "/admin.html" and not user_is_admin(self.current_user()):
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
 
         if path == "/api/status":
             return self.json(200, {"ok": True, "mock": not bool(API_KEY),
@@ -8679,6 +8684,8 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             return self.json(200, {"ok": True})
         if path == "/api/mockups":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ admin mới được sửa/thêm/xoá tài nguyên chung."})
             fname = os.path.basename(params.get("file", ""))
             if fname:
                 try:
@@ -8904,6 +8911,8 @@ class Handler(BaseHTTPRequestHandler):
             agent_run_start(steps, product=body.get("product") or None)
             return self.json(200, {"ok": True, "total": len(steps)})
         if path == "/api/concept-style":   # lưu style 1 concept (đồng bộ autopilot)
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ admin mới được sửa/thêm/xoá tài nguyên chung."})
             key = (body.get("key") or "").strip()
             img = body.get("image") or ""
             if not concept_style_save(key, img):
@@ -9185,6 +9194,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/fbpost-regen":
             return self.handle_fbpost_regen(body)
         if path == "/api/gallery-clear":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ admin mới được sửa/thêm/xoá tài nguyên chung."})
             return self.handle_gallery_clear(body)
         if path == "/api/mixdesign-gen":
             return self.handle_mixdesign_gen(body)
@@ -9328,6 +9339,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(400, {"error": "Lỗi cập nhật ảnh: %s" % e})
             return self.json(200, {"ok": True, "count": n})
         if path == "/api/shopify-delete":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ admin mới được sửa/thêm/xoá tài nguyên chung."})
             if not shopify_configured():
                 return self.json(400, {"error": "Chưa cấu hình Shopify."})
             pid = body.get("id")
@@ -9353,6 +9366,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/remove-bg":
             return self.handle_remove_bg(body)
         if path == "/api/upload-mockup":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ admin mới được sửa/thêm/xoá tài nguyên chung."})
+
             return self.handle_upload_mockup(body)
         if path == "/api/preview-prompt":
             if body.get("mode") == "extract":

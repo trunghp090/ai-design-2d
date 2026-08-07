@@ -11,6 +11,11 @@ function applyAdminNav() {
   document.querySelectorAll('.app-group[data-group="revenue"], .app-tab[data-group="revenue"], ' +
       '.app-group[data-group="team"], .app-tab[data-group="team"]')
     .forEach(el => el.classList.toggle("hidden", !window.IS_ADMIN));
+  // nút sửa vị trí tab + nút Trang admin: chỉ admin
+  const teb = document.getElementById("tabEditBtn");
+  if (teb) teb.classList.toggle("hidden", !window.IS_ADMIN);
+  const apb = document.getElementById("adminPageBtn");
+  if (apb) apb.classList.toggle("hidden", !window.IS_ADMIN);
   // tab thường: ẩn tab ngoài quyền của thành viên
   if (!window.IS_ADMIN && Array.isArray(window.MY_TABS)) {
     document.querySelectorAll('.app-tab:not([data-group="revenue"]):not([data-group="team"])').forEach(t =>
@@ -818,7 +823,6 @@ function showApp(app) {
   document.getElementById("view-fbpost").classList.toggle("hidden", app !== "fbpost");
   document.getElementById("view-admgr").classList.toggle("hidden", app !== "admgr");
   document.getElementById("view-pnl").classList.toggle("hidden", app !== "pnl");
-  document.getElementById("view-members").classList.toggle("hidden", app !== "members");
   document.getElementById("view-agent").classList.toggle("hidden", app !== "agent");
   document.getElementById("view-adpost").classList.toggle("hidden", app !== "adpost");
   document.getElementById("view-pgpost").classList.toggle("hidden", app !== "pgpost");
@@ -829,7 +833,6 @@ function showApp(app) {
   if (app === "fbpost") fbpInit();
   if (app === "admgr") admgrInit();
   if (app === "pnl") pnlInit();
-  if (app === "members") membersInit();
   if (app === "agent") agentInit();
   if (app === "adpost") adpostInit();
   if (app === "pgpost") pgpostInit();
@@ -875,18 +878,42 @@ function saveTabOrder() {
   const order = [...document.querySelectorAll(".app-tabs .app-tab")].map(t => t.dataset.app);
   try { localStorage.setItem("tabOrder", JSON.stringify(order)); } catch (e) {}
 }
-let tabEditOn = false, tabDragEl = null;
+let tabEditOn = false, tabDragEl = null, tabDragMoved = false;
+function tabPointerDown(e) {
+  if (!tabEditOn) return;
+  const t = e.currentTarget;
+  e.preventDefault();
+  tabDragEl = t; tabDragMoved = false;
+  t.style.opacity = ".4"; t.style.cursor = "grabbing";
+  const mv = (ev) => {
+    tabDragMoved = true;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const tgt = el && el.closest ? el.closest(".app-tab") : null;
+    if (tgt && tgt !== t && tgt.dataset.group === t.dataset.group) {
+      const r = tgt.getBoundingClientRect();
+      const after = ev.clientX > r.left + r.width / 2;
+      tgt.parentNode.insertBefore(t, after ? tgt.nextSibling : tgt);
+    }
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", mv);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", up);
+    t.style.opacity = ""; t.style.cursor = "grab";
+    tabDragEl = null;
+    if (tabDragMoved) saveTabOrder();
+  };
+  document.addEventListener("pointermove", mv);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", up);
+}
 function setTabEdit(on) {
   tabEditOn = on;
   const btn = $("tabEditBtn"); if (btn) { btn.classList.toggle("active", on); btn.textContent = on ? "✓ Xong (kéo để đổi)" : "✎ Sửa vị trí tab"; }
   document.querySelectorAll(".app-tabs .app-tab").forEach(t => {
-    t.draggable = on;
     t.style.cursor = on ? "grab" : "";
-    if (on) {
-      t.ondragstart = (e) => { tabDragEl = t; t.style.opacity = ".4"; e.dataTransfer.effectAllowed = "move"; };
-      t.ondragend = () => { t.style.opacity = ""; tabDragEl = null; saveTabOrder(); };
-      t.ondragover = (e) => { e.preventDefault(); if (!tabDragEl || tabDragEl === t || tabDragEl.dataset.group !== t.dataset.group) return; const r = t.getBoundingClientRect(); const after = e.clientX > r.left + r.width / 2; t.parentNode.insertBefore(tabDragEl, after ? t.nextSibling : t); };
-    } else { t.ondragstart = t.ondragend = t.ondragover = null; }
+    t.style.touchAction = on ? "none" : "";
+    t.onpointerdown = on ? tabPointerDown : null;
   });
 }
 if ($("tabEditBtn")) $("tabEditBtn").onclick = () => setTabEdit(!tabEditOn);
@@ -6521,11 +6548,11 @@ function membersCard(u, allTabs) {
     '<span class="mem-count">' + nTabs + "/" + allTabs.length + ' tab</span></span></div>';
   const det = document.createElement("details");
   det.innerHTML = "<summary>🎛 Chỉnh quyền tab</summary>";
-  const groupNames = { design: "🎨 Thiết kế", product: "📸 Sản phẩm", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
+  const groupNames = { work: "🛠 Tác vụ", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
   const body = document.createElement("div");
   body.className = "mem-perm-body";
   const sel = new Set(u.tabs);
-  ["design", "product", "marketing", "shopify"].forEach(g => {
+  ["work", "marketing", "shopify"].forEach(g => {
     const tabs = allTabs.filter(a => membersGroupOf(a) === g);
     if (!tabs.length) return;
     const h = document.createElement("div");

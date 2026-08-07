@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>⚙️ Trang Admin — AI Design 2D</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .adm-wrap2 { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .adm-head2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .adm-head2 h1 { font-size: 22px; margin: 0; }
+    .adm-back { text-decoration: none; font-size: 13.5px; font-weight: 700; border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; color: #8a1f3d; background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="adm-wrap2">
+    <div class="adm-head2">
+      <h1>⚙️ Trang Admin — 👥 Thành viên &amp; phân quyền</h1>
+      <span style="display:flex;gap:8px">
+        <button class="btn-ghost sm" id="membersRefresh">🔄 Tải lại</button>
+        <a class="adm-back" href="/">← Về tool</a>
+      </span>
+    </div>
+    <div class="panel">
+      <p class="panel-desc" style="margin:0 0 12px">Tick tab nào thì thành viên đó dùng được tab đó — <b>chưa tick gì thì thành viên không thấy tab nào</b> (màn 🔒 chờ cấp quyền). Nhóm Doanh thu &amp; Lợi nhuận, Chỉ số Ads và trang admin này vĩnh viễn chỉ dành cho quản trị.</p>
+      <p class="gen-note" id="membersNote"></p>
+      <div id="membersList"></div>
+    </div>
+  </div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+// nhãn + nhóm của mọi tab thường (đồng bộ với nav index.html)
+const TAB_META = {
+  clone: ["work", "🎨 Clone Design"], auto: ["work", "🤖 Auto Research"], recolor: ["work", "🎨 Đổi màu áo"],
+  lenao: ["work", "👕 Lên áo"], design: ["work", "✨ Tạo design"], psn: ["work", "🎁 Personalized"],
+  namedes: ["work", "✍️ Design tên"], mixd: ["work", "🧪 Mix Design"], lvt: ["work", "😆 Quote Meme"],
+  cutout: ["work", "✂️ Tách nền"], product: ["work", "📸 Ảnh sản phẩm"], autopipe: ["work", "🚀 Trọn gói"],
+  setshirt: ["work", "👕 Bộ áo tệp"],
+  agent: ["marketing", "🤖 Trợ lý AI"], ads: ["marketing", "📣 Tạo Ảnh FB ADS"], fbpost: ["marketing", "📘 Tạo Ảnh FB post"],
+  tiktok: ["marketing", "🎵 TikTok Quà tặng"], adpost: ["marketing", "📋 Bài FB Ads"], pgpost: ["marketing", "📋 Bài FB/IG"],
+  sched: ["marketing", "🗓️ Lịch content"],
+  shopify: ["shopify", "🛍️ Đẩy Shopify"], shoplist: ["shopify", "📦 SP Shopify"]
+};
+const GROUP_NAMES = { work: "🛠 Tác vụ", marketing: "📣 Marketing", shopify: "🛍️ Shopify" };
+
+fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
+  if (!ok || !d.admin) { location.href = "/"; return; }
+  membersLoad();
+}).catch(() => { location.href = "/"; });
+$("membersRefresh").onclick = () => membersLoad();
+
+async function membersLoad() {
+  const note = $("membersNote"), list = $("membersList");
+  note.className = "gen-note"; note.textContent = "⏳ Đang tải danh sách…";
+  list.innerHTML = "";
+  try {
+    const r = await fetch("/api/admin-users");
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Lỗi tải");
+    note.textContent = d.users.length + " thành viên.";
+    d.users.forEach(u => list.appendChild(membersCard(u, d.all_tabs)));
+  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+}
+
+function membersCard(u, allTabs) {
+  const card = document.createElement("div");
+  card.className = "mem-card";
+  const when = u.ts ? new Date(u.ts * 1000).toLocaleDateString("vi-VN") : "";
+  if (u.admin) {
+    card.innerHTML = '<div class="mem-head"><b>👑 ' + u.email + '</b>' +
+      '<span class="mem-badge">Quản trị — full quyền</span></div>';
+    return card;
+  }
+  card.innerHTML =
+    '<div class="mem-head"><b>👤 ' + u.email + '</b>' +
+    '<span class="mem-sub">' + (when ? "tham gia " + when + " · " : "") +
+    '<span class="mem-count">' + u.tabs.length + "/" + allTabs.length + ' tab</span></span></div>';
+  const det = document.createElement("details");
+  det.innerHTML = "<summary>🎛 Chỉnh quyền tab</summary>";
+  const body = document.createElement("div");
+  body.className = "mem-perm-body";
+  const sel = new Set(u.tabs);
+  ["work", "marketing", "shopify"].forEach(g => {
+    const tabs = allTabs.filter(a => (TAB_META[a] || [""])[0] === g);
+    if (!tabs.length) return;
+    const h = document.createElement("div");
+    h.className = "mem-perm-group";
+    h.innerHTML = '<b>' + GROUP_NAMES[g] + '</b> <a href="#" data-act="all">chọn hết</a> · <a href="#" data-act="none">bỏ hết</a>';
+    body.appendChild(h);
+    const wrap = document.createElement("div");
+    wrap.className = "mem-perm-list";
+    tabs.forEach(a => {
+      const lb = document.createElement("label");
+      lb.className = "pnl-metric-item" + (sel.has(a) ? " on" : "");
+      lb.innerHTML = '<input type="checkbox" data-app="' + a + '"' + (sel.has(a) ? " checked" : "") + '> ' + (TAB_META[a] ? TAB_META[a][1] : a);
+      lb.querySelector("input").onchange = (e) => lb.classList.toggle("on", e.target.checked);
+      wrap.appendChild(lb);
+    });
+    body.appendChild(wrap);
+    h.querySelectorAll("a").forEach(a2 => a2.onclick = (e) => {
+      e.preventDefault();
+      wrap.querySelectorAll("input").forEach(i => {
+        i.checked = a2.dataset.act === "all";
+        i.closest("label").classList.toggle("on", i.checked);
+      });
+    });
+  });
+  const foot = document.createElement("div");
+  foot.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap";
+  const save = document.createElement("button");
+  save.className = "btn-primary sm"; save.textContent = "💾 Lưu quyền";
+  save.onclick = async () => {
+    save.disabled = true; save.textContent = "⏳…";
+    const tabs = [...body.querySelectorAll("input:checked")].map(i => i.dataset.app);
+    try {
+      const r = await fetch("/api/admin-perms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: u.email, tabs: tabs }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      save.textContent = "✓ Đã lưu";
+      card.querySelector(".mem-count").textContent = tabs.length + " tab";
+      setTimeout(() => { save.textContent = "💾 Lưu quyền"; save.disabled = false; }, 1200);
+    } catch (e) { alert("✗ " + e.message); save.disabled = false; save.textContent = "💾 Lưu quyền"; }
+  };
+  const del = document.createElement("button");
+  del.className = "btn-ghost sm"; del.textContent = "🗑️ Xoá thành viên";
+  del.onclick = async () => {
+    if (!confirm("Xoá tài khoản " + u.email + "? Người này sẽ không đăng nhập được nữa.")) return;
+    try {
+      const r = await fetch("/api/admin-user-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: u.email }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      card.remove();
+    } catch (e) { alert("✗ " + e.message); }
+  };
+  foot.appendChild(save); foot.appendChild(del);
+  det.appendChild(body); det.appendChild(foot);
+  card.appendChild(det);
+  return card;
+}
+</script>
+</body>
+</html>
