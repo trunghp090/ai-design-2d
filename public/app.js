@@ -6901,7 +6901,7 @@ function rsRenderGrid() {
   g.innerHTML = rsItems.map((it, i) =>
     '<div class="gcard" style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
     '<div style="font-size:12px;font-weight:700;margin-bottom:6px">' + it.title + '</div>' +
-    '<img src="data:image/png;base64,' + it.image + '" style="width:100%;border-radius:8px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
+    '<img src="data:image/png;base64,' + it.image + '" onclick="openZoom(this.src)" title="Bấm để phóng to" style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
     '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
     '<button class="btn-ghost sm" onclick="rsToMockup(' + i + ')">👕 Lên áo</button>' +
     '<button class="btn-ghost sm" onclick="copyImageToClipboard(\'data:image/png;base64,' + it.image + '\')">📋</button>' +
