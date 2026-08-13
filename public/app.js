@@ -50,6 +50,7 @@ function applyAdminNav() {
 fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d }) => {
   fetch("/api/status").then(r => r.json()).then(s => {
     if (s.auth_required && !ok) { location.href = "/auth.html"; return; }
+    try {
     if (ok && d.user) {
       const box = document.getElementById("userBox");
       if (box) {
@@ -79,9 +80,18 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
         if (firstG) showGroup(firstG.dataset.group, false);
       }
     }
-    applyAdminNav();
-  });
-}).catch(() => {});
+    } finally {
+      applyAdminNav();
+      // admin: mở nhóm đầu tiên (Doanh thu) nếu user chưa tự bấm đi đâu
+      if (window.IS_ADMIN && !window.__userNav) {
+        setTimeout(function () {
+          const g = document.querySelector(".app-groups .app-group:not(#tabEditBtn):not(.hidden)");
+          if (g && !window.__userNav) showGroup(g.dataset.group, false);
+        }, 0);
+      }
+    }
+  }).catch(function () { applyAdminNav(); });
+}).catch(function () { applyAdminNav(); });
 applyAdminNav();
 $("logoutBtn") && ($("logoutBtn").onclick = async () => {
   await fetch("/api/logout", { method: "POST" });
@@ -1006,9 +1016,11 @@ applyGroupOrder();
 // mở TAB TO ĐỨNG ĐẦU làm mặc định — chạy SAU khi toàn bộ file nạp xong
 // (mở thẳng pnl/admgr cần các biến module khai báo phía dưới; gọi ngay sẽ crash TDZ)
 setTimeout(function () {
-  const firstG = document.querySelector(".app-groups .app-group:not(#tabEditBtn)");
+  const firstG = document.querySelector(".app-groups .app-group:not(#tabEditBtn):not(.hidden)");
   showGroup(firstG ? firstG.dataset.group : "work", false);
 }, 0);
+// đánh dấu user đã tự điều hướng (để sau khi biết quyền admin không nhảy trang mất chỗ)
+document.addEventListener("pointerdown", function () { window.__userNav = true; }, { capture: true });
 
 /* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
 (function navDrawerSetup() {
