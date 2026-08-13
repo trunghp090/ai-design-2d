@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-cachebust-verwatch"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-restyle-tab"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5699,6 +5699,44 @@ def _gen_base_b64(prompt, size, transparent=True):
     return b64
 
 
+def run_restyle_job(job_id, ref_b64, style_keys, per_style, size, transparent=True, extra=""):
+    """🎭 ĐỔI STYLE: giữ NGUYÊN chữ/nội dung design gốc, thiết kế lại theo TỪNG style user chọn."""
+    job = BATCH_JOBS[job_id]
+    tasks = []
+    for sk in style_keys:
+        label, desc = DESIGN_STYLES.get(sk, (sk, sk))
+        for i in range(per_style):
+            tasks.append((sk, label, desc))
+
+    def work(t):
+        sk, label, desc = t
+        prompt = ("REDESIGN this t-shirt artwork in a COMPLETELY NEW visual style while KEEPING the "
+                  "same wording and the same meaning. Read ALL text on the reference design (main "
+                  "line, sub-lines, numbers/dates) and reuse the words EXACTLY — same spelling, keep "
+                  "Vietnamese diacritics — but re-set everything with NEW typography, NEW layout, NEW "
+                  "colour palette and NEW illustration treatment that fully matches this target "
+                  "style: " + desc + ". Professional print-ready t-shirt graphic, balanced "
+                  "composition, flat artwork only (no mockup, no shirt), transparent background."
+                  + ((" Extra instruction: " + extra) if extra else ""))
+        try:
+            b64, _ = gen_design([(base64.b64decode(ref_b64), "image/png")], "variation", "",
+                                size, transparent, override=prompt)
+            g = gallery_add(b64, {"mode": "design", "prompt": "🎭 restyle " + label})
+            with _batch_lock:
+                job["done"] += 1
+                job["items"].append({"image": b64, "style": sk, "title": "🎭 " + label,
+                                     "gallery": g.get("url") if isinstance(g, dict) else ""})
+        except Exception as e:
+            with _batch_lock:
+                job["done"] += 1
+                job["errors"].append("%s: %s" % (label, str(e)[:160]))
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        list(ex.map(work, tasks))
+    with _batch_lock:
+        job["finished"] = True
+
+
 def personalize_core(design_b64, name, size, transparent=True, date=""):
     """Cá nhân hoá tên (+ ngày) img2img — DÙNG LẠI logic tab Cá nhân hoá: giữ style, thay chữ chính."""
     base = ("Design a t-shirt graphic featuring the NAME \"%s\" as the focal text. KEEP THE SAME "
@@ -8076,7 +8114,7 @@ _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
 ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "namedes", "mixd", "lvt",
                 "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
-                "adpost", "pgpost", "sched", "shopify", "shoplist", "pnl", "admgr"]
+                "adpost", "pgpost", "sched", "shopify", "shoplist", "restyle", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
 
@@ -9461,6 +9499,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_prod_ai_prompt(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
+        if path == "/api/restyle-gen":
+            return self.handle_restyle_gen(body)
         if path == "/api/personalize":
             return self.handle_personalize(body)
         if path == "/api/variations":
@@ -10204,6 +10244,36 @@ class Handler(BaseHTTPRequestHandler):
         scores = [{"key": keys[i], "score": rated[i]["score"], "reason": rated[i]["reason"]}
                   for i in range(len(keys))]
         return self.json(200, {"scores": scores})
+
+    def handle_restyle_gen(self, body):
+        """🎭 Up design bất kỳ -> redesign theo các style đã chọn (giữ chữ, đổi phong cách)."""
+        if not API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY."})
+        srcimg = body.get("image", "")
+        keys = [k for k in (body.get("styles") or []) if k in DESIGN_STYLES][:8]
+        if not srcimg or not keys:
+            return self.json(400, {"error": "Cần ảnh design + chọn ít nhất 1 style."})
+        img_bytes, mime = fetch_image_bytes(srcimg)
+        if not img_bytes:
+            return self.json(400, {"error": "Ảnh không hợp lệ."})
+        size = "auto"
+        if HAS_PIL:
+            try:
+                im = Image.open(io.BytesIO(img_bytes)); w, h = im.size
+                size = "1024x1536" if h > w * 1.1 else ("1536x1024" if w > h * 1.1 else "1024x1024")
+            except Exception:
+                pass
+        per = max(1, min(int(body.get("per_style", 1) or 1), 3))
+        extra = (body.get("extra") or "").strip()[:300]
+        total = len(keys) * per
+        ref_b64 = base64.b64encode(img_bytes).decode()
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "rs%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": total, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_restyle_job,
+                         args=(job_id, ref_b64, keys, per, size, True, extra), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": total})
 
     def handle_personalize(self, body):
         """Biến 1 mẫu đẹp -> bản CÁ NHÂN HOÁ: giữ nguyên style, thay chữ chính = tên (img2img)."""

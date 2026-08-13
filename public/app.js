@@ -840,6 +840,7 @@ function showApp(app) {
   document.getElementById("view-batch").classList.toggle("hidden", app !== "batch");
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
+  document.getElementById("view-restyle").classList.toggle("hidden", app !== "restyle");
   document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
   document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
   document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
@@ -870,6 +871,7 @@ function showApp(app) {
   if (app === "lenao") lenaoInit();
   if (app === "product") prodInit();
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
+  if (app === "restyle") rsInit();
   if (app === "psn") psnInit();
   if (app === "setshirt") ssInit();
   if (app === "tiktok") ttInit();
@@ -6799,6 +6801,114 @@ async function pnlCfgSave() {
     pnlLoad(true);
   } catch (e) { alert("✗ " + e.message); }
   btn.disabled = false; btn.textContent = "💾 Lưu & tính lại";
+}
+
+/* =====================================================================
+   🎭 ĐỔI STYLE DESIGN — up design -> redesign theo style chọn
+   ===================================================================== */
+let rsInited = false, rsImg = null, rsSel = new Set(), rsItems = [], rsT = null;
+function rsInit() {
+  if (rsInited) return;
+  rsInited = true;
+  const drop = $("rsDrop"), file = $("rsFile");
+  drop.onclick = () => file.click();
+  file.onchange = () => { if (file.files[0]) rsReadFile(file.files[0]); };
+  drop.ondragover = (e) => e.preventDefault();
+  drop.ondrop = (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) rsReadFile(e.dataTransfer.files[0]); };
+  document.addEventListener("paste", (e) => {
+    if (document.getElementById("view-restyle").classList.contains("hidden")) return;
+    const it = [...(e.clipboardData.items || [])].find(x => x.type.startsWith("image/"));
+    if (it) rsReadFile(it.getAsFile());
+  });
+  $("rsFilter").oninput = rsRenderStyles;
+  $("rsClear").onclick = () => { rsSel.clear(); rsRenderStyles(); };
+  $("rsGen").onclick = rsGenerate;
+  rsRenderStyles();
+}
+function rsReadFile(f) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    rsImg = rd.result;
+    $("rsPreview").src = rsImg;
+    $("rsPreview").classList.remove("hidden");
+    $("rsDropHint").classList.add("hidden");
+  };
+  rd.readAsDataURL(f);
+}
+function rsRenderStyles() {
+  const box = $("rsStyles"), q = ($("rsFilter").value || "").toLowerCase();
+  box.innerHTML = "";
+  DS_STYLES.forEach(s => {
+    if (q && !(s.label + " " + (s.hint || "")).toLowerCase().includes(q)) return;
+    const lb = document.createElement("label");
+    lb.className = "pnl-metric-item" + (rsSel.has(s.key) ? " on" : "");
+    lb.title = s.hint || "";
+    lb.innerHTML = '<input type="checkbox"' + (rsSel.has(s.key) ? " checked" : "") + '> ' + s.label;
+    lb.querySelector("input").onchange = (e) => {
+      if (e.target.checked) {
+        if (rsSel.size >= 8) { e.target.checked = false; return; }
+        rsSel.add(s.key);
+      } else rsSel.delete(s.key);
+      lb.classList.toggle("on", rsSel.has(s.key));
+      $("rsSelN").textContent = rsSel.size;
+    };
+    box.appendChild(lb);
+  });
+  $("rsSelN").textContent = rsSel.size;
+}
+async function rsGenerate() {
+  const note = $("rsNote"), btn = $("rsGen");
+  if (!rsImg) { note.className = "gen-note err"; note.textContent = "✗ Chưa có ảnh design gốc."; return; }
+  if (!rsSel.size) { note.className = "gen-note err"; note.textContent = "✗ Tick ít nhất 1 style."; return; }
+  btn.disabled = true;
+  note.className = "gen-note"; note.textContent = "⏳ Đang gửi…";
+  try {
+    const r = await fetch("/api/restyle-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: rsImg, styles: [...rsSel], per_style: parseInt($("rsPer").value, 10), extra: $("rsExtra").value }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    let have = 0;
+    note.textContent = "🎨 Đang thiết kế lại 0/" + d.total + "…";
+    clearInterval(rsT);
+    rsT = setInterval(async () => {
+      try {
+        const s = await (await fetch("/api/batch-status?id=" + d.job_id + "&have=" + have)).json();
+        (s.items || []).forEach(it => { rsItems.unshift(it); });
+        have += (s.items || []).length;
+        rsRenderGrid();
+        note.textContent = "🎨 Đang thiết kế lại " + s.done + "/" + s.total + "…" +
+          ((s.errors || []).length ? " (" + s.errors.length + " lỗi)" : "");
+        if (s.finished) {
+          clearInterval(rsT);
+          btn.disabled = false;
+          note.className = "gen-note " + ((s.errors || []).length && !have ? "err" : "ok");
+          note.textContent = "✓ Xong " + have + " bản" +
+            ((s.errors || []).length ? " · lỗi: " + s.errors[0] : "");
+        }
+      } catch (e) {}
+    }, 2500);
+  } catch (e) {
+    btn.disabled = false;
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  }
+}
+function rsRenderGrid() {
+  const g = $("rsGrid");
+  g.innerHTML = rsItems.map((it, i) =>
+    '<div class="gcard" style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
+    '<div style="font-size:12px;font-weight:700;margin-bottom:6px">' + it.title + '</div>' +
+    '<img src="data:image/png;base64,' + it.image + '" style="width:100%;border-radius:8px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
+    '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
+    '<button class="btn-ghost sm" onclick="rsToMockup(' + i + ')">👕 Lên áo</button>' +
+    '<button class="btn-ghost sm" onclick="copyImageToClipboard(\'data:image/png;base64,' + it.image + '\')">📋</button>' +
+    '<a class="btn-ghost sm" style="text-decoration:none" download="restyle-' + i + '.png" href="data:image/png;base64,' + it.image + '">⬇</a>' +
+    '</div></div>').join("");
+}
+function rsToMockup(i) {
+  const it = rsItems[i];
+  if (!it) return;
+  showApp("clone");
+  showDesign(it.image);
+  const b = $("sendToMockup"); if (b) b.click();
 }
 
 /* =====================================================================

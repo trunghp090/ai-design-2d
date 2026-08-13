@@ -54,6 +54,7 @@
     <button class="app-tab" data-app="recolor" data-group="work">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao" data-group="work">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="work">✨ Tạo design</button>
+    <button class="app-tab" data-app="restyle" data-group="work">🎭 Đổi style</button>
     <button class="app-tab" data-app="psn" data-group="work">🎁 Personalized</button>
     <button class="app-tab" data-app="namedes" data-group="work">✍️ Design tên</button>
     <button class="app-tab" data-app="mixd" data-group="work">🧪 Mix Design</button>
@@ -1866,6 +1867,43 @@
       <div id="pnlChart"></div>
       <div id="pnlTop"></div>
       <div class="gallery-empty hidden" id="pnlEmpty">Chưa có dữ liệu (kiểm tra cấu hình Shopify / FB Ads).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-restyle">
+    <div class="panel" style="max-width:1150px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🎭 Đổi style design</h2>
+      <p class="panel-desc" style="margin:0 0 12px">Up 1 design bất kỳ → tick các style muốn thử → AI <b>giữ nguyên chữ &amp; nội dung</b> nhưng thiết kế lại theo TỪNG style đã chọn.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:0 0 300px;min-width:260px">
+          <label class="dropzone" id="rsDrop" style="min-height:150px;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer">
+            <span id="rsDropHint">📐 Bấm / kéo-thả / Ctrl+V<br>ảnh design gốc</span>
+            <img id="rsPreview" class="hidden" style="max-width:100%;max-height:220px;object-fit:contain">
+          </label>
+          <input type="file" id="rsFile" accept="image/*" class="hidden">
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:12.5px;font-weight:600">Số bản / style
+              <select id="rsPer" class="input" style="width:auto;padding:4px 8px;margin-left:4px">
+                <option value="1" selected>1</option><option value="2">2</option>
+              </select>
+            </label>
+          </div>
+          <input type="text" id="rsExtra" class="input" style="margin-top:8px" placeholder="✏️ Yêu cầu thêm (tuỳ chọn)">
+          <button class="btn-primary" id="rsGen" style="margin-top:10px;width:100%">🎭 Thiết kế lại theo style đã chọn</button>
+          <p class="gen-note" id="rsNote" style="margin-top:8px"></p>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <b style="font-size:13.5px">Chọn style (<span id="rsSelN">0</span>/8)</b>
+            <input type="text" id="rsFilter" class="input" style="width:200px;padding:5px 10px" placeholder="🔎 Lọc style…">
+            <button class="btn-ghost sm" id="rsClear">Bỏ chọn hết</button>
+          </div>
+          <div id="rsStyles" class="pnl-metric-list" style="max-height:300px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div id="rsGrid" class="auto-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px"></div>
+      </div>
     </div>
   </section>
 
