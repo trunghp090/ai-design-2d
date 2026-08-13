@@ -6866,13 +6866,18 @@ async function rsGenerate() {
     const r = await fetch("/api/restyle-gen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: rsImg, styles: [...rsSel], per_style: parseInt($("rsPer").value, 10), extra: $("rsExtra").value }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    let have = 0;
+    let have = 0, polling = false;
     note.textContent = "🎨 Đang thiết kế lại 0/" + d.total + "…";
     clearInterval(rsT);
     rsT = setInterval(async () => {
+      if (polling) return;                 // chống 2 nhịp poll chồng nhau -> item nhân bản
+      polling = true;
       try {
         const s = await (await fetch("/api/batch-status?id=" + d.job_id + "&have=" + have)).json();
-        (s.items || []).forEach(it => { rsItems.unshift(it); });
+        (s.items || []).forEach(it => {
+          const key = it.gallery || (it.image || "").slice(0, 80);
+          if (!rsItems.some(x => (x.gallery || (x.image || "").slice(0, 80)) === key)) rsItems.unshift(it);
+        });
         have += (s.items || []).length;
         rsRenderGrid();
         note.textContent = "🎨 Đang thiết kế lại " + s.done + "/" + s.total + "…" +
@@ -6884,7 +6889,7 @@ async function rsGenerate() {
           note.textContent = "✓ Xong " + have + " bản" +
             ((s.errors || []).length ? " · lỗi: " + s.errors[0] : "");
         }
-      } catch (e) {}
+      } catch (e) {} finally { polling = false; }
     }, 2500);
   } catch (e) {
     btn.disabled = false;

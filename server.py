@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-restyle-tab"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-restyle-dedup"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -7884,9 +7884,14 @@ def recent_products(n=5):
     return out
 
 
+_gallery_seq = [0]
+
+
 def gallery_add(b64, meta):
     os.makedirs(GALLERY_DIR, exist_ok=True)
-    gid = "d%d" % int(time.time() * 1000)
+    with _batch_lock:
+        _gallery_seq[0] += 1
+        gid = "d%d_%d" % (int(time.time() * 1000), _gallery_seq[0])
     with open(os.path.join(GALLERY_DIR, gid + ".png"), "wb") as f:
         f.write(base64.b64decode(b64))
     items = gallery_load()
