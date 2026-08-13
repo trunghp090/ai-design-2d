@@ -1021,6 +1021,26 @@ setTimeout(function () {
 }, 0);
 // đánh dấu user đã tự điều hướng (để sau khi biết quyền admin không nhảy trang mất chỗ)
 document.addEventListener("pointerdown", function () { window.__userNav = true; }, { capture: true });
+// tab mở lâu: tự phát hiện có bản mới -> banner mời tải lại (chống chạy JS cũ gây đơ)
+(function verWatch() {
+  let myVer = null;
+  const check = () => fetch("/api/version").then(r => r.json()).then(d => {
+    if (!d.version) return;
+    if (myVer === null) { myVer = d.version; return; }
+    if (d.version !== myVer && !document.getElementById("verBanner")) {
+      const b = document.createElement("div");
+      b.id = "verBanner";
+      b.style.cssText = "position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:9999;" +
+        "background:#8a1f3d;color:#fff;padding:10px 20px;border-radius:999px;font-size:13.5px;" +
+        "font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer";
+      b.textContent = "🔄 Tool có bản mới — bấm để cập nhật";
+      b.onclick = () => location.reload();
+      document.body.appendChild(b);
+    }
+  }).catch(() => {});
+  check();
+  setInterval(check, 5 * 60 * 1000);
+})();
 
 /* ---------- 📱 MENU TRƯỢT TRÁI (mobile): danh sách tab dạng drawer ---------- */
 (function navDrawerSetup() {

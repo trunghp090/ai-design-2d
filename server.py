@@ -33,7 +33,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-perms-fail-closed"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-cachebust-verwatch"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8793,6 +8793,10 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
         with open(fp, "rb") as f:
             data = f.read()
+        if fp.endswith(".html"):
+            # gắn version vào asset -> deploy mới là browser bắt buộc tải JS/CSS mới
+            data = data.replace(b'src="/app.js"', b'src="/app.js?v=%s"' % APP_VERSION.encode())
+            data = data.replace(b'href="/styles.css"', b'href="/styles.css?v=%s"' % APP_VERSION.encode())
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         if path.startswith("/gallery/") or path.startswith("/mockups/"):
