@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-tdesign-tab"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-artwork"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5792,11 +5792,22 @@ def td_render(spec, W=2000, H=2400):
     """Render bản thiết kế JSON -> PNG b64 (nền trong suốt).
     spec.elements: [{type:'text'|'icon', ...}] — x,y tỉ lệ 0..1 (tâm), size px, w tỉ lệ bề rộng."""
     canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    for el in (spec.get("elements") or [])[:14]:
+    _order = {"art": 0, "icon": 1, "text": 2}
+    els = sorted((spec.get("elements") or [])[:14],
+                 key=lambda e: _order.get(e.get("type", "text"), 2))
+    for el in els:
         try:
-            x = float(el.get("x", 0.5)) * W
-            y = float(el.get("y", 0.5)) * H
+            x = min(0.97, max(0.03, float(el.get("x", 0.5)))) * W
+            y = min(0.98, max(0.02, float(el.get("y", 0.5)))) * H
             rot = float(el.get("rotate", 0) or 0)
+            if el.get("type") == "art" and el.get("_img"):
+                art = Image.open(io.BytesIO(base64.b64decode(el["_img"]))).convert("RGBA")
+                tw = max(80, int(min(0.9, float(el.get("w", 0.5))) * W))
+                art = art.resize((tw, int(tw * art.height / art.width)), Image.LANCZOS)
+                if rot:
+                    art = art.rotate(-rot, expand=True, resample=Image.BICUBIC)
+                canvas.alpha_composite(art, (int(x - art.width / 2), int(y - art.height / 2)))
+                continue
             if el.get("type") == "icon":
                 iid = el.get("id")
                 if iid not in TD_ICONS:
@@ -5825,8 +5836,12 @@ def td_render(spec, W=2000, H=2400):
                 tim = _td_text_img(txt, fid, size, color, stroke_w, stroke_color, spacing)
             # ép bề rộng theo el.w nếu có (giữ tỉ lệ)
             if el.get("w"):
-                tw = max(60, int(float(el["w"]) * W))
+                tw = max(60, int(min(0.94, float(el["w"])) * W))
                 tim = tim.resize((tw, max(1, int(tw * tim.height / tim.width))), Image.LANCZOS)
+            # AUTO-FIT: chữ dài quá khung -> co lại cho vừa (không bao giờ tràn/mất chữ)
+            maxw = int(W * 0.94)
+            if tim.width > maxw:
+                tim = tim.resize((maxw, max(1, int(maxw * tim.height / tim.width))), Image.LANCZOS)
             if rot:
                 tim = tim.rotate(-rot, expand=True, resample=Image.BICUBIC)
             canvas.alpha_composite(tim, (int(x - tim.width / 2), int(y - tim.height / 2)))
@@ -5853,26 +5868,32 @@ Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#he
 - arc: độ cong cung tròn, 20..80 = cong lên (kiểu badge), -20..-80 = cong xuống, 0 = thẳng.
 - stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
 Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
+Element ARTWORK AI VẼ: {"type":"art","prompt":"<mô tả TIẾNG ANH artwork — TUYỆT ĐỐI KHÔNG chữ/số/từ nào trong tranh>","x":0.5,"y":0.48,"w":0.55}
+- artwork = minh hoạ trung tâm (con vật, người cách điệu, cảnh, đồ vật, hoa văn) do AI vẽ, máy sẽ ghép vào — mô tả rõ STYLE trong prompt (flat vector / watercolor / vintage engraving / cute cartoon mascot / line art...). Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
 
 QUY TẮC:
 - Trả đúng n bản thiết kế KHÁC NHAU rõ rệt (bố cục, font pairing, màu).
 - Palette in áo: 1-3 màu/bản, tương phản tốt trên nền áo sáng LẪN tối (tránh màu quá nhạt).
 - Chữ chính TO nổi bật; dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
+- ƯỚC LƯỢNG bề rộng chữ ≈ size × 0.55 × số ký tự — PHẢI ≤ 1900px. Câu dài (>14 ký tự) thì TÁCH thành 2-3 element chữ xếp dòng, đừng nhồi 1 dòng size to.
+- Máy vẽ theo LỚP: artwork dưới cùng, chữ LUÔN nằm trên — nhưng vẫn nên đặt chữ ở vùng thoáng (trên/dưới artwork), tránh tâm artwork.
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
-- Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
+- Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
 
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
 
 
-def run_td_job(job_id, theme, text, sub, n, hint):
+def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
     job = BATCH_JOBS[job_id]
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
     icons_desc = ", ".join(TD_ICONS)
     sys_p = TD_SYSTEM % (fonts_desc, icons_desc)
-    user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\nTạo n=%d bản thiết kế."
+    user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
-                 ("Gợi ý style: " + hint) if hint else "", n))
+                 ("Gợi ý style: " + hint) if hint else "",
+                 ("HẦU HẾT các bản NÊN có 1 element artwork AI vẽ làm tâm thị giác."
+                  if use_art else "KHÔNG dùng element type art (chỉ chữ + icon)."), n))
     try:
         job["note"] = "🧠 Claude đang sắp bố cục…"
         raw = ai_json(sys_p, user_p, max_tokens=6000)
@@ -5891,9 +5912,22 @@ def run_td_job(job_id, theme, text, sub, n, hint):
             job["errors"].append("AI layout: " + str(e)[:160])
             job["finished"] = True
         return
-    job["note"] = "🔠 Đang render font thật…"
-    for spec in designs[:n]:
+    for di, spec in enumerate(designs[:n]):
         try:
+            # AI vẽ artwork (nếu có) -> tách nền -> cache vào spec (_img) để sửa chữ re-render 0 đồng
+            for el in (spec.get("elements") or []):
+                if el.get("type") == "art" and el.get("prompt") and use_art:
+                    job["note"] = "🎨 AI đang vẽ artwork bản %d/%d…" % (di + 1, min(n, len(designs)))
+                    try:
+                        ap = (str(el["prompt"])[:400] +
+                              " — single isolated graphic centered on a plain solid white background, "
+                              "ABSOLUTELY NO text, no letters, no numbers, no watermark, "
+                              "clean edges, t-shirt print artwork")
+                        raw_art = base64.b64decode(openai_generate(ap, "1024x1024"))
+                        el["_img"] = base64.b64encode(remove_flat_bg(raw_art)).decode()
+                    except Exception as e:
+                        print("td art fail:", e, flush=True)
+            job["note"] = "🔠 Đang render font thật bản %d…" % (di + 1)
             b64 = td_render(spec)
             g = gallery_add(b64, {"mode": "design", "prompt": "🔠 " + (spec.get("title") or "font thật")})
             with _batch_lock:
@@ -10477,7 +10511,9 @@ class Handler(BaseHTTPRequestHandler):
             _batch_seq[0] += 1
             job_id = "td%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False, "note": ""}
-        threading.Thread(target=run_td_job, args=(job_id, theme, text, sub, n, hint), daemon=True).start()
+        use_art = bool(body.get("art", True))
+        threading.Thread(target=run_td_job,
+                         args=(job_id, theme, text, sub, n, hint, use_art), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_td_render(self, body):

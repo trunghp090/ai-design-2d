@@ -6823,7 +6823,8 @@ async function tdGenerate() {
   try {
     const r = await fetch("/api/td-gen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: text, sub: $("tdSub").value, theme: $("tdTheme").value,
-                             hint: $("tdHint").value, n: parseInt($("tdN").value, 10) }) });
+                             hint: $("tdHint").value, n: parseInt($("tdN").value, 10),
+                             art: $("tdArt").checked }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     let have = 0, polling = false;
     clearInterval(tdT);
