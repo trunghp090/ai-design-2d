@@ -16,6 +16,7 @@ import datetime
 import hashlib
 import io
 import json
+import math
 import mimetypes
 import os
 import random
@@ -33,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-restyle-zoom"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-tdesign-tab"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -49,7 +50,7 @@ GEN_URL = "https://api.openai.com/v1/images/generations"
 CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 try:
-    from PIL import Image, ImageFilter
+    from PIL import Image, ImageFilter, ImageFont, ImageDraw
     HAS_PIL = True
 except Exception:
     HAS_PIL = False
@@ -5699,6 +5700,215 @@ def _gen_base_b64(prompt, size, transparent=True):
     return b64
 
 
+# ============ 🔠 DESIGN FONT THẬT — compose chữ (font .ttf) + icon, KHÔNG AI vẽ ============
+FONT_DIR = os.path.join(ROOT, "fonts")
+ICON_DIR = os.path.join(ROOT, "icons")
+TD_FONTS = {   # id -> (file, mô tả cho AI chọn)
+    "anton": ("Anton.ttf", "ultra-bold condensed display — varsity/statement/impact"),
+    "archivo": ("ArchivoBlack.ttf", "heavy geometric sans — bold statement, modern"),
+    "oswald": ("Oswald.ttf", "condensed sans — clean sporty subtitle"),
+    "lobster": ("Lobster.ttf", "bold retro script — playful vintage"),
+    "pacifico": ("Pacifico.ttf", "round surf script — fun, friendly"),
+    "dancing": ("DancingScript.ttf", "elegant calligraphy — romantic, wedding"),
+    "bungee": ("Bungee.ttf", "chunky urban display — y2k, streetwear"),
+    "patrick": ("PatrickHand.ttf", "handwritten marker — doodle, cute"),
+    "playfair": ("PlayfairDisplay.ttf", "classic serif — luxury, elegant"),
+    "baloo": ("Baloo2.ttf", "rounded bubble — kawaii, kids, cheerful"),
+}
+TD_ICONS = ["heart", "sparkle_heart", "broken_heart", "star", "fire", "crown", "beer", "beers",
+            "wine", "cocktail", "pingpong", "tennis", "soccer", "basketball", "fishing", "fish",
+            "flower", "rose", "clover", "sun", "moon", "mountain", "coffee", "bear", "cat", "dog",
+            "butterfly", "dove", "guitar", "music", "diamond", "lightning"]
+_td_font_cache = {}
+
+
+def td_font(fid, size):
+    key = (fid, int(size))
+    if key not in _td_font_cache:
+        fname = TD_FONTS.get(fid, TD_FONTS["anton"])[0]
+        _td_font_cache[key] = ImageFont.truetype(os.path.join(FONT_DIR, fname), int(size))
+    return _td_font_cache[key]
+
+
+def _td_text_img(text, fid, size, color, stroke_w=0, stroke_color="#ffffff", spacing=0):
+    """Render 1 dòng chữ (font thật) -> RGBA image vừa khít. spacing = px thêm giữa ký tự."""
+    ft = td_font(fid, size)
+    pad = int(size * 0.35) + stroke_w * 2
+    if spacing <= 0:
+        try:
+            l, t, r, b = ft.getbbox(text, stroke_width=stroke_w)
+        except TypeError:
+            l, t, r, b = ft.getbbox(text)
+        im = Image.new("RGBA", (max(1, r - l) + pad * 2, max(1, b - t) + pad * 2), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.text((pad - l, pad - t), text, font=ft, fill=color,
+               stroke_width=stroke_w, stroke_fill=stroke_color)
+        return im
+    # letter-spacing: vẽ từng ký tự
+    widths = [ft.getlength(ch) for ch in text]
+    total = int(sum(widths) + spacing * (len(text) - 1))
+    l, t, r, b = ft.getbbox("Ạgy")
+    hh = b - t
+    im = Image.new("RGBA", (total + pad * 2, hh + pad * 2), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    x = pad
+    for ch, w in zip(text, widths):
+        d.text((x, pad - t), ch, font=ft, fill=color, stroke_width=stroke_w, stroke_fill=stroke_color)
+        x += w + spacing
+    return im
+
+
+def _td_arc_text(text, fid, size, color, arc_deg, stroke_w=0, stroke_color="#ffffff"):
+    """Chữ CONG theo cung tròn. arc_deg >0 cong lên (cười), <0 cong xuống. Trả RGBA."""
+    ft = td_font(fid, size)
+    widths = [max(1.0, ft.getlength(ch)) for ch in text]
+    total = sum(widths)
+    arc = max(10.0, min(170.0, abs(float(arc_deg))))
+    R = total / math.radians(arc)                       # bán kính sao cho chữ trải đúng cung
+    ch_h = int(size * 1.6)
+    canvas_w = int(2 * (R + ch_h)) + 40
+    canvas_h = int(2 * (R + ch_h)) + 40
+    im = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    cx, cy = canvas_w / 2.0, canvas_h / 2.0
+    up = float(arc_deg) > 0
+    start = -90 - arc / 2.0 if up else 90 + arc / 2.0
+    walked = 0.0
+    for ch, w in zip(text, widths):
+        frac = (walked + w / 2.0) / total
+        ang = start + arc * frac if up else start - arc * frac
+        rad = math.radians(ang)
+        px = cx + R * math.cos(rad)
+        py = cy + R * math.sin(rad)
+        cim = _td_text_img(ch, fid, size, color, stroke_w, stroke_color)
+        rot = -(ang + 90) if up else -(ang - 90)
+        cim = cim.rotate(rot, expand=True, resample=Image.BICUBIC)
+        im.alpha_composite(cim, (int(px - cim.width / 2), int(py - cim.height / 2)))
+        walked += w
+    bbox = im.getbbox()
+    return im.crop(bbox) if bbox else im
+
+
+def td_render(spec, W=2000, H=2400):
+    """Render bản thiết kế JSON -> PNG b64 (nền trong suốt).
+    spec.elements: [{type:'text'|'icon', ...}] — x,y tỉ lệ 0..1 (tâm), size px, w tỉ lệ bề rộng."""
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for el in (spec.get("elements") or [])[:14]:
+        try:
+            x = float(el.get("x", 0.5)) * W
+            y = float(el.get("y", 0.5)) * H
+            rot = float(el.get("rotate", 0) or 0)
+            if el.get("type") == "icon":
+                iid = el.get("id")
+                if iid not in TD_ICONS:
+                    continue
+                ic = Image.open(os.path.join(ICON_DIR, iid + ".png")).convert("RGBA")
+                tw = max(40, int(float(el.get("w", 0.2)) * W))
+                ic = ic.resize((tw, int(tw * ic.height / ic.width)), Image.LANCZOS)
+                if rot:
+                    ic = ic.rotate(-rot, expand=True, resample=Image.BICUBIC)
+                canvas.alpha_composite(ic, (int(x - ic.width / 2), int(y - ic.height / 2)))
+                continue
+            txt = str(el.get("text", "")).strip()
+            if not txt:
+                continue
+            fid = el.get("font", "anton")
+            size = max(30, min(500, int(el.get("size", 160))))
+            color = el.get("color", "#111111")
+            st = el.get("stroke") or {}
+            stroke_w = max(0, min(40, int(st.get("width", 0) or 0)))
+            stroke_color = st.get("color", "#ffffff")
+            arc = float(el.get("arc", 0) or 0)
+            spacing = int(el.get("letter_spacing", 0) or 0)
+            if abs(arc) >= 8:
+                tim = _td_arc_text(txt, fid, size, color, arc, stroke_w, stroke_color)
+            else:
+                tim = _td_text_img(txt, fid, size, color, stroke_w, stroke_color, spacing)
+            # ép bề rộng theo el.w nếu có (giữ tỉ lệ)
+            if el.get("w"):
+                tw = max(60, int(float(el["w"]) * W))
+                tim = tim.resize((tw, max(1, int(tw * tim.height / tim.width))), Image.LANCZOS)
+            if rot:
+                tim = tim.rotate(-rot, expand=True, resample=Image.BICUBIC)
+            canvas.alpha_composite(tim, (int(x - tim.width / 2), int(y - tim.height / 2)))
+        except Exception as e:
+            print("td_render el fail:", e, flush=True)
+    # crop sát nội dung + padding
+    bbox = canvas.getbbox()
+    if bbox:
+        pad = 60
+        canvas = canvas.crop((max(0, bbox[0] - pad), max(0, bbox[1] - pad),
+                              min(W, bbox[2] + pad), min(H, bbox[3] + pad)))
+    buf = io.BytesIO()
+    canvas.save(buf, "PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+TD_SYSTEM = """Bạn là art director sắp chữ áo thun (typography layout). KHÔNG vẽ — bạn trả BẢN THIẾT KẾ JSON để máy render bằng font thật.
+
+FONT có sẵn (id — đặc điểm): %s
+ICON có sẵn (id): %s
+
+Khung canvas 2000x2400 (dọc). Toạ độ x,y = tỉ lệ 0..1 tính theo TÂM phần tử. size = px chữ (80-420). w = bề rộng phần tử theo tỉ lệ canvas (icon 0.1-0.4; chữ muốn ép rộng thì đặt w 0.5-0.92).
+Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#hex","x":0.5,"y":0.30,"arc":0,"letter_spacing":0,"stroke":{"width":10,"color":"#hex"},"rotate":0}
+- arc: độ cong cung tròn, 20..80 = cong lên (kiểu badge), -20..-80 = cong xuống, 0 = thẳng.
+- stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
+Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
+
+QUY TẮC:
+- Trả đúng n bản thiết kế KHÁC NHAU rõ rệt (bố cục, font pairing, màu).
+- Palette in áo: 1-3 màu/bản, tương phản tốt trên nền áo sáng LẪN tối (tránh màu quá nhạt).
+- Chữ chính TO nổi bật; dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
+- Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
+- Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
+- Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
+
+Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
+
+
+def run_td_job(job_id, theme, text, sub, n, hint):
+    job = BATCH_JOBS[job_id]
+    fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
+    icons_desc = ", ".join(TD_ICONS)
+    sys_p = TD_SYSTEM % (fonts_desc, icons_desc)
+    user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\nTạo n=%d bản thiết kế."
+              % (theme or "tự do", text, sub or "(không có)",
+                 ("Gợi ý style: " + hint) if hint else "", n))
+    try:
+        job["note"] = "🧠 Claude đang sắp bố cục…"
+        raw = ai_json(sys_p, user_p, max_tokens=6000)
+        if isinstance(raw, str):
+            s = raw.strip()
+            if s.startswith("```"):
+                s = s.split("```")[1]
+                s = s[4:] if s[:4].lower() == "json" else s
+            i, j = s.find("{"), s.rfind("}")
+            raw = json.loads(s[i:j + 1])
+        designs = (raw or {}).get("designs") or []
+        if not designs:
+            raise RuntimeError("AI không trả bản thiết kế nào")
+    except Exception as e:
+        with _batch_lock:
+            job["errors"].append("AI layout: " + str(e)[:160])
+            job["finished"] = True
+        return
+    job["note"] = "🔠 Đang render font thật…"
+    for spec in designs[:n]:
+        try:
+            b64 = td_render(spec)
+            g = gallery_add(b64, {"mode": "design", "prompt": "🔠 " + (spec.get("title") or "font thật")})
+            with _batch_lock:
+                job["done"] += 1
+                job["items"].append({"image": b64, "title": spec.get("title") or "Bản thiết kế",
+                                     "spec": spec, "gallery": g.get("url", "")})
+        except Exception as e:
+            with _batch_lock:
+                job["done"] += 1
+                job["errors"].append(str(e)[:160])
+    with _batch_lock:
+        job["total"] = max(job["done"], 1)
+        job["finished"] = True
+
+
 def run_restyle_job(job_id, ref_b64, style_keys, per_style, size, transparent=True, extra=""):
     """🎭 ĐỔI STYLE: giữ NGUYÊN chữ/nội dung design gốc, thiết kế lại theo TỪNG style user chọn."""
     job = BATCH_JOBS[job_id]
@@ -8119,7 +8329,7 @@ _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
 ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "namedes", "mixd", "lvt",
                 "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
-                "adpost", "pgpost", "sched", "shopify", "shoplist", "restyle", "pnl", "admgr"]
+                "adpost", "pgpost", "sched", "shopify", "shoplist", "restyle", "tdesign", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
 
@@ -9504,6 +9714,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_prod_ai_prompt(body)
         if path == "/api/rate-designs":
             return self.handle_rate_designs(body)
+        if path == "/api/td-gen":
+            return self.handle_td_gen(body)
+        if path == "/api/td-render":
+            return self.handle_td_render(body)
         if path == "/api/restyle-gen":
             return self.handle_restyle_gen(body)
         if path == "/api/personalize":
@@ -10249,6 +10463,33 @@ class Handler(BaseHTTPRequestHandler):
         scores = [{"key": keys[i], "score": rated[i]["score"], "reason": rated[i]["reason"]}
                   for i in range(len(keys))]
         return self.json(200, {"scores": scores})
+
+    def handle_td_gen(self, body):
+        """🔠 Design font thật: Claude sắp layout -> render font .ttf + icon (không AI vẽ)."""
+        text = (body.get("text") or "").strip()[:80]
+        if not text:
+            return self.json(400, {"error": "Cần CHỮ CHÍNH (tên/quote)."})
+        theme = (body.get("theme") or "").strip()[:120]
+        sub = (body.get("sub") or "").strip()[:120]
+        hint = (body.get("hint") or "").strip()[:200]
+        n = max(1, min(int(body.get("n", 4) or 4), 8))
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "td%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False, "note": ""}
+        threading.Thread(target=run_td_job, args=(job_id, theme, text, sub, n, hint), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": n})
+
+    def handle_td_render(self, body):
+        """Render lại 1 spec sau khi user sửa chữ — tức thì, không tốn AI."""
+        spec = body.get("spec")
+        if not isinstance(spec, dict):
+            return self.json(400, {"error": "Thiếu spec."})
+        try:
+            b64 = td_render(spec)
+            return self.json(200, {"image": b64})
+        except Exception as e:
+            return self.json(400, {"error": str(e)[:200]})
 
     def handle_restyle_gen(self, body):
         """🎭 Up design bất kỳ -> redesign theo các style đã chọn (giữ chữ, đổi phong cách)."""

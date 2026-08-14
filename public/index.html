@@ -55,6 +55,7 @@
     <button class="app-tab" data-app="lenao" data-group="work">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="work">✨ Tạo design</button>
     <button class="app-tab" data-app="restyle" data-group="work">🎭 Đổi style</button>
+    <button class="app-tab" data-app="tdesign" data-group="work">🔠 Font thật</button>
     <button class="app-tab" data-app="psn" data-group="work">🎁 Personalized</button>
     <button class="app-tab" data-app="namedes" data-group="work">✍️ Design tên</button>
     <button class="app-tab" data-app="mixd" data-group="work">🧪 Mix Design</button>
@@ -1867,6 +1868,34 @@
       <div id="pnlChart"></div>
       <div id="pnlTop"></div>
       <div class="gallery-empty hidden" id="pnlEmpty">Chưa có dữ liệu (kiểm tra cấu hình Shopify / FB Ads).</div>
+    </div>
+  </section>
+
+  <section class="auto-view app-view hidden" id="view-tdesign">
+    <div class="panel" style="max-width:1150px;margin:0 auto">
+      <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🔠 Design font thật</h2>
+      <p class="panel-desc" style="margin:0 0 12px">AI KHÔNG vẽ — AI <b>sắp bố cục</b>, máy ghép bằng <b>font thật + icon</b> → chữ sắc nét 100%, đúng dấu tuyệt đối, <b>sửa chữ là re-render tức thì không tốn tiền</b>.</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:0 0 300px;min-width:260px">
+          <label style="font-size:12.5px;font-weight:600">CHỮ CHÍNH (tên / quote)
+            <input type="text" id="tdText" class="input" placeholder="VD: Trâm & Đặng / NHẬU LÀ PHẢI VUI"></label>
+          <label style="font-size:12.5px;font-weight:600;display:block;margin-top:8px">Dòng phụ (tuỳ chọn)
+            <input type="text" id="tdSub" class="input" placeholder="VD: EST 2026 / Uống ít thôi"></label>
+          <label style="font-size:12.5px;font-weight:600;display:block;margin-top:8px">Chủ đề / ngách
+            <input type="text" id="tdTheme" class="input" placeholder="VD: nhậu, couple, pickleball…"></label>
+          <label style="font-size:12.5px;font-weight:600;display:block;margin-top:8px">Gợi ý style (tuỳ chọn)
+            <input type="text" id="tdHint" class="input" placeholder="VD: badge tròn vintage / script lãng mạn"></label>
+          <label style="font-size:12.5px;font-weight:600;display:block;margin-top:8px">Số bản
+            <select id="tdN" class="input" style="width:auto;padding:4px 10px;margin-left:6px">
+              <option value="3">3</option><option value="4" selected>4</option><option value="6">6</option>
+            </select></label>
+          <button class="btn-primary" id="tdGen" style="margin-top:12px;width:100%">🔠 Sắp bố cục &amp; render</button>
+          <p class="gen-note" id="tdNote" style="margin-top:8px"></p>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div id="tdGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px"></div>
+        </div>
+      </div>
     </div>
   </section>
 

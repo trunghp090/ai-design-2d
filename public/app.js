@@ -841,6 +841,7 @@ function showApp(app) {
   document.getElementById("view-product").classList.toggle("hidden", app !== "product");
   document.getElementById("view-design").classList.toggle("hidden", app !== "design");
   document.getElementById("view-restyle").classList.toggle("hidden", app !== "restyle");
+  document.getElementById("view-tdesign").classList.toggle("hidden", app !== "tdesign");
   document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
   document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
   document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
@@ -872,6 +873,7 @@ function showApp(app) {
   if (app === "product") prodInit();
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
   if (app === "restyle") rsInit();
+  if (app === "tdesign") tdInit();
   if (app === "psn") psnInit();
   if (app === "setshirt") ssInit();
   if (app === "tiktok") ttInit();
@@ -6801,6 +6803,101 @@ async function pnlCfgSave() {
     pnlLoad(true);
   } catch (e) { alert("✗ " + e.message); }
   btn.disabled = false; btn.textContent = "💾 Lưu & tính lại";
+}
+
+/* =====================================================================
+   🔠 DESIGN FONT THẬT — AI sắp layout, máy render font .ttf + icon
+   ===================================================================== */
+let tdInited = false, tdItems = [], tdT = null;
+function tdInit() {
+  if (tdInited) return;
+  tdInited = true;
+  $("tdGen").onclick = tdGenerate;
+}
+async function tdGenerate() {
+  const note = $("tdNote"), btn = $("tdGen");
+  const text = $("tdText").value.trim();
+  if (!text) { note.className = "gen-note err"; note.textContent = "✗ Nhập CHỮ CHÍNH."; return; }
+  btn.disabled = true;
+  note.className = "gen-note"; note.textContent = "⏳ Đang gửi…";
+  try {
+    const r = await fetch("/api/td-gen", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text, sub: $("tdSub").value, theme: $("tdTheme").value,
+                             hint: $("tdHint").value, n: parseInt($("tdN").value, 10) }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    let have = 0, polling = false;
+    clearInterval(tdT);
+    tdT = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const s = await (await fetch("/api/batch-status?id=" + d.job_id + "&have=" + have)).json();
+        (s.items || []).forEach(it => {
+          const key = it.gallery || (it.image || "").slice(0, 80);
+          if (!tdItems.some(x => (x.gallery || (x.image || "").slice(0, 80)) === key)) tdItems.unshift(it);
+        });
+        have += (s.items || []).length;
+        tdRenderGrid();
+        note.textContent = (s.note || "") + " " + s.done + "/" + s.total;
+        if (s.finished) {
+          clearInterval(tdT);
+          btn.disabled = false;
+          note.className = "gen-note " + ((s.errors || []).length && !have ? "err" : "ok");
+          note.textContent = "✓ Xong " + have + " bản" + ((s.errors || []).length ? " · " + s.errors[0] : "");
+        }
+      } catch (e) {} finally { polling = false; }
+    }, 1500);
+  } catch (e) {
+    btn.disabled = false;
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  }
+}
+function tdRenderGrid() {
+  const g = $("tdGrid");
+  g.innerHTML = tdItems.map((it, i) => {
+    const texts = (it.spec && it.spec.elements || []).filter(e => e.type === "text");
+    const editors = texts.map((e, ti) =>
+      '<input type="text" class="input td-edit" data-i="' + i + '" data-ti="' + ti +
+      '" value="' + String(e.text).replace(/"/g, "&quot;") + '" style="font-size:12px;padding:4px 8px;margin-top:4px">').join("");
+    return '<div class="gcard" style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
+      '<div style="font-size:12px;font-weight:700;margin-bottom:6px">🔠 ' + (it.title || "") + '</div>' +
+      '<img src="data:image/png;base64,' + it.image + '" onclick="openZoom(this.src)" title="Bấm phóng to" ' +
+      'style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
+      '<details style="margin-top:6px"><summary style="font-size:12px;color:#8a1f3d;cursor:pointer">✏️ Sửa chữ (re-render tức thì)</summary>' +
+      editors +
+      '<button class="btn-ghost sm td-rerender" data-i="' + i + '" style="margin-top:6px">🔁 Render lại</button></details>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
+      '<button class="btn-ghost sm" onclick="tdToMockup(' + i + ')">👕 Lên áo</button>' +
+      "<button class=\"btn-ghost sm\" onclick=\"copyImageToClipboard('data:image/png;base64," + it.image + "')\">📋</button>" +
+      '<a class="btn-ghost sm" style="text-decoration:none" download="td-' + i + '.png" href="data:image/png;base64,' + it.image + '">⬇</a>' +
+      '</div></div>';
+  }).join("");
+  g.querySelectorAll(".td-rerender").forEach(b => b.onclick = () => tdRerender(parseInt(b.dataset.i, 10), b));
+}
+async function tdRerender(i, btn) {
+  const it = tdItems[i];
+  if (!it || !it.spec) return;
+  const card = btn.closest(".gcard");
+  const texts = (it.spec.elements || []).filter(e => e.type === "text");
+  card.querySelectorAll(".td-edit").forEach(inp => {
+    const ti = parseInt(inp.dataset.ti, 10);
+    if (texts[ti]) texts[ti].text = inp.value;
+  });
+  btn.disabled = true; btn.textContent = "⏳…";
+  try {
+    const r = await fetch("/api/td-render", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ spec: it.spec }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    it.image = d.image;
+    tdRenderGrid();
+  } catch (e) { alert("✗ " + e.message); btn.disabled = false; btn.textContent = "🔁 Render lại"; }
+}
+function tdToMockup(i) {
+  const it = tdItems[i];
+  if (!it) return;
+  showApp("clone");
+  showDesign(it.image);
+  const b = $("sendToMockup"); if (b) b.click();
 }
 
 /* =====================================================================
