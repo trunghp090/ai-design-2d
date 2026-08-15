@@ -26,6 +26,12 @@
       <p class="gen-note" id="membersNote"></p>
       <div id="membersList"></div>
     </div>
+    <div class="panel" style="margin-top:16px">
+      <h3 style="font-size:16px;margin:0 0 6px">🔠 Nạp font mới (Freepik / bất kỳ)</h3>
+      <p class="panel-desc" style="margin:0 0 10px">Tải font từ Freepik về (giải nén zip lấy file <b>.ttf/.otf</b>) rồi up lên đây — tab Font thật nhận ngay, không cần deploy. Tool tự kiểm tra dấu tiếng Việt: font không dấu sẽ chỉ được dùng cho chữ tiếng Anh/không dấu. Lưu ý: font "SVG color" (chữ nhiều màu sẵn) không dùng được — chọn bản thường.</p>
+      <input type="file" id="fontFile" accept=".ttf,.otf" multiple>
+      <p class="gen-note" id="fontNote"></p>
+    </div>
   </div>
 <script>
 "use strict";
@@ -50,6 +56,22 @@ fetch("/api/me").then(r => r.json().then(d => ({ ok: r.ok, d }))).then(({ ok, d 
   membersLoad();
 }).catch(() => { location.href = "/"; });
 $("membersRefresh").onclick = () => membersLoad();
+$("fontFile").onchange = async () => {
+  const note = $("fontNote");
+  for (const f of $("fontFile").files) {
+    note.className = "gen-note"; note.textContent = "⏳ Đang up " + f.name + "…";
+    try {
+      const data = await new Promise((res, rej) => {
+        const rd = new FileReader(); rd.onload = () => res(rd.result); rd.onerror = rej; rd.readAsDataURL(f);
+      });
+      const r = await fetch("/api/admin-font-upload", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: f.name, data: data }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+      note.className = "gen-note ok";
+      note.textContent = "✓ " + f.name + " → id '" + d.id + "' · " + d.note;
+    } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + f.name + ": " + e.message; }
+  }
+};
 
 async function membersLoad() {
   const note = $("membersNote"), list = $("membersList");

@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-freepik-ready"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-freepik-max"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5733,20 +5733,73 @@ TD_FONTS = {   # id -> (file, mô tả cho AI chọn) — TẤT CẢ đủ dấu
     "baloo": ("Baloo2.ttf", "rounded bubble — kawaii, kids, cheerful"),
     "quicksand": ("Quicksand.ttf", "rounded geometric sans — nhẹ nhàng hiện đại"),
     "comfortaa": ("Comfortaa.ttf", "round geometric — minimal mềm"),
+    "bebas": ("BebasNeue.ttf", "tall condensed caps (EN-ONLY, không dấu Việt)"),
+    "righteous": ("Righteous.ttf", "retro rounded display (EN-ONLY)"),
+    "abril": ("AbrilFatface.ttf", "fat fashion serif (EN-ONLY)"),
+    "monoton": ("Monoton.ttf", "neon line retro sign (EN-ONLY)"),
+    "rye": ("Rye.ttf", "western circus slab (EN-ONLY)"),
+    "luckiest": ("LuckiestGuy.ttf", "loud comic bubble (EN-ONLY)"),
+    "typewriter": ("SpecialElite.ttf", "vintage typewriter (EN-ONLY)"),
+    "creepster": ("Creepster.ttf", "horror drip (EN-ONLY)"),
+    "marker": ("PermanentMarker.ttf", "bút lông marker (EN-ONLY)"),
+    "ultra": ("Ultra.ttf", "heavy slab poster (EN-ONLY)"),
+    "titan": ("TitanOne.ttf", "fat bubble pop (EN-ONLY)"),
+    "russo": ("RussoOne.ttf", "sport tech sans (EN-ONLY)"),
+    "lobstertwo": ("LobsterTwoBold.ttf", "retro script bold (EN-ONLY)"),
+    "shrikhand": ("Shrikhand.ttf", "juicy bold retro (EN-ONLY)"),
 }
+# font EN-only: nếu chữ CÓ DẤU lỡ dùng -> tự đổi sang font Việt tương đương (chống ô vuông)
+EN_ONLY_FALLBACK = {"bebas": "anton", "righteous": "paytone", "abril": "yeseva",
+                    "monoton": "bungeeshade", "rye": "alfaslab", "luckiest": "bangers",
+                    "typewriter": "oswald", "creepster": "bangers", "marker": "patrick",
+                    "ultra": "alfaslab", "titan": "paytone", "russo": "archivo",
+                    "lobstertwo": "lobster", "shrikhand": "alfaslab"}
 TD_ICONS = ["heart", "sparkle_heart", "broken_heart", "star", "fire", "crown", "beer", "beers",
             "wine", "cocktail", "pingpong", "tennis", "soccer", "basketball", "fishing", "fish",
             "flower", "rose", "clover", "sun", "moon", "mountain", "coffee", "bear", "cat", "dog",
             "butterfly", "dove", "guitar", "music", "diamond", "lightning"]
+# AUTO-NHẬN font mới: mọi .ttf/.otf trong fonts/ chưa khai báo sẽ tự thêm (id = tên file thường)
+try:
+    for _f in sorted(os.listdir(FONT_DIR)):
+        if _f.lower().endswith((".ttf", ".otf")):
+            _known = {v[0] for v in TD_FONTS.values()}
+            if _f not in _known:
+                _fid = re.sub(r"[^a-z0-9]", "", _f.rsplit(".", 1)[0].lower())[:20]
+                if _fid and _fid not in TD_FONTS:
+                    TD_FONTS[_fid] = (_f, "custom font (user thêm) — thử cho headline/display")
+except Exception:
+    pass
 _td_font_cache = {}
+
+
+USER_FONT_DIR = os.path.join(DATA_DIR, "fonts")     # font user upload (bền qua deploy)
 
 
 def td_font(fid, size):
     key = (fid, int(size))
     if key not in _td_font_cache:
         fname = TD_FONTS.get(fid, TD_FONTS["anton"])[0]
-        _td_font_cache[key] = ImageFont.truetype(os.path.join(FONT_DIR, fname), int(size))
+        p = os.path.join(FONT_DIR, fname)
+        if not os.path.isfile(p):
+            p = os.path.join(USER_FONT_DIR, fname)
+        _td_font_cache[key] = ImageFont.truetype(p, int(size))
     return _td_font_cache[key]
+
+
+def load_user_fonts():
+    """Nạp font user upload (data/fonts) vào TD_FONTS."""
+    try:
+        for f in sorted(os.listdir(USER_FONT_DIR)):
+            if f.lower().endswith((".ttf", ".otf")):
+                if f not in {v[0] for v in TD_FONTS.values()}:
+                    fid = re.sub(r"[^a-z0-9]", "", f.rsplit(".", 1)[0].lower())[:20]
+                    if fid and fid not in TD_FONTS:
+                        TD_FONTS[fid] = (f, "font Freepik/user upload — display đặc biệt")
+    except Exception:
+        pass
+
+
+load_user_fonts()
 
 
 def _td_text_img(text, fid, size, color, stroke_w=0, stroke_color="#ffffff", spacing=0):
@@ -5842,6 +5895,8 @@ def td_render(spec, W=2000, H=2400):
             if not txt:
                 continue
             fid = el.get("font", "anton")
+            if fid in EN_ONLY_FALLBACK and any(ord(c) > 127 for c in txt):
+                fid = EN_ONLY_FALLBACK[fid]          # chữ có dấu -> font Việt tương đương
             size = max(30, min(500, int(el.get("size", 160))))
             color = el.get("color", "#111111")
             st = el.get("stroke") or {}
@@ -5888,7 +5943,7 @@ Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#he
 - stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
 Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
 Element ARTWORK AI VẼ: {"type":"art","prompt":"<mô tả TIẾNG ANH artwork — TUYỆT ĐỐI KHÔNG chữ/số/từ nào trong tranh>","x":0.5,"y":0.48,"w":0.55}
-Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH ảnh đồ vật/ảnh thật>","x":0.5,"y":0.5,"w":0.5} — máy tự tìm ảnh license thương mại tải về, hợp kiểu 'ảnh thật cutout' (bó hoa, chai bia, xe máy, con vật chụp thật...). Không tìm được sẽ tự chuyển sang AI vẽ.
+Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH>","x":0.5,"y":0.5,"w":0.5} — máy tìm trên Freepik (vector/nhân vật/mascot/artwork AI đủ kiểu, license thương mại) tải về dùng. ƯU TIÊN webimg cho: đồ vật, hoa lá, con vật, NHÂN VẬT/mascot phổ thông (query kiểu "funny beer mascot cartoon vector", "cute cat character illustration"). Chỉ dùng type art (AI vẽ) khi cần biểu cảm/tư thế đặc thù đúng concept mà kho khó có. Không tìm được sẽ tự chuyển sang AI vẽ.
 - STYLE ARTWORK theo chất luonvuituoi (chọn 1 ghi rõ trong prompt): (a) đầu/mặt CON VẬT bán thực biểu cảm mạnh (semi-realistic animal head, strong expression); (b) mascot cartoon NÉT OUTLINE DÀY màu phẳng (thick outline flat color cartoon); (c) khắc gỗ/engraving VINTAGE đen trắng (vintage woodcut engraving); (d) đồ vật đời thường vẽ bán thực (semi-realistic everyday object). TRÁNH kiểu sticker/emoji dễ thương bóng bẩy. Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
 
 QUY TẮC:
@@ -5899,6 +5954,8 @@ QUY TẮC:
 - ƯỚC LƯỢNG bề rộng chữ ≈ size × 0.55 × số ký tự — PHẢI ≤ 1900px. Câu dài (>14 ký tự) thì TÁCH thành 2-3 element chữ xếp dòng, đừng nhồi 1 dòng size to.
 - Máy vẽ theo LỚP: artwork dưới cùng, chữ LUÔN nằm trên — nhưng vẫn nên đặt chữ ở vùng thoáng (trên/dưới artwork), tránh tâm artwork.
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
+- Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
+- MINH HOẠ: mặc định dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI). type art chỉ khi thật đặc thù.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
 
@@ -5908,42 +5965,64 @@ Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elemen
 FREEPIK_API_KEY = os.environ.get("FREEPIK_API_KEY", "").strip()
 
 
+def _freepik_search(query, ctype):
+    params = {"term": query, "limit": 6, "order": "relevance"}
+    if ctype:
+        params["filters[content_type][%s]" % ctype] = 1
+    u = "https://api.freepik.com/v1/resources?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(u, headers={"x-freepik-api-key": FREEPIK_API_KEY,
+                                             "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        res = json.loads(r.read().decode("utf-8", "ignore"))
+    return res.get("data") or []
+
+
+def _freepik_fetch(url):
+    try:
+        # nâng cỡ preview CDN nếu có param w=/size=
+        url = re.sub(r"([?&])w=\d+", r"\g<1>w=1480", url)
+        url = re.sub(r"([?&])size=\d+", r"\g<1>size=1480", url)
+        rq = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(rq, timeout=30) as ir:
+            raw = ir.read()
+        if len(raw) > 8000 and raw[:2] != b"PK":
+            return raw
+    except Exception:
+        pass
+    return None
+
+
 def freepik_image(query):
-    """Tìm ảnh/vector trên Freepik API (cần FREEPIK_API_KEY, gói API trả phí).
-    Ưu tiên tải bản gốc qua /download; fallback ảnh preview. None nếu không có key/kết quả."""
+    """Freepik: ưu tiên VECTOR (nền trắng phẳng, tách sạch) -> photo. None nếu không key/kết quả."""
     if not FREEPIK_API_KEY:
         return None
     try:
-        u = "https://api.freepik.com/v1/resources?" + urllib.parse.urlencode(
-            {"term": query, "limit": 6, "order": "relevance"})
-        req = urllib.request.Request(u, headers={"x-freepik-api-key": FREEPIK_API_KEY,
-                                                 "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=25) as r:
-            res = json.loads(r.read().decode("utf-8", "ignore"))
-        for it in (res.get("data") or []):
-            furl = ""
-            rid = it.get("id")
-            if rid:
-                try:
-                    du = "https://api.freepik.com/v1/resources/%s/download" % rid
-                    rq = urllib.request.Request(du, headers={"x-freepik-api-key": FREEPIK_API_KEY})
-                    with urllib.request.urlopen(rq, timeout=25) as dr:
-                        dres = json.loads(dr.read().decode("utf-8", "ignore"))
-                    furl = ((dres.get("data") or {}).get("url")) or ""
-                except Exception:
-                    furl = ""
-            if not furl or furl.lower().endswith((".zip", ".eps", ".ai")):
-                furl = (((it.get("image") or {}).get("source") or {}).get("url")) or ""
-            if not furl:
-                continue
+        for ctype, q in (("vector", query + " isolated"), ("vector", query), ("photo", query)):
             try:
-                rq2 = urllib.request.Request(furl, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(rq2, timeout=30) as ir:
-                    raw = ir.read()
-                if len(raw) > 8000 and raw[:2] != b"PK":     # bỏ file zip
-                    return raw
+                items = _freepik_search(q, ctype)
             except Exception:
                 continue
+            for it in items:
+                furl = ""
+                rid = it.get("id")
+                if rid:
+                    try:
+                        du = "https://api.freepik.com/v1/resources/%s/download" % rid
+                        rq = urllib.request.Request(du, headers={"x-freepik-api-key": FREEPIK_API_KEY})
+                        with urllib.request.urlopen(rq, timeout=25) as dr:
+                            dres = json.loads(dr.read().decode("utf-8", "ignore"))
+                        furl = ((dres.get("data") or {}).get("url")) or ""
+                    except Exception:
+                        furl = ""
+                if furl and not furl.lower().endswith((".zip", ".eps", ".ai")):
+                    raw = _freepik_fetch(furl)
+                    if raw:
+                        return raw
+                purl = (((it.get("image") or {}).get("source") or {}).get("url")) or ""
+                if purl:
+                    raw = _freepik_fetch(purl)
+                    if raw:
+                        return raw
     except Exception as e:
         print("freepik fail:", e, flush=True)
     return None
@@ -6035,6 +6114,16 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
                         el["type"] = "art"          # không tìm được -> AI vẽ thay
                         el["prompt"] = el.get("query")
                 if el.get("type") == "art" and el.get("prompt") and use_art:
+                    # ƯU TIÊN FREEPIK: thử tìm kho trước, AI vẽ chỉ là dự phòng cuối
+                    job["note"] = "🌐 Đang tìm artwork Freepik bản %d…" % (di + 1)
+                    qk = str(el["prompt"])[:100]
+                    raw_k = freepik_image(qk) or openverse_image(qk)
+                    if raw_k:
+                        try:
+                            el["_img"] = base64.b64encode(strip_background(raw_k, "smart")).decode()
+                            continue
+                        except Exception:
+                            pass
                     job["note"] = "🎨 AI đang vẽ artwork bản %d/%d…" % (di + 1, min(n, len(designs)))
                     try:
                         ap = (str(el["prompt"])[:400] +
@@ -9291,6 +9380,43 @@ class Handler(BaseHTTPRequestHandler):
             tabs = [t for t in (body.get("tabs") or []) if isinstance(t, str)][:60]
             ui_order_save((u.get("email") or "").lower(), groups, tabs)
             return self.json(200, {"ok": True})
+        if path == "/api/admin-font-upload":
+            if not user_is_admin(self.current_user()):
+                return self.json(403, {"error": "Chỉ tài khoản quản trị."})
+            name = os.path.basename((body.get("name") or "").strip())
+            data = body.get("data") or ""
+            if not name.lower().endswith((".ttf", ".otf")):
+                return self.json(400, {"error": "Chỉ nhận file .ttf hoặc .otf (font Freepik tải về thường là zip — giải nén lấy file ttf/otf bên trong)."})
+            try:
+                raw = base64.b64decode(data.split(",", 1)[1] if "," in data else data)
+            except Exception:
+                return self.json(400, {"error": "File lỗi."})
+            if len(raw) > 8 * 1024 * 1024:
+                return self.json(400, {"error": "Font quá 8MB."})
+            os.makedirs(USER_FONT_DIR, exist_ok=True)
+            fp = os.path.join(USER_FONT_DIR, name)
+            with open(fp, "wb") as f:
+                f.write(raw)
+            try:
+                ft = ImageFont.truetype(fp, 60)
+                vn_ok = True
+                try:
+                    from PIL import Image as _I, ImageDraw as _D
+                    im1 = _I.new("L", (200, 100), 0); _D.Draw(im1).text((10, 10), "Ặỡễ", font=ft, fill=255)
+                    im2 = _I.new("L", (200, 100), 0); _D.Draw(im2).text((10, 10), "\u25a1\u25a1\u25a1", font=ft, fill=255)
+                    vn_ok = im1.tobytes() != im2.tobytes() and im1.getbbox() is not None
+                except Exception:
+                    vn_ok = False
+            except Exception as e:
+                os.remove(fp)
+                return self.json(400, {"error": "Không đọc được font: %s (font SVG-color Freepik không dùng được — chọn bản ttf/otf thường)." % str(e)[:80]})
+            load_user_fonts()
+            fid = re.sub(r"[^a-z0-9]", "", name.rsplit(".", 1)[0].lower())[:20]
+            if not vn_ok and fid in TD_FONTS:
+                TD_FONTS[fid] = (name, TD_FONTS[fid][1] + " (EN-ONLY)")
+                EN_ONLY_FALLBACK[fid] = "anton"
+            return self.json(200, {"ok": True, "id": fid, "vn": vn_ok,
+                                   "note": "Đủ dấu tiếng Việt" if vn_ok else "KHÔNG có dấu Việt — chỉ tự dùng cho chữ không dấu"})
         if path == "/api/admin-perms":
             if not user_is_admin(self.current_user()):
                 return self.json(403, {"error": "Chỉ tài khoản quản trị."})
