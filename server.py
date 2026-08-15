@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-font-nudge"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-no-dup-quote"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5985,7 +5985,7 @@ Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG A
 
 QUY TẮC:
 - Trả đúng n bản thiết kế KHÁC NHAU rõ rệt (bố cục, font pairing, màu).
-- ⛔ CHỮ TRONG DESIGN = ĐÚNG NGUYÊN VĂN chữ user cung cấp (CHỮ CHÍNH + dòng phụ nếu có). TUYỆT ĐỐI KHÔNG tự bịa thêm câu, slogan, chữ ký, chú thích, từ đệm nào khác. Được phép TÁCH câu user thành nhiều dòng/cụm nhưng tổng các chữ phải đúng bằng chữ user đưa.
+- ⛔ CHỮ TRONG DESIGN = ĐÚNG NGUYÊN VĂN chữ user cung cấp (CHỮ CHÍNH + dòng phụ nếu có). TUYỆT ĐỐI KHÔNG tự bịa thêm câu, slogan, chữ ký, chú thích, từ đệm nào khác. Được phép TÁCH câu user thành nhiều dòng/cụm nhưng tổng các chữ phải đúng bằng chữ user đưa — nghĩa là MỖI TỪ CHỈ XUẤT HIỆN ĐÚNG 1 LẦN, TUYỆT ĐỐI KHÔNG lặp lại nguyên câu ở 2 vị trí (vd cấm 'MY LOVE' cả trên lẫn dưới). Recipe 2 tầng (mascot-sandwich, badge-cong…) với quote ngắn: TÁCH quote làm 2 phần (vd dòng trên 'MY', dòng dưới 'LOVE'), còn quote quá ngắn không tách được thì chọn recipe 1 khối chữ.
 - Palette in áo: 1-3 màu/bản, tương phản tốt trên nền áo sáng LẪN tối (tránh màu quá nhạt).
 - Chữ chính TO nổi bật; dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
 - ƯỚC LƯỢNG bề rộng chữ ≈ size × 0.55 × số ký tự — PHẢI ≤ 1900px. Câu dài (>14 ký tự) thì TÁCH thành 2-3 element chữ xếp dòng, đừng nhồi 1 dòng size to.
