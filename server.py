@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-recipes"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-fonts-26"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5706,17 +5706,33 @@ def _gen_base_b64(prompt, size, transparent=True):
 # ============ 🔠 DESIGN FONT THẬT — compose chữ (font .ttf) + icon, KHÔNG AI vẽ ============
 FONT_DIR = os.path.join(ROOT, "fonts")
 ICON_DIR = os.path.join(ROOT, "icons")
-TD_FONTS = {   # id -> (file, mô tả cho AI chọn)
+TD_FONTS = {   # id -> (file, mô tả cho AI chọn) — TẤT CẢ đủ dấu tiếng Việt
     "anton": ("Anton.ttf", "ultra-bold condensed display — varsity/statement/impact"),
-    "archivo": ("ArchivoBlack.ttf", "heavy geometric sans — bold statement, modern"),
-    "oswald": ("Oswald.ttf", "condensed sans — clean sporty subtitle"),
+    "archivo": ("BeVietnamProBlack.ttf", "heavy modern sans (VN-native) — bold statement"),
+    "bevibold": ("BeVietnamProBold.ttf", "clean bold sans (VN-native) — sub-line, modern"),
+    "oswald": ("Oswald.ttf", "condensed sans — clean sporty subtitle, micro-text"),
+    "fjalla": ("FjallaOne.ttf", "condensed poster sans — punchy headline"),
+    "barlow": ("BarlowCondensedBold.ttf", "condensed bold — modern urban headline"),
+    "saira": ("SairaCondensedBold.ttf", "condensed sport bold — jersey/athletic"),
+    "alfaslab": ("AlfaSlabOne.ttf", "fat slab serif — vintage poster, chunky retro"),
+    "paytone": ("PaytoneOne.ttf", "round bold friendly — pop, cheerful headline"),
+    "bangers": ("Bangers.ttf", "comic shout caps — meme, funny, loud"),
+    "blackops": ("BlackOpsOne.ttf", "military stencil — army, gym, strong"),
+    "bungee": ("Bungee.ttf", "chunky urban display — y2k, streetwear"),
+    "bungeeshade": ("BungeeShade.ttf", "3D shaded display — retro sign, đổ bóng khối"),
     "lobster": ("Lobster.ttf", "bold retro script — playful vintage"),
     "pacifico": ("Pacifico.ttf", "round surf script — fun, friendly"),
     "dancing": ("DancingScript.ttf", "elegant calligraphy — romantic, wedding"),
-    "bungee": ("Bungee.ttf", "chunky urban display — y2k, streetwear"),
+    "charm": ("CharmBold.ttf", "soft VN script — nữ tính, chữ ký mềm"),
+    "pattaya": ("Pattaya.ttf", "energetic slanted script — động, trẻ"),
     "patrick": ("PatrickHand.ttf", "handwritten marker — doodle, cute"),
+    "itim": ("Itim.ttf", "rounded handwritten — dễ thương, kawaii"),
     "playfair": ("PlayfairDisplay.ttf", "classic serif — luxury, elegant"),
+    "prata": ("Prata.ttf", "high-contrast serif — sang, thời trang"),
+    "yeseva": ("YesevaOne.ttf", "vintage display serif — cổ điển, nữ hoàng"),
     "baloo": ("Baloo2.ttf", "rounded bubble — kawaii, kids, cheerful"),
+    "quicksand": ("Quicksand.ttf", "rounded geometric sans — nhẹ nhàng hiện đại"),
+    "comfortaa": ("Comfortaa.ttf", "round geometric — minimal mềm"),
 }
 TD_ICONS = ["heart", "sparkle_heart", "broken_heart", "star", "fire", "crown", "beer", "beers",
             "wine", "cocktail", "pingpong", "tennis", "soccer", "basketball", "fishing", "fish",
