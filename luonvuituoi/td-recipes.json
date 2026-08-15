@@ -3,32 +3,80 @@
   "chung": {
     "palette": "Áo đen → chữ TRẮNG + nhấn ĐỎ (hoặc VÀNG). Áo sáng → chữ ĐEN + nhấn ĐỎ / XANH LÁ ĐẬM / NAVY. Mỗi bản đúng 1 màu nhấn. Vì nền trong suốt phải dùng được cả 2 nền: ưu tiên bộ màu đậm (đen #1a1a1a, đỏ #c8102e, vàng #f2a900, xanh lá #1c6b3c, navy #14213d) + stroke trắng khi cần.",
     "twist": "Chất luonvuituoi = câu 2 VẾ hài: vế SETUP chữ NHỎ (script dancing/pacifico, màu nhấn, hay nghiêng -3..-8°) + vế PUNCHLINE chữ TO ĐẬM (anton/archivo CAPS). Từ nối ('nhưng','thì','ai đó','bạn thì') là element chữ NHỎ RIÊNG chen giữa/cạnh dòng to.",
-    "kythuat": "Chữ ký/micro-text: 1 dòng oswald size 50-70 màu nhạt dưới cùng làm chữ ký brand/chú thích. Dòng nghiêng: rotate -3..-6 tạo động. In gọn: tổng bề ngang phần tử chính ~0.5-0.75 canvas, KHÔNG nhồi kín."
+    "kythuat": "Chữ ký/micro-text: 1 dòng oswald size 50-70 màu nhạt dưới cùng làm chữ ký brand/chú thích. Dòng nghiêng: rotate -3..-6 tạo động. In gọn: tổng bề ngang phần tử chính ~0.5-0.75 canvas, KHÔNG nhồi kín. BỐ CỤC CHẶT: toàn bộ cụm element gói trong dải y 0.2-0.72, gap giữa khối chữ và artwork ≤0.1 — KHÔNG rải sát mép trên/dưới canvas. Khối stack: các dòng cùng fit_w (vd 0.78) cho mép đều tăm tắp."
   },
   "recipes": [
-    {"id": "twist-2-tang", "ten": "Twist 2 tầng nghiêng", "mau": "NGƯỜI TÌNH ✦ HỢP LÍ",
-     "layout": "2 dòng CAPS đậm (anton) cùng rotate -4°: dòng 1 size ~0.75 dòng 2; icon nhỏ (star/sparkle) chen đầu dòng 2; 1 gạch ngang màu nhấn (text '━━━' hoặc bỏ) dưới; chữ ký script nhỏ nghiêng góc phải dưới. Trắng + nhấn đỏ."},
-    {"id": "stack-deu", "ten": "Stack đều cả câu", "mau": "I LOVE MY GIRLFRIEND...",
-     "layout": "Cả câu tách 4-6 dòng CAPS archivo CÙNG size (140-190), cùng màu, line-gap đều ~0.055 y, thẳng giữa, KHÔNG icon/art. Hợp câu dài tuyên ngôn."},
-    {"id": "spread-tach-tu", "ten": "Từ rải so-le", "mau": "lương 5 chẹo / làm vẹo / sống lưng",
-     "layout": "Câu tách TỪNG TỪ/CỤM thành element riêng chữ thường (KHÔNG caps, oswald/patrick size vừa 130-170) rải 2 cột so-le (x 0.35 / 0.65 xen kẽ, y cách 0.06). Tối giản 1 màu, không hình."},
-    {"id": "minimal-script-de", "ten": "Chữ to + script đè chéo", "mau": "ATP + Around The Post",
-     "layout": "Chữ chính CỰC TO đậm (anton 380-420, 1 màu đậm) + dòng script (dancing, màu nhấn đỏ, size ~0.3 chữ chính, rotate -6) ĐÈ LÊN mép dưới chữ chính; sub CAPS serif (playfair 90-110, letter_spacing 20) ngay dưới; đoạn micro-text oswald 55 màu nhạt dưới cùng."},
-    {"id": "mascot-sandwich", "ten": "Kẹp mascot giữa 2 dòng to", "mau": "ZỮ NHƯ CHÓ / ĐÁNG YÊU",
-     "layout": "Dòng TO CAPS trên (y~0.16) + ARTWORK mascot/động vật giữa (w 0.45-0.55, y~0.45) + dòng TO CAPS dưới (y~0.78). Từ nối nhỏ script màu nhấn chen (y~0.24 và y~0.68, x lệch 0.28/0.72, rotate -5). Art prompt: đầu/mặt con vật biểu cảm mạnh, style bán thực/cartoon, KHÔNG chữ."},
-    {"id": "cartoon-caption", "ten": "Cartoon + caption", "mau": "VIỆC NHIỀU TIỀN (vịt gõ máy)",
-     "layout": "Tít bubble tròn (baloo/bungee 150-190, stroke trắng 8-12) TRÊN (y~0.14) + dòng script nhỏ màu nhấn ngay dưới tít + ARTWORK cartoon ngộ nghĩnh giữa-dưới (w 0.4-0.5, y~0.55). Biến thể đảo: artwork trên, caption đậm màu lá/đỏ dưới."},
-    {"id": "badge-cong", "ten": "Badge cong 2 cung + mascot", "mau": "SNOW RƠI NGOÀI CỬA / TASK RƠI VÀO TAY",
-     "layout": "Dòng arc LÊN (arc 40-55, baloo/bungee, màu tươi vàng/đỏ, size 120-150) TRÊN + ARTWORK mascot cute giữa (w 0.4) + dòng arc XUỐNG (arc -40..-55, màu khác: xanh lá/trắng) DƯỚI + 2-3 icon sao nhỏ (w 0.05) rải 2 bên. Mỗi dòng 1 màu."},
-    {"id": "script-lon", "ten": "Script lớn cổ điển", "mau": "Đời Cô Thủ (kiểu Coca)",
-     "layout": "1 dòng script LỚN (lobster/dancing 300-360, màu nhấn đỏ, chiếm ~0.85 w) + 2 dòng micro-text (oswald 55-65) ngay dưới. Không hình. Sang, tối giản."},
-    {"id": "do-den-nho", "ten": "Đỏ đậm + script nhỏ (best-seller)", "mau": "NGƯỜI VÔ DỤNG / để không bị lợi dụng",
-     "layout": "Dòng CAPS đậm màu nhấn ĐỎ (anton 200-250, có thể arc nhẹ 12-18) + dòng script đen nhỏ (~0.45 size dòng 1) NGAY SÁT dưới. CHỈ 2 element, print nhỏ gọn. Công thức twist phổ biến nhất kho."},
-    {"id": "rainbow-mascot", "ten": "Bubble nhiều màu + hình giữa", "mau": "THIẾU TẤT CẢ (mèo)",
-     "layout": "Tít bubble (baloo 170-210) TRÊN — nếu muốn nhiều màu thì TÁCH TỪNG TỪ thành element màu khác nhau (đỏ/vàng/xanh lá/xanh dương xen kẽ); ARTWORK con vật/nhân vật giữa (w 0.45); các TỪ NỐI nhỏ rải quanh art (x 0.3/0.7, rotate ±8, màu vàng/kem); từ chốt dưới."},
-    {"id": "highlight-cheo", "ten": "Câu dài highlight chéo + mascot", "mau": "Nếu cả đời... RỰC RỠ... HÀO NHOÁNG",
-     "layout": "Câu dài tách cụm: cụm thường đen nhỏ (oswald 110-130) + cụm NHẤN màu TO (bungee/anton 170-210, vàng/đỏ) xen kẽ, xếp CHÉO xuống (x đi 0.42→0.58, y đều); ARTWORK mascot vui giữa bố cục (w 0.4). Nhịp: nhỏ-TO-nhỏ-TO."},
-    {"id": "art-nameplate", "ten": "Artwork là chính + dòng tên nhỏ", "mau": "Phật Peter / mèo thần tài",
-     "layout": "ARTWORK chiếm chủ đạo (w 0.6-0.75, y 0.45) — nhân vật/đồ vật độc lạ, style rõ (vẽ tay/bán thực/chibi); CHỮ chỉ 1 dòng nhỏ (oswald/patrick 80-110, letter_spacing 10) đặt DƯỚI art (y~0.85) như tấm tên. Hợp concept hình là trò đùa chính."}
+    {
+      "id": "twist-2-tang",
+      "ten": "Twist 2 tầng nghiêng",
+      "mau": "NGƯỜI TÌNH ✦ HỢP LÍ",
+      "layout": "2 dòng CAPS đậm (anton) cùng rotate -4°: dòng 1 size ~0.75 dòng 2; icon nhỏ (star/sparkle) chen đầu dòng 2; 1 gạch ngang màu nhấn (text '━━━' hoặc bỏ) dưới; chữ ký script nhỏ nghiêng góc phải dưới. Trắng + nhấn đỏ."
+    },
+    {
+      "id": "stack-deu",
+      "ten": "Stack đều cả câu",
+      "mau": "I LOVE MY GIRLFRIEND...",
+      "layout": "Cả câu tách 4-6 dòng CAPS archivo CÙNG size (140-190), cùng màu, line-gap đều ~0.055 y, thẳng giữa, KHÔNG icon/art. Hợp câu dài tuyên ngôn."
+    },
+    {
+      "id": "spread-tach-tu",
+      "ten": "Từ rải so-le",
+      "mau": "lương 5 chẹo / làm vẹo / sống lưng",
+      "layout": "Câu tách TỪNG TỪ/CỤM thành element riêng chữ thường (KHÔNG caps, oswald/patrick size vừa 130-170) rải 2 cột so-le (x 0.35 / 0.65 xen kẽ, y cách 0.06). Tối giản 1 màu, không hình."
+    },
+    {
+      "id": "minimal-script-de",
+      "ten": "Chữ to + script đè chéo",
+      "mau": "ATP + Around The Post",
+      "layout": "Chữ chính CỰC TO đậm (anton 380-420, 1 màu đậm) + dòng script (dancing, màu nhấn đỏ, size ~0.3 chữ chính, rotate -6) ĐÈ LÊN mép dưới chữ chính; sub CAPS serif (playfair 90-110, letter_spacing 20) ngay dưới; đoạn micro-text oswald 55 màu nhạt dưới cùng."
+    },
+    {
+      "id": "mascot-sandwich",
+      "ten": "Kẹp mascot giữa 2 dòng to",
+      "mau": "ZỮ NHƯ CHÓ / ĐÁNG YÊU",
+      "layout": "Dòng TO CAPS trên (y~0.24) + ARTWORK mascot/động vật giữa (w 0.45-0.55, y~0.45) + dòng TO CAPS dưới (y~0.66). Từ nối nhỏ script màu nhấn chen (y~0.30 và y~0.60, x lệch 0.28/0.72, rotate -5). Art prompt: đầu/mặt con vật biểu cảm mạnh, style bán thực/cartoon, KHÔNG chữ."
+    },
+    {
+      "id": "cartoon-caption",
+      "ten": "Cartoon + caption",
+      "mau": "VIỆC NHIỀU TIỀN (vịt gõ máy)",
+      "layout": "Tít bubble tròn (baloo/bungee 150-190, stroke trắng 8-12) TRÊN (y~0.22) + dòng script nhỏ màu nhấn ngay dưới tít + ARTWORK cartoon ngộ nghĩnh giữa-dưới (w 0.4-0.5, y~0.50). Biến thể đảo: artwork trên, caption đậm màu lá/đỏ dưới."
+    },
+    {
+      "id": "badge-cong",
+      "ten": "Badge cong 2 cung + mascot",
+      "mau": "SNOW RƠI NGOÀI CỬA / TASK RƠI VÀO TAY",
+      "layout": "Dòng arc LÊN (arc 40-55, baloo/bungee, màu tươi vàng/đỏ, size 120-150) TRÊN + ARTWORK mascot cute giữa (w 0.4) + dòng arc XUỐNG (arc -40..-55, màu khác: xanh lá/trắng) DƯỚI + 2-3 icon sao nhỏ (w 0.05) rải 2 bên. Mỗi dòng 1 màu."
+    },
+    {
+      "id": "script-lon",
+      "ten": "Script lớn cổ điển",
+      "mau": "Đời Cô Thủ (kiểu Coca)",
+      "layout": "1 dòng script LỚN (lobster/dancing 300-360, màu nhấn đỏ, chiếm ~0.85 w) + 2 dòng micro-text (oswald 55-65) ngay dưới. Không hình. Sang, tối giản."
+    },
+    {
+      "id": "do-den-nho",
+      "ten": "Đỏ đậm + script nhỏ (best-seller)",
+      "mau": "NGƯỜI VÔ DỤNG / để không bị lợi dụng",
+      "layout": "Dòng CAPS đậm màu nhấn ĐỎ (anton 200-250, có thể arc nhẹ 12-18) + dòng script đen nhỏ (~0.45 size dòng 1) NGAY SÁT dưới. CHỈ 2 element, print nhỏ gọn. Công thức twist phổ biến nhất kho."
+    },
+    {
+      "id": "rainbow-mascot",
+      "ten": "Bubble nhiều màu + hình giữa",
+      "mau": "THIẾU TẤT CẢ (mèo)",
+      "layout": "Tít bubble (baloo 170-210) TRÊN — nếu muốn nhiều màu thì TÁCH TỪNG TỪ thành element màu khác nhau (đỏ/vàng/xanh lá/xanh dương xen kẽ); ARTWORK con vật/nhân vật giữa (w 0.45); các TỪ NỐI nhỏ rải quanh art (x 0.3/0.7, rotate ±8, màu vàng/kem); từ chốt dưới."
+    },
+    {
+      "id": "highlight-cheo",
+      "ten": "Câu dài highlight chéo + mascot",
+      "mau": "Nếu cả đời... RỰC RỠ... HÀO NHOÁNG",
+      "layout": "Câu dài tách cụm: cụm thường đen nhỏ (oswald 110-130) + cụm NHẤN màu TO (bungee/anton 170-210, vàng/đỏ) xen kẽ, xếp CHÉO xuống (x đi 0.42→0.58, y đều); ARTWORK mascot vui giữa bố cục (w 0.4). Nhịp: nhỏ-TO-nhỏ-TO."
+    },
+    {
+      "id": "art-nameplate",
+      "ten": "Artwork là chính + dòng tên nhỏ",
+      "mau": "Phật Peter / mèo thần tài",
+      "layout": "ARTWORK chiếm chủ đạo (w 0.6-0.75, y 0.45) — nhân vật/đồ vật độc lạ, style rõ (vẽ tay/bán thực/chibi); CHỮ chỉ 1 dòng nhỏ (oswald/patrick 80-110, letter_spacing 10) đặt DƯỚI art (y~0.72) như tấm tên. Hợp concept hình là trò đùa chính."
+    }
   ]
 }
