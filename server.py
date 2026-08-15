@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-typography"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-stretch"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5946,10 +5946,16 @@ def td_render(spec, W=2000, H=2400):
                 tim = _td_arc_text(txt, fid, size, color, arc, stroke_w, stroke_color)
             else:
                 tim = _td_text_img(txt, fid, size, color, stroke_w, stroke_color, spacing)
-            # ép bề rộng theo el.w nếu có (giữ tỉ lệ)
-            if el.get("w"):
+            # CO GIÃN CHỮ: fit_w = ép ĐÚNG bề rộng (giãn/nén ngang tự do, không giữ tỉ lệ)
+            fit_w = float(el.get("fit_w", 0) or 0)
+            if 0.15 <= fit_w <= 0.94:
+                tim = tim.resize((int(fit_w * W), tim.height), Image.LANCZOS)
+            elif el.get("w"):  # w = ép bề rộng GIỮ tỉ lệ (như cũ)
                 tw = max(60, int(min(0.94, float(el["w"])) * W))
                 tim = tim.resize((tw, max(1, int(tw * tim.height / tim.width))), Image.LANCZOS)
+            sy = float(el.get("stretch_y", 0) or 0)
+            if 0.5 <= sy <= 2.2 and abs(sy - 1.0) > 0.02:  # kéo cao / nén lùn
+                tim = tim.resize((tim.width, max(1, int(tim.height * sy))), Image.LANCZOS)
             # AUTO-FIT: chữ dài quá khung -> co lại cho vừa (không bao giờ tràn/mất chữ)
             maxw = int(W * 0.94)
             if tim.width > maxw:
@@ -5995,7 +6001,7 @@ QUY TẮC:
 - Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
 - MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art. Trước khi nghĩ query: hiểu NGHĨA + TWIST HÀI của quote (nói về ai, cảm xúc gì) — query phải khớp nghĩa đó, CỤ THỂ kiểu nhân vật/biểu cảm (vd 'flirty cartoon man heart eyes sticker'), CẤM query biểu tượng chung chung lạc đề (peace sign, chim, phong cảnh) khi quote không nói về nó.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
-- Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.\n- TYPOGRAPHY THUẦN CHỮ: trong n bản, 1-2 bản NÊN là typography KHÔNG có webimg/icon — chữ là ngôi sao: tách quote thành cụm, CHÊNH SIZE MẠNH (từ đắt nhất to gấp 2-3 lần từ thường), xen dòng rotate -3..-8 hoặc arc, letter_spacing rộng cho dòng phụ, xếp KHỐI CHẶT (các dòng sát nhau gap y 0.045-0.07), 1 từ nhấn màu khác. Mix 2-3 font tương phản (đậm + script) trong cùng khối.
+- Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.\n- TYPOGRAPHY THUẦN CHỮ: trong n bản, 1-2 bản NÊN là typography KHÔNG có webimg/icon — chữ là ngôi sao: tách quote thành cụm, CHÊNH SIZE MẠNH (từ đắt nhất to gấp 2-3 lần từ thường), xen dòng rotate -3..-8 hoặc arc, letter_spacing rộng cho dòng phụ, xếp KHỐI CHẶT (các dòng sát nhau gap y 0.045-0.07), 1 từ nhấn màu khác. Mix 2-3 font tương phản (đậm + script) trong cùng khối. CHỦ ĐỘNG CO GIÃN CHỮ khi hợp: thêm "fit_w":0.15-0.94 vào element text để ép dòng GIÃN/NÉN NGANG đúng bề rộng đó (nhiều dòng cùng fit_w = khối justified đều tăm tắp — dòng ít chữ tự giãn rộng, dòng dài tự nén); "stretch_y":0.5-2.2 để kéo chữ CAO lêu nghêu (1.3-1.8, chất poster) hoặc nén lùn (0.7-0.85). Khối stack đều: cho MỌI dòng cùng fit_w là đẹp nhất.
 
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
 
