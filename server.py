@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-clone"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-clone-font"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6341,8 +6341,12 @@ def run_td_clone_job(job_id, img_b64, new_text):
     sys_p = TD_SYSTEM % (fonts_desc, icons_desc) + td_recipes_text()
     task = ("NHIỆM VỤ CLONE: nhìn ảnh design mẫu đính kèm và MÔ PHỎNG LẠI CHÍNH XÁC NHẤT có thể "
             "bằng spec JSON (1 bản duy nhất trong designs): từng dòng chữ đúng nguyên văn trong mẫu "
-            "(đúng CAPS/thường), chọn font id trong kho GIỐNG NHẤT từng dòng, màu đúng mã hex nhìn thấy, "
-            "vị trí x/y/size/arc/rotate/stroke theo đúng tỉ lệ mẫu. "
+            "(đúng CAPS/thường), màu đúng mã hex nhìn thấy, vị trí x/y/size/arc/rotate/stroke theo đúng tỉ lệ mẫu. "
+            "CHỌN FONT THEO ĐẶC ĐIỂM CHỮ MẪU — phải khớp CẢ độ đậm LẪN loại: "
+            "sans ĐẬM condensed -> anton/fjalla/barlow/saira; sans đậm tròn -> paytone/baloo/bevietnambold; "
+            "serif -> playfair/prata/yeseva; script tay -> dancing/pacifico/charm; brush -> davitonbrush/edinburgbrush; "
+            "comic -> bangers/moonslayer. TUYỆT ĐỐI không dùng serif khi mẫu là sans (và ngược lại). "
+            "KHOẢNG CÁCH dòng bám sát mẫu — mẫu sát thì spec cũng sát (gap y nhỏ). "
             "Nếu mẫu có hình minh hoạ: thêm element art với prompt tiếng Anh mô tả CHÍNH XÁC hình đó (style + nội dung).")
     if new_text:
         task += (" SAU ĐÓ THAY CHỮ: bỏ chữ của mẫu, dùng NGUYÊN VĂN chữ mới này (tách dòng thông minh "
