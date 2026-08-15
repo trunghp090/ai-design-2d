@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-judge"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-crop"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5993,7 +5993,7 @@ QUY TẮC:
 - Trả đúng n bản thiết kế KHÁC NHAU rõ rệt (bố cục, font pairing, màu).
 - ⛔ CHỮ TRONG DESIGN = ĐÚNG NGUYÊN VĂN chữ user cung cấp (CHỮ CHÍNH + dòng phụ nếu có). TUYỆT ĐỐI KHÔNG tự bịa thêm câu, slogan, chữ ký, chú thích, từ đệm nào khác. Được phép TÁCH câu user thành nhiều dòng/cụm nhưng tổng các chữ phải đúng bằng chữ user đưa — nghĩa là MỖI TỪ CHỈ XUẤT HIỆN ĐÚNG 1 LẦN, TUYỆT ĐỐI KHÔNG lặp lại nguyên câu ở 2 vị trí (vd cấm 'MY LOVE' cả trên lẫn dưới). Recipe 2 tầng (mascot-sandwich, badge-cong…) với quote ngắn: TÁCH quote làm 2 phần (vd dòng trên 'MY', dòng dưới 'LOVE'), còn quote quá ngắn không tách được thì chọn recipe 1 khối chữ.
 - Palette in áo: 1-3 màu/bản, tương phản tốt trên nền áo sáng LẪN tối (tránh màu quá nhạt).
-- Chữ chính TO nổi bật; dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
+- Chữ chính TO nổi bật và phải dùng font ĐẬM/DÀY (bungee, paytone, baloo, alfaslab, fjalla, anton, bevietnam…) hoặc stroke dày — font MẢNH (quicksand, comfortaa, prata, itim, patrick…) CHỈ dùng cho dòng phụ/chữ nhỏ. Dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
 - ƯỚC LƯỢNG bề rộng chữ ≈ size × 0.55 × số ký tự — PHẢI ≤ 1900px. Câu dài (>14 ký tự) thì TÁCH thành 2-3 element chữ xếp dòng, đừng nhồi 1 dòng size to.
 - Máy vẽ theo LỚP: artwork dưới cùng, chữ LUÔN nằm trên — nhưng vẫn nên đặt chữ ở vùng thoáng (trên/dưới artwork), tránh tâm artwork.
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
@@ -6149,8 +6149,24 @@ def _td_pick_art(query, cands):
         return cands[0]
 
 
+def _td_art_tight(raw):
+    """Crop SÁT hình theo alpha (bỏ padding trong suốt + shadow loãng quanh artwork)."""
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        mask = im.getchannel("A").point(lambda v: 255 if v > 40 else 0)
+        bbox = mask.getbbox()
+        if bbox and (bbox[2] - bbox[0]) > 40 and (bbox[3] - bbox[1]) > 40:
+            im = im.crop(bbox)
+        buf = io.BytesIO()
+        im.save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        return raw
+
+
 def _td_clean_art(raw):
-    """Tách nền có kiểm soát: ảnh đã trong suốt sẵn thì giữ nguyên; strip mà phá nát ảnh thì trả gốc."""
+    """Tách nền có kiểm soát: ảnh đã trong suốt sẵn thì giữ nguyên; strip mà phá nát ảnh thì trả gốc.
+    Cuối cùng LUÔN crop sát hình (bỏ padding trong suốt)."""
     try:
         im = Image.open(io.BytesIO(raw))
         if im.mode in ("RGBA", "LA", "P"):
@@ -6159,14 +6175,14 @@ def _td_clean_art(raw):
             hist = a.histogram()
             transparent = sum(hist[:16])
             if transparent > rgba.width * rgba.height * 0.06:
-                return raw                      # vốn đã tách nền
+                return _td_art_tight(raw)       # vốn đã tách nền
         total = im.width * im.height
         stripped = strip_background(raw, "smart")
         st = Image.open(io.BytesIO(stripped)).convert("RGBA")
         keep = sum(st.getchannel("A").histogram()[32:])
         if keep < total * 0.06:
             return raw                          # strip phá nát -> giữ gốc còn hơn
-        return stripped
+        return _td_art_tight(stripped)
     except Exception:
         return raw
 
