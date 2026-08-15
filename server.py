@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-text-first"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-clone"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6239,6 +6239,18 @@ def _td_snap_layout(spec, W=2000, H=2400):
             e["w"] = round(w_px / W, 4)
 
 
+def _td_gen_art(prompt):
+    """Vẽ minh hoạ bằng image model: transparent native nếu model hỗ trợ, không thì nền trắng + tách nền máy."""
+    p = prompt + ". No text, no letters, no numbers, no watermark."
+    if NATIVE_TRANSPARENT:
+        return openai_generate(p + " Isolated on transparent background.", "1024x1024", transparent=True)
+    raw = base64.b64decode(openai_generate(p + " Isolated on plain pure white background.", "1024x1024"))
+    try:
+        return base64.b64encode(remove_flat_bg(raw)).decode()
+    except Exception:
+        return base64.b64encode(raw).decode()
+
+
 def openverse_image(query):
     """Tìm ảnh license THƯƠNG MẠI trên Openverse (CC) -> bytes ảnh đầu tiên tải được. None nếu không có."""
     try:
@@ -6321,6 +6333,62 @@ def _td_ref_designs(text, theme, k=3):
         return []
 
 
+def run_td_clone_job(job_id, img_b64, new_text):
+    """Nhìn ảnh design mẫu -> spec mô phỏng bằng font thật trong kho -> render."""
+    job = BATCH_JOBS[job_id]
+    fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
+    icons_desc = ", ".join(TD_ICONS)
+    sys_p = TD_SYSTEM % (fonts_desc, icons_desc) + td_recipes_text()
+    task = ("NHIỆM VỤ CLONE: nhìn ảnh design mẫu đính kèm và MÔ PHỎNG LẠI CHÍNH XÁC NHẤT có thể "
+            "bằng spec JSON (1 bản duy nhất trong designs): từng dòng chữ đúng nguyên văn trong mẫu "
+            "(đúng CAPS/thường), chọn font id trong kho GIỐNG NHẤT từng dòng, màu đúng mã hex nhìn thấy, "
+            "vị trí x/y/size/arc/rotate/stroke theo đúng tỉ lệ mẫu. "
+            "Nếu mẫu có hình minh hoạ: thêm element art với prompt tiếng Anh mô tả CHÍNH XÁC hình đó (style + nội dung).")
+    if new_text:
+        task += (" SAU ĐÓ THAY CHỮ: bỏ chữ của mẫu, dùng NGUYÊN VĂN chữ mới này (tách dòng thông minh "
+                 "theo cùng bố cục, giữ font/màu/size tương ứng): \"%s\"" % new_text)
+    try:
+        job["note"] = "🧠 GPT đang soi mẫu…"
+        content = [{"type": "text", "text": task},
+                   {"type": "image_url", "image_url": {"url": "data:image/png;base64," + img_b64, "detail": "high"}}]
+        raw = openai_chat([{"role": "system", "content": sys_p},
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=4000,
+                          model=BEST_TEXT_MODEL)
+        if isinstance(raw, str):
+            s = raw.strip()
+            if s.startswith("```"):
+                s = s.split("```")[1]
+                if s.startswith("json"):
+                    s = s[4:]
+            i, j = s.find("{"), s.rfind("}")
+            raw = json.loads(s[i:j + 1])
+        designs = raw.get("designs") or ([raw] if raw.get("elements") else [])
+        if not designs:
+            raise RuntimeError("AI không trả spec")
+        spec = designs[0]
+        for el in (spec.get("elements") or []):
+            if el.get("type") in ("art", "webimg") and (el.get("prompt") or el.get("query")):
+                job["note"] = "🎨 Đang vẽ minh hoạ (image-2)…"
+                try:
+                    raw_a = base64.b64decode(_td_gen_art(str(el.get("prompt") or el.get("query"))[:400]))
+                    el["_img"] = base64.b64encode(_td_clean_art(raw_a)).decode()
+                except Exception as e2:
+                    print("td clone art fail:", e2, flush=True)
+        _td_snap_layout(spec)
+        job["note"] = "🔠 Đang render bản clone…"
+        b64 = td_render(spec)
+        g = gallery_add(b64, {"mode": "design", "prompt": "📋 clone: " + (spec.get("title") or "mẫu")})
+        with _batch_lock:
+            job["done"] = 1
+            job["items"].append({"image": b64, "title": spec.get("title") or "Bản clone",
+                                 "spec": spec, "gallery": g.get("url", "")})
+            job["finished"] = True
+    except Exception as e:
+        with _batch_lock:
+            job["errors"].append("Clone: " + str(e)[:160])
+            job["finished"] = True
+
+
 def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art giữ cho tương thích, không dùng
     job = BATCH_JOBS[job_id]
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
@@ -6387,9 +6455,7 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
                     job["note"] = "🎨 Đang vẽ minh hoạ (image-2) bản %d…" % (di + 1)
                     raw_w = None
                     try:
-                        raw_w = base64.b64decode(openai_generate(
-                            ap + ". Isolated on transparent background, no text, no letters, no numbers.",
-                            "1024x1024", model="gpt-image-2", transparent=True))
+                        raw_w = base64.b64decode(_td_gen_art(ap))
                     except Exception as e2:
                         print("td art gen fail:", e2, flush=True)
                     if raw_w:
@@ -10259,6 +10325,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_rate_designs(body)
         if path == "/api/td-gen":
             return self.handle_td_gen(body)
+        if path == "/api/td-clone":
+            return self.handle_td_clone(body)
         if path == "/api/td-render":
             return self.handle_td_render(body)
         if path == "/api/restyle-gen":
@@ -11023,6 +11091,21 @@ class Handler(BaseHTTPRequestHandler):
         threading.Thread(target=run_td_job,
                          args=(job_id, theme, text, sub, n, hint), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n})
+
+    def handle_td_clone(self, body):
+        """📋 Clone 1 ảnh design mẫu bằng font thật: GPT-4o nhìn mẫu -> spec -> render; text mới tuỳ chọn."""
+        img = (body.get("image") or "")
+        if "," in img:
+            img = img.split(",", 1)[1]
+        if not img or len(img) < 500:
+            return self.json(400, {"error": "Cần ảnh design mẫu."})
+        new_text = (body.get("text") or "").strip()[:200]
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "td%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False, "note": ""}
+        threading.Thread(target=run_td_clone_job, args=(job_id, img, new_text), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": 1})
 
     def handle_td_render(self, body):
         """Render lại 1 spec sau khi user sửa chữ — tức thì, không tốn AI."""

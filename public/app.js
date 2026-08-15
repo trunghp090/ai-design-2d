@@ -6808,11 +6808,67 @@ async function pnlCfgSave() {
 /* =====================================================================
    🔠 DESIGN FONT THẬT — AI sắp layout, máy render font .ttf + icon
    ===================================================================== */
-let tdInited = false, tdItems = [], tdT = null;
+let tdInited = false, tdItems = [], tdT = null, tdCloneB64 = "";
 function tdInit() {
   if (tdInited) return;
   tdInited = true;
   $("tdGen").onclick = tdGenerate;
+  $("tdCloneBtn").onclick = tdClone;
+  const drop = $("tdCloneDrop"), file = $("tdCloneFile");
+  drop.onclick = () => file.click();
+  file.onchange = () => tdCloneRead(file.files[0]);
+  drop.ondragover = e => { e.preventDefault(); };
+  drop.ondrop = e => { e.preventDefault(); tdCloneRead(e.dataTransfer.files[0]); };
+}
+function tdCloneRead(f) {
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    tdCloneB64 = rd.result;
+    $("tdClonePreview").src = tdCloneB64;
+    $("tdClonePreview").classList.remove("hidden");
+    $("tdCloneHint").classList.add("hidden");
+  };
+  rd.readAsDataURL(f);
+}
+function tdPoll(jobId, note, btn, doneLabel) {
+  let have = 0, polling = false;
+  clearInterval(tdT);
+  tdT = setInterval(async () => {
+    if (polling) return;
+    polling = true;
+    try {
+      const s = await (await fetch("/api/batch-status?id=" + jobId + "&have=" + have)).json();
+      (s.items || []).forEach(it => {
+        const key = it.gallery || (it.image || "").slice(0, 80);
+        if (!tdItems.some(x => (x.gallery || (x.image || "").slice(0, 80)) === key)) tdItems.unshift(it);
+      });
+      have += (s.items || []).length;
+      tdRenderGrid();
+      note.textContent = (s.note || "") + " " + s.done + "/" + s.total;
+      if (s.finished) {
+        clearInterval(tdT);
+        btn.disabled = false;
+        note.className = "gen-note " + ((s.errors || []).length && !have ? "err" : "ok");
+        note.textContent = "✓ " + doneLabel + " " + have + " bản" + ((s.errors || []).length ? " · " + s.errors[0] : "");
+      }
+    } catch (e) {} finally { polling = false; }
+  }, 1500);
+}
+async function tdClone() {
+  const note = $("tdNote"), btn = $("tdCloneBtn");
+  if (!tdCloneB64) { note.className = "gen-note err"; note.textContent = "✗ Chọn ảnh design mẫu trước."; return; }
+  btn.disabled = true;
+  note.className = "gen-note"; note.textContent = "⏳ Đang gửi mẫu…";
+  try {
+    const r = await fetch("/api/td-clone", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: tdCloneB64, text: $("tdCloneText").value.trim() }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    tdPoll(d.job_id, note, btn, "Clone xong");
+  } catch (e) {
+    btn.disabled = false;
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  }
 }
 async function tdGenerate() {
   const note = $("tdNote"), btn = $("tdGen");
@@ -6825,28 +6881,7 @@ async function tdGenerate() {
       body: JSON.stringify({ text: text, sub: $("tdSub").value, theme: $("tdTheme").value,
                              hint: $("tdHint").value, n: parseInt($("tdN").value, 10) }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    let have = 0, polling = false;
-    clearInterval(tdT);
-    tdT = setInterval(async () => {
-      if (polling) return;
-      polling = true;
-      try {
-        const s = await (await fetch("/api/batch-status?id=" + d.job_id + "&have=" + have)).json();
-        (s.items || []).forEach(it => {
-          const key = it.gallery || (it.image || "").slice(0, 80);
-          if (!tdItems.some(x => (x.gallery || (x.image || "").slice(0, 80)) === key)) tdItems.unshift(it);
-        });
-        have += (s.items || []).length;
-        tdRenderGrid();
-        note.textContent = (s.note || "") + " " + s.done + "/" + s.total;
-        if (s.finished) {
-          clearInterval(tdT);
-          btn.disabled = false;
-          note.className = "gen-note " + ((s.errors || []).length && !have ? "err" : "ok");
-          note.textContent = "✓ Xong " + have + " bản" + ((s.errors || []).length ? " · " + s.errors[0] : "");
-        }
-      } catch (e) {} finally { polling = false; }
-    }, 1500);
+    tdPoll(d.job_id, note, btn, "Xong");
   } catch (e) {
     btn.disabled = false;
     note.className = "gen-note err"; note.textContent = "✗ " + e.message;

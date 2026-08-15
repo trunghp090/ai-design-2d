@@ -1874,7 +1874,7 @@
   <section class="auto-view app-view hidden" id="view-tdesign">
     <div class="panel" style="max-width:1150px;margin:0 auto">
       <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🔠 Design font thật</h2>
-      <p class="panel-desc" style="margin:0 0 12px">ChatGPT <b>sắp bố cục</b> + tự đọc quote <b>tìm artwork Freepik</b>, máy ghép bằng <b>font thật</b> → chữ sắc nét 100%, đúng dấu tuyệt đối, <b>sửa chữ là re-render tức thì không tốn tiền</b>.</p>
+      <p class="panel-desc" style="margin:0 0 12px">ChatGPT <b>sắp bố cục</b>, máy ghép <b>font thật</b> (text chủ đạo), minh hoạ nhỏ do <b>AI image-2</b> vẽ → chữ sắc nét 100%, đúng dấu tuyệt đối, <b>sửa chữ là re-render tức thì không tốn tiền</b>.</p>
       <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div style="flex:0 0 300px;min-width:260px">
           <label style="font-size:12.5px;font-weight:600">CHỮ CHÍNH (tên / quote)
@@ -1890,6 +1890,17 @@
               <option value="3">3</option><option value="4" selected>4</option><option value="6">6</option>
             </select></label>
           <button class="btn-primary" id="tdGen" style="margin-top:12px;width:100%">🔠 Sắp bố cục &amp; render</button>
+          <div style="margin-top:14px;border-top:1px dashed #d8c8c8;padding-top:10px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px">📋 Clone mẫu có sẵn</div>
+            <label class="dropzone" id="tdCloneDrop" style="min-height:90px;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer">
+              <span id="tdCloneHint" style="font-size:12px">Bấm / kéo-thả ảnh design mẫu<br>→ tool dựng lại bằng font thật</span>
+              <img id="tdClonePreview" class="hidden" style="max-width:100%;max-height:140px;object-fit:contain">
+            </label>
+            <input type="file" id="tdCloneFile" accept="image/*" class="hidden">
+            <label style="font-size:12.5px;font-weight:600;display:block;margin-top:8px">Đổi chữ (tuỳ chọn — trống = giữ chữ mẫu)
+              <input type="text" id="tdCloneText" class="input" placeholder="VD: BIẾT LÀ ĐANG MỆT nhưng mà..."></label>
+            <button class="btn-secondary" id="tdCloneBtn" style="margin-top:8px;width:100%">📋 Clone mẫu</button>
+          </div>
           <p class="gen-note" id="tdNote" style="margin-top:8px"></p>
         </div>
         <div style="flex:1;min-width:280px">
