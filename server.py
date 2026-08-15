@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-learn-refs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-typography"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5995,7 +5995,7 @@ QUY TẮC:
 - Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
 - MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art. Trước khi nghĩ query: hiểu NGHĨA + TWIST HÀI của quote (nói về ai, cảm xúc gì) — query phải khớp nghĩa đó, CỤ THỂ kiểu nhân vật/biểu cảm (vd 'flirty cartoon man heart eyes sticker'), CẤM query biểu tượng chung chung lạc đề (peace sign, chim, phong cảnh) khi quote không nói về nó.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
-- Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
+- Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.\n- TYPOGRAPHY THUẦN CHỮ: trong n bản, 1-2 bản NÊN là typography KHÔNG có webimg/icon — chữ là ngôi sao: tách quote thành cụm, CHÊNH SIZE MẠNH (từ đắt nhất to gấp 2-3 lần từ thường), xen dòng rotate -3..-8 hoặc arc, letter_spacing rộng cho dòng phụ, xếp KHỐI CHẶT (các dòng sát nhau gap y 0.045-0.07), 1 từ nhấn màu khác. Mix 2-3 font tương phản (đậm + script) trong cùng khối.
 
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
 
@@ -6153,7 +6153,7 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
     icons_desc = ", ".join(TD_ICONS)
     sys_p = TD_SYSTEM % (fonts_desc, icons_desc) + td_recipes_text()
-    # Quote không dấu -> gợi ý đích danh font Freepik mới để đa dạng (AI hay bám anton)
+    # Gợi ý đích danh font để đa dạng (AI hay bám anton/archivo)
     font_nudge = ""
     if not any(ord(c) > 127 for c in (text + " " + (sub or ""))):
         pool = [k for k in USER_FONT_DESC if k in TD_FONTS]
@@ -6161,6 +6161,13 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
             picks = random.sample(pool, min(max(n, 2), len(pool)))
             font_nudge = ("\nQuote KHÔNG DẤU — dùng các font này làm font CHÍNH lần lượt từng bản "
                           "(phối thêm font phụ tuỳ recipe): %s." % ", ".join(picks))
+    else:
+        vn_pool = [k for k, v in TD_FONTS.items()
+                   if "(EN-ONLY)" not in v[1] and k not in ("anton", "archivo", "bevietnam", "bevietnambold")]
+        if vn_pool:
+            picks = random.sample(vn_pool, min(max(n, 3), len(vn_pool)))
+            font_nudge = ("\nĐA DẠNG FONT: mỗi bản dùng 1 font CHÍNH KHÁC NHAU — hãy dùng lần lượt: %s "
+                          "(anton/archivo tối đa 1 bản)." % ", ".join(picks))
     user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
                  ("Gợi ý style: " + hint) if hint else "",
