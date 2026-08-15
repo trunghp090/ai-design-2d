@@ -6819,6 +6819,27 @@ function tdInit() {
   file.onchange = () => tdCloneRead(file.files[0]);
   drop.ondragover = e => { e.preventDefault(); };
   drop.ondrop = e => { e.preventDefault(); tdCloneRead(e.dataTransfer.files[0]); };
+  $("tdCloneClear").onclick = tdCloneClear;
+  // dán ảnh: Ctrl+V vào ô dán, hoặc bất kỳ đâu khi đang mở tab Font thật
+  document.addEventListener("paste", e => {
+    const v = $("view-tdesign");
+    if (!v || v.classList.contains("hidden")) return;
+    for (const it of (e.clipboardData && e.clipboardData.items || [])) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        tdCloneRead(it.getAsFile());
+        return;
+      }
+    }
+  });
+}
+function tdCloneClear() {
+  tdCloneB64 = "";
+  $("tdCloneFile").value = "";
+  $("tdClonePreview").src = "";
+  $("tdClonePreview").classList.add("hidden");
+  $("tdCloneHint").classList.remove("hidden");
+  $("tdCloneClear").classList.add("hidden");
 }
 function tdCloneRead(f) {
   if (!f) return;
@@ -6828,6 +6849,7 @@ function tdCloneRead(f) {
     $("tdClonePreview").src = tdCloneB64;
     $("tdClonePreview").classList.remove("hidden");
     $("tdCloneHint").classList.add("hidden");
+    $("tdCloneClear").classList.remove("hidden");
   };
   rd.readAsDataURL(f);
 }
