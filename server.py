@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-clone-font"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-clone-tight"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6333,6 +6333,24 @@ def _td_ref_designs(text, theme, k=3):
         return []
 
 
+def _td_compact_lines(spec, H=2400, ratio=0.30):
+    """Nén các dòng chữ về khoảng cách chuẩn của khối design áo (sát nhau như mẫu thật).
+    Giữ dòng đầu, các dòng sau xếp nối tiếp: gap = ratio × size dòng dưới."""
+    els = spec.get("elements") or []
+    texts = sorted([e for e in els if e.get("type") == "text" and str(e.get("text", "")).strip()],
+                   key=lambda t: float(t.get("y", 0.5)))
+    if len(texts) < 2:
+        return
+    def half(t):
+        return max(30, min(500, int(t.get("size", 160) or 160))) * 0.62
+    prev = texts[0]
+    for t in texts[1:]:
+        gap = max(30, int(t.get("size", 160) or 160) * ratio)
+        y_new = float(prev.get("y", 0.5)) * H + half(prev) + gap + half(t)
+        t["y"] = round(min(0.97, y_new / H), 4)
+        prev = t
+
+
 def run_td_clone_job(job_id, img_b64, new_text):
     """Nhìn ảnh design mẫu -> spec mô phỏng bằng font thật trong kho -> render."""
     job = BATCH_JOBS[job_id]
@@ -6347,7 +6365,7 @@ def run_td_clone_job(job_id, img_b64, new_text):
             "serif -> playfair/prata/yeseva; script tay -> dancing/pacifico/charm; brush -> davitonbrush/edinburgbrush; "
             "comic -> bangers/moonslayer. TUYỆT ĐỐI không dùng serif khi mẫu là sans (và ngược lại). "
             "KHOẢNG CÁCH dòng bám sát mẫu — mẫu sát thì spec cũng sát (gap y nhỏ). "
-            "Nếu mẫu có hình minh hoạ: thêm element art với prompt tiếng Anh mô tả CHÍNH XÁC hình đó (style + nội dung).")
+            "Nếu mẫu có hình minh hoạ: thêm element art với prompt tiếng Anh mô tả CHÍNH XÁC hình đó (style + nội dung) — NHẬN DIỆN ĐÚNG vật thể đặc thù theo chi tiết nhìn thấy, đừng đoán sang vật giống: quả pickleball = bóng nhựa CÓ LỖ TRÒN (perforated pickleball, KHÔNG phải bóng bàn/tennis), vợt pickleball mặt đặc không dây, bia lon ≠ chai, phở ≠ ramen… Ghi rõ đặc điểm đó vào prompt.")
     if new_text:
         task += (" SAU ĐÓ THAY CHỮ: bỏ chữ của mẫu, dùng NGUYÊN VĂN chữ mới này (tách dòng thông minh "
                  "theo cùng bố cục, giữ font/màu/size tương ứng): \"%s\"" % new_text)
@@ -6378,6 +6396,7 @@ def run_td_clone_job(job_id, img_b64, new_text):
                     el["_img"] = base64.b64encode(_td_clean_art(raw_a)).decode()
                 except Exception as e2:
                     print("td clone art fail:", e2, flush=True)
+        _td_compact_lines(spec)
         _td_snap_layout(spec)
         job["note"] = "🔠 Đang render bản clone…"
         b64 = td_render(spec)

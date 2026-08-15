@@ -6897,7 +6897,7 @@ function tdRenderGrid() {
     return '<div class="gcard" style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
       '<div style="font-size:12px;font-weight:700;margin-bottom:6px">🔠 ' + (it.title || "") + '</div>' +
       '<img src="data:image/png;base64,' + it.image + '" onclick="openZoom(this.src)" title="Bấm phóng to" ' +
-      'style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
+      'style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#c3c3c3 0 25%,#9d9d9d 0 50%) 0 0/16px 16px">' +
       '<details style="margin-top:6px"><summary style="font-size:12px;color:#8a1f3d;cursor:pointer">✏️ Sửa chữ (re-render tức thì)</summary>' +
       editors +
       '<button class="btn-ghost sm td-rerender" data-i="' + i + '" style="margin-top:6px">🔁 Render lại</button></details>' +
@@ -7033,7 +7033,7 @@ function rsRenderGrid() {
   g.innerHTML = rsItems.map((it, i) =>
     '<div class="gcard" style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
     '<div style="font-size:12px;font-weight:700;margin-bottom:6px">' + it.title + '</div>' +
-    '<img src="data:image/png;base64,' + it.image + '" onclick="openZoom(this.src)" title="Bấm để phóng to" style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px">' +
+    '<img src="data:image/png;base64,' + it.image + '" onclick="openZoom(this.src)" title="Bấm để phóng to" style="width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#c3c3c3 0 25%,#9d9d9d 0 50%) 0 0/16px 16px">' +
     '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
     '<button class="btn-ghost sm" onclick="rsToMockup(' + i + ')">👕 Lên áo</button>' +
     '<button class="btn-ghost sm" onclick="copyImageToClipboard(\'data:image/png;base64,' + it.image + '\')">📋</button>' +
