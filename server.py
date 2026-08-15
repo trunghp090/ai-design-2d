@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-badge-fix"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-text-first"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5986,7 +5986,7 @@ Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#he
 - arc: độ cong cung tròn, 20..80 = cong lên (kiểu badge), -20..-80 = cong xuống, 0 = thẳng.
 - stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
 Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
-Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH>","x":0.5,"y":0.5,"w":0.5} — máy tìm trên Freepik (vector/nhân vật/mascot/artwork AI đủ kiểu, license thương mại) tải về dùng. ƯU TIÊN webimg cho: đồ vật, hoa lá, con vật, NHÂN VẬT/mascot phổ thông (query kiểu "funny beer mascot cartoon vector", "cute cat character illustration"). Không tìm được ảnh hợp thì bản đó thuần chữ + icon (không sao).
+Element HÌNH MINH HOẠ AI VẼ: {"type":"art","prompt":"<mô tả TIẾNG ANH — chi tiết/ký hiệu/hình nhỏ phụ hoạ, KÈM style (flat vector sticker / bold outline / line art / hand-drawn), TUYỆT ĐỐI KHÔNG chữ-số-từ nào trong tranh>","x":0.5,"y":0.5,"w":0.3} — máy vẽ bằng AI nền trong suốt. Hình là PHỤ HOẠ NHỎ (w 0.15-0.4): chi tiết chen cạnh chữ, ký hiệu nhấn, gạch trang trí, mặt biểu cảm nhỏ… KHÔNG phải mascot to chiếm nửa design.
 - STYLE ARTWORK theo chất luonvuituoi (chọn 1 ghi rõ trong prompt): (a) đầu/mặt CON VẬT bán thực biểu cảm mạnh (semi-realistic animal head, strong expression); (b) mascot cartoon NÉT OUTLINE DÀY màu phẳng (thick outline flat color cartoon); (c) khắc gỗ/engraving VINTAGE đen trắng (vintage woodcut engraving); (d) đồ vật đời thường vẽ bán thực (semi-realistic everyday object). TRÁNH kiểu sticker/emoji dễ thương bóng bẩy. Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
 
 QUY TẮC:
@@ -5999,7 +5999,7 @@ QUY TẮC:
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
 - Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
 - Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
-- MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art. Trước khi nghĩ query: hiểu NGHĨA + TWIST HÀI của quote (nói về ai, cảm xúc gì) — query phải khớp nghĩa đó, CỤ THỂ kiểu nhân vật/biểu cảm (vd 'flirty cartoon man heart eyes sticker'), CẤM query biểu tượng chung chung lạc đề (peace sign, chim, phong cảnh) khi quote không nói về nó.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
+- TEXT LÀ CHỦ ĐẠO (chiếm ≥65%% diện tích design) — hình chỉ MINH HOẠ THÊM. Mỗi bản 0-2 element art NHỎ; nhiều bản thuần chữ càng tốt. Trước khi nghĩ prompt art: hiểu NGHĨA + TWIST HÀI của quote — hình phải khớp nghĩa đó (vd quote tán tỉnh -> trái tim nháy mắt nhỏ), CẤM hình lạc đề.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork. Chữ với chữ không đè nhau; nhưng CHỮ ĐÈ MÉP ARTWORK là kỹ thuật ĐẸP nên dùng có chủ đích (stroke 12-20 để tách nền) — đừng che mặt/tâm hình.
 - ⛔ CẤM BỐ CỤC "CAPTION": 1 khối chữ + 1 khối hình đứng RỜI xa nhau là XẤU. Chữ và hình phải GẮN thành 1 logo/badge thống nhất, chọn 1 trong các kiểu: (a) chữ ARC ôm sát mép trên/dưới hình (badge); (b) chữ ĐÈ MÉP hình (overlap 10-20%% chiều cao hình, stroke dày); (c) hình CHEN GIỮA 2 cụm chữ với gap ≤0.05 (sandwich SÁT); (d) typography thuần chữ không hình. Khoảng trống giữa chữ và hình KHÔNG BAO GIỜ quá 0.06.
 - MÀU THỐNG NHẤT: màu chữ phải LẤY TỪ palette artwork (màu chủ đạo hoặc màu nhấn của hình) — cả bản nhìn như 1 design vẽ chung, không phải chữ dán lên hình.
@@ -6344,8 +6344,8 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
     user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
                  ("Gợi ý style: " + hint) if hint else "",
-                 "ĐỌC KỸ quote để tự nghĩ artwork/minh hoạ HỢP NGHĨA rồi dùng element webimg "
-                 "(query tiếng Anh cụ thể). Hầu hết các bản nên có 1 webimg làm tâm thị giác.",
+                 "TEXT LÀ CHỦ ĐẠO. Nếu cần, thêm 0-2 element art NHỎ (AI vẽ, prompt tiếng Anh, "
+                 "hợp nghĩa quote) làm chi tiết phụ hoạ — không bắt buộc.",
                  font_nudge, n))
     try:
         job["note"] = "📚 Đang soi mẫu kho 3.310 design…"
@@ -6383,14 +6383,15 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
             # AI vẽ artwork (nếu có) -> tách nền -> cache vào spec (_img) để sửa chữ re-render 0 đồng
             for el in (spec.get("elements") or []):
                 if el.get("type") in ("webimg", "art") and (el.get("query") or el.get("prompt")):
-                    q = str(el.get("query") or el.get("prompt"))[:120]
-                    job["note"] = "🌐 Đang tìm ảnh + thẩm định (bản %d)…" % (di + 1)
-                    cands = freepik_candidates(q, 4)
-                    if len(cands) < 2:
-                        ov = openverse_image(q)
-                        if ov:
-                            cands.append(ov)
-                    raw_w = _td_pick_art(q, cands)
+                    ap = str(el.get("prompt") or el.get("query"))[:400]
+                    job["note"] = "🎨 Đang vẽ minh hoạ (image-2) bản %d…" % (di + 1)
+                    raw_w = None
+                    try:
+                        raw_w = base64.b64decode(openai_generate(
+                            ap + ". Isolated on transparent background, no text, no letters, no numbers.",
+                            "1024x1024", model="gpt-image-2", transparent=True))
+                    except Exception as e2:
+                        print("td art gen fail:", e2, flush=True)
                     if raw_w:
                         try:
                             el["_img"] = base64.b64encode(_td_clean_art(raw_w)).decode()
