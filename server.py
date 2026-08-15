@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-fonts-26"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-webimg"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5811,7 +5811,7 @@ def td_render(spec, W=2000, H=2400):
     """Render bản thiết kế JSON -> PNG b64 (nền trong suốt).
     spec.elements: [{type:'text'|'icon', ...}] — x,y tỉ lệ 0..1 (tâm), size px, w tỉ lệ bề rộng."""
     canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    _order = {"art": 0, "icon": 1, "text": 2}
+    _order = {"art": 0, "webimg": 0, "icon": 1, "text": 2}
     els = sorted((spec.get("elements") or [])[:14],
                  key=lambda e: _order.get(e.get("type", "text"), 2))
     for el in els:
@@ -5819,7 +5819,7 @@ def td_render(spec, W=2000, H=2400):
             x = min(0.97, max(0.03, float(el.get("x", 0.5)))) * W
             y = min(0.98, max(0.02, float(el.get("y", 0.5)))) * H
             rot = float(el.get("rotate", 0) or 0)
-            if el.get("type") == "art" and el.get("_img"):
+            if el.get("type") in ("art", "webimg") and el.get("_img"):
                 art = Image.open(io.BytesIO(base64.b64decode(el["_img"]))).convert("RGBA")
                 tw = max(80, int(min(0.9, float(el.get("w", 0.5))) * W))
                 art = art.resize((tw, int(tw * art.height / art.width)), Image.LANCZOS)
@@ -5888,10 +5888,12 @@ Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#he
 - stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
 Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
 Element ARTWORK AI VẼ: {"type":"art","prompt":"<mô tả TIẾNG ANH artwork — TUYỆT ĐỐI KHÔNG chữ/số/từ nào trong tranh>","x":0.5,"y":0.48,"w":0.55}
-- artwork = minh hoạ trung tâm (con vật, người cách điệu, cảnh, đồ vật, hoa văn) do AI vẽ, máy sẽ ghép vào — mô tả rõ STYLE trong prompt (flat vector / watercolor / vintage engraving / cute cartoon mascot / line art...). Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
+Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH ảnh đồ vật/ảnh thật>","x":0.5,"y":0.5,"w":0.5} — máy tự tìm ảnh license thương mại tải về, hợp kiểu 'ảnh thật cutout' (bó hoa, chai bia, xe máy, con vật chụp thật...). Không tìm được sẽ tự chuyển sang AI vẽ.
+- STYLE ARTWORK theo chất luonvuituoi (chọn 1 ghi rõ trong prompt): (a) đầu/mặt CON VẬT bán thực biểu cảm mạnh (semi-realistic animal head, strong expression); (b) mascot cartoon NÉT OUTLINE DÀY màu phẳng (thick outline flat color cartoon); (c) khắc gỗ/engraving VINTAGE đen trắng (vintage woodcut engraving); (d) đồ vật đời thường vẽ bán thực (semi-realistic everyday object). TRÁNH kiểu sticker/emoji dễ thương bóng bẩy. Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
 
 QUY TẮC:
 - Trả đúng n bản thiết kế KHÁC NHAU rõ rệt (bố cục, font pairing, màu).
+- ⛔ CHỮ TRONG DESIGN = ĐÚNG NGUYÊN VĂN chữ user cung cấp (CHỮ CHÍNH + dòng phụ nếu có). TUYỆT ĐỐI KHÔNG tự bịa thêm câu, slogan, chữ ký, chú thích, từ đệm nào khác. Được phép TÁCH câu user thành nhiều dòng/cụm nhưng tổng các chữ phải đúng bằng chữ user đưa.
 - Palette in áo: 1-3 màu/bản, tương phản tốt trên nền áo sáng LẪN tối (tránh màu quá nhạt).
 - Chữ chính TO nổi bật; dòng phụ nhỏ hơn 30-45%%; căn giữa trục dọc x=0.5 trừ khi cố ý lệch.
 - ƯỚC LƯỢNG bề rộng chữ ≈ size × 0.55 × số ký tự — PHẢI ≤ 1900px. Câu dài (>14 ký tự) thì TÁCH thành 2-3 element chữ xếp dòng, đừng nhồi 1 dòng size to.
@@ -5901,6 +5903,31 @@ QUY TẮC:
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
 
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
+
+
+def openverse_image(query):
+    """Tìm ảnh license THƯƠNG MẠI trên Openverse (CC) -> bytes ảnh đầu tiên tải được. None nếu không có."""
+    try:
+        u = ("https://api.openverse.org/v1/images/?q=%s&license_type=commercial"
+             "&per_page=6&mature=false" % urllib.parse.quote(query))
+        req = urllib.request.Request(u, headers={"User-Agent": "ai-design-2d/1.0"})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            res = json.loads(r.read().decode("utf-8", "ignore"))
+        for it in (res.get("results") or []):
+            img_url = it.get("url") or ""
+            if not img_url:
+                continue
+            try:
+                rq = urllib.request.Request(img_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(rq, timeout=25) as ir:
+                    raw = ir.read()
+                if len(raw) > 8000:
+                    return raw
+            except Exception:
+                continue
+    except Exception as e:
+        print("openverse fail:", e, flush=True)
+    return None
 
 
 def td_recipes_text():
@@ -5950,6 +5977,17 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
         try:
             # AI vẽ artwork (nếu có) -> tách nền -> cache vào spec (_img) để sửa chữ re-render 0 đồng
             for el in (spec.get("elements") or []):
+                if el.get("type") == "webimg" and el.get("query"):
+                    job["note"] = "🌐 Đang tìm ảnh trên mạng bản %d…" % (di + 1)
+                    raw_w = openverse_image(str(el["query"])[:120])
+                    if raw_w:
+                        try:
+                            el["_img"] = base64.b64encode(strip_background(raw_w, "smart")).decode()
+                        except Exception:
+                            el["_img"] = base64.b64encode(raw_w).decode()
+                    elif use_art:
+                        el["type"] = "art"          # không tìm được -> AI vẽ thay
+                        el["prompt"] = el.get("query")
                 if el.get("type") == "art" and el.get("prompt") and use_art:
                     job["note"] = "🎨 AI đang vẽ artwork bản %d/%d…" % (di + 1, min(n, len(designs)))
                     try:
