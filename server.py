@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-clone-paste"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-quote-lens"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5081,7 +5081,20 @@ def design_concepts_quote(quote, n, styles=None):
         "print graphic on a plain solid white background, no mockup, no shirt, no watermark'.\n"
         "Trả JSON THUẦN: {\"concepts\":[{\"title\":\"tên ngắn tiếng Việt\",\"style\":\"hướng minh hoạ đã "
         "chọn (ngắn)\",\"prompt\":\"image prompt tiếng Anh\"}]}")
-    user = "QUOTE (giữ nguyên văn): \"%s\". Nghĩ %d mẫu.%s Chỉ trả JSON." % (quote, n, sd)
+    # Chống các mẫu trùng ý tưởng (vd quote nào cũng ra mây mưa): random ép mỗi mẫu 1 lăng kính khác loại
+    _LENSES = ["mascot/nhân vật hoạt hình biểu cảm mạnh làm chủ thể",
+               "động vật ngộ nghĩnh hợp nghĩa quote",
+               "đồ vật/biểu tượng ẩn dụ BẤT NGỜ (tránh ẩn dụ hiển nhiên nhất của quote)",
+               "typography THUẦN CHỮ trang trí — không hình minh hoạ",
+               "khung cảnh mini nhỏ phía dưới/trên chữ",
+               "hoa văn + khung viền vintage badge bao quanh chữ",
+               "mặt biểu cảm kiểu sticker twist hài",
+               "halftone/retro 70s với chủ thể khác thường"]
+    _picks = random.sample(_LENSES, min(max(n, 1), len(_LENSES)))
+    lens_line = " BẮT BUỘC phân hướng minh hoạ: " + "; ".join(
+        "mẫu %d = %s" % (i + 1, p) for i, p in enumerate(_picks)) + \
+        ". HAI MẪU KHÔNG ĐƯỢC dùng cùng một loại vật thể minh hoạ."
+    user = "QUOTE (giữ nguyên văn): \"%s\". Nghĩ %d mẫu.%s%s Chỉ trả JSON." % (quote, n, sd, lens_line)
     for _attempt in range(2):
         try:
             raw = openai_chat([{"role": "system", "content": sys}, {"role": "user", "content": user}],
