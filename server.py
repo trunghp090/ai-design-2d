@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-tight"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-unified"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6000,7 +6000,10 @@ QUY TẮC:
 - Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
 - Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
 - MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art. Trước khi nghĩ query: hiểu NGHĨA + TWIST HÀI của quote (nói về ai, cảm xúc gì) — query phải khớp nghĩa đó, CỤ THỂ kiểu nhân vật/biểu cảm (vd 'flirty cartoon man heart eyes sticker'), CẤM query biểu tượng chung chung lạc đề (peace sign, chim, phong cảnh) khi quote không nói về nó.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
-- Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
+- Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork. Chữ với chữ không đè nhau; nhưng CHỮ ĐÈ MÉP ARTWORK là kỹ thuật ĐẸP nên dùng có chủ đích (stroke 12-20 để tách nền) — đừng che mặt/tâm hình.
+- ⛔ CẤM BỐ CỤC "CAPTION": 1 khối chữ + 1 khối hình đứng RỜI xa nhau là XẤU. Chữ và hình phải GẮN thành 1 logo/badge thống nhất, chọn 1 trong các kiểu: (a) chữ ARC ôm sát mép trên/dưới hình (badge); (b) chữ ĐÈ MÉP hình (overlap 10-20%% chiều cao hình, stroke dày); (c) hình CHEN GIỮA 2 cụm chữ với gap ≤0.05 (sandwich SÁT); (d) typography thuần chữ không hình. Khoảng trống giữa chữ và hình KHÔNG BAO GIỜ quá 0.06.
+- MÀU THỐNG NHẤT: màu chữ phải LẤY TỪ palette artwork (màu chủ đạo hoặc màu nhấn của hình) — cả bản nhìn như 1 design vẽ chung, không phải chữ dán lên hình.
+- QUERY WEBIMG PHẢI KÈM STYLE đồng bộ vibe font, chọn 1: "bold outline cartoon sticker" / "vintage woodcut engraving" / "retro halftone print" / "groovy 70s illustration" / "hand drawn doodle" — CẤM query trần trụi ra clipart flat rẻ tiền.
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.\n- TYPOGRAPHY THUẦN CHỮ: trong n bản, 1-2 bản NÊN là typography KHÔNG có webimg/icon — chữ là ngôi sao: tách quote thành cụm, CHÊNH SIZE MẠNH (từ đắt nhất to gấp 2-3 lần từ thường), xen dòng rotate -3..-8 hoặc arc, letter_spacing rộng cho dòng phụ, xếp KHỐI CHẶT (các dòng sát nhau gap y 0.045-0.07), 1 từ nhấn màu khác. Mix 2-3 font tương phản (đậm + script) trong cùng khối. CHỦ ĐỘNG CO GIÃN CHỮ khi hợp: thêm "fit_w":0.15-0.94 vào element text để ép dòng GIÃN/NÉN NGANG đúng bề rộng đó (nhiều dòng cùng fit_w = khối justified đều tăm tắp — dòng ít chữ tự giãn rộng, dòng dài tự nén); "stretch_y":0.5-2.2 để kéo chữ CAO lêu nghêu (1.3-1.8, chất poster) hoặc nén lùn (0.7-0.85). Khối stack đều: cho MỌI dòng cùng fit_w là đẹp nhất.
 
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
