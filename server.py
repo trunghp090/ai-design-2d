@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-unified"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-judge"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6075,6 +6075,154 @@ def freepik_image(query):
     return None
 
 
+def freepik_candidates(query, k=4):
+    """Như freepik_image nhưng trả TỐI ĐA k ảnh ứng viên để thẩm định."""
+    out = []
+    if not FREEPIK_API_KEY:
+        return out
+    try:
+        for ctype, q in (("vector", query + " isolated"), ("vector", query), ("photo", query)):
+            if len(out) >= k:
+                break
+            try:
+                items = _freepik_search(q, ctype)
+            except Exception:
+                continue
+            for it in items:
+                if len(out) >= k:
+                    break
+                furl = ""
+                rid = it.get("id")
+                if rid:
+                    try:
+                        du = "https://api.freepik.com/v1/resources/%s/download" % rid
+                        rq = urllib.request.Request(du, headers={"x-freepik-api-key": FREEPIK_API_KEY})
+                        with urllib.request.urlopen(rq, timeout=25) as dr:
+                            dres = json.loads(dr.read().decode("utf-8", "ignore"))
+                        furl = ((dres.get("data") or {}).get("url")) or ""
+                    except Exception:
+                        furl = ""
+                raw = None
+                if furl and not furl.lower().endswith((".zip", ".eps", ".ai")):
+                    raw = _freepik_fetch(furl)
+                if not raw:
+                    purl = (((it.get("image") or {}).get("source") or {}).get("url")) or ""
+                    if purl:
+                        raw = _freepik_fetch(purl)
+                if raw:
+                    out.append(raw)
+    except Exception as e:
+        print("freepik cands fail:", e, flush=True)
+    return out
+
+
+def _td_pick_art(query, cands):
+    """GPT-4o-mini NHÌN các ứng viên, chọn ảnh hợp chủ đề nhất (chặn ảnh lạc đề/sai văn hoá/bộ sưu tập rời rạc)."""
+    cands = [c for c in cands if c]
+    if not cands:
+        return None
+    if len(cands) == 1:
+        return cands[0]
+    content = [{"type": "text", "text":
+        'Chọn ảnh HỢP NHẤT làm artwork in áo thun cho chủ đề: "%s". Tiêu chí: ĐÚNG chủ đề '
+        '(cẩn thận nhầm văn hoá nước khác), 1 hình khối chính rõ ràng (không phải bộ sưu tập nhiều món lặt vặt), '
+        'nét đẹp, in áo được. Trả JSON {"best": <số từ 1>, "ok": true|false} — ok=false nếu TẤT CẢ lạc đề/xấu.' % query}]
+    for i, b in enumerate(cands):
+        try:
+            im = Image.open(io.BytesIO(b)).convert("RGB")
+            im.thumbnail((360, 360))
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=70)
+            content.append({"type": "text", "text": "Ảnh %d:" % (i + 1)})
+            content.append({"type": "image_url", "image_url":
+                            {"url": "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode(),
+                             "detail": "low"}})
+        except Exception:
+            continue
+    try:
+        r = json.loads(openai_chat([{"role": "user", "content": content}], json_mode=True, max_tokens=60))
+        if not r.get("ok"):
+            return None
+        i = int(r.get("best", 1)) - 1
+        return cands[i] if 0 <= i < len(cands) else cands[0]
+    except Exception:
+        return cands[0]
+
+
+def _td_clean_art(raw):
+    """Tách nền có kiểm soát: ảnh đã trong suốt sẵn thì giữ nguyên; strip mà phá nát ảnh thì trả gốc."""
+    try:
+        im = Image.open(io.BytesIO(raw))
+        if im.mode in ("RGBA", "LA", "P"):
+            rgba = im.convert("RGBA")
+            a = rgba.getchannel("A")
+            hist = a.histogram()
+            transparent = sum(hist[:16])
+            if transparent > rgba.width * rgba.height * 0.06:
+                return raw                      # vốn đã tách nền
+        total = im.width * im.height
+        stripped = strip_background(raw, "smart")
+        st = Image.open(io.BytesIO(stripped)).convert("RGBA")
+        keep = sum(st.getchannel("A").histogram()[32:])
+        if keep < total * 0.06:
+            return raw                          # strip phá nát -> giữ gốc còn hơn
+        return stripped
+    except Exception:
+        return raw
+
+
+def _td_snap_layout(spec, W=2000, H=2400):
+    """MÁY ép artwork nằm SÁT khối chữ (khoá bố cục 1 khối) dựa trên tỉ lệ ảnh THẬT."""
+    els = spec.get("elements") or []
+    texts = [e for e in els if e.get("type") == "text" and str(e.get("text", "")).strip()]
+    if not texts:
+        return
+    GAP = 70
+
+    def t_half(t):
+        return max(30, min(500, int(t.get("size", 160) or 160))) * 0.8
+
+    for e in els:
+        if e.get("type") not in ("webimg", "art") or not e.get("_img"):
+            continue
+        try:
+            im = Image.open(io.BytesIO(base64.b64decode(e["_img"])))
+            aspect = im.width / max(1, im.height)
+        except Exception:
+            continue
+        y_img = float(e.get("y", 0.5) or 0.5)
+        above = [t for t in texts if float(t.get("y", 0.5)) < y_img]
+        below = [t for t in texts if float(t.get("y", 0.5)) >= y_img]
+        if above and below:
+            top = max(float(t["y"]) * H + t_half(t) for t in above) + GAP
+            bot = min(float(t["y"]) * H - t_half(t) for t in below) - GAP
+            if bot - top < 260:
+                continue
+            h_px = bot - top
+            w_px = min(1750.0, h_px * aspect)
+            h_px = w_px / aspect
+            e["y"] = round(((top + bot) / 2) / H, 4)
+            e["w"] = round(w_px / W, 4)
+        elif above:
+            top = max(float(t["y"]) * H + t_half(t) for t in above) + GAP
+            w_px = min(0.85, float(e.get("w", 0.5) or 0.5)) * W
+            h_px = w_px / aspect
+            if top + h_px > H - 60:
+                h_px = H - 60 - top
+                w_px = max(300, h_px * aspect)
+            e["y"] = round((top + h_px / 2) / H, 4)
+            e["w"] = round(w_px / W, 4)
+        elif below:
+            bot = min(float(t["y"]) * H - t_half(t) for t in below) - GAP
+            w_px = min(0.85, float(e.get("w", 0.5) or 0.5)) * W
+            h_px = w_px / aspect
+            if bot - h_px < 60:
+                h_px = bot - 60
+                w_px = max(300, h_px * aspect)
+            e["y"] = round((bot - h_px / 2) / H, 4)
+            e["w"] = round(w_px / W, 4)
+
+
 def openverse_image(query):
     """Tìm ảnh license THƯƠNG MẠI trên Openverse (CC) -> bytes ảnh đầu tiên tải được. None nếu không có."""
     try:
@@ -6218,29 +6366,21 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
         try:
             # AI vẽ artwork (nếu có) -> tách nền -> cache vào spec (_img) để sửa chữ re-render 0 đồng
             for el in (spec.get("elements") or []):
-                if el.get("type") == "webimg" and el.get("query"):
-                    q = str(el["query"])[:120]
-                    job["note"] = "🌐 Đang tìm ảnh (%s) bản %d…" % (
-                        "Freepik" if FREEPIK_API_KEY else "Openverse", di + 1)
-                    raw_w = freepik_image(q) or openverse_image(q)
+                if el.get("type") in ("webimg", "art") and (el.get("query") or el.get("prompt")):
+                    q = str(el.get("query") or el.get("prompt"))[:120]
+                    job["note"] = "🌐 Đang tìm ảnh + thẩm định (bản %d)…" % (di + 1)
+                    cands = freepik_candidates(q, 4)
+                    if len(cands) < 2:
+                        ov = openverse_image(q)
+                        if ov:
+                            cands.append(ov)
+                    raw_w = _td_pick_art(q, cands)
                     if raw_w:
                         try:
-                            el["_img"] = base64.b64encode(strip_background(raw_w, "smart")).decode()
+                            el["_img"] = base64.b64encode(_td_clean_art(raw_w)).decode()
                         except Exception:
                             el["_img"] = base64.b64encode(raw_w).decode()
-                    elif use_art:
-                        el["type"] = "art"          # không tìm được -> AI vẽ thay
-                        el["prompt"] = el.get("query")
-                if el.get("type") == "art" and el.get("prompt"):
-                    # KHÔNG AI vẽ — chỉ tìm kho Freepik/Openverse, không có thì bỏ hình
-                    job["note"] = "🌐 Đang tìm artwork Freepik bản %d…" % (di + 1)
-                    qk = str(el["prompt"])[:100]
-                    raw_k = freepik_image(qk) or openverse_image(qk)
-                    if raw_k:
-                        try:
-                            el["_img"] = base64.b64encode(strip_background(raw_k, "smart")).decode()
-                        except Exception:
-                            pass
+            _td_snap_layout(spec)
             job["note"] = "🔠 Đang render font thật bản %d…" % (di + 1)
             b64 = td_render(spec)
             g = gallery_add(b64, {"mode": "design", "prompt": "🔠 " + (spec.get("title") or "font thật")})
