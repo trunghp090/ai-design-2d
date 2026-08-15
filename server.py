@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-gpt-brain-no-aigen"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-freepik-fonts-18"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5786,15 +5786,53 @@ def td_font(fid, size):
     return _td_font_cache[key]
 
 
+# Mô tả vibe cho bộ font Freepik đã curate (fid -> desc) — giúp AI chọn đúng chất
+USER_FONT_DESC = {
+    "bigrepsans": "sans dày nghiêng thể thao — tuyên ngôn mạnh, CAPS",
+    "bigrepscript": "script monoline kiểu chữ ký — vế setup nhỏ sang",
+    "blackpast": "caps rộng vững kiểu poster tối giản hiện đại",
+    "bodwars": "display kẻ sọc lạ mắt — tít to công nghệ/độc",
+    "bristerssans": "condensed retro 1920s hơi cong — tít vintage",
+    "bristersscript": "monoline script retro mảnh — chữ phụ vintage",
+    "carrolclean": "condensed western sạch — tít cao gọn",
+    "carrolstamp": "condensed western texture con dấu — vintage bụi",
+    "cloudsters": "geometric tròn sạch — hiện đại tối giản",
+    "dailysparksans": "bold vẽ tay cute năng lượng — tít vui nhộn",
+    "dailysparkscript": "script viết tay cute — vế nhỏ đáng yêu",
+    "davitonbrush": "brush cọ thô năng lượng cao — hét to, thể thao/nhậu",
+    "edinburgbrush": "brush khô mảnh tự do — chất tay bụi bặm",
+    "fireside": "display inline nét đôi retro — tít bắt mắt",
+    "glowkin": "serif fashion tương phản cao — sang chảnh magazine",
+    "moonslayer": "comic action nghiêng dày — truyện tranh/game",
+    "pastelle": "handwritten mảnh mộc mạc — ghi chú tay",
+    "runestar": "block athletic bo góc — số áo/đội nhóm",
+}
+
+
+def _font_vn_ok(fp):
+    try:
+        ft = ImageFont.truetype(fp, 60)
+        im1 = Image.new("L", (200, 100), 0); ImageDraw.Draw(im1).text((10, 10), "Ặỡễ", font=ft, fill=255)
+        im2 = Image.new("L", (200, 100), 0); ImageDraw.Draw(im2).text((10, 10), "\u25a1\u25a1\u25a1", font=ft, fill=255)
+        return im1.tobytes() != im2.tobytes() and im1.getbbox() is not None
+    except Exception:
+        return False
+
+
 def load_user_fonts():
-    """Nạp font user upload (data/fonts) vào TD_FONTS."""
+    """Nạp font user upload (data/fonts) vào TD_FONTS + tự detect dấu VN mỗi lần chạy
+    (kể cả sau restart — trước đây flag EN-ONLY mất sau deploy)."""
     try:
         for f in sorted(os.listdir(USER_FONT_DIR)):
             if f.lower().endswith((".ttf", ".otf")):
                 if f not in {v[0] for v in TD_FONTS.values()}:
                     fid = re.sub(r"[^a-z0-9]", "", f.rsplit(".", 1)[0].lower())[:20]
                     if fid and fid not in TD_FONTS:
-                        TD_FONTS[fid] = (f, "font Freepik/user upload — display đặc biệt")
+                        desc = USER_FONT_DESC.get(fid, "font Freepik/user upload — display đặc biệt")
+                        if not _font_vn_ok(os.path.join(USER_FONT_DIR, f)):
+                            desc += " (EN-ONLY)"
+                            EN_ONLY_FALLBACK[fid] = "anton"
+                        TD_FONTS[fid] = (f, desc)
     except Exception:
         pass
 
