@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-font-variety"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-font-nudge"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6111,11 +6111,20 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
     icons_desc = ", ".join(TD_ICONS)
     sys_p = TD_SYSTEM % (fonts_desc, icons_desc) + td_recipes_text()
-    user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s\nTạo n=%d bản thiết kế."
+    # Quote không dấu -> gợi ý đích danh font Freepik mới để đa dạng (AI hay bám anton)
+    font_nudge = ""
+    if not any(ord(c) > 127 for c in (text + " " + (sub or ""))):
+        pool = [k for k in USER_FONT_DESC if k in TD_FONTS]
+        if pool:
+            picks = random.sample(pool, min(max(n, 2), len(pool)))
+            font_nudge = ("\nQuote KHÔNG DẤU — dùng các font này làm font CHÍNH lần lượt từng bản "
+                          "(phối thêm font phụ tuỳ recipe): %s." % ", ".join(picks))
+    user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
                  ("Gợi ý style: " + hint) if hint else "",
                  "ĐỌC KỸ quote để tự nghĩ artwork/minh hoạ HỢP NGHĨA rồi dùng element webimg "
-                 "(query tiếng Anh cụ thể). Hầu hết các bản nên có 1 webimg làm tâm thị giác.", n))
+                 "(query tiếng Anh cụ thể). Hầu hết các bản nên có 1 webimg làm tâm thị giác.",
+                 font_nudge, n))
     try:
         job["note"] = "🧠 ChatGPT đang sắp bố cục…"
         raw = openai_chat([{"role": "system", "content": sys_p},
