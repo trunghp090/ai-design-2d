@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-no-dup-quote"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-learn-refs"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5993,7 +5993,7 @@ QUY TẮC:
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
 - Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
 - Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
-- MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art.
+- MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art. Trước khi nghĩ query: hiểu NGHĨA + TWIST HÀI của quote (nói về ai, cảm xúc gì) — query phải khớp nghĩa đó, CỤ THỂ kiểu nhân vật/biểu cảm (vd 'flirty cartoon man heart eyes sticker'), CẤM query biểu tượng chung chung lạc đề (peace sign, chim, phong cảnh) khi quote không nói về nó.\n- BỐ CỤC CHẶT như mẫu kho: các khối chữ-hình đặt SÁT nhau thành 1 cụm giữa canvas (gap y giữa các element ~0.05-0.09), tổng cụm chiếm ~55-75%% chiều cao — KHÔNG rải element thưa thớt đầu-cuối canvas.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
 
@@ -6106,6 +6106,48 @@ def td_recipes_text():
         return ""
 
 
+
+def _td_ref_designs(text, theme, k=3):
+    """Lục kho 3.310 design luonvuituoi lấy k mẫu GẦN NGHĨA quote nhất (có ảnh)
+    -> [(tên, style, jpeg_b64)] để đính vào prompt ChatGPT học bố cục thật."""
+    try:
+        qw = set(_lvt_vnorm(text + " " + (theme or "")))
+        if not qw:
+            return []
+        scored = []
+        for x in LVT_INDEX:
+            if not x.get("i"):
+                continue
+            nw = set(_lvt_vnorm((x.get("n") or "") + " " + (x.get("t") or "")))
+            ov = len(qw & nw)
+            if ov:
+                scored.append((ov, x))
+        scored.sort(key=lambda p: -p[0])
+        pool = [x for _, x in scored[:12]]
+        if len(pool) < k:  # ít mẫu trùng từ -> bù mẫu ngẫu nhiên có hình minh hoạ
+            extra = [x for x in LVT_INDEX if x.get("i") and x.get("s") in _LVT_ILLUS_STYLES and x not in pool]
+            pool += random.sample(extra, min(k - len(pool), len(extra)))
+        random.shuffle(pool)
+        out = []
+        for x in pool:
+            if len(out) >= k:
+                break
+            try:
+                url = x["i"] + ("&" if "?" in x["i"] else "?") + "width=420"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                raw = urllib.request.urlopen(req, timeout=20).read()
+                im = Image.open(io.BytesIO(raw)).convert("RGB")
+                im.thumbnail((420, 420))
+                buf = io.BytesIO()
+                im.save(buf, "JPEG", quality=72)
+                out.append((x.get("n") or "", x.get("s") or "", base64.b64encode(buf.getvalue()).decode()))
+            except Exception:
+                continue
+        return out
+    except Exception:
+        return []
+
+
 def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art giữ cho tương thích, không dùng
     job = BATCH_JOBS[job_id]
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
@@ -6126,9 +6168,21 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art gi�
                  "(query tiếng Anh cụ thể). Hầu hết các bản nên có 1 webimg làm tâm thị giác.",
                  font_nudge, n))
     try:
-        job["note"] = "🧠 ChatGPT đang sắp bố cục…"
+        job["note"] = "📚 Đang soi mẫu kho 3.310 design…"
+        refs = _td_ref_designs(text, theme, k=3)
+        content = [{"type": "text", "text": user_p}]
+        if refs:
+            content.append({"type": "text", "text":
+                "Dưới đây là %d DESIGN THẬT bán chạy từ kho cùng chủ đề (tên + style kèm ảnh). "
+                "HỌC theo: mật độ bố cục CHẶT (các khối sát nhau, không rải lỏng lẻo), cách phối màu nhấn, "
+                "twist hài, tỉ lệ chữ-hình. TUYỆT ĐỐI không copy nguyên chữ của mẫu." % len(refs)})
+            for (rn, rs, rb) in refs:
+                content.append({"type": "text", "text": "Mẫu: %s (style %s)" % (rn, rs)})
+                content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + rb, "detail": "low"}})
+        job["note"] = "🧠 ChatGPT đang sắp bố cục (học %d mẫu kho)…" % len(refs)
         raw = openai_chat([{"role": "system", "content": sys_p},
-                           {"role": "user", "content": user_p}], json_mode=True, max_tokens=7500)
+                           {"role": "user", "content": content}], json_mode=True, max_tokens=7500,
+                          model=BEST_TEXT_MODEL)
         if isinstance(raw, str):
             s = raw.strip()
             if s.startswith("```"):
