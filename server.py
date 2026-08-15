@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-artwork"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-td-recipes"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -653,9 +653,12 @@ def openai_edit(images, prompt, size, native_transparent, quality=""):
     return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
 
 
-def openai_generate(prompt, size="1024x1024"):
-    payload = {"model": MODEL, "prompt": prompt, "n": 1, "size": size,
+def openai_generate(prompt, size="1024x1024", model=None, transparent=False):
+    payload = {"model": model or MODEL, "prompt": prompt, "n": 1, "size": size,
                "moderation": "low"}
+    if transparent:
+        payload["background"] = "transparent"
+        payload["output_format"] = "png"
     req = urllib.request.Request(GEN_URL, data=json.dumps(payload).encode(),
                                  method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
@@ -5884,11 +5887,26 @@ QUY TẮC:
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
 
 
+def td_recipes_text():
+    """Nạp công thức layout học từ 3.310 design luonvuituoi (nén cho system prompt)."""
+    try:
+        d = json.load(open(os.path.join(ROOT, "luonvuituoi", "td-recipes.json"), encoding="utf-8"))
+        lines = ["\nCÔNG THỨC LAYOUT HỌC TỪ 3.310 DESIGN THẬT (luonvuituoi) — MỖI BẢN PHẢI CHỌN 1 CÔNG THỨC làm khung rồi biến tấu theo chủ đề, ghi id vào title:",
+                 "· " + d["chung"]["palette"],
+                 "· " + d["chung"]["twist"],
+                 "· " + d["chung"]["kythuat"]]
+        for r in d.get("recipes", []):
+            lines.append("[%s] %s (vd: %s): %s" % (r["id"], r["ten"], r["mau"], r["layout"]))
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
     job = BATCH_JOBS[job_id]
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
     icons_desc = ", ".join(TD_ICONS)
-    sys_p = TD_SYSTEM % (fonts_desc, icons_desc)
+    sys_p = TD_SYSTEM % (fonts_desc, icons_desc) + td_recipes_text()
     user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
                  ("Gợi ý style: " + hint) if hint else "",
@@ -5896,7 +5914,7 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
                   if use_art else "KHÔNG dùng element type art (chỉ chữ + icon)."), n))
     try:
         job["note"] = "🧠 Claude đang sắp bố cục…"
-        raw = ai_json(sys_p, user_p, max_tokens=6000)
+        raw = ai_json(sys_p, user_p, max_tokens=7500)
         if isinstance(raw, str):
             s = raw.strip()
             if s.startswith("```"):
@@ -5923,8 +5941,14 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
                               " — single isolated graphic centered on a plain solid white background, "
                               "ABSOLUTELY NO text, no letters, no numbers, no watermark, "
                               "clean edges, t-shirt print artwork")
-                        raw_art = base64.b64decode(openai_generate(ap, "1024x1024"))
-                        el["_img"] = base64.b64encode(remove_flat_bg(raw_art)).decode()
+                        try:
+                            # gpt-image-1: PNG TRONG SUỐT native (viền sạch, khỏi tách nền)
+                            el["_img"] = openai_generate(ap + ", transparent background",
+                                                         "1024x1024", model="gpt-image-1",
+                                                         transparent=True)
+                        except Exception:
+                            raw_art = base64.b64decode(openai_generate(ap, "1024x1024"))
+                            el["_img"] = base64.b64encode(remove_flat_bg(raw_art)).decode()
                     except Exception as e:
                         print("td art fail:", e, flush=True)
             job["note"] = "🔠 Đang render font thật bản %d…" % (di + 1)
