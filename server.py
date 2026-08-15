@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-freepik-max"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-gpt-brain-no-aigen"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5942,8 +5942,7 @@ Element chữ: {"type":"text","text":"...","font":"<id>","size":220,"color":"#he
 - arc: độ cong cung tròn, 20..80 = cong lên (kiểu badge), -20..-80 = cong xuống, 0 = thẳng.
 - stroke = viền chữ (đẹp cho kiểu varsity/retro; width 6-18).
 Element icon: {"type":"icon","id":"heart","x":0.5,"y":0.52,"w":0.22,"rotate":0}
-Element ARTWORK AI VẼ: {"type":"art","prompt":"<mô tả TIẾNG ANH artwork — TUYỆT ĐỐI KHÔNG chữ/số/từ nào trong tranh>","x":0.5,"y":0.48,"w":0.55}
-Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH>","x":0.5,"y":0.5,"w":0.5} — máy tìm trên Freepik (vector/nhân vật/mascot/artwork AI đủ kiểu, license thương mại) tải về dùng. ƯU TIÊN webimg cho: đồ vật, hoa lá, con vật, NHÂN VẬT/mascot phổ thông (query kiểu "funny beer mascot cartoon vector", "cute cat character illustration"). Chỉ dùng type art (AI vẽ) khi cần biểu cảm/tư thế đặc thù đúng concept mà kho khó có. Không tìm được sẽ tự chuyển sang AI vẽ.
+Element ẢNH TÌM TRÊN MẠNG: {"type":"webimg","query":"<từ khoá TIẾNG ANH>","x":0.5,"y":0.5,"w":0.5} — máy tìm trên Freepik (vector/nhân vật/mascot/artwork AI đủ kiểu, license thương mại) tải về dùng. ƯU TIÊN webimg cho: đồ vật, hoa lá, con vật, NHÂN VẬT/mascot phổ thông (query kiểu "funny beer mascot cartoon vector", "cute cat character illustration"). Không tìm được ảnh hợp thì bản đó thuần chữ + icon (không sao).
 - STYLE ARTWORK theo chất luonvuituoi (chọn 1 ghi rõ trong prompt): (a) đầu/mặt CON VẬT bán thực biểu cảm mạnh (semi-realistic animal head, strong expression); (b) mascot cartoon NÉT OUTLINE DÀY màu phẳng (thick outline flat color cartoon); (c) khắc gỗ/engraving VINTAGE đen trắng (vintage woodcut engraving); (d) đồ vật đời thường vẽ bán thực (semi-realistic everyday object). TRÁNH kiểu sticker/emoji dễ thương bóng bẩy. Mỗi bản 0-1 artwork; chữ đặt TRÁNH vùng artwork.
 
 QUY TẮC:
@@ -5955,7 +5954,7 @@ QUY TẮC:
 - Máy vẽ theo LỚP: artwork dưới cùng, chữ LUÔN nằm trên — nhưng vẫn nên đặt chữ ở vùng thoáng (trên/dưới artwork), tránh tâm artwork.
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
 - Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
-- MINH HOẠ: mặc định dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI). type art chỉ khi thật đặc thù.
+- MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
 
@@ -6068,7 +6067,7 @@ def td_recipes_text():
         return ""
 
 
-def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
+def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):  # use_art giữ cho tương thích, không dùng
     job = BATCH_JOBS[job_id]
     fonts_desc = "; ".join("%s — %s" % (k, v[1]) for k, v in TD_FONTS.items())
     icons_desc = ", ".join(TD_ICONS)
@@ -6076,11 +6075,12 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
     user_p = ("Chủ đề: %s\nCHỮ CHÍNH: %s\nDòng phụ: %s\n%s\n%s\nTạo n=%d bản thiết kế."
               % (theme or "tự do", text, sub or "(không có)",
                  ("Gợi ý style: " + hint) if hint else "",
-                 ("HẦU HẾT các bản NÊN có 1 element artwork AI vẽ làm tâm thị giác."
-                  if use_art else "KHÔNG dùng element type art (chỉ chữ + icon)."), n))
+                 "ĐỌC KỸ quote để tự nghĩ artwork/minh hoạ HỢP NGHĨA rồi dùng element webimg "
+                 "(query tiếng Anh cụ thể). Hầu hết các bản nên có 1 webimg làm tâm thị giác.", n))
     try:
-        job["note"] = "🧠 Claude đang sắp bố cục…"
-        raw = ai_json(sys_p, user_p, max_tokens=7500)
+        job["note"] = "🧠 ChatGPT đang sắp bố cục…"
+        raw = openai_chat([{"role": "system", "content": sys_p},
+                           {"role": "user", "content": user_p}], json_mode=True, max_tokens=7500)
         if isinstance(raw, str):
             s = raw.strip()
             if s.startswith("```"):
@@ -6113,33 +6113,16 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
                     elif use_art:
                         el["type"] = "art"          # không tìm được -> AI vẽ thay
                         el["prompt"] = el.get("query")
-                if el.get("type") == "art" and el.get("prompt") and use_art:
-                    # ƯU TIÊN FREEPIK: thử tìm kho trước, AI vẽ chỉ là dự phòng cuối
+                if el.get("type") == "art" and el.get("prompt"):
+                    # KHÔNG AI vẽ — chỉ tìm kho Freepik/Openverse, không có thì bỏ hình
                     job["note"] = "🌐 Đang tìm artwork Freepik bản %d…" % (di + 1)
                     qk = str(el["prompt"])[:100]
                     raw_k = freepik_image(qk) or openverse_image(qk)
                     if raw_k:
                         try:
                             el["_img"] = base64.b64encode(strip_background(raw_k, "smart")).decode()
-                            continue
                         except Exception:
                             pass
-                    job["note"] = "🎨 AI đang vẽ artwork bản %d/%d…" % (di + 1, min(n, len(designs)))
-                    try:
-                        ap = (str(el["prompt"])[:400] +
-                              " — single isolated graphic centered on a plain solid white background, "
-                              "ABSOLUTELY NO text, no letters, no numbers, no watermark, "
-                              "clean edges, t-shirt print artwork")
-                        try:
-                            # gpt-image-1: PNG TRONG SUỐT native (viền sạch, khỏi tách nền)
-                            el["_img"] = openai_generate(ap + ", transparent background",
-                                                         "1024x1024", model="gpt-image-1",
-                                                         transparent=True)
-                        except Exception:
-                            raw_art = base64.b64decode(openai_generate(ap, "1024x1024"))
-                            el["_img"] = base64.b64encode(remove_flat_bg(raw_art)).decode()
-                    except Exception as e:
-                        print("td art fail:", e, flush=True)
             job["note"] = "🔠 Đang render font thật bản %d…" % (di + 1)
             b64 = td_render(spec)
             g = gallery_add(b64, {"mode": "design", "prompt": "🔠 " + (spec.get("title") or "font thật")})
@@ -10762,9 +10745,8 @@ class Handler(BaseHTTPRequestHandler):
             _batch_seq[0] += 1
             job_id = "td%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": n, "done": 0, "items": [], "errors": [], "finished": False, "note": ""}
-        use_art = bool(body.get("art", True))
         threading.Thread(target=run_td_job,
-                         args=(job_id, theme, text, sub, n, hint, use_art), daemon=True).start()
+                         args=(job_id, theme, text, sub, n, hint), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n})
 
     def handle_td_render(self, body):
