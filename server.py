@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-freepik-fonts-18"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-font-variety"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5992,6 +5992,7 @@ QUY TẮC:
 - Máy vẽ theo LỚP: artwork dưới cùng, chữ LUÔN nằm trên — nhưng vẫn nên đặt chữ ở vùng thoáng (trên/dưới artwork), tránh tâm artwork.
 - Phối font hợp lý (display + script, không quá 3 font/bản). Giữ NGUYÊN chữ user đưa (đúng dấu tiếng Việt).
 - Font ghi (EN-ONLY) CHỈ dùng cho chữ KHÔNG DẤU (tiếng Anh, số, tên không dấu) — chữ có dấu Việt phải dùng font khác.
+- Quote/dòng KHÔNG DẤU: ƯU TIÊN dùng font lạ mắt trong kho (brush, western, comic, fashion serif, inline…) thay vì lặp lại anton/archivo — mỗi bản 1 cặp font khác nhau cho đa dạng.
 - MINH HOẠ: LUÔN dùng type webimg (kho Freepik rất giàu — vector, mascot, nhân vật, artwork AI đủ kiểu). KHÔNG có type art.
 - Icon dùng 0-3 cái, bổ trợ chứ không lấn chữ. Khi bản đã có ARTWORK thì icon tối đa 1 (hoặc bỏ hẳn) và đặt XA vùng artwork — đừng rải icon đè lên tranh. Các phần tử KHÔNG đè lên nhau (chừa khoảng cách y hợp lý theo size/2000 với chữ, w với icon).
 - Kiểu tham khảo: varsity arc-lên + số; badge tròn (chữ arc trên + arc dưới); script lãng mạn 2 dòng; statement stack 3 dòng đậm; retro 70s.
