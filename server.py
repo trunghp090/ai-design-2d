@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-td-webimg"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-freepik-ready"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -5905,6 +5905,50 @@ QUY TẮC:
 Trả JSON DUY NHẤT: {"designs":[{"title":"tên ngắn mô tả bản","elements":[...]}]}"""
 
 
+FREEPIK_API_KEY = os.environ.get("FREEPIK_API_KEY", "").strip()
+
+
+def freepik_image(query):
+    """Tìm ảnh/vector trên Freepik API (cần FREEPIK_API_KEY, gói API trả phí).
+    Ưu tiên tải bản gốc qua /download; fallback ảnh preview. None nếu không có key/kết quả."""
+    if not FREEPIK_API_KEY:
+        return None
+    try:
+        u = "https://api.freepik.com/v1/resources?" + urllib.parse.urlencode(
+            {"term": query, "limit": 6, "order": "relevance"})
+        req = urllib.request.Request(u, headers={"x-freepik-api-key": FREEPIK_API_KEY,
+                                                 "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            res = json.loads(r.read().decode("utf-8", "ignore"))
+        for it in (res.get("data") or []):
+            furl = ""
+            rid = it.get("id")
+            if rid:
+                try:
+                    du = "https://api.freepik.com/v1/resources/%s/download" % rid
+                    rq = urllib.request.Request(du, headers={"x-freepik-api-key": FREEPIK_API_KEY})
+                    with urllib.request.urlopen(rq, timeout=25) as dr:
+                        dres = json.loads(dr.read().decode("utf-8", "ignore"))
+                    furl = ((dres.get("data") or {}).get("url")) or ""
+                except Exception:
+                    furl = ""
+            if not furl or furl.lower().endswith((".zip", ".eps", ".ai")):
+                furl = (((it.get("image") or {}).get("source") or {}).get("url")) or ""
+            if not furl:
+                continue
+            try:
+                rq2 = urllib.request.Request(furl, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(rq2, timeout=30) as ir:
+                    raw = ir.read()
+                if len(raw) > 8000 and raw[:2] != b"PK":     # bỏ file zip
+                    return raw
+            except Exception:
+                continue
+    except Exception as e:
+        print("freepik fail:", e, flush=True)
+    return None
+
+
 def openverse_image(query):
     """Tìm ảnh license THƯƠNG MẠI trên Openverse (CC) -> bytes ảnh đầu tiên tải được. None nếu không có."""
     try:
@@ -5978,8 +6022,10 @@ def run_td_job(job_id, theme, text, sub, n, hint, use_art=True):
             # AI vẽ artwork (nếu có) -> tách nền -> cache vào spec (_img) để sửa chữ re-render 0 đồng
             for el in (spec.get("elements") or []):
                 if el.get("type") == "webimg" and el.get("query"):
-                    job["note"] = "🌐 Đang tìm ảnh trên mạng bản %d…" % (di + 1)
-                    raw_w = openverse_image(str(el["query"])[:120])
+                    q = str(el["query"])[:120]
+                    job["note"] = "🌐 Đang tìm ảnh (%s) bản %d…" % (
+                        "Freepik" if FREEPIK_API_KEY else "Openverse", di + 1)
+                    raw_w = freepik_image(q) or openverse_image(q)
                     if raw_w:
                         try:
                             el["_img"] = base64.b64encode(strip_background(raw_w, "smart")).decode()
@@ -8732,7 +8778,8 @@ class Handler(BaseHTTPRequestHandler):
                                    "rembg": HAS_REMBG,
                                    "cutoutpro": bool(CUTOUTPRO_KEY),
                                    "ai_upscale": HAS_ONNX,
-                                   "auth_required": AUTH_REQUIRED})
+                                   "auth_required": AUTH_REQUIRED,
+                                   "freepik": bool(FREEPIK_API_KEY)})
         if path == "/api/version":
             return self.json(200, {"version": APP_VERSION, "image_model": MODEL,
                                    "agent_brain": ("Claude " + ANTHROPIC_MODEL) if ANTHROPIC_API_KEY else "gpt-4o (chưa có ANTHROPIC_API_KEY)"})
