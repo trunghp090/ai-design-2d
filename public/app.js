@@ -6740,18 +6740,22 @@ function pnlRenderCards(d) {
   let funnelHtml = "";
   if (sel.has("funnel")) {
     const ses = c.sessions || 0, pSes = p.sessions || 0;
-    const steps = [
+    const base = ses || c.atc || c.ic || 1;   // không có sessions -> % tính trên bước đầu có số
+    let steps = [
       { lb: "⚡ Sessions",     v: ses,              pv: pSes,              pct: ses ? 100 : 0 },
-      { lb: "🛒 Thêm vào giỏ", v: c.atc || 0,       pv: p.atc || 0,        pct: ses ? (c.atc || 0) / ses * 100 : 0 },
-      { lb: "💳 Tới checkout", v: c.ic || 0,        pv: p.ic || 0,         pct: ses ? (c.ic || 0) / ses * 100 : 0 },
-      { lb: "✅ Mua hàng",     v: c.fb_purchase || 0, pv: p.fb_purchase || 0, pct: ses ? (c.fb_purchase || 0) / ses * 100 : 0 }
+      { lb: "🛒 Thêm vào giỏ", v: c.atc || 0,       pv: p.atc || 0,        pct: (c.atc || 0) / base * 100 },
+      { lb: "💳 Tới checkout", v: c.ic || 0,        pv: p.ic || 0,         pct: (c.ic || 0) / base * 100 },
+      { lb: "✅ Mua hàng",     v: c.fb_purchase || 0, pv: p.fb_purchase || 0, pct: (c.fb_purchase || 0) / base * 100 }
     ];
+    if (!ses) steps = steps.slice(1);
+    steps.forEach(s => { if (s.pct > 100) s.pct = 100; });
     const fmtPct = (x) => (x >= 10 || x === 0 ? Math.round(x) : x.toFixed(2)) + "%";
-    const conv = ses ? (c.fb_purchase || 0) / ses * 100 : 0;
+    const conv = (c.fb_purchase || 0) / base * 100;
     funnelHtml =
       '<div class="pnl-funnel-wrap">' +
         '<div class="pnl-funnel-head">📉 Phễu chuyển đổi' +
-          (d.funnel_src === "shopify" ? ' <span class="pnl-funnel-src">web Shopify</span>' :
+          (d.funnel_src === "mix" ? ' <span class="pnl-funnel-src">checkout+mua: web Shopify · giỏ: pixel FB</span>' :
+           d.funnel_src === "shopify" ? ' <span class="pnl-funnel-src">web Shopify</span>' :
            d.funnel_src === "fb" ? ' <span class="pnl-funnel-src">FB Ads (tạm)</span>' : '') +
           '<span class="pnl-funnel-conv">Tỉ lệ chuyển đổi ' + fmtPct(conv) + '</span></div>' +
         '<div class="pnl-funnel">' + steps.map((s, i) => {

@@ -974,7 +974,7 @@ textarea.input{resize:vertical;line-height:1.5}
 .pnl-funnel-head{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pnl-funnel-src{font-size:11px;font-weight:600;color:#7a6a6a;background:#f4eeee;border-radius:20px;padding:2px 8px}
 .pnl-funnel-conv{margin-left:auto;font-size:12px;font-weight:600;color:#555}
-.pnl-funnel{display:grid;grid-template-columns:repeat(4,1fr);margin-top:10px}
+.pnl-funnel{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;margin-top:10px}
 .pnl-fstep{padding:8px 12px;border-left:1px solid var(--line);display:flex;flex-direction:column}
 .pnl-fstep:first-child{border-left:none;padding-left:0}
 .pnl-fstep-lb{font-size:12px;font-weight:600;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-pnl-funnel-table"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-pnl-funnel-real"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9157,6 +9157,27 @@ def _pnl_shopify_funnel(since_day, until_day):
     return out
 
 
+def _pnl_shopify_abandoned_daily(since_day, until_day):
+    """Số checkout BỎ DỞ theo ngày (Shopify checkouts.json, paginate since_id)."""
+    out = {}
+    since_id = 0
+    for _ in range(20):
+        st, d = shopify_api("GET", "checkouts.json?limit=250&since_id=%s&created_at_min=%sT00:00:00Z&created_at_max=%sT23:59:59Z&fields=id,created_at" % (since_id, since_day, until_day))
+        if st != 200:
+            raise RuntimeError("Shopify checkouts lỗi %s" % st)
+        rows = d.get("checkouts") or []
+        if not rows:
+            break
+        for c in rows:
+            dy = (c.get("created_at") or "")[:10]
+            if dy:
+                out[dy] = out.get(dy, 0) + 1
+            since_id = max(since_id, int(c.get("id") or 0))
+        if len(rows) < 250:
+            break
+    return out
+
+
 def _pnl_sum(orders, spend_by_day, days_list, cfg, funnel_by_day=None):
     rev = sum(o["rev"] for o in orders)
     n_orders = len(orders)
@@ -9217,13 +9238,20 @@ def pnl_report(since_d, until_d, force=False):
             notes.append(str(e)[:180])
     funnel_src = "fb" if funnel_by_day else ""
     if shopify_configured():
+        # Shopify không mở API sessions/thêm-giỏ cho app ngoài -> checkout + mua lấy số THẬT
+        # từ web Shopify (checkout bỏ dở + đơn hoàn tất); thêm-giỏ dùng pixel FB đo trên web.
         try:
-            sh_f = _pnl_shopify_funnel(prev_days[0], cur_days[-1])
-            if sh_f:
-                funnel_by_day = sh_f
-                funnel_src = "shopify"
+            ab_by_day = _pnl_shopify_abandoned_daily(prev_days[0], cur_days[-1])
+            ord_by_day = {}
+            for o in orders:
+                ord_by_day[o["d"]] = ord_by_day.get(o["d"], 0) + 1
+            for dy in set(list(ab_by_day) + list(ord_by_day)):
+                f = funnel_by_day.setdefault(dy, {"atc": 0, "ic": 0, "pur": 0})
+                f["ic"] = ab_by_day.get(dy, 0) + ord_by_day.get(dy, 0)
+                f["pur"] = ord_by_day.get(dy, 0)
+            funnel_src = "mix"
         except Exception as e:
-            notes.append("Funnel web Shopify chưa lấy được (%s) — cần cấp scope read_reports cho app; đang tạm dùng số FB Ads." % str(e)[:110])
+            notes.append("Checkout Shopify chưa lấy được (%s) — đang dùng số FB Ads." % str(e)[:120])
     else:
         notes.append("Chưa cấu hình FB Ads — chi tiêu ads đang = 0.")
     cfg = pnl_settings_load()
