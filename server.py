@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-quote-lens"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-pnl-funnel"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9073,24 +9073,38 @@ def _pnl_shopify_orders(since_iso, until_iso):
 
 
 def _pnl_fb_spend_daily(since_day, until_day):
-    """Chi tiêu FB Ads theo ngày (account level). Trả dict {ngày: spend}."""
+    """Chi tiêu + funnel FB Ads theo ngày (account level).
+    Trả (spend_by_day, funnel_by_day) — funnel: {ngày: {atc, ic, pur}}."""
     if not fb_configured():
-        return {}
+        return {}, {}
     st, d = fb_graph("GET", "act_%s/insights" % FB_AD_ACCOUNT_ID,
-                     {"fields": "spend", "time_increment": "1", "limit": "200",
+                     {"fields": "spend,actions", "time_increment": "1", "limit": "200",
                       "time_range": json.dumps({"since": since_day, "until": until_day})})
     if st != 200:
         raise RuntimeError("FB insights lỗi: " + fb_err(d))
-    out = {}
+
+    def _act(row, keys):
+        acts = {a.get("action_type"): float(a.get("value") or 0) for a in (row.get("actions") or [])}
+        for k in keys:
+            if k in acts:
+                return acts[k]
+        return 0
+
+    spend, funnel = {}, {}
     for r in (d.get("data") or []):
         try:
-            out[r.get("date_start") or ""] = out.get(r.get("date_start") or "", 0) + float(r.get("spend") or 0)
+            dy = r.get("date_start") or ""
+            spend[dy] = spend.get(dy, 0) + float(r.get("spend") or 0)
+            f = funnel.setdefault(dy, {"atc": 0, "ic": 0, "pur": 0})
+            f["atc"] += _act(r, ["omni_add_to_cart", "add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"])
+            f["ic"] += _act(r, ["omni_initiated_checkout", "initiate_checkout", "offsite_conversion.fb_pixel_initiate_checkout"])
+            f["pur"] += _act(r, ["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"])
         except Exception:
             pass
-    return out
+    return spend, funnel
 
 
-def _pnl_sum(orders, spend_by_day, days_list, cfg):
+def _pnl_sum(orders, spend_by_day, days_list, cfg, funnel_by_day=None):
     rev = sum(o["rev"] for o in orders)
     n_orders = len(orders)
     units = sum(o["units"] for o in orders)
@@ -9105,9 +9119,14 @@ def _pnl_sum(orders, spend_by_day, days_list, cfg):
     fee = rev * cfg["fee_pct"] / 100.0
     other = n_orders * cfg["other_per_order"]
     net = rev - cogs - ship - fee - other - spend
+    fb = funnel_by_day or {}
+    atc = sum(fb.get(dy, {}).get("atc", 0) for dy in days_list)
+    ic = sum(fb.get(dy, {}).get("ic", 0) for dy in days_list)
+    pur = sum(fb.get(dy, {}).get("pur", 0) for dy in days_list)
     return {"revenue": round(rev), "orders": n_orders, "units": units,
             "ad_spend": round(spend), "cogs": round(cogs), "ship": round(ship),
             "ship_orders": ship_orders,
+            "atc": int(atc), "ic": int(ic), "fb_purchase": int(pur),
             "fee": round(fee), "other": round(other), "net": round(net),
             "margin": round(net / rev * 100, 1) if rev else 0,
             "roas": round(rev / spend, 2) if spend else 0}
@@ -9136,10 +9155,10 @@ def pnl_report(since_d, until_d, force=False):
             notes.append(msg[:220])
     else:
         notes.append("Chưa cấu hình Shopify (SHOPIFY_DOMAIN/TOKEN) — doanh thu đang = 0.")
-    spend_by_day = {}
+    spend_by_day, funnel_by_day = {}, {}
     if fb_configured():
         try:
-            spend_by_day = _pnl_fb_spend_daily(prev_days[0], cur_days[-1])
+            spend_by_day, funnel_by_day = _pnl_fb_spend_daily(prev_days[0], cur_days[-1])
         except Exception as e:
             notes.append(str(e)[:180])
     else:
@@ -9147,8 +9166,8 @@ def pnl_report(since_d, until_d, force=False):
     cfg = pnl_settings_load()
     cur_orders = [o for o in orders if o["d"] in set(cur_days)]
     prev_orders = [o for o in orders if o["d"] in set(prev_days)]
-    cur = _pnl_sum(cur_orders, spend_by_day, cur_days, cfg)
-    prev = _pnl_sum(prev_orders, spend_by_day, prev_days, cfg)
+    cur = _pnl_sum(cur_orders, spend_by_day, cur_days, cfg, funnel_by_day)
+    prev = _pnl_sum(prev_orders, spend_by_day, prev_days, cfg, funnel_by_day)
     rev_by_day = {}
     for o in cur_orders:
         rev_by_day[o["d"]] = rev_by_day.get(o["d"], 0) + o["rev"]
