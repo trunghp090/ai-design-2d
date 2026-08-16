@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-pnl-funnel"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-pnl-funnel-shopify"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9104,6 +9104,44 @@ def _pnl_fb_spend_daily(since_day, until_day):
     return spend, funnel
 
 
+def _pnl_shopify_funnel(since_day, until_day):
+    """Funnel WEB Shopify (đúng bộ số Analytics dashboard): sessions thêm vào giỏ /
+    tới checkout / mua hàng, theo ngày. Cần app scope read_reports. Trả {ngày:{atc,ic,pur}}."""
+    q = ("FROM sessions SHOW sessions_with_cart_additions, sessions_reaching_checkout, "
+         "sessions_converted GROUP BY day SINCE %s UNTIL %s" % (since_day, until_day))
+    gql = ('query($q: String!){ shopifyqlQuery(query: $q){ __typename '
+           '... on TableResponse { tableData { rowData columns { name } } parseErrors { message } } } }')
+    res = shopify_graphql(gql, {"q": q})
+    if res.get("errors"):
+        raise RuntimeError(str(res["errors"])[:150])
+    node = ((res.get("data") or {}).get("shopifyqlQuery")) or {}
+    td = node.get("tableData") or {}
+    pe = node.get("parseErrors")
+    if pe:
+        raise RuntimeError(str(pe)[:150])
+    cols = [c.get("name", "") for c in (td.get("columns") or [])]
+    rows = td.get("rowData") or []
+    if not cols or not rows:
+        raise RuntimeError("Shopify Analytics không trả dữ liệu")
+    def col(name):
+        for i, c in enumerate(cols):
+            if name in c:
+                return i
+        return -1
+    i_day, i_atc = col("day"), col("cart_additions")
+    i_ic, i_pur = col("reaching_checkout"), col("converted")
+    out = {}
+    for r in rows:
+        try:
+            dy = str(r[i_day])[:10]
+            out[dy] = {"atc": int(float(r[i_atc] or 0)) if i_atc >= 0 else 0,
+                       "ic": int(float(r[i_ic] or 0)) if i_ic >= 0 else 0,
+                       "pur": int(float(r[i_pur] or 0)) if i_pur >= 0 else 0}
+        except Exception:
+            continue
+    return out
+
+
 def _pnl_sum(orders, spend_by_day, days_list, cfg, funnel_by_day=None):
     rev = sum(o["rev"] for o in orders)
     n_orders = len(orders)
@@ -9161,6 +9199,15 @@ def pnl_report(since_d, until_d, force=False):
             spend_by_day, funnel_by_day = _pnl_fb_spend_daily(prev_days[0], cur_days[-1])
         except Exception as e:
             notes.append(str(e)[:180])
+    funnel_src = "fb" if funnel_by_day else ""
+    if shopify_configured():
+        try:
+            sh_f = _pnl_shopify_funnel(prev_days[0], cur_days[-1])
+            if sh_f:
+                funnel_by_day = sh_f
+                funnel_src = "shopify"
+        except Exception as e:
+            notes.append("Funnel web Shopify chưa lấy được (%s) — cần cấp scope read_reports cho app; đang tạm dùng số FB Ads." % str(e)[:110])
     else:
         notes.append("Chưa cấu hình FB Ads — chi tiêu ads đang = 0.")
     cfg = pnl_settings_load()
@@ -9215,7 +9262,7 @@ def pnl_report(since_d, until_d, force=False):
             "url": shop_admin_url(t["pid"]) if t.get("pid") else ""})
 
     data = {"ok": True, "days": days, "since": cur_days[0], "until": cur_days[-1],
-            "cur": cur, "prev": prev, "daily": daily, "top_products": top_products,
+            "cur": cur, "prev": prev, "daily": daily, "top_products": top_products, "funnel_src": funnel_src,
             "settings": cfg, "notes": notes,
             "shopify": shopify_configured(), "fb": fb_configured()}
     with _pnl_lock:
