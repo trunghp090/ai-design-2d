@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-pnl-funnel-shopify"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-pnl-funnel-table"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9107,18 +9107,26 @@ def _pnl_fb_spend_daily(since_day, until_day):
 def _pnl_shopify_funnel(since_day, until_day):
     """Funnel WEB Shopify (đúng bộ số Analytics dashboard): sessions thêm vào giỏ /
     tới checkout / mua hàng, theo ngày. Cần app scope read_reports. Trả {ngày:{atc,ic,pur}}."""
-    q = ("FROM sessions SHOW sessions_with_cart_additions, sessions_reaching_checkout, "
-         "sessions_converted GROUP BY day SINCE %s UNTIL %s" % (since_day, until_day))
     gql = ('query($q: String!){ shopifyqlQuery(query: $q){ __typename '
            '... on TableResponse { tableData { rowData columns { name } } parseErrors { message } } } }')
-    res = shopify_graphql(gql, {"q": q})
-    if res.get("errors"):
-        raise RuntimeError(str(res["errors"])[:150])
-    node = ((res.get("data") or {}).get("shopifyqlQuery")) or {}
+    node, last_err = {}, ""
+    for ses_col in ("online_store_sessions", "sessions"):
+        q = ("FROM sessions SHOW %s, sessions_with_cart_additions, sessions_reaching_checkout, "
+             "sessions_converted GROUP BY day SINCE %s UNTIL %s" % (ses_col, since_day, until_day))
+        res = shopify_graphql(gql, {"q": q})
+        if res.get("errors"):
+            last_err = str(res["errors"])[:150]
+            continue
+        node = ((res.get("data") or {}).get("shopifyqlQuery")) or {}
+        pe = node.get("parseErrors")
+        if pe:
+            last_err = str(pe)[:150]
+            node = {}
+            continue
+        break
+    if not node:
+        raise RuntimeError(last_err or "ShopifyQL không phản hồi")
     td = node.get("tableData") or {}
-    pe = node.get("parseErrors")
-    if pe:
-        raise RuntimeError(str(pe)[:150])
     cols = [c.get("name", "") for c in (td.get("columns") or [])]
     rows = td.get("rowData") or []
     if not cols or not rows:
@@ -9130,11 +9138,18 @@ def _pnl_shopify_funnel(since_day, until_day):
         return -1
     i_day, i_atc = col("day"), col("cart_additions")
     i_ic, i_pur = col("reaching_checkout"), col("converted")
+    i_ses = col("online_store_sessions")
+    if i_ses < 0:  # cột 'sessions' thuần — tránh match sessions_with_cart_additions
+        for i, c in enumerate(cols):
+            if c == "sessions":
+                i_ses = i
+                break
     out = {}
     for r in rows:
         try:
             dy = str(r[i_day])[:10]
-            out[dy] = {"atc": int(float(r[i_atc] or 0)) if i_atc >= 0 else 0,
+            out[dy] = {"ses": int(float(r[i_ses] or 0)) if i_ses >= 0 else 0,
+                       "atc": int(float(r[i_atc] or 0)) if i_atc >= 0 else 0,
                        "ic": int(float(r[i_ic] or 0)) if i_ic >= 0 else 0,
                        "pur": int(float(r[i_pur] or 0)) if i_pur >= 0 else 0}
         except Exception:
@@ -9158,13 +9173,14 @@ def _pnl_sum(orders, spend_by_day, days_list, cfg, funnel_by_day=None):
     other = n_orders * cfg["other_per_order"]
     net = rev - cogs - ship - fee - other - spend
     fb = funnel_by_day or {}
+    ses = sum(fb.get(dy, {}).get("ses", 0) for dy in days_list)
     atc = sum(fb.get(dy, {}).get("atc", 0) for dy in days_list)
     ic = sum(fb.get(dy, {}).get("ic", 0) for dy in days_list)
     pur = sum(fb.get(dy, {}).get("pur", 0) for dy in days_list)
     return {"revenue": round(rev), "orders": n_orders, "units": units,
             "ad_spend": round(spend), "cogs": round(cogs), "ship": round(ship),
             "ship_orders": ship_orders,
-            "atc": int(atc), "ic": int(ic), "fb_purchase": int(pur),
+            "sessions": int(ses), "atc": int(atc), "ic": int(ic), "fb_purchase": int(pur),
             "fee": round(fee), "other": round(other), "net": round(net),
             "margin": round(net / rev * 100, 1) if rev else 0,
             "roas": round(rev / spend, 2) if spend else 0}

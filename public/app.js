@@ -6604,7 +6604,8 @@ const PNL_METRICS = [
   { k: "cogs",     ic: "🏭", label: "Giá vốn",           def: true },
   { k: "ship",     ic: "🚚", label: "Phí ship",          def: false },
   { k: "fee_other", ic: "💳", label: "Phí TT/sàn + khác", def: false },
-  { k: "margin",   ic: "📊", label: "Biên lợi nhuận %",  def: false }
+  { k: "margin",   ic: "📊", label: "Biên lợi nhuận %",  def: false },
+  { k: "funnel",   ic: "📉", label: "Phễu chuyển đổi (bảng)", def: true }
 ];
 function pnlMetricsSel() {
   try {
@@ -6736,8 +6737,35 @@ function pnlRenderCards(d) {
     '<div class="pnl-card"><div class="pnl-card-label">' + m.ic + ' ' + m.label + '</div>' +
     '<div class="pnl-card-num">' + V[m.k][0] + '</div>' +
     (V[m.k][1] ? '<div class="pnl-card-sub">' + V[m.k][1] + '</div>' : '') + '</div>';
+  let funnelHtml = "";
+  if (sel.has("funnel")) {
+    const ses = c.sessions || 0, pSes = p.sessions || 0;
+    const steps = [
+      { lb: "⚡ Sessions",     v: ses,              pv: pSes,              pct: ses ? 100 : 0 },
+      { lb: "🛒 Thêm vào giỏ", v: c.atc || 0,       pv: p.atc || 0,        pct: ses ? (c.atc || 0) / ses * 100 : 0 },
+      { lb: "💳 Tới checkout", v: c.ic || 0,        pv: p.ic || 0,         pct: ses ? (c.ic || 0) / ses * 100 : 0 },
+      { lb: "✅ Mua hàng",     v: c.fb_purchase || 0, pv: p.fb_purchase || 0, pct: ses ? (c.fb_purchase || 0) / ses * 100 : 0 }
+    ];
+    const fmtPct = (x) => (x >= 10 || x === 0 ? Math.round(x) : x.toFixed(2)) + "%";
+    const conv = ses ? (c.fb_purchase || 0) / ses * 100 : 0;
+    funnelHtml =
+      '<div class="pnl-funnel-wrap">' +
+        '<div class="pnl-funnel-head">📉 Phễu chuyển đổi' +
+          (d.funnel_src === "shopify" ? ' <span class="pnl-funnel-src">web Shopify</span>' :
+           d.funnel_src === "fb" ? ' <span class="pnl-funnel-src">FB Ads (tạm)</span>' : '') +
+          '<span class="pnl-funnel-conv">Tỉ lệ chuyển đổi ' + fmtPct(conv) + '</span></div>' +
+        '<div class="pnl-funnel">' + steps.map((s, i) => {
+          const h = Math.max(6, Math.round((s.pct / 100) * 110));
+          return '<div class="pnl-fstep">' +
+            '<div class="pnl-fstep-lb">' + s.lb + '</div>' +
+            '<div class="pnl-fstep-pct">' + fmtPct(s.pct) + '</div>' +
+            '<div class="pnl-fstep-sub">' + fmtNum(s.v) + ' ' + pnlDelta(s.v, s.pv, true) + '</div>' +
+            '<div class="pnl-fstep-barbox"><div class="pnl-fstep-bar" style="height:' + h + 'px"></div></div>' +
+            '</div>';
+        }).join("") + '</div></div>';
+  }
   $("pnlCards").innerHTML = hero + '<div class="pnl-cards">' +
-    PNL_METRICS.filter(m => sel.has(m.k)).map(card).join("") + '</div>';
+    PNL_METRICS.filter(m => sel.has(m.k) && m.k !== "funnel").map(card).join("") + '</div>' + funnelHtml;
 }
 function pnlRenderChart(d) {
   const daily = d.daily || [];
