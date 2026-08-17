@@ -349,6 +349,7 @@ function clonePollJob(jobId) {
 }
 
 function showDesign(b64) {
+  if (b64 && b64.startsWith("data:")) b64 = b64.split(",")[1] || b64;   // chịu được dataURL lẫn b64 thuần
   currentDesign = b64;
   const src = "data:image/png;base64," + b64;
   $("resultImg").src = src;
@@ -5898,7 +5899,15 @@ function lvtRender() {
       '<details style="margin:2px 0"><summary style="cursor:pointer;font-size:11px;color:var(--accent,#c2185b)">✏️ Prompt</summary><pre style="white-space:pre-wrap;font-size:10px;max-height:120px;overflow:auto;background:rgba(127,127,127,.1);padding:6px;border-radius:6px">' + (it.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></details>' +
       '<div class="fp-card-acts"><button class="b-shirt">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️</button></div>';
     card.querySelector("img").onclick = () => openZoom(src);
-    card.querySelector(".b-shirt").onclick = () => { showApp("clone"); showDesign(src); const t = document.querySelector('.rtab[data-rtab="design"]'); if (t) t.click(); };
+    card.querySelector(".b-shirt").onclick = async () => {
+      let b = it.image;
+      if (!b) {
+        const bl = await (await fetch(src)).blob();
+        b = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(bl); });
+      }
+      showApp("clone"); showDesign(b);
+      const t = document.querySelector('.rtab[data-rtab="design"]'); if (t) t.click();
+    };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
     card.querySelector(".b-dl").onclick = () => { if (it.image) autoDownload(it.image, "quote-meme"); };
     card.querySelector(".b-del").onclick = () => {

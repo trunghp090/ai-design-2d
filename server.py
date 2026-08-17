@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-pnl-funnel-real"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-lvt-color-fix"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -4895,11 +4895,12 @@ def lvt_quote_plan(quote, n, wordmark="", style_id="", ref_direction=""):
            "NHIỆM VỤ: bạn là Art Director theo BỘ NÃO trên. Nhận 1 QUOTE tiếng Việt của user, PHÂN TÍCH "
            "chất hài / tầng nghĩa / công thức chơi chữ gần nhất, rồi nghĩ N mẫu DESIGN ARTWORK ĐỂ IN "
            "(artwork rời — KHÔNG phải mockup áo).\n"
-           "MỖI MẪU KHÁC NHAU RÕ: chọn 1 nhóm typography đúng brand (A script viết tay nghiêng mảnh / "
-           "B sans-serif đậm in hoa xếp khối 2-4 dòng / C micro-text block) hợp mood quote; 1 hướng minh "
-           "hoạ flat vector viền dày ít chi tiết hợp NGHĨA quote (mèo/vịt/ếch/capybara/khủng long/trái "
-           "cây/đồ vật ẩn dụ — tự vẽ nhân vật riêng, cấm nhại nhân vật có bản quyền) hoặc typo-only; "
-           "bảng in 1-3 màu (trắng-trên-đen, hoặc đen + 1 màu nhấn đỏ/hồng/vàng).\n"
+           "MỖI MẪU KHÁC NHAU RÕ về CẢ 3 mặt: (1) nhóm typography (A script viết tay nghiêng mảnh / "
+           "B sans-serif đậm in hoa xếp khối 2-4 dòng / C micro-text block) — n mẫu dùng n nhóm khác nhau; "
+           "(2) hướng minh hoạ flat vector viền dày hợp NGHĨA quote (mèo/vịt/ếch/capybara/khủng long/trái "
+           "cây/đồ vật ẩn dụ — tự vẽ nhân vật riêng, cấm nhại nhân vật bản quyền) hoặc typo-only — không lặp "
+           "cùng loại vật thể; (3) BẢNG MÀU: tối đa 1 mẫu thuần đen-trắng, các mẫu còn lại BẮT BUỘC có màu "
+           "NHẤN tươi rõ (đỏ/vàng/xanh lá/hồng/cam — 2-3 màu in), ghi rõ mã màu trong image prompt.\n"
            "QUY TẮC CHỮ SẮT: quote lên design NGUYÊN VĂN TỪNG KÝ TỰ đủ dấu tiếng Việt — không dịch, "
            "không viết lại, không thêm chữ nào khác." + wm + " CẤM chữ 'luonvuituoi'.\n"
            "IMAGE PROMPT tiếng Anh (cho gpt-image) mỗi mẫu PHẢI có: câu 'render the EXACT Vietnamese "
