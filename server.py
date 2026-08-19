@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-psn-hunt2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-psn-hunt-big"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -6441,20 +6441,37 @@ def run_psn_hunt_job(job_id):
             result["kho"] = _psn_hunt_kho()
         except Exception as e:
             job["errors"].append("Kho: " + str(e)[:120])
+        base_i = "List as MANY distinct personalized t-shirt design types as possible (10-20+), each with: what gets personalized, why it sells, example product title. "
         searches = {
-            "intl": ["best selling personalized custom name t-shirts on Etsy and Amazon right now 2026 — "
-                     "list 10+ popular design types (name, date, photo, zodiac, pet, family...), what makes "
-                     "each sell, with example product titles",
-                     "viral personalized couple / family / friend group shirt trends TikTok Instagram 2026 — "
-                     "list design formulas with examples"],
-            "vn": ["các mẫu áo thun in tên cá nhân hoá đang bán chạy tại shop Việt Nam 2026 (áo couple in tên, "
-                   "áo nhóm, áo gia đình, áo in tên theo yêu cầu) — liệt kê kiểu mẫu + shop + vì sao hot"],
+            "intl": [
+                base_i + "Topic: best-selling personalized FAMILY shirts (dad, mom, grandma, grandpa, kids names, family reunion, matching sets) on Etsy/Amazon 2026.",
+                base_i + "Topic: personalized COUPLE / anniversary / wedding shirts (names, dates, est. year, king-queen, portraits) trending 2026.",
+                base_i + "Topic: personalized PET shirts (dog/cat portrait, pet name, pet mom/dad, custom breed art) best sellers 2026.",
+                base_i + "Topic: personalized JOB / profession / hobby shirts (nurse, teacher, mechanic, fishing, gym, gaming, guitar...) with name, best sellers.",
+                base_i + "Topic: personalized OCCASION shirts — birthday (age + year born), graduation, retirement, bachelorette, first Father's Day/Mother's Day, Christmas family pajamas 2026.",
+                base_i + "Topic: personalized GROUP / team shirts — friend squad, trip year, class reunion, company team, bowling/softball team names & numbers.",
+                base_i + "Topic: viral TikTok/Instagram personalized shirt formats 2026 — photo upload tees, bootleg rap style with your face, 90s retro portrait, nostalgia pop art, zodiac/birth chart, name definition.",
+                base_i + "Topic: personalized shirts by PLACE & heritage — hometown, state, country roots, coordinates, 'est.' city tees.",
+            ],
+            "vn": [
+                "Liệt kê THẬT NHIỀU kiểu mẫu áo thun in theo yêu cầu đang bán chạy tại Việt Nam 2026: áo couple in tên, áo gia đình, áo nhóm du lịch/lớp/công ty, áo sinh nhật in tên tuổi, áo bóng đá in tên số, áo tặng bố mẹ ông bà... — mỗi kiểu: in gì, vì sao hot, ví dụ.",
+                "Các mẫu áo cá nhân hoá hot trên TikTok Shop / Shopee Việt Nam 2026: in ảnh chân dung hoạt hình (chibi), in tên người yêu, áo kỷ niệm ngày cưới/ngày yêu, áo mẹ bỉm, áo tân binh/xuất ngũ... — liệt kê nhiều kiểu kèm ví dụ.",
+            ],
         }
         texts = {"intl": [], "vn": []}
-        for k, qs in searches.items():
-            for q in qs:
-                job["note"] = ("🌍 Đang săn web quốc tế…" if k == "intl" else "🇻🇳 Đang săn shop Việt…")
-                t = openai_web_search(q)
+        done_cnt = [0]
+        total_q = sum(len(v) for v in searches.values())
+
+        def _search_one(pair):
+            k, q = pair
+            t = openai_web_search(q)
+            done_cnt[0] += 1
+            job["note"] = "🌍 Đang săn web %d/%d nguồn…" % (done_cnt[0], total_q)
+            return k, t
+        pairs = [(k, q) for k, qs in searches.items() for q in qs]
+        job["note"] = "🌍 Đang săn web 0/%d nguồn…" % total_q
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for k, t in ex.map(_search_one, pairs):
                 if t:
                     texts[k].append(t)
         job["note"] = "🧠 Đang tổng hợp…"
@@ -6465,12 +6482,14 @@ def run_psn_hunt_job(job_id):
                 raw = openai_chat([
                     {"role": "system", "content":
                      "Từ các kết quả search sau, tổng hợp danh sách MẪU ÁO PERSONALIZED thành JSON "
-                     "{\"items\":[{\"ten\":\"tên kiểu mẫu (tiếng Việt)\",\"mota\":\"mô tả ngắn design + cách cá nhân hoá\","
-                     "\"kieu\":\"in gì (tên/ngày/ảnh/cung/…)\",\"vidu\":\"ví dụ text trên áo\",\"link\":\"url nếu có\"}]}. "
-                     "Gộp trùng, tối đa 15 mẫu, ưu tiên mẫu bán chạy/viral."},
+                     "{\"items\":[{\"ten\":\"tên kiểu mẫu (tiếng Việt)\",\"nhom\":\"nhóm ngách (Gia đình/Couple/Thú cưng/"
+                     "Nghề & sở thích/Dịp đặc biệt/Nhóm & đội/Kiểu in đặc biệt/Quê quán)\","
+                     "\"mota\":\"mô tả ngắn design + cách cá nhân hoá\",\"kieu\":\"in gì (tên/ngày/ảnh/số/…)\","
+                     "\"vidu\":\"ví dụ text trên áo\",\"link\":\"url nếu có\"}]}. "
+                     "GIỮ CÀNG NHIỀU CÀNG TỐT (tối đa 60), chỉ gộp mẫu trùng hẳn, ưu tiên bán chạy/viral."},
                     {"role": "user", "content": "\n\n---\n\n".join(texts[k])}],
-                    json_mode=True, max_tokens=2500, model=BEST_TEXT_MODEL)
-                result[k] = (json.loads(raw).get("items") or [])[:15]
+                    json_mode=True, max_tokens=7000, model=BEST_TEXT_MODEL)
+                result[k] = (json.loads(raw).get("items") or [])[:60]
             except Exception as e:
                 job["errors"].append(("Web intl: " if k == "intl" else "Web VN: ") + str(e)[:120])
         with _batch_lock:

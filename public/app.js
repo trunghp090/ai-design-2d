@@ -5745,7 +5745,14 @@ function phRender(res) {
   let html = "";
   const webBlock = (title, items) => {
     if (!items || !items.length) return "";
+    const groups = {};
+    items.forEach(it => { const g = it.nhom || "Khác"; (groups[g] = groups[g] || []).push(it); });
     return '<h3 style="font-size:15px;margin:18px 0 8px">' + title + ' <span style="color:#999;font-weight:400">(' + items.length + ')</span></h3>' +
+      Object.keys(groups).map(g =>
+        '<div style="font-size:12.5px;font-weight:700;color:#8a1f3d;margin:10px 0 6px">▍' + esc(g) + ' (' + groups[g].length + ')</div>' +
+        webCards(groups[g])).join("");
+  };
+  const webCards = (items) =>
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">' +
       items.map(it =>
         '<div style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
@@ -5757,7 +5764,6 @@ function phRender(res) {
         (it.link && /^https?:/.test(it.link) ? '<a class="btn-ghost sm" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(it.link) + '">🔗 Xem</a>' : '') +
         '<button class="btn-ghost sm ph-copy">📋 Copy ý tưởng</button></div></div>'
       ).join("") + '</div>';
-  };
   const kho = res.kho || [];
   if (kho.length) {
     html += '<h3 style="font-size:15px;margin:4px 0 8px">📚 Kho 3.310 — mẫu cá nhân hoá được <span style="color:#999;font-weight:400">(' + kho.length + ')</span></h3>' +
