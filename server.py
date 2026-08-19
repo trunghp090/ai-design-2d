@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-psn-hunt-big"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-psn-hunt-big2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -669,15 +669,15 @@ def openai_generate(prompt, size="1024x1024", model=None, transparent=False):
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 
-def openai_web_search(query, timeout=120):
+def openai_web_search(query, timeout=180):
     """AI search web thật (Responses API + web_search). Lỗi/timeout -> trả chuỗi rỗng."""
     try:
         payload = {"model": BEST_TEXT_MODEL, "input": query,
-                   "tools": [{"type": "web_search"}], "max_output_tokens": 1600}
+                   "tools": [{"type": "web_search"}], "max_output_tokens": 2500}
         req = urllib.request.Request(RESPONSES_URL, data=json.dumps(payload).encode(), method="POST")
         req.add_header("Authorization", "Bearer " + API_KEY)
         req.add_header("Content-Type", "application/json")
-        res = json.loads(_openai_call(req, timeout=timeout, tries=1))
+        res = json.loads(_openai_call(req, timeout=timeout, tries=2))
         parts = []
         for o in (res.get("output") or []):
             if o.get("type") == "message":
@@ -6470,7 +6470,7 @@ def run_psn_hunt_job(job_id):
             return k, t
         pairs = [(k, q) for k, qs in searches.items() for q in qs]
         job["note"] = "🌍 Đang săn web 0/%d nguồn…" % total_q
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        with ThreadPoolExecutor(max_workers=2) as ex:
             for k, t in ex.map(_search_one, pairs):
                 if t:
                     texts[k].append(t)
