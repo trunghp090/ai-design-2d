@@ -875,6 +875,7 @@ function showApp(app) {
   if (app === "design") { dsInit(); setTimeout(dsFitHeight, 30); }
   if (app === "restyle") rsInit();
   if (app === "tdesign") tdInit();
+  if (app === "psnhunt") phInit();
   if (app === "psn") psnInit();
   if (app === "setshirt") ssInit();
   if (app === "tiktok") ttInit();
@@ -5700,6 +5701,84 @@ function fbpShotSet(key) {
 }
 
 /* ============ 😆 QUOTE MEME (học 3.310 design LUON VUITUOI) — quote Việt -> design gpt-image ============ */
+/* ============ 🔎 SĂN MẪU PERSONALIZED: kho 3.310 + web quốc tế + shop Việt ============ */
+let phInited = false, phT = null;
+function phInit() {
+  if (phInited) return;
+  phInited = true;
+  $("phRun").onclick = phRun;
+}
+async function phRun() {
+  const note = $("phNote"), btn = $("phRun");
+  btn.disabled = true;
+  note.className = "gen-note"; note.textContent = "⏳ Đang khởi động…";
+  try {
+    const r = await fetch("/api/psn-hunt", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    let polling = false;
+    clearInterval(phT);
+    phT = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const s = await (await fetch("/api/batch-status?id=" + d.job_id + "&have=0")).json();
+        note.textContent = s.note || "⏳ Đang quét…";
+        if (s.finished) {
+          clearInterval(phT);
+          btn.disabled = false;
+          const res = (s.items || [])[0] || {};
+          phRender(res);
+          note.className = "gen-note " + ((s.errors || []).length ? "err" : "ok");
+          note.textContent = ((s.errors || []).length ? "⚠️ " + s.errors[0] + " · " : "✓ ") +
+            "Kho: " + (res.kho || []).length + " mẫu · Web quốc tế: " + (res.intl || []).length + " · Shop Việt: " + (res.vn || []).length;
+        }
+      } catch (e) {} finally { polling = false; }
+    }, 2500);
+  } catch (e) {
+    btn.disabled = false;
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  }
+}
+function phRender(res) {
+  const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  let html = "";
+  const webBlock = (title, items) => {
+    if (!items || !items.length) return "";
+    return '<h3 style="font-size:15px;margin:18px 0 8px">' + title + ' <span style="color:#999;font-weight:400">(' + items.length + ')</span></h3>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">' +
+      items.map(it =>
+        '<div style="border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff">' +
+        '<div style="font-size:13px;font-weight:700">' + esc(it.ten) + '</div>' +
+        (it.kieu ? '<div style="font-size:11px;color:#8a1f3d;font-weight:600;margin-top:2px">🎯 in: ' + esc(it.kieu) + '</div>' : '') +
+        '<div style="font-size:12px;color:#555;margin-top:4px">' + esc(it.mota) + '</div>' +
+        (it.vidu ? '<div style="font-size:11.5px;color:#777;margin-top:4px;font-style:italic">VD: ' + esc(it.vidu) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">' +
+        (it.link && /^https?:/.test(it.link) ? '<a class="btn-ghost sm" style="text-decoration:none" target="_blank" rel="noopener" href="' + esc(it.link) + '">🔗 Xem</a>' : '') +
+        '<button class="btn-ghost sm ph-copy">📋 Copy ý tưởng</button></div></div>'
+      ).join("") + '</div>';
+  };
+  const kho = res.kho || [];
+  if (kho.length) {
+    html += '<h3 style="font-size:15px;margin:4px 0 8px">📚 Kho 3.310 — mẫu cá nhân hoá được <span style="color:#999;font-weight:400">(' + kho.length + ')</span></h3>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">' +
+      kho.map(it =>
+        '<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff">' +
+        '<img src="' + esc(it.i) + '" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:contain;background:#f6f2f2;cursor:zoom-in" onclick="openZoom(this.src)">' +
+        '<div style="padding:6px 8px"><div style="font-size:11.5px;font-weight:600;line-height:1.3">' + esc(it.n) + '</div>' +
+        '<div style="font-size:10px;color:#999">' + esc(it.t) + '</div>' +
+        (it.u ? '<a style="font-size:10.5px" target="_blank" rel="noopener" href="' + esc(it.u) + '">🔗 sản phẩm</a>' : '') +
+        '</div></div>'
+      ).join("") + '</div>';
+  }
+  html += webBlock("🌍 Web quốc tế (Etsy / Amazon / TikTok)", res.intl);
+  html += webBlock("🇻🇳 Shop Việt", res.vn);
+  $("phResults").innerHTML = html || '<p style="color:#888">Chưa có kết quả.</p>';
+  $("phResults").querySelectorAll(".ph-copy").forEach(b => b.onclick = async () => {
+    const card = b.closest("div[style*='border']");
+    try { await navigator.clipboard.writeText(card.innerText); b.textContent = "✓ Đã copy"; setTimeout(() => b.textContent = "📋 Copy ý tưởng", 1200); } catch (e) {}
+  });
+}
+
 let lvtInited = false, lvtItems = [], lvtStyle = "";
 function lvtInit() {
   if (lvtInited) return; lvtInited = true;

@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-lvt-free"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-psn-hunt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -664,6 +664,30 @@ def openai_generate(prompt, size="1024x1024", model=None, transparent=False):
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "application/json")
     return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
+
+
+RESPONSES_URL = "https://api.openai.com/v1/responses"
+
+
+def openai_web_search(query, timeout=120):
+    """AI search web thật (Responses API + web_search). Lỗi/timeout -> trả chuỗi rỗng."""
+    try:
+        payload = {"model": BEST_TEXT_MODEL, "input": query,
+                   "tools": [{"type": "web_search"}], "max_output_tokens": 1600}
+        req = urllib.request.Request(RESPONSES_URL, data=json.dumps(payload).encode(), method="POST")
+        req.add_header("Authorization", "Bearer " + API_KEY)
+        req.add_header("Content-Type", "application/json")
+        res = json.loads(_openai_call(req, timeout=timeout, tries=1))
+        parts = []
+        for o in (res.get("output") or []):
+            if o.get("type") == "message":
+                for c in (o.get("content") or []):
+                    if c.get("type") == "output_text":
+                        parts.append(c.get("text") or "")
+        return "\n".join(parts)
+    except Exception as e:
+        print("web_search fail:", str(e)[:120], flush=True)
+        return ""
 
 
 def openai_chat(messages, json_mode=True, max_tokens=1500, model=None):
@@ -6365,6 +6389,100 @@ def _td_compact_lines(spec, H=2400, ratio=0.30):
         prev = t
 
 
+PSN_HUNT_CACHE = os.path.join(DATA_DIR, "psn-hunt-kho.json")
+
+
+def _psn_hunt_kho():
+    """AI lọc kho 3.310: mẫu nào là DẠNG CÁ NHÂN HOÁ (khung thay tên riêng được). Cache vĩnh viễn (kho tĩnh)."""
+    try:
+        c = json.load(open(PSN_HUNT_CACHE, encoding="utf-8"))
+        if c:
+            return c
+    except Exception:
+        pass
+    names = [(i, x.get("n") or "", x.get("t") or "") for i, x in enumerate(LVT_INDEX) if x.get("n")]
+    picked = []
+    for chunk_start in range(0, len(names), 800):
+        chunk = names[chunk_start:chunk_start + 800]
+        listing = "\n".join("%d|%s|%s" % (i, n, t) for i, n, t in chunk)
+        try:
+            raw = openai_chat([
+                {"role": "system", "content":
+                 "Bạn nhận danh sách design áo thun (dòng: index|tên design|chủ đề). Chọn ra các design "
+                 "DẠNG CÁ NHÂN HOÁ ĐƯỢC: tên design chứa TÊN NGƯỜI/biệt danh thay được (vd 'Bố Tuấn', 'Trâm & Đặng'), "
+                 "hoặc cấu trúc khung đặt tên/đội nhóm/couple/gia đình ('... Club', 'Team ...', 'Đội ...', 'Nhà ...', "
+                 "'Vợ ... Chồng ...'), hoặc quote xưng hô cá nhân hoá được. "
+                 "Trả JSON {\"idx\": [danh sách index]}. Chỉ chọn mẫu THẬT SỰ hợp in tên riêng."},
+                {"role": "user", "content": listing}], json_mode=True, max_tokens=3000, model=BEST_TEXT_MODEL)
+            ids = json.loads(raw).get("idx") or []
+            picked += [int(i) for i in ids if isinstance(i, (int, float, str)) and str(i).isdigit()]
+        except Exception as e:
+            print("psn hunt kho chunk fail:", str(e)[:100], flush=True)
+    out = []
+    for i in sorted(set(picked)):
+        if 0 <= i < len(LVT_INDEX):
+            x = LVT_INDEX[i]
+            out.append({"n": x.get("n"), "i": x.get("i"), "u": x.get("u"), "t": x.get("t"), "s": x.get("s")})
+    if out:
+        try:
+            json.dump(out, open(PSN_HUNT_CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+        except Exception:
+            pass
+    return out
+
+
+def run_psn_hunt_job(job_id):
+    """🔎 Săn mẫu personalized 3 nguồn: kho 3.310 + web quốc tế + shop Việt."""
+    job = BATCH_JOBS[job_id]
+    result = {"kho": [], "intl": [], "vn": []}
+    try:
+        job["note"] = "📚 Đang lọc kho 3.310 design…"
+        try:
+            result["kho"] = _psn_hunt_kho()
+        except Exception as e:
+            job["errors"].append("Kho: " + str(e)[:120])
+        searches = {
+            "intl": ["best selling personalized custom name t-shirts on Etsy and Amazon right now 2026 — "
+                     "list 10+ popular design types (name, date, photo, zodiac, pet, family...), what makes "
+                     "each sell, with example product titles",
+                     "viral personalized couple / family / friend group shirt trends TikTok Instagram 2026 — "
+                     "list design formulas with examples"],
+            "vn": ["các mẫu áo thun in tên cá nhân hoá đang bán chạy tại shop Việt Nam 2026 (áo couple in tên, "
+                   "áo nhóm, áo gia đình, áo in tên theo yêu cầu) — liệt kê kiểu mẫu + shop + vì sao hot"],
+        }
+        texts = {"intl": [], "vn": []}
+        for k, qs in searches.items():
+            for q in qs:
+                job["note"] = ("🌍 Đang săn web quốc tế…" if k == "intl" else "🇻🇳 Đang săn shop Việt…")
+                t = openai_web_search(q)
+                if t:
+                    texts[k].append(t)
+        job["note"] = "🧠 Đang tổng hợp…"
+        for k in ("intl", "vn"):
+            if not texts[k]:
+                continue
+            try:
+                raw = openai_chat([
+                    {"role": "system", "content":
+                     "Từ các kết quả search sau, tổng hợp danh sách MẪU ÁO PERSONALIZED thành JSON "
+                     "{\"items\":[{\"ten\":\"tên kiểu mẫu (tiếng Việt)\",\"mota\":\"mô tả ngắn design + cách cá nhân hoá\","
+                     "\"kieu\":\"in gì (tên/ngày/ảnh/cung/…)\",\"vidu\":\"ví dụ text trên áo\",\"link\":\"url nếu có\"}]}. "
+                     "Gộp trùng, tối đa 15 mẫu, ưu tiên mẫu bán chạy/viral."},
+                    {"role": "user", "content": "\n\n---\n\n".join(texts[k])}],
+                    json_mode=True, max_tokens=2500, model=BEST_TEXT_MODEL)
+                result[k] = (json.loads(raw).get("items") or [])[:15]
+            except Exception as e:
+                job["errors"].append(("Web intl: " if k == "intl" else "Web VN: ") + str(e)[:120])
+        with _batch_lock:
+            job["done"] = 1
+            job["items"].append(result)
+            job["finished"] = True
+    except Exception as e:
+        with _batch_lock:
+            job["errors"].append(str(e)[:160])
+            job["finished"] = True
+
+
 def run_td_clone_job(job_id, img_b64, new_text):
     """Nhìn ảnh design mẫu -> spec mô phỏng bằng font thật trong kho -> render."""
     job = BATCH_JOBS[job_id]
@@ -8935,7 +9053,7 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "namedes", "mixd", "lvt",
+ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "psnhunt", "namedes", "mixd", "lvt",
                 "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
                 "adpost", "pgpost", "sched", "shopify", "shoplist", "restyle", "tdesign", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
@@ -10472,6 +10590,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_rate_designs(body)
         if path == "/api/td-gen":
             return self.handle_td_gen(body)
+        if path == "/api/psn-hunt":
+            return self.handle_psn_hunt(body)
         if path == "/api/td-clone":
             return self.handle_td_clone(body)
         if path == "/api/td-render":
@@ -11238,6 +11358,15 @@ class Handler(BaseHTTPRequestHandler):
         threading.Thread(target=run_td_job,
                          args=(job_id, theme, text, sub, n, hint), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n})
+
+    def handle_psn_hunt(self, body):
+        """🔎 Săn mẫu personalized 3 nguồn (job nền)."""
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ph%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False, "note": ""}
+        threading.Thread(target=run_psn_hunt_job, args=(job_id,), daemon=True).start()
+        return self.json(200, {"job_id": job_id})
 
     def handle_td_clone(self, body):
         """📋 Clone 1 ảnh design mẫu bằng font thật: GPT-4o nhìn mẫu -> spec -> render; text mới tuỳ chọn."""
