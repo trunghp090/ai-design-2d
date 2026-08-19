@@ -844,6 +844,7 @@ function showApp(app) {
   document.getElementById("view-restyle").classList.toggle("hidden", app !== "restyle");
   document.getElementById("view-tdesign").classList.toggle("hidden", app !== "tdesign");
   document.getElementById("view-psn").classList.toggle("hidden", app !== "psn");
+  document.getElementById("view-psnhunt").classList.toggle("hidden", app !== "psnhunt");
   document.getElementById("view-setshirt").classList.toggle("hidden", app !== "setshirt");
   document.getElementById("view-tiktok").classList.toggle("hidden", app !== "tiktok");
   document.getElementById("view-namedes").classList.toggle("hidden", app !== "namedes");
