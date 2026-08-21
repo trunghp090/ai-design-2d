@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-native-alpha"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-native-alpha2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -636,9 +636,13 @@ def strip_ai_meta_b64(b64):
 
 
 def _p_transparent(prompt):
-    """Đổi các cụm 'white background' trong prompt cũ thành transparent (dùng khi gen native)."""
-    return re.sub(r"(?:centered )?on a (?:plain |solid |pure )*white background",
-                  "on a fully transparent background", prompt, flags=re.I)
+    """Đổi 'white background' -> transparent + CẤM model vẽ backdrop (transparent chỉ là format,
+    model vẫn tự vẽ nền mờ nếu không cấm rõ)."""
+    p = re.sub(r"(?:centered )?on a (?:plain |solid |pure )*white background",
+               "on a fully transparent background", prompt, flags=re.I)
+    return (p + " IMPORTANT: transparent background — the design must be an isolated cut-out: "
+            "absolutely NO backdrop, no background scenery, no blurred background, no color wash, "
+            "no vignette behind the artwork; only the design elements themselves on empty transparency.")
 
 
 def openai_generate_t(prompt, size, model=None):
