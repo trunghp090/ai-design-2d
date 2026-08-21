@@ -2676,8 +2676,9 @@ function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Mat
 let _dsSeq = 0;
 function dsTime(it) {
   const gid = it && ((it.gallery && it.gallery.id) || it.id);
-  if (gid && /^d\d+$/.test(gid)) return parseInt(gid.slice(1), 10);
+  if (gid) { const m = /^d(\d+)/.exec(gid); if (m) return parseInt(m[1], 10); }   // id "d<ms>" LẪN "d<ms>_<seq>"
   if (it && it.ts) return it.ts * 1000;
+  if (it && it.gallery && it.gallery.ts) return it.gallery.ts * 1000;
   if (it && it._seq) return it._seq;
   return (it && (it._seq = ++_dsSeq + 1e18)) || 0;   // item không có mốc -> coi như mới nhất, ổn định
 }
