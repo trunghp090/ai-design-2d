@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-native-alpha2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-native-alpha3"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -645,34 +645,60 @@ def _p_transparent(prompt):
             "no vignette behind the artwork; only the design elements themselves on empty transparency.")
 
 
-def openai_generate_t(prompt, size, model=None):
-    """Gen ảnh NỀN TRONG SUỐT native (image-2). API từ chối background -> fallback gen trắng + tách nền."""
+def _alpha_border_bad(b64):
+    """True nếu VIỀN ảnh phần lớn ĐỤC — tức model lỡ vẽ backdrop dù đã yêu cầu transparent."""
+    if not HAS_PIL:
+        return False
     try:
-        return openai_generate(_p_transparent(prompt), size, model=model, transparent=True)
+        im = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
+        a = im.getchannel("A")
+        w, h = im.size
+        bw, bh = max(2, int(w * 0.03)), max(2, int(h * 0.03))
+        tot = opq = 0
+        for box in ((0, 0, w, bh), (0, h - bh, w, h), (0, 0, bw, h), (w - bw, 0, w, h)):
+            hist = a.crop(box).histogram()
+            tot += sum(hist)
+            opq += sum(hist[32:])
+        return opq > tot * 0.25
+    except Exception:
+        return False
+
+
+def openai_generate_t(prompt, size, model=None):
+    """Gen ảnh NỀN TRONG SUỐT native (image-2). Model lỡ vẽ backdrop / API từ chối ->
+    tự re-gen theo cách cũ (nền trắng phẳng + tách nền)."""
+    try:
+        b64 = openai_generate(_p_transparent(prompt), size, model=model, transparent=True)
+        if not _alpha_border_bad(b64):
+            return b64
+        print("native-alpha: model vẽ backdrop -> re-gen nền trắng + strip", flush=True)
     except urllib.error.HTTPError as e:
         try:
             msg = e.read().decode("utf-8", "ignore")
         except Exception:
             msg = str(e)
-        if e.code == 400 and "background" in msg.lower():
-            b64 = openai_generate(prompt, size, model=model)
-            return strip_bg_strong_b64(b64) if HAS_PIL else b64
-        raise
+        if not (e.code == 400 and "background" in msg.lower()):
+            raise
+    b64 = openai_generate(prompt, size, model=model)
+    return strip_bg_strong_b64(b64) if HAS_PIL else b64
 
 
 def openai_edit_t(images, prompt, size, quality=""):
-    """Edit ảnh ra NỀN TRONG SUỐT native. API từ chối -> fallback edit thường + tách nền."""
+    """Edit ảnh ra NỀN TRONG SUỐT native, cùng lưới an toàn như openai_generate_t."""
     try:
-        return openai_edit(images, _p_transparent(prompt), size, native_transparent=True, quality=quality)
+        b64 = openai_edit(images, _p_transparent(prompt), size, native_transparent=True, quality=quality)
+        if not _alpha_border_bad(b64):
+            return b64
+        print("native-alpha(edit): model vẽ backdrop -> re-edit + strip", flush=True)
     except urllib.error.HTTPError as e:
         try:
             msg = e.read().decode("utf-8", "ignore")
         except Exception:
             msg = str(e)
-        if e.code == 400 and "background" in msg.lower():
-            b64 = openai_edit(images, prompt, size, native_transparent=False, quality=quality)
-            return strip_bg_strong_b64(b64) if HAS_PIL else b64
-        raise
+        if not (e.code == 400 and "background" in msg.lower()):
+            raise
+    b64 = openai_edit(images, prompt, size, native_transparent=False, quality=quality)
+    return strip_bg_strong_b64(b64) if HAS_PIL else b64
 
 
 def openai_edit(images, prompt, size, native_transparent, quality=""):
