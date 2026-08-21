@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-psn-hunt-big2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-native-alpha"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -137,7 +137,7 @@ SIZE_MAP = {
 }
 
 # gpt-image-2 KHÔNG hỗ trợ background=transparent -> phải tạo nền trắng rồi tự xoá
-NATIVE_TRANSPARENT = not MODEL.startswith("gpt-image-2")
+NATIVE_TRANSPARENT = True   # gpt-image-2 đã hỗ trợ background transparent native (user xác nhận 2026-08)
 
 COLOR_HEX = {
     "white": "#f5f5f5", "black": "#1c1c1e", "gray": "#9aa0a6",
@@ -633,6 +633,42 @@ def strip_ai_meta_b64(b64):
         return base64.b64encode(strip_ai_meta(base64.b64decode(b64))).decode()
     except Exception:
         return b64
+
+
+def _p_transparent(prompt):
+    """Đổi các cụm 'white background' trong prompt cũ thành transparent (dùng khi gen native)."""
+    return re.sub(r"(?:centered )?on a (?:plain |solid |pure )*white background",
+                  "on a fully transparent background", prompt, flags=re.I)
+
+
+def openai_generate_t(prompt, size, model=None):
+    """Gen ảnh NỀN TRONG SUỐT native (image-2). API từ chối background -> fallback gen trắng + tách nền."""
+    try:
+        return openai_generate(_p_transparent(prompt), size, model=model, transparent=True)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = e.read().decode("utf-8", "ignore")
+        except Exception:
+            msg = str(e)
+        if e.code == 400 and "background" in msg.lower():
+            b64 = openai_generate(prompt, size, model=model)
+            return strip_bg_strong_b64(b64) if HAS_PIL else b64
+        raise
+
+
+def openai_edit_t(images, prompt, size, quality=""):
+    """Edit ảnh ra NỀN TRONG SUỐT native. API từ chối -> fallback edit thường + tách nền."""
+    try:
+        return openai_edit(images, _p_transparent(prompt), size, native_transparent=True, quality=quality)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = e.read().decode("utf-8", "ignore")
+        except Exception:
+            msg = str(e)
+        if e.code == 400 and "background" in msg.lower():
+            b64 = openai_edit(images, prompt, size, native_transparent=False, quality=quality)
+            return strip_bg_strong_b64(b64) if HAS_PIL else b64
+        raise
 
 
 def openai_edit(images, prompt, size, native_transparent, quality=""):
@@ -3393,9 +3429,7 @@ def _ag_gen_design(p, ctx):
         pr = c.get("prompt", "")
         if extra:
             pr += " " + extra
-        b64 = openai_generate(pr, "1024x1024")
-        if HAS_PIL:
-            b64 = strip_bg_strong_b64(b64)
+        b64 = openai_generate_t(pr, "1024x1024")
         b64 = strip_ai_meta_b64(b64)
         g = gallery_add(b64, {"mode": "design", "prompt": theme})
         out.append({"b64": b64, "url": g.get("url")})
@@ -5053,12 +5087,9 @@ def run_lvt_job(job_id, quote, n, size, wordmark, style_id="", ref_url="", direc
     def work(c):
         try:
             if ref_imgs:
-                b64 = openai_edit(ref_imgs, c["prompt"] + _REF_CLAUSE, size,
-                                  native_transparent=False, quality="medium")
+                b64 = openai_edit_t(ref_imgs, c["prompt"] + _REF_CLAUSE, size, quality="medium")
             else:
-                b64 = openai_generate(c["prompt"], size)
-            if HAS_PIL:
-                b64 = strip_bg_strong_b64(b64)
+                b64 = openai_generate_t(c["prompt"], size)
             g = gallery_add(b64, {"mode": "lvtquote", "prompt": c.get("title", quote)})
             return {"image": b64, "title": "[%s] %s" % ((c.get("style") or "LVT").strip()[:48], c.get("title", quote)),
                     "prompt": c["prompt"], "gallery": g}
@@ -5644,9 +5675,7 @@ def run_design_job(job_id, styles, theme, text, n, size, transparent, ref=None, 
     # Bước 2: gen ảnh song song nhiều luồng
     def work(c):
         try:
-            b64 = openai_generate(c["prompt"], size)
-            if transparent and HAS_PIL:
-                b64 = strip_bg_strong_b64(b64)
+            b64 = openai_generate_t(c["prompt"], size) if transparent else openai_generate(c["prompt"], size)
             g = gallery_add(b64, {"mode": "design", "prompt": c["title"]})
             return {"image": b64, "title": c["title"], "gallery": g}
         except urllib.error.HTTPError as e:
@@ -5734,11 +5763,8 @@ def _split_names(name):
 
 
 def _gen_base_b64(prompt, size, transparent=True):
-    """Vẽ design từ prompt (như tab Tạo design) + tách nền MẠNH."""
-    b64 = openai_generate(prompt, size)
-    if transparent and HAS_PIL:
-        b64 = strip_bg_strong_b64(b64)
-    return b64
+    """Vẽ design từ prompt (như tab Tạo design) — nền trong suốt native."""
+    return openai_generate_t(prompt, size) if transparent else openai_generate(prompt, size)
 
 
 # ============ 🔠 DESIGN FONT THẬT — compose chữ (font .ttf) + icon, KHÔNG AI vẽ ============
@@ -7823,9 +7849,7 @@ def run_psn_art_job(job_id, photo, styles, name, date, extra, n, size):
 
     def work(c):
         try:
-            b64 = openai_edit([photo], c["prompt"], size, native_transparent=False, quality="high")
-            if HAS_PIL:
-                b64 = strip_bg_strong_b64(b64)
+            b64 = openai_edit_t([photo], c["prompt"], size, quality="high")
             g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
             return {"image": b64, "title": c["title"], "gallery": g, "prompt": c["prompt"]}
         except urllib.error.HTTPError as e:
@@ -8467,9 +8491,7 @@ def run_psn_job(job_id, role, names, date, occasion, styles, auto_ai, n, size, e
 
     def work(c):
         try:
-            b64 = openai_generate(c["prompt"], size)
-            if HAS_PIL:
-                b64 = strip_bg_strong_b64(b64)
+            b64 = openai_generate_t(c["prompt"], size)
             g = gallery_add(b64, {"mode": "personalize", "prompt": c["title"]})
             return {"image": b64, "title": c["title"], "gallery": g, "prompt": c["prompt"]}
         except urllib.error.HTTPError as e:
@@ -8599,9 +8621,7 @@ def run_name_design_job(job_id, name, stamp, style, n, transparent):
         else:
             sk = random.choice(keys); title = NAMEDES_STYLES[sk][0]; prompt = name_design_prompt(name, stamp, sk)
         try:
-            b64 = openai_generate(prompt, "1024x1024")
-            if transparent and HAS_PIL:
-                b64 = strip_bg_strong_b64(b64)
+            b64 = openai_generate_t(prompt, "1024x1024") if transparent else openai_generate(prompt, "1024x1024")
             b64 = strip_ai_meta_b64(b64)
             g = gallery_add(b64, {"mode": "design", "prompt": "Tên: %s · %s" % (name, title)})
             return {"image": b64, "title": title, "gallery": g}
