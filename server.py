@@ -34,11 +34,51 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-casting"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-mockup-seed"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
 MOCKUP_DIR = os.path.join(ROOT, "mockups")
+MOCKUP_SEED = os.path.join(ROOT, "mockup-seed")
+
+
+def seed_mockups():
+    """Prod mount volume đè mockups/ -> file mới trong repo không tự xuất hiện.
+    Boot: chép ảnh từ mockup-seed/ vào MOCKUP_DIR nếu thiếu + merge labels (không đè label user)."""
+    try:
+        if not os.path.isdir(MOCKUP_SEED):
+            return
+        os.makedirs(MOCKUP_DIR, exist_ok=True)
+        import shutil
+        lp = os.path.join(MOCKUP_DIR, "labels.json")
+        try:
+            labels = json.load(open(lp, encoding="utf-8"))
+        except Exception:
+            labels = {}
+        seed_labels = {}
+        try:
+            seed_labels = json.load(open(os.path.join(MOCKUP_SEED, "labels.json"), encoding="utf-8"))
+        except Exception:
+            pass
+        changed = False
+        for f in sorted(os.listdir(MOCKUP_SEED)):
+            if not f.lower().endswith(".png"):
+                continue
+            dst = os.path.join(MOCKUP_DIR, f)
+            if not os.path.exists(dst):
+                shutil.copyfile(os.path.join(MOCKUP_SEED, f), dst)
+                changed = True
+            if f not in labels and f in seed_labels:
+                labels[f] = seed_labels[f]
+                changed = True
+        if changed:
+            json.dump(labels, open(lp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            print("seed_mockups: đã bổ sung ảnh áo mới", flush=True)
+    except Exception as e:
+        print("seed_mockups fail:", e, flush=True)
+
+
+seed_mockups()
 GALLERY_INDEX = os.path.join(GALLERY_DIR, "index.json")
 MOCKUP_INDEX = os.path.join(MOCKUP_DIR, "labels.json")
 DATA_DIR = os.path.join(ROOT, "data")            # dữ liệu bền (mount volume khi deploy)
