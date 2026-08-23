@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-outfit-override"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-outfit-override2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12505,9 +12505,9 @@ class Handler(BaseHTTPRequestHandler):
         if not ANTHROPIC_API_KEY:
             return self.json(400, {"error": "Chưa cấu hình ANTHROPIC_API_KEY."})
         roles = [("char_img", "NHÂN VẬT 1 (giữ đúng mặt, tóc, dáng người; nếu không có ảnh trang phục riêng thì giữ nguyên bộ đồ + design in trên áo trong ảnh này)"),
-                 ("outfit1_img", "TRANG PHỤC cho nhân vật 1"),
+                 ("outfit1_img", "TRANG PHỤC nhân vật 1 PHẢI MẶC — nếu là áo thun thì mặc ĐÚNG áo này với design in nguyên vẹn, GHI ĐÈ đồ trong ảnh nhân vật"),
                  ("char2_img", "NHÂN VẬT 2 (cùng xuất hiện với nhân vật 1)"),
-                 ("outfit2_img", "TRANG PHỤC cho nhân vật 2"),
+                 ("outfit2_img", "TRANG PHỤC nhân vật 2 PHẢI MẶC — nếu là áo thun thì mặc ĐÚNG áo này với design in nguyên vẹn, GHI ĐÈ đồ trong ảnh nhân vật"),
                  ("pose_img", "DÁNG + BỐI CẢNH: pose từng người, hướng đầu, tay chân, khoảng cách camera, tỉ lệ người/khung, và toàn bộ cảnh + ánh sáng lấy theo ảnh này")]
         raws, labels = [], []
         for key, label in roles:
