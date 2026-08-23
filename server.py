@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-no-design-desc"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-outfit-simple"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12405,12 +12405,10 @@ class Handler(BaseHTTPRequestHandler):
                     "their clothing comes from the separate OUTFIT reference below." if has_o2 else
                     " Keep the SAME clothing they are wearing in this photo, including the shirt and its "
                     "printed design reproduced exactly.")
-        outfit_instr = ("Reference image #%d is the CLOTHING person {n} MUST WEAR: dress person {n} in EXACTLY "
-                        "these garments — if it shows a shirt/t-shirt, person {n} wears THIS shirt with its "
-                        "printed design reproduced EXACTLY (same artwork, colors and placement, pixel-accurate); "
-                        "this OVERRIDES whatever clothes appear in their own reference photo. Also copy any "
-                        "bottoms, outer layers, shoes or accessories visible; items not shown (e.g. pants) should "
-                        "be simple neutral pieces that match the look.")
+        outfit_instr = ("Reference image #%d is the CLOTHING person {n} MUST WEAR — exactly as shown in that "
+                        "image, overriding whatever they wear in their own photo. Render the garment faithfully: "
+                        "if it is plain, keep it plain — do NOT invent or add any graphics, prints or text; if it "
+                        "has a print, reproduce it exactly. Items not shown (e.g. pants) = simple neutral pieces.")
         for key, instr in (
                 ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear in the photo "
                              "— same face, hairstyle, body build and skin tone; keep their identity faithful." + c1_cloth),
@@ -12505,9 +12503,9 @@ class Handler(BaseHTTPRequestHandler):
         if not ANTHROPIC_API_KEY:
             return self.json(400, {"error": "Chưa cấu hình ANTHROPIC_API_KEY."})
         roles = [("char_img", "NHÂN VẬT 1 (giữ đúng mặt, tóc, dáng người; nếu không có ảnh trang phục riêng thì giữ nguyên bộ đồ + design in trên áo trong ảnh này)"),
-                 ("outfit1_img", "TRANG PHỤC nhân vật 1 PHẢI MẶC — nếu là áo thun thì mặc ĐÚNG áo này với design in nguyên vẹn, GHI ĐÈ đồ trong ảnh nhân vật"),
+                 ("outfit1_img", "TRANG PHỤC nhân vật 1 PHẢI MẶC — mặc y như ảnh, ghi đè đồ trong ảnh nhân vật, không mô tả thêm"),
                  ("char2_img", "NHÂN VẬT 2 (cùng xuất hiện với nhân vật 1)"),
-                 ("outfit2_img", "TRANG PHỤC nhân vật 2 PHẢI MẶC — nếu là áo thun thì mặc ĐÚNG áo này với design in nguyên vẹn, GHI ĐÈ đồ trong ảnh nhân vật"),
+                 ("outfit2_img", "TRANG PHỤC nhân vật 2 PHẢI MẶC — mặc y như ảnh, ghi đè đồ trong ảnh nhân vật, không mô tả thêm"),
                  ("pose_img", "DÁNG + BỐI CẢNH: pose từng người, hướng đầu, tay chân, khoảng cách camera, tỉ lệ người/khung, và toàn bộ cảnh + ánh sáng lấy theo ảnh này")]
         raws, labels = [], []
         for key, label in roles:
@@ -12526,12 +12524,11 @@ class Handler(BaseHTTPRequestHandler):
                 "sản phẩm lifestyle tự nhiên: mô tả CHI TIẾT TỪNG TÍ pose (thân, hướng đầu, ánh mắt, từng tay "
                 "chân, đang bước hay đứng), bố cục khung hình (góc + khoảng cách camera, người chiếm ~% chiều "
                 "cao khung, vị trí trong khung), bối cảnh + ánh sáng + không khí đúng theo ảnh DÁNG+BỐI CẢNH; "
-                "người và quần áo đúng theo ảnh nhân vật/trang phục. QUY TẮC SẮT VỀ DESIGN ÁO: TUYỆT ĐỐI "
-                "KHÔNG mô tả hoạ tiết/hình in/chữ trên áo bằng lời (không tả hình dáng, màu, vị trí, không "
-                "chép chữ trên áo ra) — mô tả sẽ làm model vẽ sai design. Chỉ được viết đúng kiểu: "
-                "'wearing the shirt from the outfit reference image with its printed design reproduced EXACTLY "
-                "as shown in that image'. Kiểu ảnh chụp điện thoại tự nhiên, màu trung thực, không chữ thêm, "
-                "không watermark. CHỈ TRẢ VỀ PROMPT, không giải thích."
+                "người và quần áo đúng theo ảnh nhân vật/trang phục. QUY TẮC SẮT VỀ QUẦN ÁO: về trang phục "
+                "CHỈ ĐƯỢC viết đúng 1 câu: 'each person wears the clothing from their outfit reference image "
+                "exactly as shown' — TUYỆT ĐỐI không mô tả thêm bất cứ gì về áo (không màu, không hoạ tiết, "
+                "không chữ, không kiểu dáng; áo trơn hay có hình đều mặc y như ảnh). Kiểu ảnh chụp điện thoại "
+                "tự nhiên, màu trung thực, không chữ thêm, không watermark. CHỈ TRẢ VỀ PROMPT, không giải thích."
                 + ((" Ý thêm của user (phải đưa vào): " + hint) if hint else ""))
         try:
             p = claude_vision_multi("Bạn là art director viết prompt ảnh sản phẩm thời trang.", text, raws,
