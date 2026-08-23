@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-pose-first"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-pose-vision"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12415,15 +12415,32 @@ class Handler(BaseHTTPRequestHandler):
                 if rd:
                     imgs.append((rd, rm or "image/png"))
                     if key == "pose_img":
-                        # KHOÁ BỐ CỤC: đưa lên ĐẦU prompt làm luật ưu tiên số 1 (cuối prompt hay bị model bỏ qua)
-                        prompt = (("PRIORITY RULE #1 — COMPOSITION LOCK: reference image #%d is the pose & "
-                                   "composition reference. The output frame MUST replicate it exactly: same camera "
-                                   "distance, same angle, same crop, and the people must occupy the SAME SIZE and "
-                                   "POSITION within the frame as in that image — match the head-to-frame-height "
-                                   "ratio; if the people look small and far away there, render them equally small "
-                                   "and far away. NEVER zoom in closer than that reference. It defines ONLY pose "
-                                   "and framing — identity, clothing and background come from the other "
-                                   "references. ") % len(imgs)) + prompt
+                        # Claude NHÌN ảnh pose -> mô tả chi tiết từng tí (hướng thân/đầu, tay chân, bước đi,
+                        # khoảng cách, vị trí khung, tỉ lệ người/khung) -> nhét vào đầu prompt
+                        pose_desc = ""
+                        try:
+                            pose_desc = claude_vision(
+                                "Bạn là chuyên gia phân tích pose nhiếp ảnh cho image-generation prompt.",
+                                "Analyze this photo and output PRECISE ENGLISH imperative instructions describing "
+                                "the pose & composition ONLY (never clothing, faces or scenery). For EACH person "
+                                "(left/right): body orientation (facing away/toward camera, angle in degrees), "
+                                "head direction and gaze, each arm and hand (holding hands? swinging? carrying?), "
+                                "legs (standing still or WALKING mid-step — which leg forward), distance between "
+                                "the two people. Then the framing: camera height and angle, camera distance, "
+                                "where the subjects sit in the frame (left/center/right, thirds), and subject "
+                                "height as an approximate percentage of frame height. Compact bullet points.",
+                                rd, rm or "image/png", max_tokens=550)
+                        except Exception as e:
+                            print("pose vision fail:", str(e)[:100], flush=True)
+                        lock_txt = ("PRIORITY RULE #1 — POSE & COMPOSITION LOCK (follow EVERY detail below, "
+                                    "verified against reference image #%d): " % len(imgs))
+                        if pose_desc:
+                            lock_txt += pose_desc.strip() + " "
+                        lock_txt += ("The people must occupy the SAME size and position within the frame as in "
+                                     "that reference — match the head-to-frame-height ratio, NEVER zoom in closer. "
+                                     "The pose reference defines ONLY pose and framing — identity, clothing and "
+                                     "background come from the other references. ")
+                        prompt = lock_txt + prompt
                     else:
                         prompt += " " + instr % len(imgs)
         # Không up trang phục -> ẢNH NHÂN VẬT là nguồn chuẩn cho cả người LẪN quần áo
