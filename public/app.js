@@ -2168,6 +2168,20 @@ function prodInit() {
   $("prodViewGrid").onclick = () => prodSetView("grid");
   $("prodHistRefresh").onclick = prodLoadHistory;
   $("prodToShopify").onclick = prodPushSel;
+  document.addEventListener("paste", e => {
+    const v = $("view-product");
+    if (!v || v.classList.contains("hidden")) return;
+    if (/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || "")) return;
+    for (const it of (e.clipboardData && e.clipboardData.items || [])) {
+      if (it.type && it.type.startsWith("image/")) {
+        e.preventDefault();
+        const fr = new FileReader();
+        fr.onload = () => { prodRefs.push(fr.result); prodRenderRefs(); };
+        fr.readAsDataURL(it.getAsFile());
+        return;
+      }
+    }
+  });
   prodRenderRefs();
   prodRenderStyle();
   prodLoadHistory();
@@ -2190,6 +2204,27 @@ async function prodCheckEngine() {
   } catch (e) { /* im lặng */ }
 }
 
+async function prodClipImage() {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      const t = it.types.find(x => x.startsWith("image/"));
+      if (t) {
+        const blob = await it.getType(t);
+        return await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      }
+    }
+  } catch (e) {}
+  alert("Không thấy ảnh trong clipboard — copy ảnh trước rồi bấm 📋 (hoặc trình duyệt chặn: bấm vào trang rồi thử lại).");
+  return null;
+}
+function prodPasteBtn(onImg) {
+  const b = document.createElement("button");
+  b.className = "fp-ref fp-ref-add"; b.type = "button"; b.title = "Dán ảnh từ clipboard";
+  b.innerHTML = "📋<span>Dán</span>";
+  b.onclick = async () => { const u = await prodClipImage(); if (u) onImg(u); };
+  return b;
+}
 function prodRenderRefs() {
   const box = $("prodRefs"); if (!box) return; box.innerHTML = "";
   prodRefs.forEach((u, i) => {
@@ -2198,7 +2233,10 @@ function prodRenderRefs() {
     d.querySelector(".fp-ref-x").onclick = () => { prodRefs.splice(i, 1); prodRenderRefs(); };
     box.appendChild(d);
   });
-  if (prodRefs.length < 6) { const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button"; add.innerHTML = "＋<span>Add</span>"; add.onclick = () => $("prodFile").click(); box.appendChild(add); }
+  if (prodRefs.length < 6) {
+    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button"; add.innerHTML = "＋<span>Add</span>"; add.onclick = () => $("prodFile").click(); box.appendChild(add);
+    box.appendChild(prodPasteBtn(u => { prodRefs.push(u); prodRenderRefs(); }));
+  }
   $("prodRefCount").textContent = prodRefs.length + "/6";
 }
 
@@ -2214,6 +2252,7 @@ function prodRenderRoles() {
     } else {
       const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
       add.innerHTML = ic + "<span>" + lb + "</span>"; add.onclick = () => $(fileId).click(); box.appendChild(add);
+      box.appendChild(prodPasteBtn(u => { prodRoleImgs[k] = u; prodRenderRoles(); }));
     }
   });
 }
@@ -2227,6 +2266,7 @@ function prodRenderStyle() {
   } else {
     const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
     add.innerHTML = "🎨<span>Style</span>"; add.onclick = () => $("prodStyleFile").click(); box.appendChild(add);
+    box.appendChild(prodPasteBtn(u => { prodStyle = u; prodRenderStyle(); }));
   }
 }
 
