@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-char-outfit"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-pose-first"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12408,17 +12408,24 @@ class Handler(BaseHTTPRequestHandler):
                                 "from the main reference must remain the visible main top."),
                 ("bg_img", "Reference image #%d is the BACKGROUND/SCENE: place the subject into this exact setting — "
                            "same location, lighting and atmosphere."),
-                ("pose_img", "Reference image #%d is the POSE & COMPOSITION reference — follow it EXACTLY: same "
-                             "body pose, same camera angle and distance, same framing/crop, and the SAME "
-                             "subject-to-background scale — the person(s) must occupy the same portion and position "
-                             "of the frame as in this image. Do NOT take the person, clothes or background from it, "
-                             "only the pose and composition.")):
+                ("pose_img", "")):
             src = body.get(key, "")
             if src:
                 rd, rm = fetch_image_bytes(src)
                 if rd:
                     imgs.append((rd, rm or "image/png"))
-                    prompt += " " + instr % len(imgs)
+                    if key == "pose_img":
+                        # KHOÁ BỐ CỤC: đưa lên ĐẦU prompt làm luật ưu tiên số 1 (cuối prompt hay bị model bỏ qua)
+                        prompt = (("PRIORITY RULE #1 — COMPOSITION LOCK: reference image #%d is the pose & "
+                                   "composition reference. The output frame MUST replicate it exactly: same camera "
+                                   "distance, same angle, same crop, and the people must occupy the SAME SIZE and "
+                                   "POSITION within the frame as in that image — match the head-to-frame-height "
+                                   "ratio; if the people look small and far away there, render them equally small "
+                                   "and far away. NEVER zoom in closer than that reference. It defines ONLY pose "
+                                   "and framing — identity, clothing and background come from the other "
+                                   "references. ") % len(imgs)) + prompt
+                    else:
+                        prompt += " " + instr % len(imgs)
         # Không up trang phục -> ẢNH NHÂN VẬT là nguồn chuẩn cho cả người LẪN quần áo
         if (body.get("char_img") or "").strip() and not (body.get("outfit1_img") or "").strip():
             prompt += (" IMPORTANT: no separate outfit was provided — the clothing worn in the PERSON #1 "
