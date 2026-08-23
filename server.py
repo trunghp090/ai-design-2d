@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-paste2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-2chars"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12383,8 +12383,10 @@ class Handler(BaseHTTPRequestHandler):
                            "do NOT copy its content, subject, text or layout, only its look & feel." % len(imgs))
         # 3 ảnh vai trò (tuỳ chọn): nhân vật / bối cảnh / pose — user tự up
         for key, instr in (
-                ("char_img", "Reference image #%d shows the PERSON/MODEL: the shirt must be worn by THIS exact "
-                             "person — same face, hairstyle, body build and skin tone; keep their identity faithful."),
+                ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear wearing the shirt "
+                             "— same face, hairstyle, body build and skin tone; keep their identity faithful."),
+                ("char2_img", "Reference image #%d shows PERSON #2: this second person must ALSO appear in the photo "
+                              "together with person #1 — same face, hairstyle, body build and skin tone as this image."),
                 ("bg_img", "Reference image #%d is the BACKGROUND/SCENE: place the subject into this exact setting — "
                            "same location, lighting and atmosphere."),
                 ("pose_img", "Reference image #%d is a POSE reference: copy only the body pose, framing and camera "
