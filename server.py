@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-2chars"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-outfits"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12387,6 +12387,12 @@ class Handler(BaseHTTPRequestHandler):
                              "— same face, hairstyle, body build and skin tone; keep their identity faithful."),
                 ("char2_img", "Reference image #%d shows PERSON #2: this second person must ALSO appear in the photo "
                               "together with person #1 — same face, hairstyle, body build and skin tone as this image."),
+                ("outfit1_img", "Reference image #%d shows the OUTFIT for person #1: dress person #1 in this exact "
+                                "clothing/styling (bottoms, outer layers, shoes, accessories) — but the PRODUCT SHIRT "
+                                "from the main reference must remain the visible main top."),
+                ("outfit2_img", "Reference image #%d shows the OUTFIT for person #2: dress person #2 in this exact "
+                                "clothing/styling (bottoms, outer layers, shoes, accessories) — but the PRODUCT SHIRT "
+                                "from the main reference must remain the visible main top."),
                 ("bg_img", "Reference image #%d is the BACKGROUND/SCENE: place the subject into this exact setting — "
                            "same location, lighting and atmosphere."),
                 ("pose_img", "Reference image #%d is a POSE reference: copy only the body pose, framing and camera "
