@@ -2158,7 +2158,7 @@ function prodInit() {
   $("prodFile").onchange = async (e) => { for (const f of e.target.files) { if (f.type.startsWith("image/")) prodRefs.push(await fileToDataURL(f)); } e.target.value = ""; prodRenderRefs(); };
   $("prodUseCurrent").onclick = () => { if (!currentDesign) { alert("Chưa có design đang mở ở Clone Design."); return; } prodRefs.push("data:image/png;base64," + currentDesign); prodRenderRefs(); };
   $("prodStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodStyle = await fileToDataURL(f); prodRenderStyle(); } e.target.value = ""; };
-  [["char", "prodCharFile"], ["char2", "prodChar2File"], ["outfit1", "prodOutfit1File"], ["outfit2", "prodOutfit2File"], ["bg", "prodBgFile"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
+  [["char", "prodCharFile"], ["char2", "prodChar2File"], ["outfit1", "prodOutfit1File"], ["outfit2", "prodOutfit2File"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
     $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleImgs[k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
   });
   prodRenderRoles();
@@ -2235,7 +2235,7 @@ function prodRenderRefs() {
   $("prodRefCount").textContent = prodRefs.length + "/6";
 }
 
-const PROD_ROLE_UI = { char: ["prodCharRef", "prodCharFile", "👤", "Nhân vật 1"], char2: ["prodChar2Ref", "prodChar2File", "👥", "Nhân vật 2"], outfit1: ["prodOutfit1Ref", "prodOutfit1File", "👕", "Trang phục 1"], outfit2: ["prodOutfit2Ref", "prodOutfit2File", "👗", "Trang phục 2"], bg: ["prodBgRef", "prodBgFile", "🏞", "Bối cảnh"], pose: ["prodPoseRef", "prodPoseFile", "🧍", "Pose"] };
+const PROD_ROLE_UI = { char: ["prodCharRef", "prodCharFile", "👤", "Nhân vật 1"], char2: ["prodChar2Ref", "prodChar2File", "👥", "Nhân vật 2"], outfit1: ["prodOutfit1Ref", "prodOutfit1File", "👕", "Trang phục 1"], outfit2: ["prodOutfit2Ref", "prodOutfit2File", "👗", "Trang phục 2"], pose: ["prodPoseRef", "prodPoseFile", "🧍", "Dáng + cảnh"] };
 function prodRenderRoles() {
   Object.entries(PROD_ROLE_UI).forEach(([k, [boxId, fileId, ic, lb]]) => {
     const box = $(boxId); if (!box) return; box.innerHTML = "";

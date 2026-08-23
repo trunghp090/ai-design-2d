@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-pose-vision2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-pose-all"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12422,13 +12422,14 @@ class Handler(BaseHTTPRequestHandler):
                             pose_desc = claude_vision(
                                 "Bạn là chuyên gia phân tích pose nhiếp ảnh cho image-generation prompt.",
                                 "Analyze this photo and output PRECISE ENGLISH imperative instructions describing "
-                                "the pose & composition ONLY (never clothing, faces or scenery). For EACH person "
+                                "the pose, composition AND setting (never clothing or faces). For EACH person "
                                 "(left/right): body orientation (facing away/toward camera, angle in degrees), "
                                 "head direction and gaze, each arm and hand (holding hands? swinging? carrying?), "
                                 "legs (standing still or WALKING mid-step — which leg forward), distance between "
                                 "the two people. Then the framing: camera height and angle, camera distance, "
                                 "where the subjects sit in the frame (left/center/right, thirds), and subject "
-                                "height as an approximate percentage of frame height. Compact bullet points.",
+                                "height as an approximate percentage of frame height. Finally 2-3 bullets on the "
+                                "SETTING: location/scenery, lighting and weather/atmosphere. Compact bullet points.",
                                 rd, rm or "image/png", max_tokens=550)
                         except Exception as e:
                             print("pose vision fail:", str(e)[:100], flush=True)
@@ -12439,8 +12440,9 @@ class Handler(BaseHTTPRequestHandler):
                             lock_txt += pd + " "
                         lock_txt += ("The people must occupy the SAME size and position within the frame as in "
                                      "that reference — match the head-to-frame-height ratio, NEVER zoom in closer. "
-                                     "The pose reference defines ONLY pose and framing — identity, clothing and "
-                                     "background come from the other references. ")
+                                     "This reference defines the pose, framing AND the background/scene — recreate "
+                                     "its setting, lighting and atmosphere too; ONLY identity and clothing come "
+                                     "from the person references. ")
                         prompt = lock_txt + prompt
                     else:
                         prompt += " " + instr % len(imgs)
