@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-noprompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-pose-lock"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12392,10 +12392,14 @@ class Handler(BaseHTTPRequestHandler):
                            "do NOT copy its content, subject, text or layout, only its look & feel." % len(imgs))
         # 3 ảnh vai trò (tuỳ chọn): nhân vật / bối cảnh / pose — user tự up
         for key, instr in (
-                ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear wearing the shirt "
-                             "— same face, hairstyle, body build and skin tone; keep their identity faithful."),
+                ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear in the photo "
+                             "— same face, hairstyle, body build and skin tone; keep their identity faithful. "
+                             "Unless a separate outfit reference for person #1 is provided, keep the SAME clothing "
+                             "they are wearing in this photo (including the shirt and its printed design)."),
                 ("char2_img", "Reference image #%d shows PERSON #2: this second person must ALSO appear in the photo "
-                              "together with person #1 — same face, hairstyle, body build and skin tone as this image."),
+                              "together with person #1 — same face, hairstyle, body build and skin tone as this image. "
+                              "Unless a separate outfit reference for person #2 is provided, keep the SAME clothing "
+                              "they are wearing in this photo (including the shirt and its printed design)."),
                 ("outfit1_img", "Reference image #%d shows the OUTFIT for person #1: dress person #1 in this exact "
                                 "clothing/styling (bottoms, outer layers, shoes, accessories) — but the PRODUCT SHIRT "
                                 "from the main reference must remain the visible main top."),
@@ -12404,8 +12408,11 @@ class Handler(BaseHTTPRequestHandler):
                                 "from the main reference must remain the visible main top."),
                 ("bg_img", "Reference image #%d is the BACKGROUND/SCENE: place the subject into this exact setting — "
                            "same location, lighting and atmosphere."),
-                ("pose_img", "Reference image #%d is a POSE reference: copy only the body pose, framing and camera "
-                             "angle from it — NOT the person, clothes or background in that image.")):
+                ("pose_img", "Reference image #%d is the POSE & COMPOSITION reference — follow it EXACTLY: same "
+                             "body pose, same camera angle and distance, same framing/crop, and the SAME "
+                             "subject-to-background scale — the person(s) must occupy the same portion and position "
+                             "of the frame as in this image. Do NOT take the person, clothes or background from it, "
+                             "only the pose and composition.")):
             src = body.get(key, "")
             if src:
                 rd, rm = fetch_image_bytes(src)
