@@ -54,7 +54,6 @@
     <button class="app-tab" data-app="lenao" data-group="work">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="work">✨ Tạo design</button>
     <button class="app-tab" data-app="product" data-group="work">📸 Ảnh sản phẩm</button>
-    <button class="app-tab" data-app="agent" data-group="marketing">🤖 Trợ lý AI</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
     <button class="app-tab" data-app="tiktok" data-group="marketing">🎵 TikTok Quà tặng</button>
@@ -62,7 +61,6 @@
     <button class="app-tab hidden" data-app="admgr" data-group="revenue">📊 Chỉ số & chiến dịch</button>
     <button class="app-tab" data-app="adpost" data-group="marketing">📋 Bài FB Ads</button>
     <button class="app-tab" data-app="pgpost" data-group="marketing">📋 Bài FB/IG</button>
-    <button class="app-tab" data-app="sched" data-group="marketing">🗓️ Lịch content</button>
     <button class="app-tab" data-app="shopify" data-group="shopify">🛍️ Đẩy Shopify</button>
     <button class="app-tab" data-app="shoplist" data-group="shopify">📦 SP Shopify</button>
   </nav>
@@ -819,6 +817,36 @@
         <div class="fp-refs" id="prodStyleRef"></div>
         <input type="file" id="prodStyleFile" accept="image/*" hidden />
 
+        <label class="fp-label" style="margin-top:14px">👤 NHÂN VẬT</label>
+        <select id="prodChar" class="input">
+          <option value="">— Không (chỉ áo/sản phẩm) —</option>
+          <option value="male">👨 Model nam</option>
+          <option value="female">👩 Model nữ</option>
+          <option value="couple">💑 Cặp đôi (nam + nữ)</option>
+        </select>
+        <label class="fp-label" style="margin-top:10px">🏞 BỐI CẢNH</label>
+        <select id="prodBg" class="input">
+          <option value="">— Theo prompt —</option>
+          <option value="studio">🎬 Studio nền trơn</option>
+          <option value="cafe">☕ Café indie</option>
+          <option value="phoco">🏮 Phố cổ Hà Nội</option>
+          <option value="congvien">🌳 Công viên</option>
+          <option value="phongtro">🛏 Phòng trọ GenZ</option>
+          <option value="bien">🏖 Biển nắng</option>
+          <option value="rooftop">🌆 Rooftop</option>
+          <option value="store">🏪 Cửa hàng tiện lợi</option>
+        </select>
+        <label class="fp-label" style="margin-top:10px">🧍 TẠO DÁNG</label>
+        <select id="prodPose" class="input">
+          <option value="">— Tự nhiên —</option>
+          <option value="stand">🧍 Đứng nhìn camera</option>
+          <option value="sit">🪜 Ngồi bậc thềm</option>
+          <option value="lean">🧱 Tựa tường</option>
+          <option value="walk">🚶 Đi bộ candid</option>
+          <option value="drink">🥤 Cầm đồ uống</option>
+          <option value="waist">👤 Nửa người (mặt rõ)</option>
+          <option value="threequarter">🦵 3/4 thân</option>
+        </select>
         <label class="fp-label" style="margin-top:14px">PROMPT</label>
         <textarea id="prodPrompt" class="input" rows="9" placeholder="Nhập mô tả ảnh sản phẩm muốn tạo (tiếng Anh tốt nhất)…"></textarea>
         <button class="btn-ghost sm" id="prodSuggestBtn" style="margin-top:6px">🧠 Claude viết prompt từ ảnh (gõ ý tưởng vào ô trên rồi bấm)</button>

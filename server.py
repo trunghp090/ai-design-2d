@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-tabs-trim"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-casting"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -499,7 +499,7 @@ def _aspect_for(size):
 
 # Các model gen ảnh cho user chọn. id -> {label, kind, model}
 IMAGE_ENGINES = [
-    {"id": "openai",       "label": "OpenAI gpt-image",                 "kind": "openai", "model": ""},
+    {"id": "openai",       "label": "ChatGPT image-2 (gpt-image-2)",    "kind": "openai", "model": ""},
     {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image-preview"},
     {"id": "gemini_flash", "label": "Nano Banana (Gemini 2.5 Flash)",   "kind": "gemini", "model": "gemini-2.5-flash-image"},
 ]
@@ -9122,8 +9122,8 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["clone", "recolor", "lenao", "design", "product", "agent", "ads", "fbpost", "tiktok",
-                "adpost", "pgpost", "sched", "shopify", "shoplist", "pnl", "admgr"]
+ALL_APP_TABS = ["clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
+                "adpost", "pgpost", "shopify", "shoplist", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
 

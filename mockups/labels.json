@@ -1,9 +1,16 @@
 {
-  "ao_1_trang.png": "Áo trắng",
-  "ao_2_den.png": "Áo đen",
-  "ao_3_be.png": "Áo be",
-  "ao_4_nau.png": "Áo nâu",
-  "ao_5_do.png": "Áo đỏ",
-  "ao_6_dodo.png": "Áo đỏ đô",
-  "ao_7_xanhreu.png": "Áo xanh rêu"
+  "ao_1_trang.png": "Áo trắng (trước)",
+  "ao_2_den.png": "Áo đen (trước)",
+  "ao_3_be.png": "Áo be (trước)",
+  "ao_4_nau.png": "Áo nâu (trước)",
+  "ao_5_do.png": "Áo đỏ (trước)",
+  "ao_6_dodo.png": "Áo đỏ đô (trước)",
+  "ao_7_xanhreu.png": "Áo xanh rêu (trước)",
+  "ao_1_trang_sau.png": "Áo trắng (sau)",
+  "ao_2_den_sau.png": "Áo đen (sau)",
+  "ao_3_be_sau.png": "Áo be (sau)",
+  "ao_4_nau_sau.png": "Áo nâu (sau)",
+  "ao_5_do_sau.png": "Áo đỏ (sau)",
+  "ao_6_dodo_sau.png": "Áo đỏ đô (sau)",
+  "ao_7_xanhreu_sau.png": "Áo xanh rêu (sau)"
 }

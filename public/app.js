@@ -1872,7 +1872,7 @@ const LENAO_COLOR_STD = {
   "đỏ đô": "Đỏ đô", "do do": "Đỏ đô", "xanh rêu": "Màu xanh rêu", "xanh reu": "Màu xanh rêu",
 };
 function lenaoColorStd(name) {
-  const c = (name || "").replace(/^áo\s+/i, "").trim();
+  const c = (name || "").replace(/^áo\s+/i, "").replace(/\s*\((trước|sau)\)\s*$/i, "").trim();
   return LENAO_COLOR_STD[c.toLowerCase()] || (c ? ("Màu " + c) : "Mặc định");
 }
 // Lấy các áo đã chọn (có design) -> ghép ảnh -> nạp vào tab Đẩy Shopify
@@ -2224,6 +2224,39 @@ async function prodSuggest() {
 }
 
 // CHẠY NHIỀU LUỒNG: bấm Generate nhiều lần, mỗi job 1 poll riêng + placeholder loading
+const PROD_CHAR = {
+  male: "worn by a young Vietnamese man, early 20s, tall lean build, clean smooth fair skin, natural tousled black hair, casual GenZ outfit (wide-leg trousers, sneakers), genuine relaxed expression",
+  female: "worn by a young Vietnamese woman, early 20s, petite slim, clean smooth fair skin, long straight black hair, casual GenZ outfit, genuine relaxed expression",
+  couple: "worn by a young Vietnamese couple (one man, one woman), early 20s, clean smooth fair skin, natural black hair, casual GenZ outfits (different bottoms), standing close together naturally"
+};
+const PROD_BG = {
+  studio: "plain seamless studio background, soft neutral daylight",
+  cafe: "inside a cozy indie café with warm wood interior, bright neutral window light",
+  phoco: "on an old Hanoi street with vintage yellow shophouse walls, bright flat daytime light",
+  congvien: "in a green park, soft even daylight, gentle bokeh",
+  phongtro: "in a GenZ bedroom with curtained window light, posters and soft decor",
+  bien: "at a bright sunny beach, high-key neutral daylight, sand and sea behind",
+  rooftop: "on a rooftop café with open sky and city skyline, bright daylight",
+  store: "inside a convenience store aisle, bright even neutral lighting"
+};
+const PROD_POSE = {
+  stand: "standing facing the camera with a relaxed natural pose and a gentle smile",
+  sit: "sitting casually on low steps, elbows resting on knees, relaxed",
+  lean: "leaning against a wall, one hand in pocket, easy natural stance",
+  walk: "walking candidly, caught mid-step, looking slightly away",
+  drink: "holding a drink casually in one hand, natural smile",
+  waist: "waist-up framing, face clearly visible, bright natural expression",
+  threequarter: "three-quarter body framing from mid-thigh up"
+};
+function prodCastingExtra() {
+  const c = $("prodChar") && $("prodChar").value, b = $("prodBg") && $("prodBg").value, p = $("prodPose") && $("prodPose").value;
+  const parts = [];
+  if (c && PROD_CHAR[c]) parts.push(PROD_CHAR[c]);
+  if (p && PROD_POSE[p]) parts.push(PROD_POSE[p]);
+  if (b && PROD_BG[b]) parts.push("setting: " + PROD_BG[b]);
+  if (!parts.length) return "";
+  return ". " + parts.join("; ") + (c ? ". Casual smartphone-style photo, natural true-to-life colors, no beauty filter, the printed design on the shirt reproduced exactly as in the reference image." : ".");
+}
 async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
@@ -2232,6 +2265,7 @@ async function prodGenerate(prompt, count) {
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
+  prompt = prompt + prodCastingExtra();
   try {
     const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
