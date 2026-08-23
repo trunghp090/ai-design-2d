@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-default-image2"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-outfit-override"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12392,22 +12392,33 @@ class Handler(BaseHTTPRequestHandler):
                 prompt += (" Use reference image #%d PURELY as a STYLE reference — match its "
                            "colour palette, lighting, mood, texture and overall artistic/visual style; "
                            "do NOT copy its content, subject, text or layout, only its look & feel." % len(imgs))
-        # 3 ảnh vai trò (tuỳ chọn): nhân vật / bối cảnh / pose — user tự up
+        # Ảnh vai trò (tuỳ chọn): nhân vật / trang phục / pose — user tự up.
+        # CÓ ảnh trang phục -> quần áo lấy TỪ ẢNH TRANG PHỤC (kể cả áo thun + design in);
+        # KHÔNG có -> giữ nguyên đồ trong ảnh nhân vật.
+        has_o1 = bool((body.get("outfit1_img") or "").strip())
+        has_o2 = bool((body.get("outfit2_img") or "").strip())
+        c1_cloth = (" Do NOT keep the clothes they wear in this photo — this image is ONLY for identity; "
+                    "their clothing comes from the separate OUTFIT reference below." if has_o1 else
+                    " Keep the SAME clothing they are wearing in this photo, including the shirt and its "
+                    "printed design reproduced exactly.")
+        c2_cloth = (" Do NOT keep the clothes they wear in this photo — this image is ONLY for identity; "
+                    "their clothing comes from the separate OUTFIT reference below." if has_o2 else
+                    " Keep the SAME clothing they are wearing in this photo, including the shirt and its "
+                    "printed design reproduced exactly.")
+        outfit_instr = ("Reference image #%d is the CLOTHING person {n} MUST WEAR: dress person {n} in EXACTLY "
+                        "these garments — if it shows a shirt/t-shirt, person {n} wears THIS shirt with its "
+                        "printed design reproduced EXACTLY (same artwork, colors and placement, pixel-accurate); "
+                        "this OVERRIDES whatever clothes appear in their own reference photo. Also copy any "
+                        "bottoms, outer layers, shoes or accessories visible; items not shown (e.g. pants) should "
+                        "be simple neutral pieces that match the look.")
         for key, instr in (
                 ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear in the photo "
-                             "— same face, hairstyle, body build and skin tone; keep their identity faithful. "
-                             "Unless a separate outfit reference for person #1 is provided, keep the SAME clothing "
-                             "they are wearing in this photo (including the shirt and its printed design)."),
+                             "— same face, hairstyle, body build and skin tone; keep their identity faithful." + c1_cloth),
                 ("char2_img", "Reference image #%d shows PERSON #2: this second person must ALSO appear in the photo "
-                              "together with person #1 — same face, hairstyle, body build and skin tone as this image. "
-                              "Unless a separate outfit reference for person #2 is provided, keep the SAME clothing "
-                              "they are wearing in this photo (including the shirt and its printed design)."),
-                ("outfit1_img", "Reference image #%d shows the OUTFIT for person #1: dress person #1 in this exact "
-                                "clothing/styling (bottoms, outer layers, shoes, accessories) — but the PRODUCT SHIRT "
-                                "from the main reference must remain the visible main top."),
-                ("outfit2_img", "Reference image #%d shows the OUTFIT for person #2: dress person #2 in this exact "
-                                "clothing/styling (bottoms, outer layers, shoes, accessories) — but the PRODUCT SHIRT "
-                                "from the main reference must remain the visible main top."),
+                              "together with person #1 — same face, hairstyle, body build and skin tone as this "
+                              "image." + c2_cloth),
+                ("outfit1_img", outfit_instr.replace("{n}", "#1")),
+                ("outfit2_img", outfit_instr.replace("{n}", "#2")),
                 ("bg_img", "Reference image #%d is the BACKGROUND/SCENE: place the subject into this exact setting — "
                            "same location, lighting and atmosphere."),
                 ("pose_img", "")):
