@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-self-heal"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-tabs-trim"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9122,9 +9122,8 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["clone", "auto", "recolor", "lenao", "design", "psn", "psnhunt", "namedes", "mixd", "lvt",
-                "cutout", "product", "autopipe", "setshirt", "agent", "ads", "fbpost", "tiktok",
-                "adpost", "pgpost", "sched", "shopify", "shoplist", "restyle", "tdesign", "pnl", "admgr"]
+ALL_APP_TABS = ["clone", "recolor", "lenao", "design", "product", "agent", "ads", "fbpost", "tiktok",
+                "adpost", "pgpost", "sched", "shopify", "shoplist", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
 
