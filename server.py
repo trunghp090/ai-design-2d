@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-norefs"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-noprompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12364,9 +12364,17 @@ class Handler(BaseHTTPRequestHandler):
         if not API_KEY and not GEMINI_API_KEY:
             return self.json(400, {"error": "Chưa cấu hình OPENAI_API_KEY / GEMINI_API_KEY."})
         prompt = (body.get("prompt") or "").strip()
-        if not prompt:
-            return self.json(400, {"error": "Hãy nhập mô tả (prompt)."})
         srcs = [s for s in (body.get("images") or []) if s][:6]
+        has_role = any((body.get(k) or "").strip() for k in
+                       ("style", "char_img", "char2_img", "outfit1_img", "outfit2_img", "bg_img", "pose_img"))
+        if not prompt:
+            if not srcs and not has_role:
+                return self.json(400, {"error": "Nhập prompt HOẶC thêm ít nhất 1 ảnh (nhân vật/bối cảnh/pose/style)."})
+            # không cần prompt: tự ghép các ảnh theo vai trò thành 1 ảnh sản phẩm tự nhiên
+            prompt = ("Create ONE coherent, natural lifestyle product photo by combining the reference images "
+                      "according to their stated roles: the person(s) wearing their outfit(s) with the shirt design "
+                      "clearly visible, in the given setting, using the given pose. Casual smartphone-style photo, "
+                      "neutral true-to-life colors, realistic fabric and lighting, no added text, no watermark.")
         imgs = []
         for s in srcs:
             d, m = fetch_image_bytes(s)

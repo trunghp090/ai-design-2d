@@ -2307,7 +2307,8 @@ async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
 
-  if (!prompt) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt."; return; }
+  const anyImg = prodStyle || Object.values(prodRoleImgs).some(Boolean);
+  if (!prompt && !anyImg) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt HOẶC thêm ít nhất 1 ảnh (nhân vật/bối cảnh/pose/style)."; return; }
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
