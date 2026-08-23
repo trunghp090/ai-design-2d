@@ -808,10 +808,9 @@
         <select id="prodEngine" class="input"></select>
         <p class="hint" id="prodNanoHint" style="margin:4px 0 0"></p>
 
-        <label class="fp-label" style="margin-top:14px">REFERENCES <span id="prodRefCount" class="fp-count">0/6</span></label>
-        <div class="fp-refs" id="prodRefs"></div>
+        <div class="hidden"><div id="prodRefs"></div><span id="prodRefCount"></span>
         <input type="file" id="prodFile" accept="image/*" multiple hidden />
-        <button class="btn-ghost sm" id="prodUseCurrent" style="margin-top:6px">⬅️ Dùng design đang mở</button>
+        <button id="prodUseCurrent" hidden></button></div>
 
         <label class="fp-label" style="margin-top:14px">🎨 STYLE <span class="fp-count">(tuỳ chọn — copy phong cách ảnh)</span></label>
         <div class="fp-refs" id="prodStyleRef"></div>

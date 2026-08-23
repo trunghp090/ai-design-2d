@@ -2168,20 +2168,6 @@ function prodInit() {
   $("prodViewGrid").onclick = () => prodSetView("grid");
   $("prodHistRefresh").onclick = prodLoadHistory;
   $("prodToShopify").onclick = prodPushSel;
-  document.addEventListener("paste", e => {
-    const v = $("view-product");
-    if (!v || v.classList.contains("hidden")) return;
-    if (/INPUT|TEXTAREA/.test((e.target && e.target.tagName) || "")) return;
-    for (const it of (e.clipboardData && e.clipboardData.items || [])) {
-      if (it.type && it.type.startsWith("image/")) {
-        e.preventDefault();
-        const fr = new FileReader();
-        fr.onload = () => { prodRefs.push(fr.result); prodRenderRefs(); };
-        fr.readAsDataURL(it.getAsFile());
-        return;
-      }
-    }
-  });
   prodRenderRefs();
   prodRenderStyle();
   prodLoadHistory();
@@ -2320,7 +2306,7 @@ function prodCastingExtra() {
 async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
-  if (!prodRefs.length) { note.className = "gen-note err"; note.textContent = "⚠️ Thêm ít nhất 1 ảnh tham chiếu."; return; }
+
   if (!prompt) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt."; return; }
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";

@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-outfits"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-norefs"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -614,6 +614,8 @@ def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", loc
     if info["kind"] == "gemini" and GEMINI_API_KEY:
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
         return gemini_edit(images, prompt, aspect or _aspect_for(size), mdl)
+    if not images:
+        return openai_generate(prompt, size)          # không có ảnh tham chiếu -> text-to-image
     return openai_edit(images, prompt, size, native_transparent=False, quality=quality)
 
 
@@ -12370,8 +12372,7 @@ class Handler(BaseHTTPRequestHandler):
             d, m = fetch_image_bytes(s)
             if d:
                 imgs.append((d, m or "image/png"))
-        if not imgs:
-            return self.json(400, {"error": "Cần ít nhất 1 ảnh tham chiếu (ảnh áo/design)."})
+
         # ảnh STYLE (tuỳ chọn) -> thêm làm ref CUỐI + chỉ thị copy phong cách
         style_src = body.get("style", "")
         if style_src:
