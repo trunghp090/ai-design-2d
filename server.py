@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-two-modes"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-two-forms"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12493,6 +12493,10 @@ class Handler(BaseHTTPRequestHandler):
         if (body.get("char2_img") or "").strip() and not (body.get("outfit2_img") or "").strip():
             prompt += (" Same for PERSON #2: reproduce exactly the clothing worn in their reference image, "
                        "including any printed design.")
+        # LUẬT TOÀN CỤC: không bao giờ tự bịa hình in/chữ lên quần áo
+        prompt += (" STRICT GARMENT RULE: never invent, add or alter any graphics, prints, logos or text on "
+                   "any clothing — every garment must look exactly like its source reference (a plain garment "
+                   "stays completely plain).")
         engine = resolve_engine_id(body)
         aspect = (body.get("aspect") or "4:5").strip()
         try:

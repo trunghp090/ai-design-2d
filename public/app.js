@@ -2147,8 +2147,13 @@ let prodRefs = [];            // ảnh tham chiếu (data URL / url)
 let prodCreations = [];       // {image?, url?, id?, prompt, engine, aspect, gallery}
 let prodSel = new Set();      // key ảnh đã tick để đưa vào Shopify
 let prodView = "list";
-let prodStyle = null;         // ảnh style để copy phong cách (tuỳ chọn)
-let prodRoleImgs = { char: null, char2: null, outfit1: null, outfit2: null, bg: null, pose: null };   // ảnh nhân vật / bối cảnh / pose (tuỳ chọn)
+let prodStyle = null;         // (tàn dư — không dùng)
+// 2 CHẾ ĐỘ TÁCH BIỆT HOÀN TOÀN — mỗi chế độ 1 bộ ảnh riêng
+let prodRoleSets = {
+  photo:  { char: null, char2: null, pose: null },
+  outfit: { char: null, char2: null, outfit1: null, outfit2: null, pose: null },
+};
+function prodActiveImgs() { return prodRoleSets[window.prodMode || "photo"]; }
 let prodPollTimer = null;
 
 function prodInit() {
@@ -2160,18 +2165,17 @@ function prodInit() {
     window.prodMode = m;
     $("prodModePhoto").style.cssText = "flex:1;font-weight:" + (m === "photo" ? "700;background:#8a1f3d;color:#fff" : "400");
     $("prodModeOutfit").style.cssText = "flex:1;font-weight:" + (m === "outfit" ? "700;background:#8a1f3d;color:#fff" : "400");
-    $("prodOutfit1Box").classList.toggle("hidden", m !== "outfit");
-    $("prodOutfit2Box").classList.toggle("hidden", m !== "outfit");
+    $("prodFormPhoto").classList.toggle("hidden", m !== "photo");
+    $("prodFormOutfit").classList.toggle("hidden", m !== "outfit");
     $("prodModeHint").textContent = m === "photo"
       ? "Trang phục lấy theo người trong ảnh dáng + bối cảnh."
       : "Up áo/đồ cần mặc vào ô trang phục — sẽ ghi đè đồ của nhân vật.";
-    if (m === "photo") { prodRoleImgs.outfit1 = null; prodRoleImgs.outfit2 = null; prodRenderRoles(); }
   };
   $("prodModePhoto").onclick = () => setMode("photo");
   $("prodModeOutfit").onclick = () => setMode("outfit");
   setMode("photo");
-  [["char", "prodCharFile"], ["char2", "prodChar2File"], ["outfit1", "prodOutfit1File"], ["outfit2", "prodOutfit2File"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
-    $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleImgs[k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
+  PROD_ROLE_WIRE.forEach(([mode, k, fid]) => {
+    $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleSets[mode][k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
   });
   prodRenderRoles();
   $("prodSuggestBtn").onclick = prodSuggest;
@@ -2186,7 +2190,7 @@ function prodInit() {
 }
 
 // cho phép tab khác nạp ảnh tham chiếu (vd SP Shopify -> Ảnh sản phẩm)
-function prodAddRef(src) { if (src) { prodRoleImgs.outfit1 = src; if (prodInited) prodRenderRoles(); } }
+function prodAddRef(src) { if (src) { prodRoleSets.outfit.outfit1 = src; if (prodInited) { $("prodModeOutfit").click(); prodRenderRoles(); } else { window.prodMode = "outfit"; } } }
 
 async function prodCheckEngine() {
   try {
@@ -2234,34 +2238,49 @@ function prodPasteBtn(onImg) {
 }
 function prodRenderRefs() {}
 
-const PROD_ROLE_UI = { char: ["prodCharRef", "prodCharFile", "👤", "Nhân vật 1"], char2: ["prodChar2Ref", "prodChar2File", "👥", "Nhân vật 2"], outfit1: ["prodOutfit1Ref", "prodOutfit1File", "👕", "Trang phục 1"], outfit2: ["prodOutfit2Ref", "prodOutfit2File", "👗", "Trang phục 2"], pose: ["prodPoseRef", "prodPoseFile", "🧍", "Dáng + cảnh"] };
+const PROD_ROLE_WIRE = [
+  ["photo", "char", "pPCharFile"], ["photo", "char2", "pPChar2File"], ["photo", "pose", "pPPoseFile"],
+  ["outfit", "char", "pOCharFile"], ["outfit", "char2", "pOChar2File"],
+  ["outfit", "outfit1", "pOOutfit1File"], ["outfit", "outfit2", "pOOutfit2File"], ["outfit", "pose", "pOPoseFile"],
+];
+const PROD_ROLE_UI = [
+  ["photo", "char", "pPCharRef", "pPCharFile", "👤", "Nhân vật 1"],
+  ["photo", "char2", "pPChar2Ref", "pPChar2File", "👥", "Nhân vật 2"],
+  ["photo", "pose", "pPPoseRef", "pPPoseFile", "🧍", "Dáng + cảnh"],
+  ["outfit", "char", "pOCharRef", "pOCharFile", "👤", "Nhân vật 1"],
+  ["outfit", "char2", "pOChar2Ref", "pOChar2File", "👥", "Nhân vật 2"],
+  ["outfit", "outfit1", "pOOutfit1Ref", "pOOutfit1File", "👕", "Trang phục 1"],
+  ["outfit", "outfit2", "pOOutfit2Ref", "pOOutfit2File", "👗", "Trang phục 2"],
+  ["outfit", "pose", "pOPoseRef", "pOPoseFile", "🧍", "Dáng + cảnh"],
+];
 function prodRenderRoles() {
-  Object.entries(PROD_ROLE_UI).forEach(([k, [boxId, fileId, ic, lb]]) => {
+  PROD_ROLE_UI.forEach(([mode, k, boxId, fileId, ic, lb]) => {
     const box = $(boxId); if (!box) return; box.innerHTML = "";
-    if (prodRoleImgs[k]) {
+    const set = prodRoleSets[mode];
+    if (set[k]) {
       const d = document.createElement("div"); d.className = "fp-ref";
-      d.innerHTML = '<img src="' + prodRoleImgs[k] + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
-      d.querySelector(".fp-ref-x").onclick = () => { prodRoleImgs[k] = null; prodRenderRoles(); };
+      d.innerHTML = '<img src="' + set[k] + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
+      d.querySelector(".fp-ref-x").onclick = () => { set[k] = null; prodRenderRoles(); };
       box.appendChild(d);
     } else {
       const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
       add.innerHTML = ic + "<span>" + lb + "</span>"; add.onclick = () => $(fileId).click(); box.appendChild(add);
-      box.appendChild(prodPasteBtn(u => { prodRoleImgs[k] = u; prodRenderRoles(); }));
+      box.appendChild(prodPasteBtn(u => { set[k] = u; prodRenderRoles(); }));
     }
   });
 }
 function prodRenderStyle() {}
 
 async function prodSuggest() {
-  const anyImg = Object.values(prodRoleImgs).some(Boolean);
-  if (!anyImg) { alert("Up ít nhất 1 ảnh (nhân vật / trang phục / dáng+cảnh) trước."); return; }
+  const S = prodActiveImgs();
+  if (!Object.values(S).some(Boolean)) { alert("Up ít nhất 1 ảnh (nhân vật / trang phục / dáng+cảnh) trước."); return; }
   const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Claude đang nhìn bộ ảnh & viết prompt…";
   try {
     const hint = ($("prodPrompt").value || "").trim();   // ý tưởng đang gõ (nếu có) -> Claude đưa vào prompt
     const r = await fetch("/api/prod-claude-prompt", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ char_img: prodRoleImgs.char || "", char2_img: prodRoleImgs.char2 || "",
-                             outfit1_img: prodRoleImgs.outfit1 || "", outfit2_img: prodRoleImgs.outfit2 || "",
-                             pose_img: prodRoleImgs.pose || "", hint: hint }) });
+      body: JSON.stringify({ char_img: S.char || "", char2_img: S.char2 || "",
+                             outfit1_img: S.outfit1 || "", outfit2_img: S.outfit2 || "",
+                             pose_img: S.pose || "", hint: hint }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     $("prodPrompt").value = d.prompt || "";
     const note = $("prodNote"); if (note) { note.className = "gen-note ok"; note.textContent = "🧠 Claude đã viết prompt từ bộ ảnh — duyệt/sửa trong ô rồi bấm Generate."; }
@@ -2306,14 +2325,15 @@ async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
 
-  const anyImg = Object.values(prodRoleImgs).some(Boolean);
-  if (!prompt && !anyImg) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt HOẶC thêm ít nhất 1 ảnh (nhân vật/bối cảnh/pose/style)."; return; }
+  const A = prodActiveImgs();
+  const anyImg = Object.values(A).some(Boolean);
+  if (!prompt && !anyImg) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt HOẶC thêm ít nhất 1 ảnh (nhân vật / trang phục / dáng+cảnh)."; return; }
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
 
   try {
-    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ char_img: prodRoleImgs.char || "", char2_img: prodRoleImgs.char2 || "", outfit1_img: prodRoleImgs.outfit1 || "", outfit2_img: prodRoleImgs.outfit2 || "", bg_img: prodRoleImgs.bg || "", pose_img: prodRoleImgs.pose || "", prompt, engine, aspect, count }) });
+    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ char_img: A.char || "", char2_img: A.char2 || "", outfit1_img: A.outfit1 || "", outfit2_img: A.outfit2 || "", pose_img: A.pose || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     // thêm placeholder "đang tạo" cho job này (lên đầu)
     for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
