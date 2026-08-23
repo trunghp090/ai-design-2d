@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-shot-type"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-default-image2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -588,7 +588,7 @@ def resolve_engine_id(body):
         if info["kind"] == "openai" and not API_KEY and GEMINI_API_KEY:
             return "gemini_pro"
         return eid
-    return "gemini_pro" if GEMINI_API_KEY else "openai"   # mặc định
+    return "openai" if API_KEY else "gemini_pro"   # mặc định: ChatGPT image-2 (user chốt 2026-08)
 
 
 # Khoá design: ép model giữ NGUYÊN design từ ảnh ref (chống vẽ lại khác mẫu gốc)
