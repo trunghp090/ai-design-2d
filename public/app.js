@@ -2151,7 +2151,7 @@ let prodStyle = null;         // (tàn dư — không dùng)
 // 2 CHẾ ĐỘ TÁCH BIỆT HOÀN TOÀN — mỗi chế độ 1 bộ ảnh riêng
 let prodRoleSets = {
   photo:  { char: null, char2: null, pose: null },
-  outfit: { char: null, char2: null, outfit1: null, outfit2: null, pose: null },
+  outfit: { char: null, outfit1: null },
 };
 function prodActiveImgs() { return prodRoleSets[window.prodMode || "photo"]; }
 let prodPollTimer = null;
@@ -2240,17 +2240,14 @@ function prodRenderRefs() {}
 
 const PROD_ROLE_WIRE = [
   ["photo", "char", "pPCharFile"], ["photo", "char2", "pPChar2File"], ["photo", "pose", "pPPoseFile"],
-  ["outfit", "char", "pOCharFile"], ["outfit", "char2", "pOChar2File"],
-  ["outfit", "outfit1", "pOOutfit1File"], ["outfit", "outfit2", "pOOutfit2File"],
+  ["outfit", "char", "pOCharFile"], ["outfit", "outfit1", "pOOutfit1File"],
 ];
 const PROD_ROLE_UI = [
   ["photo", "char", "pPCharRef", "pPCharFile", "👤", "Nhân vật 1"],
   ["photo", "char2", "pPChar2Ref", "pPChar2File", "👥", "Nhân vật 2"],
   ["photo", "pose", "pPPoseRef", "pPPoseFile", "🧍", "Dáng + cảnh"],
-  ["outfit", "char", "pOCharRef", "pOCharFile", "👤", "Nhân vật 1"],
-  ["outfit", "char2", "pOChar2Ref", "pOChar2File", "👥", "Nhân vật 2"],
-  ["outfit", "outfit1", "pOOutfit1Ref", "pOOutfit1File", "👕", "Trang phục 1"],
-  ["outfit", "outfit2", "pOOutfit2Ref", "pOOutfit2File", "👗", "Trang phục 2"],
+  ["outfit", "char", "pOCharRef", "pOCharFile", "👤", "Nhân vật"],
+  ["outfit", "outfit1", "pOOutfit1Ref", "pOOutfit1File", "👕", "Trang phục"],
 ];
 function prodRenderRoles() {
   PROD_ROLE_UI.forEach(([mode, k, boxId, fileId, ic, lb]) => {

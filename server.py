@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-outfit-swap"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-outfit-single"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12406,10 +12406,19 @@ class Handler(BaseHTTPRequestHandler):
                    "printed design reproduced exactly.")
         c1_cloth = _c_outfit if has_o1 else (_c_scene if has_pose else _c_keep)
         c2_cloth = _c_outfit if has_o2 else (_c_scene if has_pose else _c_keep)
+        has_c2 = bool((body.get("char2_img") or "").strip())
         outfit_instr = ("Reference image #%d is the CLOTHING person {n} MUST WEAR — exactly as shown in that "
                         "image, overriding whatever they wear in their own photo. Render the garment faithfully: "
                         "if it is plain, keep it plain — do NOT invent or add any graphics, prints or text; if it "
                         "has a print, reproduce it exactly. Items not shown (e.g. pants) = simple neutral pieces.")
+        if not has_c2:
+            # ảnh nhân vật có thể là 1 người/cặp đôi/nhóm — AI theo chỉ định trong prompt của user
+            outfit_instr = ("Reference image #%d is the CLOTHING to wear — exactly as shown, overriding the "
+                            "current clothes. WHO wears it: follow the user's prompt; if not specified, the main "
+                            "person (or everyone) wears it. Render the garment faithfully: plain stays completely "
+                            "plain — do NOT invent or add any graphics, prints or text; a printed garment is "
+                            "reproduced exactly. Items not shown (e.g. pants) = simple neutral pieces.")
+            outfit_instr = outfit_instr.replace("{n}", "")
         for key, instr in (
                 ("char_img", "Reference image #%d shows PERSON #1: this exact person must appear in the photo "
                              "— same face, hairstyle, body build and skin tone; keep their identity faithful." + c1_cloth),
