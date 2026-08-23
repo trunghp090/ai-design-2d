@@ -2328,16 +2328,24 @@ async function prodGenerate(prompt, count) {
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
 
+  // HIỆN LOADING NGAY khi bấm — không đợi server (Claude phân tích ảnh dáng mất ~5-10s)
+  const tmpJob = "tmp" + Date.now() + Math.random();
+  for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: tmpJob, prompt, aspect });
+  prodRenderCreations();
+  prodActiveJobs++; prodRunBtnSync();
+  note.className = "gen-note"; note.textContent = A.pose ? "🧠 Claude đang phân tích ảnh dáng + bối cảnh…" : "⏳ Đang gửi…";
   try {
     const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ char_img: A.char || "", char2_img: A.char2 || "", outfit1_img: A.outfit1 || "", outfit2_img: A.outfit2 || "", pose_img: A.pose || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
-    // thêm placeholder "đang tạo" cho job này (lên đầu)
-    for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
-    prodRenderCreations();
-    prodActiveJobs++; prodRunBtnSync();
+    prodCreations.forEach(c => { if (c.loading && c.job === tmpJob) c.job = d.job_id; });
     prodPollJob(d.job_id, prompt);
     note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + count + " ảnh — bấm Generate tiếp để chạy thêm luồng.";
-  } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
+  } catch (e) {
+    prodActiveJobs = Math.max(0, prodActiveJobs - 1); prodRunBtnSync();
+    prodCreations = prodCreations.filter(c => !(c.loading && c.job === tmpJob));
+    prodRenderCreations();
+    note.className = "gen-note err"; note.textContent = "✗ " + e.message;
+  }
 }
 
 function prodPollJob(jobId, prompt) {
