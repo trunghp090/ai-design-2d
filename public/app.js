@@ -2190,6 +2190,15 @@ async function prodCheckEngine() {
   } catch (e) { /* im lặng */ }
 }
 
+let prodActiveJobs = 0;
+function prodRunBtnSync() {
+  const btn = $("prodRunBtn"); if (!btn) return;
+  if (prodActiveJobs > 0) {
+    btn.innerHTML = '<span class="fp-spin" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:-2px;margin-right:7px"></span>Đang gen ' + prodActiveJobs + ' luồng… (bấm gen thêm)';
+  } else {
+    btn.innerHTML = "✨ Generate";
+  }
+}
 async function prodClipImage() {
   try {
     const items = await navigator.clipboard.read();
@@ -2319,6 +2328,7 @@ async function prodGenerate(prompt, count) {
     // thêm placeholder "đang tạo" cho job này (lên đầu)
     for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
     prodRenderCreations();
+    prodActiveJobs++; prodRunBtnSync();
     prodPollJob(d.job_id, prompt);
     note.className = "gen-note ok"; note.textContent = "⏳ Đang tạo " + count + " ảnh — bấm Generate tiếp để chạy thêm luồng.";
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
@@ -2339,6 +2349,7 @@ function prodPollJob(jobId, prompt) {
       }
       if (d.finished) {
         clearInterval(timer);
+        prodActiveJobs = Math.max(0, prodActiveJobs - 1); prodRunBtnSync();
         // bỏ placeholder còn sót (ảnh lỗi)
         prodCreations = prodCreations.filter(c => !(c.loading && c.job === jobId));
         if ((d.errors || []).length) { const n = $("prodNote"); n.className = "gen-note err"; n.textContent = "⚠️ " + d.errors[0]; }
