@@ -2284,6 +2284,15 @@
     © 2026 AI Design 2D · Clone &amp; redesign artwork áo · chạy local bằng Python + gpt-image
   </footer>
 
-  <script src="/app.js"></script>
+  <script>
+  /* app.js không tải được (mở trúng lúc server đang deploy) -> tự thử lại, khỏi đơ trang */
+  setTimeout(function () {
+    if (typeof window.IS_ADMIN === "undefined") {
+      document.title = "Đang cập nhật — tự tải lại…";
+      setTimeout(function () { location.reload(); }, 4000);
+    }
+  }, 9000);
+</script>
+<script src="/app.js"></script>
 </body>
 </html>
