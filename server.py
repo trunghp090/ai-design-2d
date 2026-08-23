@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-instant-load"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-swap-blank"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12504,7 +12504,10 @@ class Handler(BaseHTTPRequestHandler):
                        "including any printed design.")
         if (has_o1 or has_o2) and not has_pose:
             prompt += (" OUTFIT-SWAP MODE: keep each person's ORIGINAL pose, framing and background exactly as "
-                       "in their own reference photo — change ONLY the clothing.")
+                       "in their own reference photo — but their shirt/garment is fully REPLACED by the clothing "
+                       "reference. CRITICAL: do NOT carry over ANY print, text, logo or graphic from the clothes "
+                       "they wear in their own photo — that old print must be GONE. If the clothing reference is "
+                       "plain, the worn garment must be COMPLETELY BLANK fabric, front and back, no exceptions.")
         # LUẬT TOÀN CỤC: không bao giờ tự bịa hình in/chữ lên quần áo
         prompt += (" STRICT GARMENT RULE: never invent, add or alter any graphics, prints, logos or text on "
                    "any clothing — every garment must look exactly like its source reference (a plain garment "
