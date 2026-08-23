@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-clean"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-no-design-desc"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12526,9 +12526,12 @@ class Handler(BaseHTTPRequestHandler):
                 "sản phẩm lifestyle tự nhiên: mô tả CHI TIẾT TỪNG TÍ pose (thân, hướng đầu, ánh mắt, từng tay "
                 "chân, đang bước hay đứng), bố cục khung hình (góc + khoảng cách camera, người chiếm ~% chiều "
                 "cao khung, vị trí trong khung), bối cảnh + ánh sáng + không khí đúng theo ảnh DÁNG+BỐI CẢNH; "
-                "người và quần áo đúng theo ảnh nhân vật/trang phục (giữ nguyên design in trên áo, ghi rõ "
-                "'reproduce the printed design exactly as in the reference'). Kiểu ảnh chụp điện thoại tự nhiên, "
-                "màu trung thực, không chữ thêm, không watermark. CHỈ TRẢ VỀ PROMPT, không giải thích."
+                "người và quần áo đúng theo ảnh nhân vật/trang phục. QUY TẮC SẮT VỀ DESIGN ÁO: TUYỆT ĐỐI "
+                "KHÔNG mô tả hoạ tiết/hình in/chữ trên áo bằng lời (không tả hình dáng, màu, vị trí, không "
+                "chép chữ trên áo ra) — mô tả sẽ làm model vẽ sai design. Chỉ được viết đúng kiểu: "
+                "'wearing the shirt from the outfit reference image with its printed design reproduced EXACTLY "
+                "as shown in that image'. Kiểu ảnh chụp điện thoại tự nhiên, màu trung thực, không chữ thêm, "
+                "không watermark. CHỈ TRẢ VỀ PROMPT, không giải thích."
                 + ((" Ý thêm của user (phải đưa vào): " + hint) if hint else ""))
         try:
             p = claude_vision_multi("Bạn là art director viết prompt ảnh sản phẩm thời trang.", text, raws,
