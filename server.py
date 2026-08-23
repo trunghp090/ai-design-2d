@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-pose-all"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-claude-prompt"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -10656,6 +10656,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(200, {"styles": out})
         if path == "/api/fb-post":
             return self.handle_fb_post(body)
+        if path == "/api/prod-claude-prompt":
+            return self.handle_prod_claude_prompt(body)
         if path == "/api/prod-generate":
             return self.handle_prod_generate(body)
         if path == "/api/prod-suggest":
@@ -12468,6 +12470,45 @@ class Handler(BaseHTTPRequestHandler):
                              args=(job_id, imgs, prompt, engine, aspect, count), daemon=True)
         t.start()
         return self.json(200, {"job_id": job_id, "total": count})
+
+    def handle_prod_claude_prompt(self, body):
+        """🧠 Claude nhìn BỘ ảnh vai trò (NV1/NV2/trang phục/dáng+cảnh) -> viết prompt hoàn chỉnh điền vào ô."""
+        if not ANTHROPIC_API_KEY:
+            return self.json(400, {"error": "Chưa cấu hình ANTHROPIC_API_KEY."})
+        roles = [("char_img", "NHÂN VẬT 1 (giữ đúng mặt, tóc, dáng người; nếu không có ảnh trang phục riêng thì giữ nguyên bộ đồ + design in trên áo trong ảnh này)"),
+                 ("outfit1_img", "TRANG PHỤC cho nhân vật 1"),
+                 ("char2_img", "NHÂN VẬT 2 (cùng xuất hiện với nhân vật 1)"),
+                 ("outfit2_img", "TRANG PHỤC cho nhân vật 2"),
+                 ("pose_img", "DÁNG + BỐI CẢNH: pose từng người, hướng đầu, tay chân, khoảng cách camera, tỉ lệ người/khung, và toàn bộ cảnh + ánh sáng lấy theo ảnh này")]
+        raws, labels = [], []
+        for key, label in roles:
+            src = (body.get(key) or "").strip()
+            if not src:
+                continue
+            rd, _rm = fetch_image_bytes(src)
+            if rd:
+                raws.append(rd)
+                labels.append("Ảnh %d = %s" % (len(raws), label))
+        if not raws:
+            return self.json(400, {"error": "Up ít nhất 1 ảnh (nhân vật / trang phục / dáng+cảnh) trước."})
+        hint = (body.get("hint") or "").strip()[:300]
+        text = ("Vai trò từng ảnh đính kèm (theo thứ tự):\n" + "\n".join(labels) +
+                "\n\nViết 1 IMAGE PROMPT TIẾNG ANH hoàn chỉnh cho model gen ảnh (gpt-image/Gemini) tạo 1 ảnh "
+                "sản phẩm lifestyle tự nhiên: mô tả CHI TIẾT TỪNG TÍ pose (thân, hướng đầu, ánh mắt, từng tay "
+                "chân, đang bước hay đứng), bố cục khung hình (góc + khoảng cách camera, người chiếm ~% chiều "
+                "cao khung, vị trí trong khung), bối cảnh + ánh sáng + không khí đúng theo ảnh DÁNG+BỐI CẢNH; "
+                "người và quần áo đúng theo ảnh nhân vật/trang phục (giữ nguyên design in trên áo, ghi rõ "
+                "'reproduce the printed design exactly as in the reference'). Kiểu ảnh chụp điện thoại tự nhiên, "
+                "màu trung thực, không chữ thêm, không watermark. CHỈ TRẢ VỀ PROMPT, không giải thích."
+                + ((" Ý thêm của user (phải đưa vào): " + hint) if hint else ""))
+        try:
+            p = claude_vision_multi("Bạn là art director viết prompt ảnh sản phẩm thời trang.", text, raws,
+                                    max_tokens=900)
+            return self.json(200, {"prompt": p, "by": "Claude"})
+        except urllib.error.HTTPError as e:
+            return self.json(400, {"error": openai_error_message(e)})
+        except Exception as e:
+            return self.json(500, {"error": str(e)[:200]})
 
     def handle_prod_suggest(self, body):
         """AI nhìn ảnh tham chiếu -> gợi ý 1 prompt ảnh sản phẩm (cho user sửa)."""

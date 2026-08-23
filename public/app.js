@@ -2266,15 +2266,18 @@ function prodRenderStyle() {
 }
 
 async function prodSuggest() {
-  if (!prodRefs.length) { alert("Thêm ảnh tham chiếu trước."); return; }
-  const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Claude đang viết prompt…";
+  const anyImg = Object.values(prodRoleImgs).some(Boolean);
+  if (!anyImg) { alert("Up ít nhất 1 ảnh (nhân vật / trang phục / dáng+cảnh) trước."); return; }
+  const btn = $("prodSuggestBtn"), o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Claude đang nhìn bộ ảnh & viết prompt…";
   try {
-    // hint = ý tưởng bạn đang gõ trong ô prompt (vd "couple ở bãi biển") -> Claude viết thành prompt chuẩn skill
-    const hint = ($("prodPrompt").value || "").trim();
-    const r = await fetch("/api/prod-ai-prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: prodRefs[0], hint: hint }) });
+    const hint = ($("prodPrompt").value || "").trim();   // ý tưởng đang gõ (nếu có) -> Claude đưa vào prompt
+    const r = await fetch("/api/prod-claude-prompt", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ char_img: prodRoleImgs.char || "", char2_img: prodRoleImgs.char2 || "",
+                             outfit1_img: prodRoleImgs.outfit1 || "", outfit2_img: prodRoleImgs.outfit2 || "",
+                             pose_img: prodRoleImgs.pose || "", hint: hint }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     $("prodPrompt").value = d.prompt || "";
-    const note = $("prodNote"); if (note) { note.className = "gen-note ok"; note.textContent = "🧠 " + (d.by || "AI") + " đã viết prompt chuẩn skill — duyệt/sửa rồi bấm Generate."; }
+    const note = $("prodNote"); if (note) { note.className = "gen-note ok"; note.textContent = "🧠 Claude đã viết prompt từ bộ ảnh — duyệt/sửa trong ô rồi bấm Generate."; }
   } catch (e) { alert("✗ " + e.message); } finally { btn.disabled = false; btn.textContent = o; }
 }
 
