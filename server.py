@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-outfit-simple"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-two-modes"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12397,14 +12397,15 @@ class Handler(BaseHTTPRequestHandler):
         # KHÔNG có -> giữ nguyên đồ trong ảnh nhân vật.
         has_o1 = bool((body.get("outfit1_img") or "").strip())
         has_o2 = bool((body.get("outfit2_img") or "").strip())
-        c1_cloth = (" Do NOT keep the clothes they wear in this photo — this image is ONLY for identity; "
-                    "their clothing comes from the separate OUTFIT reference below." if has_o1 else
-                    " Keep the SAME clothing they are wearing in this photo, including the shirt and its "
-                    "printed design reproduced exactly.")
-        c2_cloth = (" Do NOT keep the clothes they wear in this photo — this image is ONLY for identity; "
-                    "their clothing comes from the separate OUTFIT reference below." if has_o2 else
-                    " Keep the SAME clothing they are wearing in this photo, including the shirt and its "
-                    "printed design reproduced exactly.")
+        has_pose = bool((body.get("pose_img") or "").strip())
+        _c_outfit = (" Do NOT keep the clothes they wear in this photo — this image is ONLY for identity; "
+                     "their clothing comes from the separate OUTFIT reference below.")
+        _c_scene = (" This image is ONLY for identity (face, hair, body) — do NOT keep their clothes: dress "
+                    "them like the corresponding person in the pose/scene reference image instead.")
+        _c_keep = (" Keep the SAME clothing they are wearing in this photo, including the shirt and its "
+                   "printed design reproduced exactly.")
+        c1_cloth = _c_outfit if has_o1 else (_c_scene if has_pose else _c_keep)
+        c2_cloth = _c_outfit if has_o2 else (_c_scene if has_pose else _c_keep)
         outfit_instr = ("Reference image #%d is the CLOTHING person {n} MUST WEAR — exactly as shown in that "
                         "image, overriding whatever they wear in their own photo. Render the garment faithfully: "
                         "if it is plain, keep it plain — do NOT invent or add any graphics, prints or text; if it "
@@ -12432,8 +12433,12 @@ class Handler(BaseHTTPRequestHandler):
                         try:
                             pose_desc = claude_vision(
                                 "Bạn là chuyên gia phân tích pose nhiếp ảnh cho image-generation prompt.",
-                                "Analyze this photo and output PRECISE ENGLISH imperative instructions describing "
-                                "the pose, composition AND setting (never clothing or faces). For EACH person "
+                                ("Analyze this photo and output PRECISE ENGLISH imperative instructions describing "
+                                 "the pose, composition AND setting (never faces). ") +
+                                (("Also, for EACH person, 1 bullet on their OUTFIT: garment types, colors, "
+                                  "accessories (hat, bag...) — the generated people will be dressed like this. ")
+                                 if not (has_o1 or has_o2) else "(Never describe clothing.) ") +
+                                ("For EACH person "
                                 "(left/right): body orientation (facing away/toward camera, angle in degrees), "
                                 "head direction and gaze, each arm and hand (holding hands? swinging? carrying?), "
                                 "legs (standing still or WALKING mid-step — which leg forward), distance between "
@@ -12441,8 +12446,8 @@ class Handler(BaseHTTPRequestHandler):
                                 "where the subjects sit in the frame (left/center/right, thirds), and subject "
                                 "height as an approximate percentage of frame height. Finally 2-3 bullets on the "
                                 "SETTING: location/scenery, lighting and weather/atmosphere. Compact bullet points. "
-                                "END with one line exactly in this format: SUBJECT_HEIGHT_PCT: <number>",
-                                rd, rm or "image/png", max_tokens=600)
+                                "END with one line exactly in this format: SUBJECT_HEIGHT_PCT: <number>"),
+                                rd, rm or "image/png", max_tokens=650)
                         except Exception as e:
                             print("pose vision fail:", str(e)[:100], flush=True)
                         lock_txt = ("PRIORITY RULE #1 — POSE & COMPOSITION LOCK (follow EVERY detail below, "
@@ -12470,8 +12475,13 @@ class Handler(BaseHTTPRequestHandler):
                         lock_txt += ("The people must occupy the SAME size and position within the frame as in "
                                      "that reference — match the head-to-frame-height ratio, NEVER zoom in closer. "
                                      "This reference defines the pose, framing AND the background/scene — recreate "
-                                     "its setting, lighting and atmosphere too; ONLY identity and clothing come "
-                                     "from the person references. ")
+                                     "its setting, lighting and atmosphere too. ")
+                        if not (has_o1 or has_o2):
+                            lock_txt += ("Dress the generated people EXACTLY like the people in this reference are "
+                                         "dressed (same garment types, colors and accessories) — only faces/bodies "
+                                         "come from the person references. ")
+                        else:
+                            lock_txt += "Identity and clothing come from the person/outfit references. "
                         prompt = lock_txt + prompt
                     else:
                         prompt += " " + instr % len(imgs)

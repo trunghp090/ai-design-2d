@@ -2155,6 +2155,21 @@ function prodInit() {
   if (prodInited) { prodLoadHistory(); return; }
   prodInited = true;
   prodCheckEngine();
+  window.prodMode = "photo";
+  const setMode = (m) => {
+    window.prodMode = m;
+    $("prodModePhoto").style.cssText = "flex:1;font-weight:" + (m === "photo" ? "700;background:#8a1f3d;color:#fff" : "400");
+    $("prodModeOutfit").style.cssText = "flex:1;font-weight:" + (m === "outfit" ? "700;background:#8a1f3d;color:#fff" : "400");
+    $("prodOutfit1Box").classList.toggle("hidden", m !== "outfit");
+    $("prodOutfit2Box").classList.toggle("hidden", m !== "outfit");
+    $("prodModeHint").textContent = m === "photo"
+      ? "Trang phục lấy theo người trong ảnh dáng + bối cảnh."
+      : "Up áo/đồ cần mặc vào ô trang phục — sẽ ghi đè đồ của nhân vật.";
+    if (m === "photo") { prodRoleImgs.outfit1 = null; prodRoleImgs.outfit2 = null; prodRenderRoles(); }
+  };
+  $("prodModePhoto").onclick = () => setMode("photo");
+  $("prodModeOutfit").onclick = () => setMode("outfit");
+  setMode("photo");
   [["char", "prodCharFile"], ["char2", "prodChar2File"], ["outfit1", "prodOutfit1File"], ["outfit2", "prodOutfit2File"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
     $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleImgs[k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
   });

@@ -809,21 +809,31 @@
         <p class="hint" id="prodNanoHint" style="margin:4px 0 0"></p>
 
 
+        <div style="margin-top:14px;display:flex;gap:6px" id="prodModeBox">
+          <button type="button" class="btn-ghost sm" id="prodModePhoto" style="flex:1;font-weight:700">📷 Tạo ảnh</button>
+          <button type="button" class="btn-ghost sm" id="prodModeOutfit" style="flex:1">👕 Thay trang phục</button>
+        </div>
+        <p class="hint" id="prodModeHint" style="margin:4px 0 0">Trang phục lấy theo người trong ảnh dáng + bối cảnh.</p>
+
         <label class="fp-label" style="margin-top:14px">👤 NHÂN VẬT 1 <span class="fp-count">(up ảnh model)</span></label>
         <div class="fp-refs" id="prodCharRef"></div>
         <input type="file" id="prodCharFile" accept="image/*" hidden />
 
-        <label class="fp-label" style="margin-top:10px">👕 TRANG PHỤC NV1 <span class="fp-count">(tuỳ chọn — quần/khoác/giày…)</span></label>
+        <div id="prodOutfit1Box" class="hidden">
+        <label class="fp-label" style="margin-top:10px">👕 TRANG PHỤC NV1 <span class="fp-count">(áo/đồ NV1 phải mặc)</span></label>
         <div class="fp-refs" id="prodOutfit1Ref"></div>
         <input type="file" id="prodOutfit1File" accept="image/*" hidden />
+        </div>
 
         <label class="fp-label" style="margin-top:10px">👥 NHÂN VẬT 2 <span class="fp-count">(tuỳ chọn — người thứ 2)</span></label>
         <div class="fp-refs" id="prodChar2Ref"></div>
         <input type="file" id="prodChar2File" accept="image/*" hidden />
 
-        <label class="fp-label" style="margin-top:10px">👗 TRANG PHỤC NV2 <span class="fp-count">(tuỳ chọn)</span></label>
+        <div id="prodOutfit2Box" class="hidden">
+        <label class="fp-label" style="margin-top:10px">👗 TRANG PHỤC NV2 <span class="fp-count">(áo/đồ NV2 phải mặc)</span></label>
         <div class="fp-refs" id="prodOutfit2Ref"></div>
         <input type="file" id="prodOutfit2File" accept="image/*" hidden />
+        </div>
 
 
         <label class="fp-label" style="margin-top:10px">🧍 TẠO DÁNG + BỐI CẢNH <span class="fp-count">(1 ảnh mẫu: dáng + cảnh + tỉ lệ khung)</span></label>
