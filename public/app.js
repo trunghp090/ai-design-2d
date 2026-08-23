@@ -2148,6 +2148,7 @@ let prodCreations = [];       // {image?, url?, id?, prompt, engine, aspect, gal
 let prodSel = new Set();      // key ảnh đã tick để đưa vào Shopify
 let prodView = "list";
 let prodStyle = null;         // ảnh style để copy phong cách (tuỳ chọn)
+let prodRoleImgs = { char: null, bg: null, pose: null };   // ảnh nhân vật / bối cảnh / pose (tuỳ chọn)
 let prodPollTimer = null;
 
 function prodInit() {
@@ -2157,6 +2158,10 @@ function prodInit() {
   $("prodFile").onchange = async (e) => { for (const f of e.target.files) { if (f.type.startsWith("image/")) prodRefs.push(await fileToDataURL(f)); } e.target.value = ""; prodRenderRefs(); };
   $("prodUseCurrent").onclick = () => { if (!currentDesign) { alert("Chưa có design đang mở ở Clone Design."); return; } prodRefs.push("data:image/png;base64," + currentDesign); prodRenderRefs(); };
   $("prodStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodStyle = await fileToDataURL(f); prodRenderStyle(); } e.target.value = ""; };
+  [["char", "prodCharFile"], ["bg", "prodBgFile"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
+    $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleImgs[k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
+  });
+  prodRenderRoles();
   $("prodSuggestBtn").onclick = prodSuggest;
   $("prodRunBtn").onclick = () => prodGenerate($("prodPrompt").value, parseInt($("prodCount").value, 10) || 1);
   $("prodViewList").onclick = () => prodSetView("list");
@@ -2197,6 +2202,21 @@ function prodRenderRefs() {
   $("prodRefCount").textContent = prodRefs.length + "/6";
 }
 
+const PROD_ROLE_UI = { char: ["prodCharRef", "prodCharFile", "👤", "Model"], bg: ["prodBgRef", "prodBgFile", "🏞", "Bối cảnh"], pose: ["prodPoseRef", "prodPoseFile", "🧍", "Pose"] };
+function prodRenderRoles() {
+  Object.entries(PROD_ROLE_UI).forEach(([k, [boxId, fileId, ic, lb]]) => {
+    const box = $(boxId); if (!box) return; box.innerHTML = "";
+    if (prodRoleImgs[k]) {
+      const d = document.createElement("div"); d.className = "fp-ref";
+      d.innerHTML = '<img src="' + prodRoleImgs[k] + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
+      d.querySelector(".fp-ref-x").onclick = () => { prodRoleImgs[k] = null; prodRenderRoles(); };
+      box.appendChild(d);
+    } else {
+      const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
+      add.innerHTML = ic + "<span>" + lb + "</span>"; add.onclick = () => $(fileId).click(); box.appendChild(add);
+    }
+  });
+}
 function prodRenderStyle() {
   const box = $("prodStyleRef"); if (!box) return; box.innerHTML = "";
   if (prodStyle) {
@@ -2265,9 +2285,9 @@ async function prodGenerate(prompt, count) {
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
-  prompt = prompt + prodCastingExtra();
+
   try {
-    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", prompt, engine, aspect, count }) });
+    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", char_img: prodRoleImgs.char || "", bg_img: prodRoleImgs.bg || "", pose_img: prodRoleImgs.pose || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     // thêm placeholder "đang tạo" cho job này (lên đầu)
     for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
