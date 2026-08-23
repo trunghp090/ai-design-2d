@@ -2241,7 +2241,7 @@ function prodRenderRefs() {}
 const PROD_ROLE_WIRE = [
   ["photo", "char", "pPCharFile"], ["photo", "char2", "pPChar2File"], ["photo", "pose", "pPPoseFile"],
   ["outfit", "char", "pOCharFile"], ["outfit", "char2", "pOChar2File"],
-  ["outfit", "outfit1", "pOOutfit1File"], ["outfit", "outfit2", "pOOutfit2File"], ["outfit", "pose", "pOPoseFile"],
+  ["outfit", "outfit1", "pOOutfit1File"], ["outfit", "outfit2", "pOOutfit2File"],
 ];
 const PROD_ROLE_UI = [
   ["photo", "char", "pPCharRef", "pPCharFile", "👤", "Nhân vật 1"],
@@ -2251,7 +2251,6 @@ const PROD_ROLE_UI = [
   ["outfit", "char2", "pOChar2Ref", "pOChar2File", "👥", "Nhân vật 2"],
   ["outfit", "outfit1", "pOOutfit1Ref", "pOOutfit1File", "👕", "Trang phục 1"],
   ["outfit", "outfit2", "pOOutfit2Ref", "pOOutfit2File", "👗", "Trang phục 2"],
-  ["outfit", "pose", "pOPoseRef", "pOPoseFile", "🧍", "Dáng + cảnh"],
 ];
 function prodRenderRoles() {
   PROD_ROLE_UI.forEach(([mode, k, boxId, fileId, ic, lb]) => {
