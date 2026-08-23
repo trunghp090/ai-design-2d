@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-pose-vision"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-pose-vision2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12434,8 +12434,9 @@ class Handler(BaseHTTPRequestHandler):
                             print("pose vision fail:", str(e)[:100], flush=True)
                         lock_txt = ("PRIORITY RULE #1 — POSE & COMPOSITION LOCK (follow EVERY detail below, "
                                     "verified against reference image #%d): " % len(imgs))
-                        if pose_desc:
-                            lock_txt += pose_desc.strip() + " "
+                        pd = (pose_desc or "").strip()
+                        if pd and not re.match(r"^i'?m unable|^i can(?:no|')t|^sorry", pd, re.I):
+                            lock_txt += pd + " "
                         lock_txt += ("The people must occupy the SAME size and position within the frame as in "
                                      "that reference — match the head-to-frame-height ratio, NEVER zoom in closer. "
                                      "The pose reference defines ONLY pose and framing — identity, clothing and "
