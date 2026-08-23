@@ -34,7 +34,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.08.11-prod-claude-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.08.11-prod-shot-type"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -12431,8 +12431,9 @@ class Handler(BaseHTTPRequestHandler):
                                 "the two people. Then the framing: camera height and angle, camera distance, "
                                 "where the subjects sit in the frame (left/center/right, thirds), and subject "
                                 "height as an approximate percentage of frame height. Finally 2-3 bullets on the "
-                                "SETTING: location/scenery, lighting and weather/atmosphere. Compact bullet points.",
-                                rd, rm or "image/png", max_tokens=550)
+                                "SETTING: location/scenery, lighting and weather/atmosphere. Compact bullet points. "
+                                "END with one line exactly in this format: SUBJECT_HEIGHT_PCT: <number>",
+                                rd, rm or "image/png", max_tokens=600)
                         except Exception as e:
                             print("pose vision fail:", str(e)[:100], flush=True)
                         lock_txt = ("PRIORITY RULE #1 — POSE & COMPOSITION LOCK (follow EVERY detail below, "
@@ -12440,6 +12441,23 @@ class Handler(BaseHTTPRequestHandler):
                         pd = (pose_desc or "").strip()
                         if pd and not re.match(r"^i'?m unable|^i can(?:no|')t|^sorry", pd, re.I):
                             lock_txt += pd + " "
+                        # Dịch % người/khung thành ngôn ngữ nhiếp ảnh (image model hiểu shot-type tốt hơn con số %)
+                        mpct = re.search(r"SUBJECT_HEIGHT_PCT:\s*(\d{1,3})", pose_desc or "")
+                        if mpct:
+                            pct = max(5, min(100, int(mpct.group(1))))
+                            if pct <= 25:
+                                lock_txt += ("SHOT TYPE (mandatory): EXTREME WIDE LANDSCAPE SHOT — the people are "
+                                             "TINY figures, only about %d%% of the frame height, dwarfed by the vast "
+                                             "scenery which dominates the frame; camera very far away. NOT a medium "
+                                             "shot, NOT a close-up, do NOT render the people any larger. " % pct)
+                            elif pct <= 45:
+                                lock_txt += ("SHOT TYPE (mandatory): WIDE SHOT — full bodies visible and SMALL, about "
+                                             "%d%% of the frame height, with the scenery taking up most of the frame; "
+                                             "camera far away. NOT a medium shot, NOT a close-up, do NOT render the "
+                                             "people any larger. " % pct)
+                            elif pct <= 70:
+                                lock_txt += ("SHOT TYPE (mandatory): MEDIUM-WIDE SHOT — full bodies about %d%% of the "
+                                             "frame height. Do NOT zoom in closer. " % pct)
                         lock_txt += ("The people must occupy the SAME size and position within the frame as in "
                                      "that reference — match the head-to-frame-height ratio, NEVER zoom in closer. "
                                      "This reference defines the pose, framing AND the background/scene — recreate "
