@@ -2155,9 +2155,6 @@ function prodInit() {
   if (prodInited) { prodLoadHistory(); return; }
   prodInited = true;
   prodCheckEngine();
-  $("prodFile").onchange = async (e) => { for (const f of e.target.files) { if (f.type.startsWith("image/")) prodRefs.push(await fileToDataURL(f)); } e.target.value = ""; prodRenderRefs(); };
-  $("prodUseCurrent").onclick = () => { if (!currentDesign) { alert("Chưa có design đang mở ở Clone Design."); return; } prodRefs.push("data:image/png;base64," + currentDesign); prodRenderRefs(); };
-  $("prodStyleFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodStyle = await fileToDataURL(f); prodRenderStyle(); } e.target.value = ""; };
   [["char", "prodCharFile"], ["char2", "prodChar2File"], ["outfit1", "prodOutfit1File"], ["outfit2", "prodOutfit2File"], ["pose", "prodPoseFile"]].forEach(([k, fid]) => {
     $(fid).onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { prodRoleImgs[k] = await fileToDataURL(f); prodRenderRoles(); } e.target.value = ""; };
   });
@@ -2174,7 +2171,7 @@ function prodInit() {
 }
 
 // cho phép tab khác nạp ảnh tham chiếu (vd SP Shopify -> Ảnh sản phẩm)
-function prodAddRef(src) { if (src) { prodRefs.push(src); if (prodInited) prodRenderRefs(); } }
+function prodAddRef(src) { if (src) { prodRoleImgs.outfit1 = src; if (prodInited) prodRenderRoles(); } }
 
 async function prodCheckEngine() {
   try {
@@ -2220,20 +2217,7 @@ function prodPasteBtn(onImg) {
   b.onclick = async () => { const u = await prodClipImage(); if (u) onImg(u); };
   return b;
 }
-function prodRenderRefs() {
-  const box = $("prodRefs"); if (!box) return; box.innerHTML = "";
-  prodRefs.forEach((u, i) => {
-    const d = document.createElement("div"); d.className = "fp-ref";
-    d.innerHTML = '<img src="' + u + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
-    d.querySelector(".fp-ref-x").onclick = () => { prodRefs.splice(i, 1); prodRenderRefs(); };
-    box.appendChild(d);
-  });
-  if (prodRefs.length < 6) {
-    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button"; add.innerHTML = "＋<span>Add</span>"; add.onclick = () => $("prodFile").click(); box.appendChild(add);
-    box.appendChild(prodPasteBtn(u => { prodRefs.push(u); prodRenderRefs(); }));
-  }
-  $("prodRefCount").textContent = prodRefs.length + "/6";
-}
+function prodRenderRefs() {}
 
 const PROD_ROLE_UI = { char: ["prodCharRef", "prodCharFile", "👤", "Nhân vật 1"], char2: ["prodChar2Ref", "prodChar2File", "👥", "Nhân vật 2"], outfit1: ["prodOutfit1Ref", "prodOutfit1File", "👕", "Trang phục 1"], outfit2: ["prodOutfit2Ref", "prodOutfit2File", "👗", "Trang phục 2"], pose: ["prodPoseRef", "prodPoseFile", "🧍", "Dáng + cảnh"] };
 function prodRenderRoles() {
@@ -2251,19 +2235,7 @@ function prodRenderRoles() {
     }
   });
 }
-function prodRenderStyle() {
-  const box = $("prodStyleRef"); if (!box) return; box.innerHTML = "";
-  if (prodStyle) {
-    const d = document.createElement("div"); d.className = "fp-ref";
-    d.innerHTML = '<img src="' + prodStyle + '" alt=""><button class="fp-ref-x" title="Bỏ">×</button>';
-    d.querySelector(".fp-ref-x").onclick = () => { prodStyle = null; prodRenderStyle(); };
-    box.appendChild(d);
-  } else {
-    const add = document.createElement("button"); add.className = "fp-ref fp-ref-add"; add.type = "button";
-    add.innerHTML = "🎨<span>Style</span>"; add.onclick = () => $("prodStyleFile").click(); box.appendChild(add);
-    box.appendChild(prodPasteBtn(u => { prodStyle = u; prodRenderStyle(); }));
-  }
-}
+function prodRenderStyle() {}
 
 async function prodSuggest() {
   const anyImg = Object.values(prodRoleImgs).some(Boolean);
@@ -2319,14 +2291,14 @@ async function prodGenerate(prompt, count) {
   const note = $("prodNote"); note.className = "gen-note"; note.textContent = "";
   prompt = (prompt || "").trim();
 
-  const anyImg = prodStyle || Object.values(prodRoleImgs).some(Boolean);
+  const anyImg = Object.values(prodRoleImgs).some(Boolean);
   if (!prompt && !anyImg) { note.className = "gen-note err"; note.textContent = "⚠️ Nhập prompt HOẶC thêm ít nhất 1 ảnh (nhân vật/bối cảnh/pose/style)."; return; }
   count = count || 1;
   const aspect = $("prodAspect").value || "4:5";
   const engine = ($("prodEngine") && $("prodEngine").value) || "";
 
   try {
-    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ images: prodRefs, style: prodStyle || "", char_img: prodRoleImgs.char || "", char2_img: prodRoleImgs.char2 || "", outfit1_img: prodRoleImgs.outfit1 || "", outfit2_img: prodRoleImgs.outfit2 || "", bg_img: prodRoleImgs.bg || "", pose_img: prodRoleImgs.pose || "", prompt, engine, aspect, count }) });
+    const r = await fetch("/api/prod-generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ char_img: prodRoleImgs.char || "", char2_img: prodRoleImgs.char2 || "", outfit1_img: prodRoleImgs.outfit1 || "", outfit2_img: prodRoleImgs.outfit2 || "", bg_img: prodRoleImgs.bg || "", pose_img: prodRoleImgs.pose || "", prompt, engine, aspect, count }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     // thêm placeholder "đang tạo" cho job này (lên đầu)
     for (let i = 0; i < count; i++) prodCreations.unshift({ loading: true, job: d.job_id, prompt, aspect });
@@ -2407,7 +2379,7 @@ function prodRenderCreations() {
     card.querySelector(".b-zoom").onclick = () => openZoom(prodSrc(c));
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(prodSrc(c), e.currentTarget);
     card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await prodB64(c), (c.prompt || "anh-sp").slice(0, 30)); b.disabled = false; };
-    card.querySelector(".b-regen").onclick = () => { if (!prodRefs.length) { alert("Cần ảnh tham chiếu (thêm ở panel trái) để tạo lại."); return; } prodGenerate(c.prompt, 1); };
+    card.querySelector(".b-regen").onclick = () => prodGenerate(c.prompt, 1);
     card.querySelector(".b-del").onclick = async (e) => {
       if (!confirm("Xoá ảnh này?")) return; const b = e.currentTarget; b.disabled = true;
       try { if (c.id) await fetch("/api/gallery?id=" + encodeURIComponent(c.id), { method: "DELETE" }); prodCreations = prodCreations.filter(x => x !== c); prodSel.delete(k); prodRenderCreations(); if (typeof loadGallery === "function") loadGallery(); }
@@ -4115,7 +4087,7 @@ async function shoplistLoad() {
         showApp("product");
         if (typeof prodAddRef === "function") prodAddRef(p.image);
         const note = document.getElementById("prodNote");
-        if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã nạp ảnh \"" + (p.title || "SP") + "\" làm tham chiếu. Nhập prompt rồi bấm Generate."; }
+        if (note) { note.className = "gen-note ok"; note.textContent = "✓ Đã nạp áo \"" + (p.title || "SP") + "\" vào ô 👕 Trang phục NV1 — thêm ảnh nhân vật/pose rồi bấm Generate."; }
       };
       card.querySelector(".b-open").onclick = () => {
         if (p.status !== "active") {

@@ -802,17 +802,12 @@
       <!-- LEFT: bảng điều khiển kiểu Freepik -->
       <aside class="panel fp-side">
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">📸 Ảnh sản phẩm</h2>
-        <p class="panel-desc" style="margin:0 0 14px">Nhập <b>prompt</b> + <b>ảnh tham chiếu</b> (áo/design) → AI gen ảnh sản phẩm, giữ đúng design.</p>
+        <p class="panel-desc" style="margin:0 0 14px">Up <b>ảnh nhân vật</b> + <b>trang phục</b> + <b>1 ảnh dáng-bối cảnh</b> → Claude phân tích, AI gen ảnh sản phẩm giữ đúng người, đúng áo, đúng khung.</p>
 
         <label class="fp-label">MODEL</label>
         <select id="prodEngine" class="input"></select>
         <p class="hint" id="prodNanoHint" style="margin:4px 0 0"></p>
 
-        <div class="hidden"><div id="prodRefs"></div><span id="prodRefCount"></span>
-        <input type="file" id="prodFile" accept="image/*" multiple hidden />
-        <button id="prodUseCurrent" hidden></button></div>
-
-        <div class="hidden"><div id="prodStyleRef"></div><input type="file" id="prodStyleFile" accept="image/*" hidden /></div>
 
         <label class="fp-label" style="margin-top:14px">👤 NHÂN VẬT 1 <span class="fp-count">(up ảnh model)</span></label>
         <div class="fp-refs" id="prodCharRef"></div>
@@ -830,7 +825,6 @@
         <div class="fp-refs" id="prodOutfit2Ref"></div>
         <input type="file" id="prodOutfit2File" accept="image/*" hidden />
 
-        <div class="hidden"><div id="prodBgRef"></div><input type="file" id="prodBgFile" accept="image/*" hidden /></div>
 
         <label class="fp-label" style="margin-top:10px">🧍 TẠO DÁNG + BỐI CẢNH <span class="fp-count">(1 ảnh mẫu: dáng + cảnh + tỉ lệ khung)</span></label>
         <div class="fp-refs" id="prodPoseRef"></div>
