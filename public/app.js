@@ -3236,7 +3236,7 @@ async function ttGenerate() {
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
     ttRender();
-    note.className = "gen-note ok"; note.textContent = "🧠 AI đang chọn quà brand thật + lập bài… rồi Nano Banana Pro vẽ " + d.total + " slide.";
+    note.className = "gen-note ok"; note.textContent = "🔎 AI đang tìm sản phẩm, kiểm tra giá + lập bài… rồi Nano Banana Pro vẽ " + d.total + " slide.";
     if (!ttPollTimer) ttPollTimer = setInterval(ttPollAll, 2500);
     ttPollAll();
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
