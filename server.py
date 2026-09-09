@@ -12,6 +12,8 @@ Cấu hình .env:  OPENAI_API_KEY, OPENAI_IMAGE_MODEL, PORT
 """
 
 import base64
+import roundup
+import studio_assistant
 import datetime
 import hashlib
 import io
@@ -34,7 +36,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-tiktok-premium-gifts"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-full-content-studio"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9211,7 +9213,7 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
+ALL_APP_TABS = ["assistant", "roundup", "chatcontent", "clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
                 "adpost", "pgpost", "shopify", "shoplist", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
@@ -9599,6 +9601,10 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- GET ----------
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if studio_assistant.route(sys.modules[__name__], self, path):
+            return
+        if roundup.route(sys.modules[__name__], self, path):
+            return
         if path == "/":
             path = "/index.html"
         if path == "/admin.html" and not user_is_admin(self.current_user()):
@@ -10096,6 +10102,13 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
         except Exception as e:
             return self.json(400, {"error": "Body lỗi: %s" % e})
+
+        if path.startswith("/api/studio-assistant/"):
+            studio_assistant.route(sys.modules[__name__], self, path, body)
+            return
+        if path.startswith("/api/roundup/"):
+            roundup.route(sys.modules[__name__], self, path, body)
+            return
 
         # ---- Tài khoản ----
         COOKIE = "session=%s; HttpOnly; Path=/; Max-Age=2592000; SameSite=Lax"

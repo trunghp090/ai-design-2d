@@ -99,7 +99,7 @@ $("logoutBtn") && ($("logoutBtn").onclick = async () => {
 });
 
 /* ---------- trạng thái ---------- */
-fetch("/api/status").then(r => r.json()).then(s => {
+fetch("/api/status").then(r => { if (!r.ok) throw new Error("Status unavailable"); return r.json(); }).then(s => {
   const pill = $("statusPill");
   if (s.mock) { pill.textContent = "● MOCK — chưa cắm key"; pill.className = "status-pill mock"; }
   else { pill.textContent = "● Live · " + s.model; pill.className = "status-pill live"; }
@@ -832,6 +832,10 @@ $("refreshGallery").onclick = loadGallery;
    APP TABS — chuyển giữa các tính năng độc lập (Clone / Auto / …)
    ===================================================================== */
 function showApp(app) {
+  document.getElementById("view-assistant").classList.toggle("hidden", app !== "assistant");
+  document.getElementById("view-roundup").classList.toggle("hidden", app !== "roundup");
+  if (app === "roundup" && window.initRoundup) window.initRoundup();
+  document.getElementById("view-chatcontent").classList.toggle("hidden", app !== "chatcontent");
   document.querySelectorAll(".app-tab").forEach(t => t.classList.toggle("active", t.dataset.app === app));
   document.getElementById("view-clone").classList.toggle("hidden", app !== "clone");
   document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");

@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Dancing+Script:wght@400;700&family=Be+Vietnam+Pro:wght@400;600;700&family=Lobster&family=Pacifico&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/studio.css?v=2026.09.10-full-content-studio" />
+<link rel="stylesheet" href="/roundup.css?v=2026.09.10-full-content-studio" />
 </head>
 <body>
   <div class="topbar">
@@ -56,6 +58,9 @@
     <button class="app-tab" data-app="product" data-group="work">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
+    <button class="app-tab" data-app="assistant" data-group="marketing">✦ Trợ lý</button>
+    <button class="app-tab" data-app="roundup" data-group="marketing">▦ Tổng hợp mẫu</button>
+    <button class="app-tab" data-app="chatcontent" data-group="marketing">💬 Content Zalo</button>
     <button class="app-tab" data-app="tiktok" data-group="marketing">🎵 TikTok Quà tặng</button>
     <button class="app-tab hidden" data-app="pnl" data-group="revenue">💰 Doanh thu & Lợi nhuận</button>
     <button class="app-tab hidden" data-app="admgr" data-group="revenue">📊 Chỉ số & chiến dịch</button>
@@ -65,6 +70,9 @@
     <button class="app-tab" data-app="shoplist" data-group="shopify">📦 SP Shopify</button>
   </nav>
 
+  <main class="app-view hidden" id="view-assistant"></main>
+  <main class="app-view hidden" id="view-roundup"></main>
+  <main class="app-view hidden" id="view-chatcontent"></main>
   <main class="layout app-view" id="view-clone">
     <!-- ===== CỘT TRÁI ===== -->
     <section class="panel">
@@ -2309,5 +2317,8 @@
   }, 9000);
 </script>
 <script src="/app.js"></script>
+<script src="/chat-content.js?v=2026.09.10-full-content-studio"></script>
+<script src="/roundup.js?v=2026.09.10-full-content-studio"></script>
+<script src="/studio-assistant.js?v=2026.09.10-full-content-studio"></script>
 </body>
 </html>
