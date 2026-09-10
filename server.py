@@ -38,7 +38,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-tiktok-progress"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-bonus-upload"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -11029,7 +11029,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": str(e)})
         rd, rm = fetch_image_bytes(body.get("image", ""))
         if not rd:
-            return self.json(400, {"error": "Cần ảnh SP/design tham chiếu — bấm 📦 Chọn sản phẩm trước."})
+            return self.json(400, {"error": "Cần ảnh áo tham chiếu — up ảnh áo hoặc chọn sản phẩm trước."})
         names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:2]
         overlay = [str(x).strip()[:120] for x in (body.get("overlay") or []) if str(x).strip()][:4]
         if not overlay:

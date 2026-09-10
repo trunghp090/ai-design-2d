@@ -1169,6 +1169,14 @@
           <button class="btn-ghost sm" id="ttSpPick" style="margin-top:4px">📦 Chọn sản phẩm (lấy design)</button>
           <span class="hint" id="ttSpInfo" style="display:block;margin-top:4px">Chưa chọn SP — chọn để AI lấy đúng design áo của shop.</span>
           <div id="ttSpColors" style="display:flex;flex-wrap:wrap;align-items:flex-start"></div>
+          <label class="fp-label" for="ttRefFile" style="margin-top:10px">📷 Up ảnh áo tham chiếu</label>
+          <input id="ttRefFile" type="file" class="input" accept="image/png,image/jpeg,image/webp">
+          <p class="hint">Ảnh tải lên được ưu tiên khi tạo bonus, thay cho ảnh sản phẩm. Chọn ảnh rõ toàn bộ áo và hình in (PNG/JPG/WebP, tối đa 20 MB).</p>
+          <div id="ttRefPreview" hidden>
+            <img id="ttRefImage" alt="Ảnh áo tham chiếu để tạo slide bonus" style="width:100%;max-height:220px;object-fit:contain;border-radius:8px">
+            <button id="ttRefRemove" type="button" class="btn-ghost sm">✕ Bỏ ảnh tải lên</button>
+          </div>
+          <p id="ttRefStatus" class="hint" role="status"></p>
           <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
             <input type="text" id="ttBonusName1" class="input" style="flex:1;margin:0" placeholder="Tên áo TRÁI (nữ)" />
             <input type="text" id="ttBonusName2" class="input" style="flex:1;margin:0" placeholder="Tên áo PHẢI (nam)" />

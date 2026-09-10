@@ -3095,7 +3095,7 @@ async function zipDownloadSelected(items, btn) {
 /* =====================================================================
    TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
    ===================================================================== */
-let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null;
+let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null, ttRefUpload = null;
 function ttInit() {
   if (ttInited) return; ttInited = true;
   $("ttRunBtn").onclick = ttGenerate;
@@ -3124,6 +3124,45 @@ function ttInit() {
       }
     }
   });
+  let ttRefRead = 0;
+  $("ttRefFile").onchange = async e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const revision = ++ttRefRead;
+    const status = $("ttRefStatus");
+    const button = $("ttBonusBtn");
+    button.disabled = true;
+    status.textContent = "Đang đọc ảnh áo…";
+    try {
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Chọn ảnh PNG, JPG hoặc WebP.");
+      if (file.size > 20 * 1024 * 1024) throw new Error("Ảnh tối đa 20 MB.");
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Không đọc được ảnh. Hãy chọn lại."));
+        reader.readAsDataURL(file);
+      });
+      await new Promise((resolve, reject) => {
+        const img = new Image(); img.onload = resolve;
+        img.onerror = () => reject(new Error("File ảnh không hợp lệ. Hãy chọn ảnh khác.")); img.src = data;
+      });
+      if (revision !== ttRefRead) return;
+      ttRefUpload = data;
+      $("ttRefImage").src = data;
+      $("ttRefPreview").hidden = false;
+      status.textContent = "✓ Đang dùng ảnh tải lên: " + file.name + ". AI sẽ bám màu áo và hình in trong ảnh này.";
+    } catch (err) {
+      if (revision === ttRefRead) status.textContent = "⚠️ " + err.message + (ttRefUpload ? " Vẫn giữ ảnh tải lên trước đó." : "");
+    } finally { if (revision === ttRefRead) button.disabled = false; }
+  };
+  $("ttRefRemove").onclick = () => {
+    ++ttRefRead; ttRefUpload = null;
+    $("ttRefImage").removeAttribute("src");
+    $("ttRefPreview").hidden = true;
+    $("ttBonusBtn").disabled = false;
+    $("ttRefStatus").textContent = "Đã bỏ ảnh tải lên. Dùng ảnh sản phẩm đang chọn nếu có.";
+  };
   // 🎲 Random cặp tên (nữ + nam) — điền sẵn để xem/sửa TRƯỚC khi gen
   const TT_NAMES_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
     "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh", "Quỳnh Như", "Hà My", "Tường Vy"];
@@ -3135,14 +3174,15 @@ function ttInit() {
   };
   if ($("ttBonusBtn")) $("ttBonusBtn").onclick = async () => {
     const note = $("ttNote");
-    if (!ttSp || !ttSp.image) { note.className = "gen-note err"; note.textContent = "⚠️ Bấm 📦 Chọn sản phẩm trước (lấy design áo)."; return; }
+    const reference = ttRefUpload || (ttSp && ttSp.image);
+    if (!reference) { note.className = "gen-note err"; note.textContent = "⚠️ Up ảnh áo tham chiếu hoặc chọn sản phẩm trước."; return; }
     const names = [($("ttBonusName1").value || "").trim(), ($("ttBonusName2").value || "").trim()].filter(Boolean);
     const overlay = (ttMeta && ttMeta.bonus && ttMeta.bonus.length) ? ttMeta.bonus : [];
     const b = $("ttBonusBtn"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo…";
     $("ttProgress").classList.remove("hidden");
     try {
       const r = await fetch("/api/tiktok-bonus-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: ttSp.image, names: names, overlay: overlay, engine: $("ttImageEngine").value }) });
+        body: JSON.stringify({ image: reference, names: names, overlay: overlay, engine: $("ttImageEngine").value }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
       ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
       ttRender();
