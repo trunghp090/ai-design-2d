@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Dancing+Script:wght@400;700&family=Be+Vietnam+Pro:wght@400;600;700&family=Lobster&family=Pacifico&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/tiktok-kol.css?v=2026.09.10-kol-gift-catalog" />
   <link rel="stylesheet" href="/studio.css?v=2026.09.10-full-content-studio" />
 <link rel="stylesheet" href="/roundup.css?v=2026.09.10-full-content-studio" />
 </head>
@@ -1115,18 +1116,18 @@
           <option value="cả hai">💑 Couple cả hai</option>
         </select>
 
-        <label class="fp-label" style="margin-top:12px">💸 Tầng giá</label>
-        <select id="ttTier" class="input">
-          <option value="budget" selected>💵 Dưới 300k (sinh viên — viral nhất)</option>
-          <option value="mid">💳 300k–700k (mới đi làm)</option>
-          <option value="treat">💎 500k–1.5tr (dịp đặc biệt)</option>
-          <option value="premium">🛍️ 1.5–3 triệu (tầm trung)</option>
-          <option value="high">✨ 3–7 triệu (cận cao cấp)</option>
-          <option value="luxury">💎 7–15 triệu (cao cấp)</option>
-          <option value="ultra">👑 Trên 15 triệu (xa xỉ)</option>
-        </select>
-
-        <p class="hint" style="margin-top:6px">Tìm sản phẩm và giá trên web trước khi lập bài, ưu tiên hãng chính thức và đại lý uỷ quyền. Có cả túi hiệu, trang sức, đồng hồ và đồ công nghệ cao cấp.</p>
+        <label class="fp-label" style="margin-top:12px">Phân khúc · catalog KOL</label>
+        <select id="ttTier" class="input"><option value="kol_all">Tất cả phân khúc</option><option value="kol_mid" selected>Tầm trung</option><option value="kol_premium">Cao cấp</option><option value="kol_luxury">Luxury</option></select>
+        <p class="hint">63 sản phẩm · 56 hãng từ tool KOL. Phân khúc biên tập, không phải giá bán đã xác minh.</p>
+        <div id="ttKolPicker">
+          <input id="ttKolSearch" class="input" aria-label="Tìm quà KOL" placeholder="Tìm hãng hoặc model…">
+          <select id="ttKolBrand" class="input" aria-label="Hãng quà KOL"><option value="all">Tất cả hãng</option></select>
+          <select id="ttKolType" class="input" aria-label="Loại quà KOL"><option value="all">Tất cả loại</option></select>
+          <button type="button" id="ttKolMix" class="btn-ghost">🎲 Mix 4 món khác loại</button>
+          <p id="ttKolStatus" class="hint" role="status">Đang tải catalog KOL…</p>
+          <div id="ttKolSelected"></div>
+          <div id="ttKolProducts" style="max-height:340px;overflow:auto"></div>
+        </div>
 
         <label class="fp-label" style="margin-top:12px">📋 Dạng bài (concept)</label>
         <select id="ttConcept" class="input">
@@ -1138,13 +1139,8 @@
           <option value="compare">⚖️ So sánh cùng loại khác tầm giá</option>
         </select>
 
-        <label class="fp-label" style="margin-top:12px">🖼️ Số món quà</label>
-        <select id="ttCount" class="input">
-          <option value="6" selected>6 món (chuẩn 7 slide)</option>
-          <option value="4">4 món</option>
-          <option value="5">5 món</option>
-          <option value="8">8 món</option>
-        </select>
+        <input type="hidden" id="ttCount" value="4">
+        <p class="hint">1 hook đủ 4 món + 4 slide giới thiệu riêng. Chọn đủ 4 loại khác nhau trước khi tạo.</p>
 
         <button class="btn-primary" id="ttRunBtn" style="margin-top:14px">🎵 Tạo bài TikTok</button>
         <div class="batch-progress hidden" id="ttProgress" style="margin-top:8px">
@@ -1207,7 +1203,7 @@
           <button class="btn-primary sm" id="ttZipBtn">📦 Tải ZIP đã chọn</button>
         </div>
         <div id="ttResults" class="fp-creations grid"></div>
-        <div class="gallery-empty" id="ttEmpty">Chọn dịp + đối tượng + tầng giá → bấm Tạo bài TikTok.</div>
+        <div class="gallery-empty" id="ttEmpty">Chọn người nhận + phân khúc + 4 món từ catalog KOL → Tạo bài TikTok.</div>
       </section>
     </div>
   </section>
@@ -2317,6 +2313,7 @@
   }, 9000);
 </script>
 <script src="/app.js"></script>
+<script src="/tiktok-kol.js?v=2026.09.10-kol-gift-catalog"></script>
 <script src="/chat-content.js?v=2026.09.10-full-content-studio"></script>
 <script src="/roundup.js?v=2026.09.10-full-content-studio"></script>
 <script src="/studio-assistant.js?v=2026.09.10-full-content-studio"></script>
