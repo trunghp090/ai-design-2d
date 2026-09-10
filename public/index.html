@@ -1141,6 +1141,8 @@
           <select id="ttKolBrand" class="input" aria-label="Hãng quà KOL"><option value="all">Tất cả hãng</option></select>
           <select id="ttKolType" class="input" aria-label="Loại quà KOL"><option value="all">Tất cả loại</option></select>
           <button type="button" id="ttKolMix" class="btn-ghost">🎲 Mix 4 món khác loại</button>
+          <label class="switch-row"><input type="checkbox" id="ttKolAutoRotate" checked> Tự đổi bộ quà khi tạo bài tiếp theo</label>
+          <p class="hint">Nhớ các bộ đã mix trên trình duyệt này để ưu tiên món ít dùng. Chọn tất cả phân khúc để mở rộng lựa chọn; vẫn giữ đúng bộ lọc của bạn.</p>
           <p id="ttKolStatus" class="hint" role="status">Đang tải catalog KOL…</p>
           <div id="ttKolSelected"></div>
           <div id="ttKolProducts" style="max-height:340px;overflow:auto"></div>
@@ -2346,7 +2348,8 @@
   }, 9000);
 </script>
 <script src="/app.js"></script>
-<script src="/tiktok-kol.js?v=2026.09.10-tiktok-story-skill"></script>
+<script src="/gift-rotation.js?v=2026.09.10-gift-rotation"></script>
+<script src="/tiktok-kol.js?v=2026.09.10-gift-rotation"></script>
 <script src="/chat-content.js?v=2026.09.10-full-content-studio"></script>
 <script src="/roundup.js?v=2026.09.10-full-content-studio"></script>
 <script src="/studio-assistant.js?v=2026.09.10-full-content-studio"></script>

@@ -1,7 +1,15 @@
 /* Imported KOL catalog. Selection is checked again by the server before AI. */
 (() => {
   const el=id=>document.getElementById(id);
-  let catalog=[],picked=[];
+  let catalog=[],picked=[],history=[],lastSubmitted='';
+  try { const saved=JSON.parse(localStorage.getItem('ttGiftRotation')||'{}');
+    history=Array.isArray(saved.history)?saved.history.filter(x=>Array.isArray(x)).slice(-100):[];
+    lastSubmitted=typeof saved.lastSubmitted==='string'?saved.lastSubmitted:'';
+  } catch(e) {}
+  const signature=()=>picked.map(g=>g.key).sort().join('|');
+  function remember(){history.push(picked.map(g=>g.key));history=history.slice(-100);save();}
+  function save(){try{localStorage.setItem('ttGiftRotation',JSON.stringify({history,lastSubmitted}));}catch(e){}}
+
   const norm=s=>s.normalize('NFD').replace(/\p{M}/gu,'').replace(/[đĐ]/g,'d').toLowerCase();
   const filtered=()=>catalog.filter(g=>{
     const recipient={nam:'boyfriend',nu:'girlfriend','cả hai':'all'}[el('ttGender').value];
@@ -40,25 +48,26 @@
     const chosen=el('ttKolSelected');chosen.replaceChildren();
     for(const g of picked){const line=document.createElement('div');line.textContent=g.label+' ';const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Bỏ '+g.label);remove.onclick=()=>{picked=picked.filter(p=>p.key!==g.key);render();};line.append(remove);chosen.append(line);}
     el('ttKolMix').disabled=new Set(rows.map(g=>g.productType)).size<4;
-    status(message||`${picked.length}/4 món · ${rows.length} sản phẩm phù hợp. ${el('ttKolMix').disabled?'Bộ lọc còn dưới 4 loại; hãy nới bộ lọc để mix.':'Ví/ví thẻ cùng loại; đồng hồ/smartwatch cùng loại.'}`);
+    status(message||`${picked.length}/4 món · ${rows.length}/${catalog.length} sản phẩm hợp bộ lọc. ${el('ttKolMix').disabled?'Bộ lọc còn dưới 4 loại; hãy nới bộ lọc để mix.':'Ví/ví thẻ cùng loại; đồng hồ/smartwatch cùng loại.'}`);
   }
   function change(){const allowed=new Set(filtered().map(g=>g.key));const before=picked.length;picked=picked.filter(g=>allowed.has(g.key));render(before!==picked.length?'Đã bỏ món không còn hợp bộ lọc. Chọn hoặc mix lại để đủ 4 món.':undefined);}
   ['ttGender','ttTier','ttKolBrand','ttKolType','ttConcept','ttStoryCategory'].forEach(id=>el(id).addEventListener('change',change));
   el('ttKolSearch').addEventListener('input',change);
-  el('ttKolMix').onclick=()=>{
-    const rows=filtered(), groups=new Map();for(const g of rows)groups.set(g.productType,[...(groups.get(g.productType)||[]),g]);
-    if(groups.size<4){render('Cần ít nhất 4 loại phù hợp; tool không tự nới bộ lọc.');return;}
-    const old=new Set(picked.map(g=>g.key));let next=[];
-    for(let attempt=0;attempt<15;attempt++){
-      const entries=[...groups.values()];for(let i=entries.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[entries[i],entries[j]]=[entries[j],entries[i]];}
-      next=entries.slice(0,4).map(a=>a[Math.floor(Math.random()*a.length)]);
-      if(next.some(g=>!old.has(g.key)))break;
-    }
-    if(next.every(g=>old.has(g.key)))for(let i=0;i<next.length;i++){
-      const types=new Set(next.filter((_,j)=>i!==j).map(g=>g.productType));const alternative=rows.find(g=>!old.has(g.key)&&!types.has(g.productType));if(alternative){next[i]=alternative;break;}
-    }
-    picked=next;render();
+  function mix(){
+    const rows=filtered();
+    if(new Set(rows.map(g=>g.productType)).size<4){render('Cần ít nhất 4 loại phù hợp; hãy nới bộ lọc.');return false;}
+    const old=new Set(picked.map(g=>g.key));
+    picked=chooseGiftRotation(rows,history,[...old]);
+    remember();
+    const repeated=picked.filter(g=>old.has(g.key)).length;
+    render(`Đã mix 4 món từ ${rows.length} sản phẩm phù hợp. ${repeated?'Còn '+repeated+' món lặp vì bộ lọc hạn chế; chọn tất cả phân khúc để có thêm lựa chọn.':'Ưu tiên món mới và hãng ít dùng.'}`);
+    return true;
+  }
+  el('ttKolMix').onclick=mix;
+  window.ttKolPrepareSelection=()=>{
+    if(el('ttKolAutoRotate').checked && picked.length===4 && signature()===lastSubmitted)mix();
   };
+  window.ttKolSubmitted=()=>{lastSubmitted=signature();remember();};
   window.ttKolSelection=()=>{if(picked.length!==4)throw new Error('Chọn hoặc mix đủ 4 món từ catalog KOL.');return picked.map(g=>g.key);};
   fetch('/catalog/kol-gifts.json?v=2026.09.10-kol-gift-catalog').then(r=>{if(!r.ok)throw new Error('Không tải được catalog KOL.');return r.json();}).then(data=>{
     catalog=data.gifts;

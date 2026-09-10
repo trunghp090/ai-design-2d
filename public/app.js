@@ -3311,11 +3311,13 @@ async function ttGenerate() {
   const btn = $("ttRunBtn"); btn.disabled = true; const old = btn.textContent; btn.textContent = "⏳ Đang tạo…";
   $("ttProgress").classList.remove("hidden");
   try {
+    window.ttKolPrepareSelection();
     const r = await fetch("/api/tiktok-gift-gen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ occasion: $("ttOccasion").value, gender: $("ttGender").value,
         engine: $("ttImageEngine").value, gift_ids: window.ttKolSelection(), tier: $("ttTier").value, concept: ($("ttConcept") && $("ttConcept").value) || "auto",
         n: parseInt($("ttCount").value, 10) || 6 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
+    window.ttKolSubmitted();
     ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
     ttRender();
     note.className = "gen-note ok"; note.textContent = "🧠 Claude đang lập bài theo đúng 4 món KOL đã chọn… rồi model đã chọn vẽ " + d.total + " slide.";
