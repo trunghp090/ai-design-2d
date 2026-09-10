@@ -1116,19 +1116,6 @@
           <option value="cả hai">💑 Couple cả hai</option>
         </select>
 
-        <label class="fp-label" style="margin-top:12px">Phân khúc · catalog KOL</label>
-        <select id="ttTier" class="input"><option value="kol_all">Tất cả phân khúc</option><option value="kol_mid" selected>Tầm trung</option><option value="kol_premium">Cao cấp</option><option value="kol_luxury">Luxury</option></select>
-        <p class="hint">63 sản phẩm · 56 hãng từ tool KOL. Phân khúc biên tập, không phải giá bán đã xác minh.</p>
-        <div id="ttKolPicker">
-          <input id="ttKolSearch" class="input" aria-label="Tìm quà KOL" placeholder="Tìm hãng hoặc model…">
-          <select id="ttKolBrand" class="input" aria-label="Hãng quà KOL"><option value="all">Tất cả hãng</option></select>
-          <select id="ttKolType" class="input" aria-label="Loại quà KOL"><option value="all">Tất cả loại</option></select>
-          <button type="button" id="ttKolMix" class="btn-ghost">🎲 Mix 4 món khác loại</button>
-          <p id="ttKolStatus" class="hint" role="status">Đang tải catalog KOL…</p>
-          <div id="ttKolSelected"></div>
-          <div id="ttKolProducts" style="max-height:340px;overflow:auto"></div>
-        </div>
-
         <label class="fp-label" style="margin-top:12px">📋 Dạng bài (concept)</label>
         <select id="ttConcept" class="input">
           <option value="auto" selected>🎲 AI tự chọn dạng hợp nhất</option>
@@ -1145,6 +1132,20 @@
           <option value="tech">Công nghệ &amp; giải trí</option><option value="fashion">Thời trang &amp; đồ da</option>
           <option value="jewelry">Đồng hồ &amp; trang sức</option><option value="lifestyle">Chăm sóc &amp; phong cách sống</option><option value="experience">Trải nghiệm</option>
         </select>
+
+        <label class="fp-label" style="margin-top:12px">Phân khúc · catalog KOL</label>
+        <select id="ttTier" class="input"><option value="kol_all">Tất cả phân khúc</option><option value="kol_mid" selected>Tầm trung</option><option value="kol_premium">Cao cấp</option><option value="kol_luxury">Luxury</option></select>
+        <p class="hint">63 sản phẩm · 56 hãng từ tool KOL. Phân khúc biên tập, không phải giá bán đã xác minh.</p>
+        <div id="ttKolPicker">
+          <input id="ttKolSearch" class="input" aria-label="Tìm quà KOL" placeholder="Tìm hãng hoặc model…">
+          <select id="ttKolBrand" class="input" aria-label="Hãng quà KOL"><option value="all">Tất cả hãng</option></select>
+          <select id="ttKolType" class="input" aria-label="Loại quà KOL"><option value="all">Tất cả loại</option></select>
+          <button type="button" id="ttKolMix" class="btn-ghost">🎲 Mix 4 món khác loại</button>
+          <p id="ttKolStatus" class="hint" role="status">Đang tải catalog KOL…</p>
+          <div id="ttKolSelected"></div>
+          <div id="ttKolProducts" style="max-height:340px;overflow:auto"></div>
+        </div>
+
         <input type="hidden" id="ttCount" value="4">
         <p class="hint">1 hook couple riêng → 4 slide quà theo dạng bài → bonus áo nếu thêm. Chọn đủ 4 loại khác nhau trước khi tạo.</p>
 
