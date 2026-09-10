@@ -38,7 +38,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-bonus-upload"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-bonus-pair"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8120,10 +8120,11 @@ def tiktok_image_engine(engine):
 def _tiktok_render_slide(prompt, engine="gemini_pro", ref_img=None):
     """Use exactly the selected image provider for gifts and bonus; never cross-fallback."""
     model = tiktok_image_engine(engine)["model"]
+    refs = ref_img if isinstance(ref_img, list) else ([ref_img] if ref_img else [])
     if engine == "gemini_pro":
-        return gemini_edit([ref_img] if ref_img else [], prompt, "3:4", model)
+        return gemini_edit(refs, prompt, "3:4", model)
     if ref_img:
-        b64 = openai_edit([ref_img], prompt, "1024x1536", native_transparent=False, quality="high", model=model)
+        b64 = openai_edit(refs, prompt, "1024x1536", native_transparent=False, quality="high", model=model)
     else:
         b64 = openai_generate(prompt, "1024x1536", model=model)
     if HAS_PIL:
@@ -8213,7 +8214,7 @@ def run_mixdesign_job(job_id, resources, idea, n, engine, aspect):
         fail(str(e))
 
 
-def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
+def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro", right_ref=None):
     """Slide bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
     2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:2]
@@ -8221,7 +8222,7 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
     n1 = given[0] if len(given) > 0 else auto["female"]
     n2 = given[1] if len(given) > 1 else auto["male"]
     # Bộ khoá design DÙNG CHUNG với FB post (pixel-faithful + đúng cỡ/vị trí + đánh vần dấu tên)
-    old_name = ads_read_name(ref_img[0])
+    old_name = "" if right_ref else ads_read_name(ref_img[0])
     nick = ("SECONDARY SMALL NAME LINE rule: ONLY IF the design already has a small secondary name line "
             "(cursive signature under the main name), replace its words with the SHORT given-name of THAT "
             "shirt's NEW main name (LEFT shirt: \"%s\", RIGHT shirt: \"%s\") — never keep the original "
@@ -8242,11 +8243,29 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
 
     def work():
         try:
-            b64 = _tiktok_render_slide(prompt, engine, ref_img)
+            render_prompt = prompt
+            refs = ref_img
+            if right_ref:
+                refs = [ref_img, right_ref]
+                rules = ("Create a lifestyle photo of TWO folded garments side by side on a cream sofa, 3:4. "
+                         "REFERENCE IMAGE #1 is ONLY the LEFT garment; REFERENCE IMAGE #2 is ONLY the RIGHT garment. "
+                         "Preserve each garment's own colour, garment type, artwork, lettering, print size and placement exactly. "
+                         "Never merge, swap or duplicate the designs. Keep all original printed names unless explicitly replaced below. "
+                         "Neutral natural daylight, upper third uncluttered, no added overlay or watermark. ")
+                for i, side in enumerate(["LEFT", "RIGHT"]):
+                    if len(names or []) > i and str(names[i]).strip():
+                        rules += side + " garment: replace only its printed name with " + _vn_name_spec(str(names[i]).strip()) + ". "
+                render_prompt = claude_vision_multi(
+                    "Write one precise English image editing prompt using both labeled garment references. Follow the given constraints exactly.",
+                    rules, [ref_img[0], right_ref[0]], max_tokens=1800, timeout=300)
+                if not render_prompt or len(render_prompt.strip()) < 80:
+                    raise ValueError("Claude chưa viết được prompt cho 2 ảnh áo. Vui lòng thử lại.")
+                render_prompt = render_prompt.strip() + "\n" + rules
+            b64 = _tiktok_render_slide(render_prompt, engine, refs)
             b64 = strip_ai_meta_b64(b64)
-            title = "Slide bonus · rieng.vn · %s & %s" % (n1, n2)
+            title = "Slide bonus · 2 mẫu áo tham chiếu" if right_ref else "Slide bonus · rieng.vn · %s & %s" % (n1, n2)
             g = gallery_add(b64, {"mode": "tiktok", "prompt": title})
-            return {"idx": 999, "image": b64, "title": title, "prompt": prompt,
+            return {"idx": 999, "image": b64, "title": title, "prompt": render_prompt,
                     "overlay": overlay, "position": "1/3 trên", "gallery": g, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": "Slide bonus"}
@@ -11030,7 +11049,16 @@ class Handler(BaseHTTPRequestHandler):
         rd, rm = fetch_image_bytes(body.get("image", ""))
         if not rd:
             return self.json(400, {"error": "Cần ảnh áo tham chiếu — up ảnh áo hoặc chọn sản phẩm trước."})
-        names = [str(x).strip()[:40] for x in (body.get("names") or []) if str(x).strip()][:2]
+        right_ref = None
+        if body.get("image_right"):
+            try:
+                right_data, right_mime = fetch_image_bytes(body["image_right"])
+                if not right_data:
+                    raise ValueError("Ảnh áo phải không hợp lệ.")
+                right_ref = (right_data, right_mime or "image/png")
+            except Exception:
+                return self.json(400, {"error": "Không đọc được ảnh áo phải. Hãy tải lại ảnh."})
+        names = [str(x).strip()[:40] for x in (body.get("names") or [])][:2]
         overlay = [str(x).strip()[:120] for x in (body.get("overlay") or []) if str(x).strip()][:4]
         if not overlay:
             overlay = ["Bonus: Áo đôi in tên riêng 🎁", "chỉ 2 đứa mình có — link bio nha 👆"]
@@ -11039,7 +11067,7 @@ class Handler(BaseHTTPRequestHandler):
             job_id = "tb%d_%d" % (int(time.time()), _batch_seq[0])
             BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
         threading.Thread(target=run_tiktok_bonus_job,
-                         args=(job_id, (rd, rm or "image/png"), names, overlay, engine), daemon=True).start()
+                         args=(job_id, (rd, rm or "image/png"), names, overlay, engine, right_ref), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": 1})
 
     def handle_tiktok_gift_gen(self, body):

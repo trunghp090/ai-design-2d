@@ -3095,7 +3095,7 @@ async function zipDownloadSelected(items, btn) {
 /* =====================================================================
    TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
    ===================================================================== */
-let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null, ttRefUpload = null;
+let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null, ttRefUpload = [null, null];
 function ttInit() {
   if (ttInited) return; ttInited = true;
   $("ttRunBtn").onclick = ttGenerate;
@@ -3124,15 +3124,18 @@ function ttInit() {
       }
     }
   });
+  const ttRefLoading = [false, false];
+  [0, 1].forEach(slot => {
+  const suffix = slot ? "2" : "";
   let ttRefRead = 0;
-  $("ttRefFile").onchange = async e => {
+  $("ttRefFile" + suffix).onchange = async e => {
     const file = e.target.files[0];
     e.target.value = "";
     if (!file) return;
     const revision = ++ttRefRead;
-    const status = $("ttRefStatus");
+    const status = $("ttRefStatus" + suffix);
     const button = $("ttBonusBtn");
-    button.disabled = true;
+    ttRefLoading[slot] = true; button.disabled = true;
     status.textContent = "Đang đọc ảnh áo…";
     try {
       if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Chọn ảnh PNG, JPG hoặc WebP.");
@@ -3148,21 +3151,22 @@ function ttInit() {
         img.onerror = () => reject(new Error("File ảnh không hợp lệ. Hãy chọn ảnh khác.")); img.src = data;
       });
       if (revision !== ttRefRead) return;
-      ttRefUpload = data;
-      $("ttRefImage").src = data;
-      $("ttRefPreview").hidden = false;
+      ttRefUpload[slot] = data;
+      $("ttRefImage" + suffix).src = data;
+      $("ttRefPreview" + suffix).hidden = false;
       status.textContent = "✓ Đang dùng ảnh tải lên: " + file.name + ". AI sẽ bám màu áo và hình in trong ảnh này.";
     } catch (err) {
-      if (revision === ttRefRead) status.textContent = "⚠️ " + err.message + (ttRefUpload ? " Vẫn giữ ảnh tải lên trước đó." : "");
-    } finally { if (revision === ttRefRead) button.disabled = false; }
+      if (revision === ttRefRead) status.textContent = "⚠️ " + err.message + (ttRefUpload[slot] ? " Vẫn giữ ảnh tải lên trước đó." : "");
+    } finally { if (revision === ttRefRead) { ttRefLoading[slot] = false; button.disabled = ttRefLoading.some(Boolean); } }
   };
-  $("ttRefRemove").onclick = () => {
-    ++ttRefRead; ttRefUpload = null;
-    $("ttRefImage").removeAttribute("src");
-    $("ttRefPreview").hidden = true;
-    $("ttBonusBtn").disabled = false;
-    $("ttRefStatus").textContent = "Đã bỏ ảnh tải lên. Dùng ảnh sản phẩm đang chọn nếu có.";
+  $("ttRefRemove" + suffix).onclick = () => {
+    ++ttRefRead; ttRefUpload[slot] = null;
+    $("ttRefImage" + suffix).removeAttribute("src");
+    $("ttRefPreview" + suffix).hidden = true;
+    ttRefLoading[slot] = false; $("ttBonusBtn").disabled = ttRefLoading.some(Boolean);
+    $("ttRefStatus" + suffix).textContent = "Đã bỏ ảnh tải lên. Dùng ảnh sản phẩm đang chọn nếu có.";
   };
+  });
   // 🎲 Random cặp tên (nữ + nam) — điền sẵn để xem/sửa TRƯỚC khi gen
   const TT_NAMES_NU = ["Thuỳ Linh", "Ngọc Hân", "Thu Trang", "Phương Anh", "Mai Hương", "Khánh Vy",
     "Bảo Trâm", "Diễm My", "Thanh Trúc", "Cẩm Tú", "Hồng Nhung", "Lan Anh", "Quỳnh Như", "Hà My", "Tường Vy"];
@@ -3174,15 +3178,16 @@ function ttInit() {
   };
   if ($("ttBonusBtn")) $("ttBonusBtn").onclick = async () => {
     const note = $("ttNote");
-    const reference = ttRefUpload || (ttSp && ttSp.image);
+    const reference = ttRefUpload[0] || (ttSp && ttSp.image);
+    if (ttRefUpload[1] && !reference) { note.className = "gen-note err"; note.textContent = "⚠️ Thêm ảnh áo trái hoặc chọn sản phẩm làm áo trái."; return; }
     if (!reference) { note.className = "gen-note err"; note.textContent = "⚠️ Up ảnh áo tham chiếu hoặc chọn sản phẩm trước."; return; }
-    const names = [($("ttBonusName1").value || "").trim(), ($("ttBonusName2").value || "").trim()].filter(Boolean);
+    const names = [($("ttBonusName1").value || "").trim(), ($("ttBonusName2").value || "").trim()];
     const overlay = (ttMeta && ttMeta.bonus && ttMeta.bonus.length) ? ttMeta.bonus : [];
     const b = $("ttBonusBtn"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tạo…";
     $("ttProgress").classList.remove("hidden");
     try {
       const r = await fetch("/api/tiktok-bonus-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: reference, names: names, overlay: overlay, engine: $("ttImageEngine").value }) });
+        body: JSON.stringify({ image: reference, image_right: ttRefUpload[1] || "", names: names, overlay: overlay, engine: $("ttImageEngine").value }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
       ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
       ttRender();
