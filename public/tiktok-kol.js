@@ -14,12 +14,13 @@
   const filtered=()=>catalog.filter(g=>{
     const recipient={nam:'boyfriend',nu:'girlfriend','cả hai':'all'}[el('ttGender').value];
     const segment=el('ttTier').value.replace('kol_','');
-    return (el('ttConcept').value!=='category'||g.category===el('ttStoryCategory').value)&&
+    return (el('ttGiftKind').value==='all'||(el('ttGiftKind').value==='custom'?!!g.custom:!g.custom))&&
+      (el('ttConcept').value!=='category'||g.category===el('ttStoryCategory').value)&&
       (recipient==='all'||g.recipient==='unisex'||g.recipient===recipient)&&
       (segment==='all'||g.segment===segment)&&
       (el('ttKolBrand').value==='all'||g.brand===el('ttKolBrand').value)&&
       (el('ttKolType').value==='all'||g.productType===el('ttKolType').value)&&
-      norm(el('ttKolSearch').value).split(/\s+/).every(t=>norm(g.label+' '+g.type).includes(t));
+      norm(el('ttKolSearch').value).split(/\s+/).every(t=>norm(g.label+' '+g.type+' '+(g.custom?'custom ca nhan hoa':'')).includes(t));
   });
   const status=text=>{el('ttKolStatus').textContent=text;};
   function render(message){
@@ -41,8 +42,8 @@
       const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=picked.some(p=>p.key===g.key);
       check.disabled=!check.checked&&(picked.length===4||types.has(g.productType));
       check.onchange=()=>{picked=check.checked?[...picked,g]:picked.filter(p=>p.key!==g.key);render();};
-      label.append(check,document.createTextNode(' '+g.icon+' '+g.label+' · '+g.productType));
-      const link=document.createElement('a');link.href=g.sourceUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' Nguồn hãng ↗';link.style.fontSize='11px';
+      label.append(check,document.createTextNode(' '+g.icon+' '+g.label+' · '+g.productType+(g.custom?' · Custom':'')));
+      const link=document.createElement('a');link.href=g.sourceUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' Nguồn sản phẩm ↗';link.style.fontSize='11px';
       row.append(label,link);box.append(row);
     }
     const chosen=el('ttKolSelected');chosen.replaceChildren();
@@ -51,7 +52,7 @@
     status(message||`${picked.length}/4 món · ${rows.length}/${catalog.length} sản phẩm hợp bộ lọc. ${el('ttKolMix').disabled?'Bộ lọc còn dưới 4 loại; hãy nới bộ lọc để mix.':'Ví/ví thẻ cùng loại; đồng hồ/smartwatch cùng loại.'}`);
   }
   function change(){const allowed=new Set(filtered().map(g=>g.key));const before=picked.length;picked=picked.filter(g=>allowed.has(g.key));render(before!==picked.length?'Đã bỏ món không còn hợp bộ lọc. Chọn hoặc mix lại để đủ 4 món.':undefined);}
-  ['ttGender','ttTier','ttKolBrand','ttKolType','ttConcept','ttStoryCategory'].forEach(id=>el(id).addEventListener('change',change));
+  ['ttGender','ttTier','ttGiftKind','ttKolBrand','ttKolType','ttConcept','ttStoryCategory'].forEach(id=>el(id).addEventListener('change',change));
   el('ttKolSearch').addEventListener('input',change);
   function mix(){
     const rows=filtered();
@@ -69,7 +70,7 @@
   };
   window.ttKolSubmitted=()=>{lastSubmitted=signature();remember();};
   window.ttKolSelection=()=>{if(picked.length!==4)throw new Error('Chọn hoặc mix đủ 4 món từ catalog KOL.');return picked.map(g=>g.key);};
-  fetch('/catalog/kol-gifts.json?v=2026.09.10-kol-gift-catalog').then(r=>{if(!r.ok)throw new Error('Không tải được catalog KOL.');return r.json();}).then(data=>{
+  fetch('/catalog/kol-gifts.json?v=2026.09.10-gift-expand').then(r=>{if(!r.ok)throw new Error('Không tải được catalog KOL.');return r.json();}).then(data=>{
     catalog=data.gifts;
     for(const [id,field] of [['ttKolBrand','brand'],['ttKolType','productType']])for(const value of [...new Set(catalog.map(g=>g[field]))].sort()){const option=document.createElement('option');option.value=value;option.textContent=value;el(id).append(option);}
     render();

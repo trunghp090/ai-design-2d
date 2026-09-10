@@ -1,4 +1,4 @@
-"""Exact editorial catalog imported from the KOL app; no open-web substitution."""
+"""Curated catalog: original KOL products plus reviewed official and custom gifts."""
 import json
 from pathlib import Path
 CATALOG = json.loads((Path(__file__).parent/'public/catalog/kol-gifts.json').read_text())['gifts']

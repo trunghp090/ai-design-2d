@@ -38,7 +38,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-gift-rotation"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-gift-expand"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8096,7 +8096,9 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
         if not isinstance(slide, dict) or slide.get("gift_id") != gift["key"] or not slide.get("prompt"):
             raise RuntimeError("Kế hoạch lệch sản phẩm KOL đã chọn; dừng trước khi tạo ảnh.")
         slide.update(product=gift["label"], rank=4-i, source_url=gift["sourceUrl"], position="1/3 trên")
-        slide["prompt"] += "\nEXACT PRODUCT LOCK: " + gift["label"] + ". " + gift["description"] + ". Only this gift; no additional products, no shirt, no portrait."
+        restriction = (" Only this selected custom gift. Printed photos, names and dates on the gift are allowed; no unrelated props or external text overlay. Do not invent buyer names, photos or claims of exact shop artwork; an unspecified custom design is an illustrative example."
+                       if gift.get("custom") else " Only this gift; no additional products, no shirt, no portrait.")
+        slide["prompt"] += "\nEXACT PRODUCT LOCK: " + gift["label"] + ". " + gift["description"] + restriction
     plan["hook"]["position"] = "1/3 dưới"
     plan["hook"]["prompt"] += "\nOPENING STORY HOOK ONLY: anonymous adult couple, faces hidden or turned away, candid intimate moment before the gift reveal. No product lineup, no collage, no gift catalog. Keep the lower third uncluttered for later text overlay. Aspect ratio 3:4."
 

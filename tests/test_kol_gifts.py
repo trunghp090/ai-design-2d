@@ -5,8 +5,9 @@ from kol_gifts import CATALOG,selection
 MID=['aristino-wallet','casio-gshock','davidoff-cool-water','jbl-flip-7']
 class KolTests(unittest.TestCase):
     def test_catalog_identity(self):
-        self.assertEqual(len(CATALOG),63)
-        self.assertEqual(len({g['brand'] for g in CATALOG}),56)
+        self.assertGreaterEqual(len(CATALOG),92)
+        self.assertGreaterEqual(len({g['brand'] for g in CATALOG}),73)
+        self.assertEqual(len({g['key'] for g in CATALOG}),len(CATALOG))
         self.assertTrue(all(g['sourceUrl'].startswith('https://') for g in CATALOG))
     def test_exact_products(self):
         self.assertEqual([g['key'] for g in selection(MID,'nam','kol_mid')],MID)
@@ -34,3 +35,11 @@ class KolTests(unittest.TestCase):
         slides=[{'gift_id':'orion','prompt':'photo'}]*4
         with patch.object(server,'ANTHROPIC_API_KEY','test'), patch.object(server,'claude_text',return_value=json.dumps({'hook':{'prompt':'hook'},'slides':slides})):
             with self.assertRaises((RuntimeError,ValueError)):server.tiktok_gift_plan('','nam','kol_mid',4,'auto',MID)
+
+    def test_custom_and_expanded_mid_pool(self):
+        custom=[g for g in CATALOG if g.get('custom')]
+        self.assertGreaterEqual(len(custom),18)
+        self.assertGreaterEqual(len([g for g in CATALOG if g['segment']=='mid' and g['recipient'] in ('unisex','boyfriend')]),37)
+        keys=['rieng-tee','shutterfly-mug','shutterfly-puzzle','casetify-custom']
+        self.assertEqual(len(selection(keys,'nam','kol_mid')),4)
+        with self.assertRaises(ValueError):selection(['rieng-tee','rieng-hoodie','shutterfly-mug','casetify-custom'],'nam','kol_mid')
