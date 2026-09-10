@@ -3142,7 +3142,7 @@ function ttInit() {
     $("ttProgress").classList.remove("hidden");
     try {
       const r = await fetch("/api/tiktok-bonus-gen", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: ttSp.image, names: names, overlay: overlay }) });
+        body: JSON.stringify({ image: ttSp.image, names: names, overlay: overlay, engine: $("ttImageEngine").value }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
       ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
       ttRender();
@@ -3235,12 +3235,12 @@ async function ttGenerate() {
   try {
     const r = await fetch("/api/tiktok-gift-gen", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ occasion: $("ttOccasion").value, gender: $("ttGender").value,
-        gift_ids: window.ttKolSelection(), tier: $("ttTier").value, concept: ($("ttConcept") && $("ttConcept").value) || "auto",
+        engine: $("ttImageEngine").value, gift_ids: window.ttKolSelection(), tier: $("ttTier").value, concept: ($("ttConcept") && $("ttConcept").value) || "auto",
         n: parseInt($("ttCount").value, 10) || 6 }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || "Lỗi");
     ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
     ttRender();
-    note.className = "gen-note ok"; note.textContent = "🧠 Claude đang lập bài theo đúng 4 món KOL đã chọn… rồi Nano Banana Pro vẽ " + d.total + " slide.";
+    note.className = "gen-note ok"; note.textContent = "🧠 Claude đang lập bài theo đúng 4 món KOL đã chọn… rồi model đã chọn vẽ " + d.total + " slide.";
     if (!ttPollTimer) ttPollTimer = setInterval(ttPollAll, 2500);
     ttPollAll();
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }

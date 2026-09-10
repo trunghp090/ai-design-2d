@@ -37,7 +37,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-kol-gift-catalog"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-tiktok-image-choice"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -746,8 +746,8 @@ def openai_edit_t(images, prompt, size, quality=""):
     return strip_bg_strong_b64(b64) if HAS_PIL else b64
 
 
-def openai_edit(images, prompt, size, native_transparent, quality=""):
-    fields = [("model", MODEL), ("prompt", prompt), ("n", "1"),
+def openai_edit(images, prompt, size, native_transparent, quality="", model=None):
+    fields = [("model", model or MODEL), ("prompt", prompt), ("n", "1"),
               ("moderation", "low")]   # hạ độ gắt bộ lọc -> đỡ chặn nhầm
     if quality and quality in ("low", "medium", "high"):
         fields.append(("quality", quality))
@@ -8118,44 +8118,32 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
     return plan
 
 
-def _tiktok_render_slide(prompt):
-    """Render 1 ảnh 3:4: ưu tiên Nano Banana Pro; 429/5xx TỰ ĐỢI 30/60/120s thử lại; hết cỡ mới
-    fallback gpt-image (cũng retry). 429 lì -> lỗi rõ ràng thay vì treo im."""
-    last = None
-    if GEMINI_API_KEY:
-        for a in range(len(_GEN_WAITS) + 1):
-            try:
-                return gemini_edit([], prompt, "3:4", GEMINI_IMAGE_MODEL)
-            except urllib.error.HTTPError as e:
-                last = e
-                if e.code in (429, 500, 502, 503) and a < len(_GEN_WAITS):
-                    time.sleep(_GEN_WAITS[a])
-                    continue
-                break
-            except Exception as e:
-                last = e
-                break
-    for a in range(2):
-        try:
-            b64 = openai_generate(prompt, "1024x1536")
-            if HAS_PIL:
-                try:
-                    b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
-                except Exception:
-                    pass
-            return b64
-        except urllib.error.HTTPError as e:
-            last = e
-            if e.code in (429, 500, 502, 503) and a < 1:
-                time.sleep(45)
-                continue
-            break
-        except Exception as e:
-            last = e
-            break
-    if isinstance(last, urllib.error.HTTPError) and getattr(last, "code", 0) == 429:
-        raise RuntimeError("Hết hạn mức model gen ảnh (429) dù đã tự thử lại nhiều lần — đợi vài phút rồi bấm tạo lại.")
-    raise last if last else RuntimeError("Không gen được slide")
+TIKTOK_IMAGE_ENGINES = {
+    "gemini_pro": {"label": "Nano Banana Pro", "model": "gemini-3-pro-image-preview"},
+    "gpt_image_25": {"label": "GPT Image 2.5 Sunburst", "model": "gpt-image-2.5-sunburst"},
+}
+
+
+def tiktok_image_engine(engine):
+    if not isinstance(engine, str) or engine not in TIKTOK_IMAGE_ENGINES:
+        raise ValueError("Chọn Nano Banana Pro hoặc GPT Image 2.5 Sunburst.")
+    if not (GEMINI_API_KEY if engine == "gemini_pro" else API_KEY):
+        raise ValueError("Chưa cấu hình API key cho " + TIKTOK_IMAGE_ENGINES[engine]["label"] + ".")
+    return TIKTOK_IMAGE_ENGINES[engine]
+
+
+def _tiktok_render_slide(prompt, engine="gemini_pro", ref_img=None):
+    """Use exactly the selected image provider for gifts and bonus; never cross-fallback."""
+    model = tiktok_image_engine(engine)["model"]
+    if engine == "gemini_pro":
+        return gemini_edit([ref_img] if ref_img else [], prompt, "3:4", model)
+    if ref_img:
+        b64 = openai_edit([ref_img], prompt, "1024x1536", native_transparent=False, quality="high", model=model)
+    else:
+        b64 = openai_generate(prompt, "1024x1536", model=model)
+    if HAS_PIL:
+        b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
+    return b64
 
 
 # ==== 🧪 MIX DESIGN: 2-3 ảnh resource (mỗi ảnh 1 VAI TRÒ) -> Claude viết prompt -> FINAL DESIGN ====
@@ -8240,7 +8228,7 @@ def run_mixdesign_job(job_id, resources, idea, n, engine, aspect):
         fail(str(e))
 
 
-def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
+def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
     """Slide 8 bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
     2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:2]
@@ -8269,24 +8257,12 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
 
     def work():
         try:
-            b64 = None
-            if GEMINI_API_KEY:
-                try:
-                    b64 = gemini_edit([ref_img], prompt, "3:4", GEMINI_IMAGE_MODEL)
-                except Exception:
-                    b64 = None
-            if not b64:
-                b64 = openai_edit([ref_img], prompt, "1024x1536", native_transparent=False, quality="high")
-                if HAS_PIL:
-                    try:
-                        b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), "3:4")).decode()
-                    except Exception:
-                        pass
+            b64 = _tiktok_render_slide(prompt, engine, ref_img)
             b64 = strip_ai_meta_b64(b64)
             title = "Slide 8 · Bonus rieng.vn · %s & %s" % (n1, n2)
             g = gallery_add(b64, {"mode": "tiktok", "prompt": title})
             return {"idx": 999, "image": b64, "title": title, "prompt": prompt,
-                    "overlay": overlay, "position": "1/3 trên", "gallery": g}
+                    "overlay": overlay, "position": "1/3 trên", "gallery": g, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": "Slide bonus"}
         except Exception as e:
@@ -8305,7 +8281,7 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay):
         job["finished"] = True
 
 
-def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto", gift_ids=None):
+def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto", gift_ids=None, engine="gemini_pro"):
     """Job nền: AI lập plan -> render từng slide (Nano Banana Pro) -> gallery mode 'tiktok'."""
     try:
         plan = tiktok_gift_plan(occasion, gender, tier, n, concept, gift_ids)
@@ -8330,16 +8306,16 @@ def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto", gift_ids=N
         job["total"] = len(slides)
         job["note"] = json.dumps({"title": plan.get("title", ""), "caption": plan.get("caption", ""),
                                   "bonus": plan.get("bonus_overlay") or [],
-                                  "engine": "Nano Banana Pro (Gemini 3)" if GEMINI_API_KEY else "gpt-image"},
+                                  "engine": TIKTOK_IMAGE_ENGINES[engine]["label"]},
                                  ensure_ascii=False)
 
     def work(s):
         try:
-            b64 = _tiktok_render_slide(s["prompt"])
+            b64 = _tiktok_render_slide(s["prompt"], engine)
             b64 = strip_ai_meta_b64(b64)
             g = gallery_add(b64, {"mode": "tiktok", "prompt": s["title"]})
             return {"idx": s["idx"], "image": b64, "title": s["title"], "prompt": s["prompt"],
-                    "overlay": s["overlay"], "position": s["position"], "gallery": g}
+                    "overlay": s["overlay"], "position": s["position"], "gallery": g, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
         except urllib.error.HTTPError as e:
             return {"error": openai_error_message(e), "title": s["title"]}
         except Exception as e:
@@ -11061,8 +11037,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_tiktok_bonus_gen(self, body):
         """Slide 8 bonus: SP đã chọn -> ảnh 2 áo gấp trên sofa (giữ design, 2 tên khác nhau)."""
-        if not API_KEY and not GEMINI_API_KEY:
-            return self.json(400, {"error": "Cần GEMINI_API_KEY hoặc OPENAI_API_KEY để vẽ ảnh."})
+        engine = body.get("engine", "gemini_pro")
+        try:
+            tiktok_image_engine(engine)
+        except ValueError as e:
+            return self.json(400, {"error": str(e)})
         rd, rm = fetch_image_bytes(body.get("image", ""))
         if not rd:
             return self.json(400, {"error": "Cần ảnh SP/design tham chiếu — bấm 📦 Chọn sản phẩm trước."})
@@ -11073,17 +11052,20 @@ class Handler(BaseHTTPRequestHandler):
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "tb%d_%d" % (int(time.time()), _batch_seq[0])
-            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False}
+            BATCH_JOBS[job_id] = {"total": 1, "done": 0, "items": [], "errors": [], "finished": False, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
         threading.Thread(target=run_tiktok_bonus_job,
-                         args=(job_id, (rd, rm or "image/png"), names, overlay), daemon=True).start()
+                         args=(job_id, (rd, rm or "image/png"), names, overlay, engine), daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": 1})
 
     def handle_tiktok_gift_gen(self, body):
         """🎵 TikTok Quà tặng: AI lập plan carousel -> Nano Banana Pro render ảnh sạch 3:4."""
         if not ANTHROPIC_API_KEY:
             return self.json(400, {"error": "Cần ANTHROPIC_API_KEY để Claude lập bài theo catalog KOL."})
-        if not GEMINI_API_KEY and not API_KEY:
-            return self.json(400, {"error": "Cần GEMINI_API_KEY (Nano Banana Pro) hoặc OPENAI_API_KEY để vẽ ảnh."})
+        engine = body.get("engine", "gemini_pro")
+        try:
+            tiktok_image_engine(engine)
+        except ValueError as e:
+            return self.json(400, {"error": str(e)})
         occasion = (body.get("occasion") or "").strip()[:120]
         gender = (body.get("gender") or "nam").strip()
         if gender not in TIKTOK_GENDERS:
@@ -11101,8 +11083,8 @@ class Handler(BaseHTTPRequestHandler):
         with _batch_lock:
             _batch_seq[0] += 1
             job_id = "tk%d_%d" % (int(time.time()), _batch_seq[0])
-            BATCH_JOBS[job_id] = {"total": n + 1, "done": 0, "items": [], "errors": [], "finished": False}
-        threading.Thread(target=run_tiktok_job, args=(job_id, occasion, gender, tier, n, concept, gift_ids),
+            BATCH_JOBS[job_id] = {"total": n + 1, "done": 0, "items": [], "errors": [], "finished": False, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
+        threading.Thread(target=run_tiktok_job, args=(job_id, occasion, gender, tier, n, concept, gift_ids, engine),
                          daemon=True).start()
         return self.json(200, {"job_id": job_id, "total": n + 1})
 

@@ -1104,7 +1104,7 @@
     <div class="fp-layout">
       <aside class="panel fp-side">
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">🎵 TikTok Quà tặng</h2>
-        <p class="panel-desc" style="margin:0 0 12px">AI lập bài <b>carousel gợi ý quà</b> (brand thật) → <b>Nano Banana Pro</b> vẽ ảnh SẠCH không chữ (3:4, chừa chỗ overlay) → kèm <b>text overlay + caption</b> để bạn chèn CapCut.</p>
+        <p class="panel-desc" style="margin:0 0 12px">AI lập bài <b>carousel gợi ý quà</b> (brand thật) → <b>model ảnh bạn chọn</b> vẽ ảnh SẠCH không chữ (3:4, chừa chỗ overlay) → kèm <b>text overlay + caption</b> để bạn chèn CapCut.</p>
 
         <label class="fp-label">🎯 Dịp / chủ đề (trống = AI tự chọn theo mùa)</label>
         <input type="text" id="ttOccasion" class="input" placeholder="VD: Valentine, 20/10, sinh nhật, quà xin lỗi ny…" />
@@ -1141,6 +1141,13 @@
 
         <input type="hidden" id="ttCount" value="4">
         <p class="hint">1 hook đủ 4 món + 4 slide giới thiệu riêng. Chọn đủ 4 loại khác nhau trước khi tạo.</p>
+
+        <label class="fp-label" for="ttImageEngine" style="margin-top:12px">Model tạo ảnh</label>
+        <select id="ttImageEngine" class="input">
+          <option value="gemini_pro">1 · Nano Banana Pro</option>
+          <option value="gpt_image_25">2 · GPT Image 2.5 Sunburst (OpenAI)</option>
+        </select>
+        <p class="hint">Áp dụng cho bài quà và slide bonus. Claude viết nội dung; model bạn chọn vẽ ảnh.</p>
 
         <button class="btn-primary" id="ttRunBtn" style="margin-top:14px">🎵 Tạo bài TikTok</button>
         <div class="batch-progress hidden" id="ttProgress" style="margin-top:8px">
