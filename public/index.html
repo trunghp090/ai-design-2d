@@ -1091,7 +1091,7 @@
           <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="psnPickAll"> Chọn tất cả</label>
           <span class="hint" id="psnSelCount" style="margin:0">Đã chọn 0</span>
           <span style="flex:1"></span>
-          <button class="btn-primary sm" id="psnZipBtn">📦 Tải ZIP đã chọn</button>
+          <button class="btn-primary sm" id="psnZipBtn">📦 Chọn nơi lưu ZIP</button>
         </div>
         <div id="psnResults" class="fp-creations grid"></div>
         <div class="gallery-empty" id="psnEmpty">Nhập vai trò + tên → chọn dạng (hoặc bật 🧠 3 AI) → bấm Tạo.</div>
@@ -1233,10 +1233,27 @@
           <span class="hint" id="ttSelCount" style="margin:0">Đã chọn 0</span>
           <span style="flex:1"></span>
           <button class="btn-ghost sm" id="ttTextAll">🅰️ Chèn text tất cả</button>
-          <button class="btn-ghost sm" id="ttDlTexted">⬇ Tải đã chọn (có text)</button>
-          <button class="btn-primary sm" id="ttZipBtn">📦 Tải ZIP đã chọn</button>
+          <button class="btn-ghost sm" id="ttDlTexted">💾 Lưu đã chọn (có text · ZIP)</button>
+          <button class="btn-primary sm" id="ttZipBtn">📦 Chọn nơi lưu ZIP</button>
           <button class="btn-ghost sm" id="ttDeleteSelected" disabled>🗑️ Xoá ảnh đã chọn</button>
           <button class="btn-ghost sm" id="ttDeleteAll">🗑️ Xoá toàn bộ ảnh trong bài</button>
+        </div>
+        <div id="ttSaveHelp" role="alert" style="display:none;padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0">
+          <b>Chọn nơi lưu chưa được hỗ trợ trong trình duyệt này.</b>
+          <p>Mở riengvnapp.cloud bằng Chrome hoặc Edge để dùng hộp chọn nơi lưu. Với ảnh đang mở ở đây, bạn có thể nhấp chuột phải vào ảnh và chọn “Lưu hình ảnh thành…” nếu trình duyệt cung cấp.</p>
+          <p>Hoặc chuẩn bị file ngay tại đây, rồi nhấp chuột phải vào liên kết và chọn “Lưu liên kết thành…” để chọn thư mục (nếu trình duyệt hỗ trợ menu này).</p>
+          <button id="ttPrepareSave" type="button" class="btn-ghost">Chuẩn bị file để lưu thủ công</button>
+          <a id="ttManualLink" style="display:none;margin-top:10px"></a>
+          <p>Tool không tự tải file vào Downloads khi chưa chọn nơi lưu.</p>
+        </div>
+        <div id="ttDeleteDialog" role="dialog" aria-modal="true" aria-labelledby="ttDeleteQuestion" style="display:none;position:fixed;inset:0;z-index:20000;background:#000b;align-items:center;justify-content:center;padding:20px">
+          <div style="background:#202124;color:#fff;padding:24px;border-radius:14px;max-width:460px">
+            <p id="ttDeleteQuestion"></p>
+            <div style="display:flex;gap:12px;justify-content:flex-end">
+              <button id="ttDeleteCancel" class="btn-ghost" type="button">Giữ lại</button>
+              <button id="ttDeleteConfirm" class="btn-primary" type="button">Xoá ảnh</button>
+            </div>
+          </div>
         </div>
         <p id="ttResultStatus" class="gen-note" role="status" aria-live="polite"></p>
         <div id="ttResults" class="fp-creations grid"></div>
@@ -1312,7 +1329,7 @@
           <label class="switch-row" style="margin:0;font-size:13px"><input type="checkbox" id="ssPickAll"> Chọn tất cả</label>
           <span class="hint" id="ssSelCount" style="margin:0">Đã chọn 0</span>
           <span style="flex:1"></span>
-          <button class="btn-primary sm" id="ssZipBtn">📦 Tải ZIP đã chọn</button>
+          <button class="btn-primary sm" id="ssZipBtn">📦 Chọn nơi lưu ZIP</button>
         </div>
         <div id="ssResults" class="fp-creations grid"></div>
         <div class="gallery-empty" id="ssEmpty">Tải ảnh áo bố cục → chọn tệp → bấm Tạo bộ áo.</div>

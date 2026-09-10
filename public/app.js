@@ -3096,12 +3096,86 @@ async function zipDownloadSelected(items, btn) {
    TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
    ===================================================================== */
 let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null, ttRefUpload = [null, null];
+function ttNotice(message, error=false) {
+  for (const id of ['ttNote','ttResultStatus']) {
+    const el=$(id); if(el){el.className='gen-note '+(error?'err':'ok');el.textContent=message;}
+  }
+}
+function ttConfirmDelete(count) {
+  return new Promise(resolve=>{
+    const box=$('ttDeleteDialog'), previous=document.activeElement;
+    $('ttDeleteQuestion').textContent='Xoá '+count+' ảnh khỏi bài và kho ảnh? Ảnh đã tải về máy vẫn được giữ.';
+    box.style.display='flex';
+    const finish=value=>{box.style.display='none';box.onkeydown=null;previous?.focus();resolve(value);};
+    $('ttDeleteCancel').onclick=()=>finish(false);
+    $('ttDeleteConfirm').onclick=()=>finish(true);
+    box.onkeydown=e=>{
+      if(e.key==='Escape'){e.preventDefault();finish(false);}
+      if(e.key==='Tab'){e.preventDefault();(document.activeElement===$('ttDeleteCancel')?$('ttDeleteConfirm'):$('ttDeleteCancel')).focus();}
+    };
+    $('ttDeleteCancel').focus();
+  });
+}
+async function ttSaveFile(makeBlob, name, extension, button) {
+  if(typeof window.showSaveFilePicker!=='function') {
+    $('ttSaveHelp').style.display='block';
+    $('ttManualLink').style.display='none';
+    $('ttPrepareSave').onclick=async()=>{
+      const prepare=$('ttPrepareSave');prepare.disabled=true;
+      try {
+        const blob=await makeBlob(), link=$('ttManualLink');
+        if(link.dataset.blobUrl)URL.revokeObjectURL(link.dataset.blobUrl);
+        link.href=URL.createObjectURL(blob);link.dataset.blobUrl=link.href;
+        link.download=name.replace(/[\\/:*?"<>|]/g,'-').slice(0,100)+'.'+extension;
+        link.textContent='Nhấp chuột phải vào đây → Lưu liên kết thành… ('+extension.toUpperCase()+')';
+        link.onclick=e=>{e.preventDefault();ttNotice('Nhấp chuột phải vào liên kết rồi chọn Lưu liên kết thành… để chọn nơi lưu.');};
+        link.style.display='block';
+        ttNotice('File đã chuẩn bị. Chưa lưu xuống máy; dùng Lưu liên kết thành… để chọn thư mục.');
+      } catch(e){ttNotice('Không chuẩn bị được file: '+e.message,true);}
+      finally{prepare.disabled=false;}
+    };
+    ttNotice('Trình duyệt này không hỗ trợ hộp chọn nơi lưu. Dùng phần lưu thủ công phía trên; tool chưa tải file.',true);
+    return;
+  }
+  const old=button?.textContent;
+  try {
+    // Must precede fetch/canvas work so the picker retains the user's click activation.
+    const handle=await window.showSaveFilePicker({suggestedName:name.replace(/[\\/:*?"<>|]/g,'-').slice(0,100)+'.'+extension,
+      types:[{description:extension==='zip'?'Bộ ảnh ZIP':'Ảnh PNG',accept:{[extension==='zip'?'application/zip':'image/png']:['.'+extension]}}]});
+    if(button){button.disabled=true;button.textContent='⏳ Đang lưu…';}
+    const blob=await makeBlob();
+    const writer=await handle.createWritable();
+    try {await writer.write(blob);await writer.close();}
+    catch(e){try{await writer.abort();}catch(_){}throw e;}
+    ttNotice('✓ Đã lưu '+handle.name+' vào nơi bạn chọn.');
+  } catch(e) {
+    if(e.name==='AbortError')ttNotice('Đã huỷ lưu file.');
+    else ttNotice('Không lưu được file: '+e.message,true);
+  } finally {if(button){button.disabled=false;button.textContent=old;}}
+}
+function ttSaveSelected(forceText, button) {
+  const chosen=ttItems.filter(it=>it._sel);
+  if(!chosen.length){ttNotice('Chọn ảnh trước khi lưu.',true);return;}
+  return ttSaveFile(async()=>{
+    const items=[];
+    for(const it of chosen){
+      if(forceText&&!it._textedUrl)it._textedUrl=await ttTextedDataURL(it);
+      const text=forceText||it._showText;
+      items.push(text&&it._textedUrl?{data:it._textedUrl,name:it.title+'-text'}:
+        it.image?{data:'data:image/png;base64,'+it.image,name:it.title}:
+        {id:it.gallery?.id||'',url:it.gallery?.url||it.url||'',name:it.title});
+    }
+    const r=await fetch('/api/download-zip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items})});
+    if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||'Không đóng gói được ảnh');
+    return r.blob();
+  },'bo-anh-tiktok-'+Date.now(),'zip',button);
+}
 let ttDeleting = false;
 async function ttDeleteImages(items) {
   if (ttDeleting || !items.length) return;
   const targets = items.slice();
-  if (!confirm("Xoá " + targets.length + " ảnh khỏi bài và kho ảnh? Ảnh đã tải về máy vẫn được giữ.")) return;
   ttDeleting = true; ttUpdateSel();
+  if (!await ttConfirmDelete(targets.length)) { ttDeleting=false;ttUpdateSel();return; }
   let removed = 0, failed = 0;
   try {
     // Delete sequentially: the gallery index is stored in a shared file.
@@ -3231,10 +3305,7 @@ function ttInit() {
     b.disabled = false; b.textContent = o;
   };
   if ($("ttPickAll")) $("ttPickAll").onchange = (e) => { ttItems.forEach(it => it._sel = e.target.checked); ttRender(); };
-  if ($("ttZipBtn")) $("ttZipBtn").onclick = () => zipDownloadSelected(
-    ttItems.filter(it => it._sel).map(it => (it._showText && it._textedUrl)
-      ? { data: it._textedUrl, name: (it.title || "slide") + "-text" }
-      : { id: (it.gallery && it.gallery.id) || "", url: (it.gallery && it.gallery.url) || "", name: it.title || "slide" }), $("ttZipBtn"));
+  $("ttZipBtn").onclick = () => ttSaveSelected(false, $("ttZipBtn"));
   if ($("ttCapCopy")) $("ttCapCopy").onclick = async () => {
     if (!ttMeta) return;
     try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
@@ -3294,17 +3365,7 @@ function ttInit() {
     ttRender();
     b.disabled = false; b.textContent = on ? "🅰️ Bỏ text tất cả" : "🅰️ Chèn text tất cả";
   };
-  if ($("ttDlTexted")) $("ttDlTexted").onclick = async () => {
-    const sel = ttItems.filter(it => it._sel);
-    if (!sel.length) { alert("⚠️ Chưa tick chọn slide nào."); return; }
-    const b = $("ttDlTexted"); b.disabled = true; const o = b.textContent; b.textContent = "⏳ Đang tải…";
-    for (const it of sel) {
-      if (!it._textedUrl) { try { it._textedUrl = await ttTextedDataURL(it); } catch (e) { continue; } }
-      autoDownload(it._textedUrl.split(",")[1], (it.title || "slide") + "-text");
-      await new Promise(r => setTimeout(r, 400));
-    }
-    b.disabled = false; b.textContent = o;
-  };
+  $("ttDlTexted").onclick = () => ttSaveSelected(true, $("ttDlTexted"));
 }
 async function ttGenerate() {
   const note = $("ttNote"); note.className = "gen-note"; note.textContent = "";
@@ -3528,10 +3589,10 @@ function ttRender() {
     card.querySelector("img").onclick = () => openZoom(card.querySelector("img").src);
     card.querySelector(".b-zoom").onclick = () => openZoom(card.querySelector("img").src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(card.querySelector("img").src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async () => {
-      if (it._showText && it._textedUrl) autoDownload(it._textedUrl.split(",")[1], (it.title || "slide") + "-text");
-      else autoDownload(await b64(), it.title || "slide");
-    };
+    card.querySelector(".b-dl").onclick = e => ttSaveFile(async () => {
+      const source = it._showText && it._textedUrl ? it._textedUrl : 'data:image/png;base64,' + await b64();
+      return (await fetch(source)).blob();
+    }, it.title || 'slide', 'png', e.currentTarget);
     card.querySelector(".b-del").disabled = ttDeleting;
     card.querySelector(".b-del").onclick = () => ttDeleteImages([it]);
     grid.appendChild(card);
