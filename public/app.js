@@ -3096,9 +3096,42 @@ async function zipDownloadSelected(items, btn) {
    TAB 🎵 TIKTOK QUÀ TẶNG — AI lập bài carousel + Nano Banana Pro vẽ ảnh sạch
    ===================================================================== */
 let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = null, ttSp = null, ttRefUpload = [null, null];
+let ttDeleting = false;
+async function ttDeleteImages(items) {
+  if (ttDeleting || !items.length) return;
+  const targets = items.slice();
+  if (!confirm("Xoá " + targets.length + " ảnh khỏi bài và kho ảnh? Ảnh đã tải về máy vẫn được giữ.")) return;
+  ttDeleting = true; ttUpdateSel();
+  let removed = 0, failed = 0;
+  try {
+    // Delete sequentially: the gallery index is stored in a shared file.
+    for (const it of targets) {
+      try {
+        const gid = it.gallery && it.gallery.id;
+        if (gid) {
+          const r = await fetch("/api/gallery?id=" + encodeURIComponent(gid), {method:"DELETE"});
+          if (!r.ok) throw new Error("Không xoá được ảnh");
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.error || "Không xoá được ảnh");
+        }
+        ttItems = ttItems.filter(x => x !== it);
+        removed++;
+      } catch (e) { failed++; }
+    }
+  } finally {
+    ttDeleting = false; ttRender();
+    const message = "Đã xoá " + removed + " ảnh." + (failed ? " Còn " + failed + " ảnh chưa xoá được; hãy thử lại." : "");
+    for (const id of ["ttNote", "ttResultStatus"]) {
+      const el = $(id); if (el) { el.className = "gen-note " + (failed ? "err" : "ok"); el.textContent = message; }
+    }
+    if (typeof loadGallery === "function") loadGallery();
+  }
+}
 function ttInit() {
   if (ttInited) return; ttInited = true;
   $("ttRunBtn").onclick = ttGenerate;
+  $("ttDeleteSelected").onclick = () => ttDeleteImages(ttItems.filter(it => it._sel));
+  $("ttDeleteAll").onclick = () => ttDeleteImages(ttItems);
   // 🎁 Slide bonus: chọn SP shop -> gen ảnh 2 áo gấp trên sofa
   if ($("ttSpPick")) $("ttSpPick").onclick = () => openSpPicker((p) => {
     ttSp = { image: p.image || "", title: p.title || "" };
@@ -3421,6 +3454,8 @@ async function ttToggleText(it, card) {
 }
 function ttUpdateSel() {
   const real = ttItems.length, sel = ttItems.filter(it => it._sel).length;
+  if ($("ttDeleteSelected")) $("ttDeleteSelected").disabled = ttDeleting || !sel;
+  if ($("ttDeleteAll")) $("ttDeleteAll").disabled = ttDeleting || !real;
   if ($("ttSelBar")) $("ttSelBar").classList.toggle("hidden", real === 0);
   if ($("ttSelCount")) $("ttSelCount").textContent = "Đã chọn " + sel + "/" + real;
   if ($("ttPickAll")) $("ttPickAll").checked = real > 0 && sel === real;
@@ -3495,12 +3530,8 @@ function ttRender() {
       if (it._showText && it._textedUrl) autoDownload(it._textedUrl.split(",")[1], (it.title || "slide") + "-text");
       else autoDownload(await b64(), it.title || "slide");
     };
-    card.querySelector(".b-del").onclick = async () => {
-      if (!confirm("Xoá slide này?")) return;
-      try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
-      ttItems = ttItems.filter(x => x !== it); ttRender();
-      if (typeof loadGallery === "function") loadGallery();
-    };
+    card.querySelector(".b-del").disabled = ttDeleting;
+    card.querySelector(".b-del").onclick = () => ttDeleteImages([it]);
     grid.appendChild(card);
   });
   // loading placeholder ở cuối (slide đang vẽ)
