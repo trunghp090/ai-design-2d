@@ -12,3 +12,14 @@ test('exhausts unused products before repeating older products',()=>{
 test('limited catalog stays within filters without inventing gifts',()=>{
  const small=rows.slice(0,4);const next=chooseGiftRotation(small,[small.map(g=>g.key)],small.map(g=>g.key));assert.equal(next.length,4);assert.ok(next.every(g=>small.includes(g)));
 });
+
+test('always includes custom even when it was recently used',()=>{
+ const pool=rows.map((g,i)=>({...g,custom:i===0}));
+ for(let i=0;i<30;i++){
+  const next=chooseGiftRotation(pool,[['0','1','2','3']],['0','1','2','3']);
+  assert.equal(next.length,4);assert.ok(next.some(g=>g.custom));assert.equal(new Set(next.map(g=>g.productType)).size,4);
+ }
+});
+test('custom-only pool still selects four different types',()=>{
+ const next=chooseGiftRotation(rows.map(g=>({...g,custom:true})));assert.equal(next.length,4);assert.ok(next.every(g=>g.custom));assert.equal(new Set(next.map(g=>g.productType)).size,4);
+});

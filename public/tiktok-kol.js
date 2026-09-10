@@ -57,16 +57,17 @@
   function mix(){
     const rows=filtered();
     if(new Set(rows.map(g=>g.productType)).size<4){render('Cần ít nhất 4 loại phù hợp; hãy nới bộ lọc.');return false;}
+    if(el('ttGiftKind').value!=='standard' && !rows.some(g=>g.custom)){render('Không có quà custom hợp bộ lọc. Chọn tất cả phân khúc/hãng hoặc bỏ từ khoá để mix kèm custom.');return false;}
     const old=new Set(picked.map(g=>g.key));
     picked=chooseGiftRotation(rows,history,[...old]);
     remember();
     const repeated=picked.filter(g=>old.has(g.key)).length;
-    render(`Đã mix 4 món từ ${rows.length} sản phẩm phù hợp. ${repeated?'Còn '+repeated+' món lặp vì bộ lọc hạn chế; chọn tất cả phân khúc để có thêm lựa chọn.':'Ưu tiên món mới và hãng ít dùng.'}`);
+    render(`Đã mix 4 món, có ${picked.filter(g=>g.custom).length} món custom. ${repeated?'Còn '+repeated+' món lặp vì bộ lọc hạn chế; chọn tất cả phân khúc để có thêm lựa chọn.':'Ưu tiên món mới và hãng ít dùng.'}`);
     return true;
   }
   el('ttKolMix').onclick=mix;
   window.ttKolPrepareSelection=()=>{
-    if(el('ttKolAutoRotate').checked && picked.length===4 && signature()===lastSubmitted)mix();
+    if(el('ttKolAutoRotate').checked && picked.length===4 && signature()===lastSubmitted && !mix())throw new Error('Chưa mix được bộ mới có custom; hãy nới bộ lọc.');
   };
   window.ttKolSubmitted=()=>{lastSubmitted=signature();remember();};
   window.ttKolSelection=()=>{if(picked.length!==4)throw new Error('Chọn hoặc mix đủ 4 món từ catalog KOL.');return picked.map(g=>g.key);};

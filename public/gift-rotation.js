@@ -14,7 +14,8 @@ function chooseGiftRotation(rows, history = [], current = []) {
   const score = g => [old.has(g.key)?1:0, recent.has(g.key)?1:0, counts.get(g.key)||0,
     result.some(p=>p.brand===g.brand)?1:0, types.get(g.productType)||0, brands.get(g.brand)||0,noise.get(g.key)];
   while(result.length<4) {
-    const candidates=rows.filter(g=>!used.has(g.productType));
+    const needsCustom = result.length === 0 && rows.some(g => g.custom);
+    const candidates=rows.filter(g=>!used.has(g.productType) && (!needsCustom || g.custom));
     candidates.sort((a,b)=>{const x=score(a),y=score(b);for(let i=0;i<x.length;i++)if(x[i]!==y[i])return x[i]-y[i];return 0;});
     if(!candidates.length)break;
     result.push(candidates[0]);used.add(candidates[0].productType);
