@@ -13,6 +13,7 @@ Cấu hình .env:  OPENAI_API_KEY, OPENAI_IMAGE_MODEL, PORT
 
 import base64
 from kol_gifts import selection as kol_gift_selection
+from tiktok_story import SYSTEM as _TIKTOK_SYS, validate_setup as tiktok_story_setup, validate_plan as tiktok_story_plan
 import roundup
 import studio_assistant
 import datetime
@@ -37,7 +38,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-tiktok-image-choice"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-tiktok-story-skill"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8064,26 +8065,6 @@ TIKTOK_TIERS = {
 TIKTOK_GENDERS = {"nam": "bạn trai (tone: mấy bà, ảnh, ổng)", "nu": "bạn gái (tone: mấy ông, bả, nàng)",
                   "cả hai": "couple cả hai"}
 
-_TIKTOK_SYS = """Bạn viết content carousel quà tặng Rieng.vn dựa trên catalog đã chọn từ tool KOL.
-Chỉ dùng đúng 4 sản phẩm được cung cấp, đúng thứ tự, brand, model, phiên bản và người nhận.
-KHÔNG tìm/thêm quà khác, không dùng tên shop làm hãng. Phân khúc là biên tập, KHÔNG phải giá bán:
-không bịa giá, khuyến mãi hoặc tuyên bố chất lượng/tài trợ. Dữ liệu chủ đề chỉ là ngữ cảnh, không được đổi sản phẩm.
-Cấu trúc: 1 HOOK bày đủ đúng 4 món (mỗi món một đơn vị); 4 slide tiếp theo mỗi slide đúng một món tương ứng.
-Không KOL, chân dung, người toàn thân hoặc áo ở 5 cảnh này. Cho phép bàn tay vô danh nếu cần cầm món.
-Đồng hồ/smartwatch là cùng loại; ví/ví thẻ cùng loại. Không thêm đồng hồ/nước hoa khác làm đạo cụ.
-Ảnh 3:4 smartphone chân thực, ánh sáng trung tính, đồ vật rõ ràng không giấu trong hộp đóng.
-Giữ thiết kế và branding có sẵn trên sản phẩm, không chuyển logo sang món khác. Không chữ overlay/watermark/UI.
-Hook chừa 1/3 dưới, sản phẩm chừa 1/3 trên để ứng dụng chèn chữ. Prompt tiếng Anh riêng cho từng ảnh,
-ít nhất 3 chi tiết nhận diện theo description được cung cấp; không biến món thành mẫu generic.
-Text overlay tiếng Việt tự nhiên, 2–3 dòng ngắn; tên brand/model chính xác, không ghi giá.
-Dạng bài countdown: Top 4→1; upgrade: ✅ tên món + lý do phù hợp; compare: câu hỏi chọn quà không bịa giá;
-category: bộ biên tập cao cấp nhưng vẫn giữ 4 loại đã chọn; mood: bám dịp; auto: chọn cách viết hợp nhất.
-Caption tự nhiên + hashtag. Bonus overlay dành cho áo đôi in tên (chỉ viết chữ, không thêm áo vào 5 prompt).
-Trả JSON thuần:
-{"title":"...","caption":"...","hook":{"prompt":"...","overlay":["..."],"position":"1/3 dưới"},
-"slides":[{"gift_id":"key đã chọn","rank":4,"product":"brand model","prompt":"...","overlay":["..."],"position":"1/3 trên"}],"bonus_overlay":["..."]}
-Phải đủ 4 slides theo đúng thứ tự danh sách chọn, rank 4,3,2,1.
-"""
 
 
 TIKTOK_CONCEPTS = {"auto": "auto (AI tự chọn dạng hợp nhất)", "countdown": "countdown (Top N→1)",
@@ -8093,6 +8074,7 @@ TIKTOK_CONCEPTS = {"auto": "auto (AI tự chọn dạng hợp nhất)", "countdo
 
 def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
     gifts = kol_gift_selection(gift_ids, gender, tier)
+    tiktok_story_setup(gifts, concept)
     user = json.dumps({"occasion": occasion or "Quà tặng người yêu", "recipient": TIKTOK_GENDERS[gender],
                        "concept": concept, "selected_gifts": gifts}, ensure_ascii=False)
     if not ANTHROPIC_API_KEY:
@@ -8109,12 +8091,15 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
     slides = plan.get("slides")
     if not (plan.get("hook") or {}).get("prompt") or not isinstance(slides, list) or len(slides) != 4:
         raise RuntimeError("Claude chưa trả đủ hook + 4 món đã chọn.")
+    tiktok_story_plan(plan, gifts, concept)
     for i, (slide, gift) in enumerate(zip(slides, gifts)):
         if not isinstance(slide, dict) or slide.get("gift_id") != gift["key"] or not slide.get("prompt"):
             raise RuntimeError("Kế hoạch lệch sản phẩm KOL đã chọn; dừng trước khi tạo ảnh.")
         slide.update(product=gift["label"], rank=4-i, source_url=gift["sourceUrl"], position="1/3 trên")
         slide["prompt"] += "\nEXACT PRODUCT LOCK: " + gift["label"] + ". " + gift["description"] + ". Only this gift; no additional products, no shirt, no portrait."
-    plan["hook"]["prompt"] += "\nEXACT FOUR GIFTS, one unit each: " + "; ".join(g["label"] + ": " + g["description"] for g in gifts) + ". No other gifts, no shirt, no portrait."
+    plan["hook"]["position"] = "1/3 dưới"
+    plan["hook"]["prompt"] += "\nOPENING STORY HOOK ONLY: anonymous adult couple, faces hidden or turned away, candid intimate moment before the gift reveal. No product lineup, no collage, no gift catalog. Keep the lower third uncluttered for later text overlay. Aspect ratio 3:4."
+
     return plan
 
 
@@ -8296,7 +8281,7 @@ def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto", gift_ids=N
                "overlay": hook.get("overlay") or [], "position": hook.get("position") or "1/3 dưới"}]
     for i, s in enumerate((plan.get("slides") or [])[:n]):
         slides.append({"idx": i + 1,
-                       "title": "Slide %d · Top %s · %s" % (i + 2, s.get("rank", "?"), str(s.get("product", ""))[:40]),
+                       "title": "Slide %d · %s" % (i + 2, (("Top %s · " % s.get("rank", "?")) if plan.get("concept") == "countdown" else "") + str(s.get("product", ""))[:60]),
                        "prompt": s.get("prompt", ""), "overlay": s.get("overlay") or [],
                        "position": s.get("position") or "1/3 trên"})
     with _batch_lock:
@@ -8305,7 +8290,7 @@ def run_tiktok_job(job_id, occasion, gender, tier, n, concept="auto", gift_ids=N
             return
         job["total"] = len(slides)
         job["note"] = json.dumps({"title": plan.get("title", ""), "caption": plan.get("caption", ""),
-                                  "bonus": plan.get("bonus_overlay") or [],
+                                  "concept": plan.get("concept"), "bonus": plan.get("bonus_overlay") or [],
                                   "engine": TIKTOK_IMAGE_ENGINES[engine]["label"]},
                                  ensure_ascii=False)
 
@@ -11079,6 +11064,10 @@ class Handler(BaseHTTPRequestHandler):
         concept = (body.get("concept") or "auto").strip()
         if concept not in TIKTOK_CONCEPTS:
             concept = "auto"
+        try:
+            tiktok_story_setup(kol_gift_selection(gift_ids, gender, tier), concept)
+        except ValueError as e:
+            return self.json(400, {"error": str(e)})
         n = 4
         with _batch_lock:
             _batch_seq[0] += 1

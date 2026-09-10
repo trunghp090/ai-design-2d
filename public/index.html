@@ -1136,11 +1136,17 @@
           <option value="upgrade">↗️ Nâng cấp (❌ thường / ✅ xịn)</option>
           <option value="category">🗂️ Theo 1 danh mục (tech/skincare/phụ kiện…)</option>
           <option value="mood">💭 Theo mood (xin lỗi ny, không cần dịp…)</option>
-          <option value="compare">⚖️ So sánh cùng loại khác tầm giá</option>
+          <option value="compare">⚖️ So sánh cùng loại: thường vs nâng cấp</option>
         </select>
 
+        <div id="ttStoryLayout" class="hint" style="padding:12px;border:1px solid var(--line);border-radius:9px;margin:12px 0" aria-live="polite"></div>
+        <label id="ttStoryCategoryLabel" class="fp-label" for="ttStoryCategory" hidden>Danh mục của bài</label>
+        <select id="ttStoryCategory" class="input" hidden>
+          <option value="tech">Công nghệ &amp; giải trí</option><option value="fashion">Thời trang &amp; đồ da</option>
+          <option value="jewelry">Đồng hồ &amp; trang sức</option><option value="lifestyle">Chăm sóc &amp; phong cách sống</option><option value="experience">Trải nghiệm</option>
+        </select>
         <input type="hidden" id="ttCount" value="4">
-        <p class="hint">1 hook đủ 4 món + 4 slide giới thiệu riêng. Chọn đủ 4 loại khác nhau trước khi tạo.</p>
+        <p class="hint">1 hook couple riêng → 4 slide quà theo dạng bài → bonus áo nếu thêm. Chọn đủ 4 loại khác nhau trước khi tạo.</p>
 
         <label class="fp-label" for="ttImageEngine" style="margin-top:12px">Model tạo ảnh</label>
         <select id="ttImageEngine" class="input">
@@ -2320,7 +2326,7 @@
   }, 9000);
 </script>
 <script src="/app.js"></script>
-<script src="/tiktok-kol.js?v=2026.09.10-kol-gift-catalog"></script>
+<script src="/tiktok-kol.js?v=2026.09.10-tiktok-story-skill"></script>
 <script src="/chat-content.js?v=2026.09.10-full-content-studio"></script>
 <script src="/roundup.js?v=2026.09.10-full-content-studio"></script>
 <script src="/studio-assistant.js?v=2026.09.10-full-content-studio"></script>

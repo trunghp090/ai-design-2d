@@ -6,7 +6,8 @@
   const filtered=()=>catalog.filter(g=>{
     const recipient={nam:'boyfriend',nu:'girlfriend','cả hai':'all'}[el('ttGender').value];
     const segment=el('ttTier').value.replace('kol_','');
-    return (recipient==='all'||g.recipient==='unisex'||g.recipient===recipient)&&
+    return (el('ttConcept').value!=='category'||g.category===el('ttStoryCategory').value)&&
+      (recipient==='all'||g.recipient==='unisex'||g.recipient===recipient)&&
       (segment==='all'||g.segment===segment)&&
       (el('ttKolBrand').value==='all'||g.brand===el('ttKolBrand').value)&&
       (el('ttKolType').value==='all'||g.productType===el('ttKolType').value)&&
@@ -14,6 +15,17 @@
   });
   const status=text=>{el('ttKolStatus').textContent=text;};
   function render(message){
+    const concept=el('ttConcept').value;
+    const explanations={
+      auto:'AI chọn một dạng cụ thể và giữ đúng cấu trúc của dạng đó.',
+      countdown:'Slide 2–5: Top 4 → Top 3 → Top 2 → Top 1, tên model + nhận xét.',
+      upgrade:'Slide 2–5: ❌ món thường → ✅ model đã chọn + lý do nâng cấp. Ảnh chỉ vẽ món ✅.',
+      compare:'Slide 2–5: lựa chọn thường vs model đã chọn cùng loại + điểm khác biệt; không bịa giá.',
+      mood:'Hook dẫn tình huống/dịp tặng → mỗi món giải thích vì sao hợp dịp đó.',
+      category:'Hook nêu một danh mục → 4 món cùng danh mục, vẫn khác loại sản phẩm.'
+    };
+    el('ttStoryLayout').textContent='Bố cục: ① Hook couple che mặt, tạo tò mò trước khi lộ quà → ②–⑤ Từng món quà → Bonus áo riêng nếu thêm. '+explanations[concept];
+    el('ttStoryCategory').hidden=concept!=='category';el('ttStoryCategoryLabel').hidden=concept!=='category';
     const rows=filtered(), box=el('ttKolProducts');box.replaceChildren();
     const types=new Set(picked.map(g=>g.productType));
     for(const g of rows){
@@ -31,7 +43,7 @@
     status(message||`${picked.length}/4 món · ${rows.length} sản phẩm phù hợp. ${el('ttKolMix').disabled?'Bộ lọc còn dưới 4 loại; hãy nới bộ lọc để mix.':'Ví/ví thẻ cùng loại; đồng hồ/smartwatch cùng loại.'}`);
   }
   function change(){const allowed=new Set(filtered().map(g=>g.key));const before=picked.length;picked=picked.filter(g=>allowed.has(g.key));render(before!==picked.length?'Đã bỏ món không còn hợp bộ lọc. Chọn hoặc mix lại để đủ 4 món.':undefined);}
-  ['ttGender','ttTier','ttKolBrand','ttKolType'].forEach(id=>el(id).addEventListener('change',change));
+  ['ttGender','ttTier','ttKolBrand','ttKolType','ttConcept','ttStoryCategory'].forEach(id=>el(id).addEventListener('change',change));
   el('ttKolSearch').addEventListener('input',change);
   el('ttKolMix').onclick=()=>{
     const rows=filtered(), groups=new Map();for(const g of rows)groups.set(g.productType,[...(groups.get(g.productType)||[]),g]);
