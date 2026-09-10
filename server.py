@@ -38,7 +38,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-APP_VERSION = "2026.09.10-tiktok-story-skill"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.10-tiktok-progress"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -8214,7 +8214,7 @@ def run_mixdesign_job(job_id, resources, idea, n, engine, aspect):
 
 
 def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
-    """Slide 8 bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
+    """Slide bonus rieng.vn: ảnh 2 ÁO GẤP trên sofa (style lifestyle) từ design SP đã chọn,
     2 tên khác nhau (tự nghĩ nếu trống), giữ đúng design tham chiếu."""
     given = [str(x).strip() for x in (names or []) if str(x).strip()][:2]
     auto = couple_names_pool()   # pool tên thật, tức thì (không gọi AI -> hết cảnh "Anh Yêu/Em Yêu")
@@ -8244,7 +8244,7 @@ def run_tiktok_bonus_job(job_id, ref_img, names, overlay, engine="gemini_pro"):
         try:
             b64 = _tiktok_render_slide(prompt, engine, ref_img)
             b64 = strip_ai_meta_b64(b64)
-            title = "Slide 8 · Bonus rieng.vn · %s & %s" % (n1, n2)
+            title = "Slide bonus · rieng.vn · %s & %s" % (n1, n2)
             g = gallery_add(b64, {"mode": "tiktok", "prompt": title})
             return {"idx": 999, "image": b64, "title": title, "prompt": prompt,
                     "overlay": overlay, "position": "1/3 trên", "gallery": g, "engine": engine, "image_model": TIKTOK_IMAGE_ENGINES[engine]["model"]}
@@ -11021,7 +11021,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.json(200, {"prompt": p, "by": used})
 
     def handle_tiktok_bonus_gen(self, body):
-        """Slide 8 bonus: SP đã chọn -> ảnh 2 áo gấp trên sofa (giữ design, 2 tên khác nhau)."""
+        """Slide bonus: SP đã chọn -> ảnh 2 áo gấp trên sofa (giữ design, 2 tên khác nhau)."""
         engine = body.get("engine", "gemini_pro")
         try:
             tiktok_image_engine(engine)

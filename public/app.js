@@ -3099,7 +3099,7 @@ let ttInited = false, ttItems = [], ttJobs = [], ttPollTimer = null, ttMeta = nu
 function ttInit() {
   if (ttInited) return; ttInited = true;
   $("ttRunBtn").onclick = ttGenerate;
-  // 🎁 Slide 8 bonus: chọn SP shop -> gen ảnh 2 áo gấp trên sofa
+  // 🎁 Slide bonus: chọn SP shop -> gen ảnh 2 áo gấp trên sofa
   if ($("ttSpPick")) $("ttSpPick").onclick = () => openSpPicker((p) => {
     ttSp = { image: p.image || "", title: p.title || "" };
     $("ttSpInfo").innerHTML = "📦 <b>" + (p.title || "SP").replace(/</g, "&lt;").slice(0, 40) + "</b> — sẽ giữ đúng design này.";
@@ -3246,40 +3246,69 @@ async function ttGenerate() {
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = old;
 }
+let ttPolling = false;
 async function ttPollAll() {
-  const active = ttJobs.filter(j => !j.finished);
-  let errs = [];
-  await Promise.all(active.map(async j => {
-    try {
-      // have: chỉ nhận slide MỚI, không tải lại base64 các slide đã về mỗi lần poll
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + (j.have || 0))).json();
-      j.total = Math.max(j.total || 0, d.total || 0);
-      j.done = Math.max(j.done || 0, d.done || 0);
-      j.finished = !!d.finished;
-      j.have = (j.have || 0) + ((d.items || []).length);
-      if (d.note) { try { ttMeta = JSON.parse(d.note); } catch (e) {} }
-      (d.items || []).forEach(it => {
-        const key = (it.gallery && it.gallery.id) || it.title;
-        if (!ttItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) {
+  // A slow response must never overlap the next interval and advance the cursor twice.
+  if (ttPolling) return;
+  ttPolling = true;
+  try {
+    await Promise.all(ttJobs.filter(j => !j.finished).map(async j => {
+      try {
+        const read = async have => {
+          const r = await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + have);
+          const d = await r.json();
+          if (!r.ok) {
+            if (r.status === 404) j.finished = true;
+            throw new Error(d.error || "Không tải được tiến độ (" + r.status + ")");
+          }
+          return d;
+        };
+        const have = j.have || 0;
+        let d = await read(have);
+        j.received = j.received || new Set();
+        const accept = items => items.forEach(it => {
+          const key = String(it.idx ?? (it.gallery && it.gallery.id) ?? it.title);
+          if (j.received.has(key)) return;
+          j.received.add(key);
+          it._jobId = j.id;
           ttItems.push(it);
-          ttAutoBurn(it);   // TỰ CHÈN TEXT ngay khi slide về (mặc định ảnh có text)
+          Promise.resolve(ttAutoBurn(it)).catch(() => {});
+        });
+        accept(d.items || []);
+        j.have = have + (d.items || []).length;
+        // Reconcile completed jobs against the server's actual successful image count.
+        if (d.finished && Number.isFinite(d.count) && j.received.size < d.count) {
+          d = await read(0);
+          accept(d.items || []);
+          j.have = (d.items || []).length;
         }
-      });
-      (d.errors || []).forEach(e => errs.push(e));
-    } catch (e) {}
-  }));
-  ttRender();
-  const total = ttJobs.reduce((a, j) => a + (j.total || 0), 0);
-  const done = ttJobs.reduce((a, j) => a + (j.done || 0), 0);
-  const running = ttJobs.filter(j => !j.finished).length;
-  $("ttBar").style.width = (total ? Math.round(done / total * 100) : 0) + "%";
-  $("ttProgText").textContent = (running ? "⏳ đang vẽ · " : "✓ xong · ") + done + "/" + total;
-  if (errs.length) { $("ttNote").className = "gen-note err"; $("ttNote").textContent = "⚠️ " + errs[0]; }
-  if (!running && ttPollTimer) {
-    clearInterval(ttPollTimer); ttPollTimer = null;
-    if (!errs.length) { $("ttNote").className = "gen-note ok"; $("ttNote").textContent = "✓ Xong bài carousel! Tải ZIP ảnh + copy text overlay từng slide."; }
-    if (typeof loadGallery === "function") loadGallery();
-  }
+        j.total = Math.max(j.total || 0, d.total || 0);
+        j.done = Math.max(j.done || 0, d.done || 0);
+        j.errors = [...new Set([...(j.errors || []), ...(d.errors || [])])];
+        j.networkError = "";
+        j.finished = !!d.finished;
+        if (d.note) { try { ttMeta = JSON.parse(d.note); } catch (e) {} }
+      } catch (e) { j.networkError = e.message; }
+    }));
+    ttRender();
+    const total = ttJobs.reduce((a, j) => a + (j.total || 0), 0);
+    const received = ttJobs.reduce((a, j) => a + (j.received ? j.received.size : 0), 0);
+    const running = ttJobs.some(j => !j.finished);
+    const errs = ttJobs.flatMap(j => [...(j.errors || []), ...(j.networkError ? [j.networkError] : [])]);
+    const complete = !running && received === total && !errs.length;
+    const summary = (running ? "⏳ Đã nhận " : complete ? "✓ Đã tạo đủ " : "⚠️ Chưa đủ ảnh: ") + received + "/" + total + " ảnh";
+    $("ttBar").style.width = (total ? Math.round(received / total * 100) : 0) + "%";
+    $("ttProgText").textContent = summary;
+    const detail = summary + (errs.length ? " · " + errs.join(" · ") : running ? " · Đang xử lý…" : complete ? ". Tải ZIP ảnh và copy text từng slide." : ". Thiếu " + Math.max(0, total - received) + " ảnh; các ảnh đã tạo vẫn được giữ.");
+    for (const id of ["ttNote", "ttResultStatus"]) {
+      const el = $(id);
+      if (el) { el.className = "gen-note " + (errs.length || (!running && !complete) ? "err" : "ok"); el.textContent = detail; }
+    }
+    if (!running && ttPollTimer) {
+      clearInterval(ttPollTimer); ttPollTimer = null;
+      if (typeof loadGallery === "function") loadGallery();
+    }
+  } finally { ttPolling = false; }
 }
 /* 🅰️ Vẽ text overlay kiểu TikTok "text background": chữ ĐEN đậm trên NỀN TRẮNG bo tròn
    ôm sát từng dòng, các dòng nối liền thành khối, căn giữa, tự xuống dòng khi dài. */
@@ -3360,7 +3389,7 @@ function ttRender() {
     $("ttCaptionBox").classList.remove("hidden");
     $("ttTitle").textContent = "📌 " + (ttMeta.title || "Bài carousel");
     $("ttCaption").textContent = ttMeta.caption || "";
-    $("ttBonus").textContent = (ttMeta.bonus && ttMeta.bonus.length) ? ("🎁 Slide 8 (rieng.vn — bạn tự chụp áo): " + ttMeta.bonus.join(" / ")) : "";
+    $("ttBonus").textContent = (ttMeta.bonus && ttMeta.bonus.length) ? ("🎁 Bonus (rieng.vn — bạn tự chụp áo): " + ttMeta.bonus.join(" / ")) : "";
     if ($("ttEngine")) $("ttEngine").textContent = ttMeta.engine ? ("🎨 " + ttMeta.engine) : "";
   }
   ttUpdateSel();
@@ -3379,7 +3408,7 @@ function ttRender() {
     // 📝 TEXT OVERLAY (nội dung chính — hiện luôn, copy 1 chạm)
     if (it.overlay && it.overlay.length) {
       const ov = document.createElement("div");
-      ov.style.cssText = "padding:7px 9px;border-top:1px solid var(--line);background:#f6f0ff";
+      ov.style.cssText = "padding:7px 9px;border-top:1px solid var(--line);background:var(--panel);color:var(--text)";
       const pos = document.createElement("div");
       pos.style.cssText = "font-size:10px;color:var(--violet);font-weight:700;margin-bottom:3px";
       pos.textContent = "📝 TEXT OVERLAY (" + (it.position || "") + ") — chèn CapCut:";
