@@ -133,6 +133,25 @@ async function clipboardImageDataURL() {
   } catch (e) {}
   return null;
 }
+// Preserve every pasted image and leave text fields to the browser.
+function pastedDesignFiles(event) {
+  const items = [...(event.clipboardData?.items || [])];
+  const files = items.filter(it => it.type?.startsWith("image/")).map(it => it.getAsFile()).filter(Boolean);
+  return files.length ? files : [...(event.clipboardData?.files || [])].filter(f => f.type?.startsWith("image/"));
+}
+function editingPasteText(event) {
+  const target = event.target;
+  return !!(target?.isContentEditable || target?.closest?.('input, textarea, [contenteditable="true"]'));
+}
+async function readDesignClipboard() {
+  if (!navigator.clipboard?.read) return [];
+  const files = [];
+  for (const item of await navigator.clipboard.read()) {
+    const type = item.types.find(t => t.startsWith("image/"));
+    if (type) files.push(await item.getType(type));
+  }
+  return files;
+}
 // gắn CHUỘT PHẢI -> dán ảnh cho 1 vùng (dropzone). onImage(dataURL).
 function attachContextPaste(el, onImage) {
   if (!el || el._ctxPaste) return; el._ctxPaste = true;
@@ -748,15 +767,31 @@ async function mkAddSources(sources, side = currentSide) {
     $("mockupPairPreview").classList.add("hidden");
   } catch (e) { alert("Không tải được ảnh design. Hãy kiểm tra định dạng ảnh rồi thử lại."); }
 }
-async function mkUploadComponents(files) {
-  const side = currentSide;
+async function mkUploadComponents(files, side = currentSide) {
   const valid = files.filter(f => f.type.startsWith("image/"));
   if (!valid.length) return;
   try {
-    const sources = await Promise.all(valid.map(async f => ({src: await fileToDataURL(f), name:f.name})));
+    const sources = await Promise.all(valid.map(async f => ({src: await fileToDataURL(f), name:f.name || "Design dán"})));
     await mkAddSources(sources, side);
   } catch (e) { alert("Không đọc được file design: " + e.message); }
 }
+async function mkPasteDesign() {
+  const side = currentSide;
+  try {
+    const files = await readDesignClipboard();
+    if (files.length) { await mkUploadComponents(files, side); return; }
+  } catch (e) { /* Ctrl/Cmd+V works without the clipboard-read permission. */ }
+  $("mockupPasteNote").textContent = "Copy ảnh design, rồi bấm vào áo và nhấn Ctrl/Cmd+V để dán. Trình duyệt có thể yêu cầu quyền đọc clipboard khi dùng nút Dán.";
+}
+$("mockupPasteDesign").onclick = mkPasteDesign;
+stage.addEventListener("contextmenu", e => { e.preventDefault(); mkPasteDesign(); });
+document.addEventListener("paste", async e => {
+  if (e.defaultPrevented || editingPasteText(e) || $("view-clone").classList.contains("hidden") || $("rpane-mockup").classList.contains("hidden")) return;
+  const files = pastedDesignFiles(e);
+  if (!files.length) return;
+  e.preventDefault();
+  await mkUploadComponents(files, currentSide);
+});
 function mkRenderComponents() {
   stage.querySelectorAll(".mk-passive-layer").forEach(el => el.remove());
   const s = sides[currentSide], list = $("mockupComponents"); list.innerHTML = "";
@@ -1956,36 +1991,34 @@ function lenaoSetPasteTarget(slot) {
     el.classList.toggle("paste-target", lenaoSlots[i] === slot);
   });
 }
-// thử đọc ảnh trực tiếp từ clipboard (Clipboard API) -> true nếu dán được
+async function lenaoPasteFiles(files, slot = lenaoPasteTarget) {
+  await lenaoUploadLayers(files, slot);
+}
+// Buttons use the clipboard API; keyboard paste works without that permission.
 async function lenaoPasteFromClipboard(slot) {
   try {
-    const items = await navigator.clipboard.read();
-    for (const it of items) {
-      const type = (it.types || []).find(t => t.startsWith("image/"));
-      if (type) {
-        const blob = await it.getType(type);
-        await lenaoSetSlotDesign(slot, await fileToDataURL(blob));
-        return true;
-      }
-    }
-  } catch (e) { /* không có quyền / không phải ảnh -> fallback Ctrl+V */ }
-  return false;
+    const files = await readDesignClipboard();
+    if (!files.length) return false;
+    await lenaoPasteFiles(files, slot);
+    return true;
+  } catch (e) { return false; }
 }
-// Ctrl+V: dán ảnh vào áo đang chọn (chỉ khi đang ở tab Lên áo)
 function lenaoBindPaste() {
   if (lenaoPasteBound) return; lenaoPasteBound = true;
-  document.addEventListener("paste", async (e) => {
-    const view = document.getElementById("view-lenao");
-    if (!view || view.classList.contains("hidden") || !lenaoPasteTarget) return;
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    for (const it of items) {
-      if (it.type && it.type.startsWith("image/")) {
-        e.preventDefault();
-        const blob = it.getAsFile();
-        if (blob) await lenaoSetSlotDesign(lenaoPasteTarget, await fileToDataURL(blob));
-        return;
-      }
-    }
+  $("lenaoPasteAll").onclick = async () => {
+    lenaoSetPasteTarget(null);
+    const ok = await lenaoPasteFromClipboard(null);
+    if (!ok) $("lenaoNote").textContent = "Copy ảnh design rồi nhấn Ctrl/Cmd+V để thêm vào tất cả áo. Bấm một áo nếu chỉ muốn dán vào áo đó.";
+  };
+  document.addEventListener("paste", async e => {
+    const view = $("view-lenao");
+    if (e.defaultPrevented || editingPasteText(e) || !view || view.classList.contains("hidden")) return;
+    const files = pastedDesignFiles(e);
+    if (!files.length) return;
+    e.preventDefault();
+    // No selected card means all shirts; freeze the target before reading files.
+    const target = lenaoPasteTarget;
+    await lenaoPasteFiles(files, target);
   });
 }
 
@@ -2123,7 +2156,13 @@ function lenaoRenderSlots() {
     fileInput.onchange = async (e) => { await lenaoUploadLayers(e.target.files, slot); e.target.value = ""; };
     card.querySelector(".le-empty").onclick = () => fileInput.click();
     // chọn áo này làm đích dán (Ctrl+V) khi bấm vào ô
-    card.addEventListener("mousedown", () => lenaoSetPasteTarget(slot));
+    card.tabIndex = 0;
+    card.addEventListener("pointerdown", () => lenaoSetPasteTarget(slot));
+    card.addEventListener("focusin", () => lenaoSetPasteTarget(slot));
+    stage.addEventListener("contextmenu", async e => {
+      e.preventDefault(); lenaoSetPasteTarget(slot);
+      if (!await lenaoPasteFromClipboard(slot)) $("lenaoNote").textContent = "Copy ảnh design rồi nhấn Ctrl/Cmd+V để dán vào áo đã chọn.";
+    });
     if (lenaoPasteTarget === slot) card.classList.add("paste-target");
     card.querySelector(".b-paste").onclick = async () => {
       lenaoSetPasteTarget(slot);
@@ -5333,6 +5372,7 @@ async function postAiCaption() {
    (Lên áo / Đổi màu / ô Mô tả đã có handler riêng -> bỏ qua ở đây)
    ===================================================================== */
 document.addEventListener("paste", async (e) => {
+  if (e.defaultPrevented || editingPasteText(e)) return;
   const items = (e.clipboardData && e.clipboardData.items) || [];
   let file = null;
   for (const it of items) { if (it.type && it.type.startsWith("image/")) { file = it.getAsFile(); break; } }

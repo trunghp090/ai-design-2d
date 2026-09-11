@@ -305,6 +305,7 @@
             <input type="file" id="designUpload" accept="image/*" multiple hidden />
             📤 Thêm nhiều thành phần design
           </label>
+          <button type="button" class="btn-ghost strong" id="mockupPasteDesign">📋 Dán design</button>
           <button class="btn-ghost" id="resetMockup">↺ Căn giữa</button>
           <button class="btn-primary sm" id="exportMockup">⬇️ Xuất ảnh demo</button>
           <button class="btn-ghost" id="previewMockupPair">👕 Xem trước + sau</button>
@@ -314,6 +315,7 @@
             <a id="downloadMockupPair" class="btn-ghost" download="mockup-truoc-sau.png">⬇ Tải ảnh trước + sau</a>
           </div>
         </div>
+        <p class="hint" id="mockupPasteNote" role="status">📋 Copy ảnh rồi bấm Dán design, nhấn Ctrl/Cmd+V hoặc chuột phải vào áo. Design được thêm vào mặt đang chọn, giữ các thành phần cũ.</p>
         <p class="hint">Chọn <b>Mặt trước</b> / <b>Mặt sau</b> ở trên — mỗi mặt có ảnh áo &amp; design riêng. Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
         <p class="hint">⌨️ <b>Bàn phím:</b> bấm vào design → <b>←↑→↓</b> nhích vị trí · giữ <b>Shift</b> = nhích nhanh · <b>+/−</b> = to/nhỏ. (Dùng được ở cả tab Đổi màu áo &amp; Lên áo.)</p>
       </div>
@@ -761,10 +763,12 @@
           <input type="file" id="lenaoAllFile" accept="image/*" multiple hidden />
           <span>🧩 Thêm nhiều thành phần vào TẤT CẢ áo</span>
         </label>
+        <button type="button" class="btn-ghost sm paste-btn" id="lenaoPasteAll">📋 Dán design vào tất cả áo</button>
         <button class="btn-ghost sm" id="lenaoUseCurrentAll">⬅️ Dùng design đang mở cho tất cả</button>
         <button class="btn-ghost sm" id="lenaoCenterAll">🎯 Căn giữa tất cả</button>
         <button class="btn-ghost sm" id="lenaoClearAll">🗑️ Xoá hết design</button>
       </div>
+      <p class="hint">Ctrl/Cmd+V: dán vào áo đã chọn. Chưa chọn áo thì dán vào tất cả. Bấm “Dán design vào tất cả áo” để chuyển lại sang tất cả; mỗi lần dán thêm một lớp design.</p>
       <div class="lenao-grid" id="lenaoSlots"></div>
       <div class="gallery-empty" id="lenaoEmpty">Đang tải áo mockup…</div>
     </section>
