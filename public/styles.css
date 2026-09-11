@@ -988,3 +988,24 @@ textarea.input{resize:vertical;line-height:1.5}
   .pnl-fstep-lb{font-size:10.5px}
   .pnl-fstep-barbox{height:70px}
 }
+
+/* Components of one shirt design */
+.lenao-parts {padding:6px 8px;display:grid;gap:4px}
+.lenao-parts>div {display:flex;gap:4px}
+.lenao-parts button {border:1px solid var(--line);border-radius:5px;background:white;padding:4px;cursor:pointer}
+.lenao-parts button:first-child {flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.le-layer.part-selected {border:2px solid #883bd0}
+
+.mockup-kinds {display:flex;gap:6px;margin-bottom:10px}
+.mockup-kind {flex:1;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;padding:10px 6px;cursor:pointer;font-weight:600}
+.mockup-kind.active {background:#d9ee3430;border-color:#a6bc28;color:inherit}
+
+.mk-component-row{display:flex;gap:5px;margin:5px 0}
+.mk-component-row button{border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;padding:6px 9px;cursor:pointer}
+.mk-component-row button:first-child{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-component-row button.active{border-color:#a6bc28;background:#d9ee3430}
+.mk-component-row button:disabled{opacity:.3;cursor:default}
+#mockupLoading{z-index:1000}
+
+/* Other artwork stays visible, while drag gestures reach the selected component. */
+.mk-passive-layer{pointer-events:none}

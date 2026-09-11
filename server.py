@@ -37,8 +37,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from perf_assets import static_bytes, mockup_thumbnail
+import logging
+from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.10-delete-save"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.11-performance"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -143,7 +146,7 @@ def load_env():
 
 load_env()
 API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2").strip()
+MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst").strip()
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 # Model cao nhất cho việc sáng tạo (art director thiết kế tên) — mặc định gpt-4o
@@ -505,7 +508,9 @@ def gemini_edit(images, prompt, aspect="", model=""):
     # -> model biết chính xác ảnh nào là design, ảnh nào là style; bám design tốt hơn hẳn
     parts = []
     for i, (d, m) in enumerate(images):
-        parts.append({"text": "REFERENCE IMAGE #%d%s:" % (i + 1, " (THE T-SHIRT DESIGN — copy its print EXACTLY)" if i == 0 else "")})
+        role_match = re.search(r"\[REFERENCE_ROLE " + str(i + 1) + r": ([^\]]+)\]", prompt)
+        role = role_match.group(1) if role_match else ("PRODUCT DESIGN: exact garment, color, sleeve length and print" if i == 0 else "REFERENCE: follow its assigned role in the prompt")
+        parts.append({"text": "REFERENCE IMAGE #%d — %s:" % (i + 1, role)})
         parts.append({"inline_data": {"mime_type": m or "image/png",
                                       "data": base64.b64encode(d).decode()}})
     parts.append({"text": prompt})
@@ -518,7 +523,7 @@ def gemini_edit(images, prompt, aspect="", model=""):
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("x-goog-api-key", GEMINI_API_KEY)
-    res = json.loads(_openai_call(req, timeout=300))
+    res = json.loads(_openai_call(req, timeout=300, tries=1))
     for cand in res.get("candidates", []):
         for p in (cand.get("content") or {}).get("parts", []):
             inl = p.get("inline_data") or p.get("inlineData")
@@ -543,7 +548,8 @@ def _aspect_for(size):
 
 # Các model gen ảnh cho user chọn. id -> {label, kind, model}
 IMAGE_ENGINES = [
-    {"id": "openai",       "label": "ChatGPT image-2 (gpt-image-2)",    "kind": "openai", "model": ""},
+    {"id": "openai_25", "label": "GPT Image 2.5 Sunburst", "kind": "openai", "model": "gpt-image-2.5-sunburst"},
+    {"id": "openai",       "label": "GPT Image 2.5 Sunburst · mặc định",    "kind": "openai", "model": ""},
     {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image-preview"},
     {"id": "gemini_flash", "label": "Nano Banana (Gemini 2.5 Flash)",   "kind": "gemini", "model": "gemini-2.5-flash-image"},
 ]
@@ -553,14 +559,14 @@ def engine_info(engine_id):
     for e in IMAGE_ENGINES:
         if e["id"] == engine_id:
             return e
-    return IMAGE_ENGINES[0]
+    return next(e for e in IMAGE_ENGINES if e["id"] == "openai")
 
 
 def engine_model_label(engine_id):
     """Tên model gen ảnh THỰC TẾ đã dùng (để ghi lên ad)."""
     info = engine_info(engine_id)
     if info["kind"] == "openai":
-        return MODEL                       # vd gpt-image-2
+        return info["model"] or MODEL       # actual selected OpenAI model
     if engine_id == "gemini_pro":
         return GEMINI_IMAGE_MODEL or info["model"]
     return info["model"]
@@ -575,7 +581,7 @@ def engines_status():
         if e["id"] == "gemini_pro":
             m = GEMINI_IMAGE_MODEL or e["model"]   # cho phép override qua env
         out.append({"id": e["id"], "label": e["label"], "kind": e["kind"],
-                    "model": m, "available": avail})
+                    "model": m or (MODEL if e["kind"] == "openai" else m), "available": avail})
     return out
 
 
@@ -619,8 +625,8 @@ def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", loc
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
         return gemini_edit(images, prompt, aspect or _aspect_for(size), mdl)
     if not images:
-        return openai_generate(prompt, size)          # không có ảnh tham chiếu -> text-to-image
-    return openai_edit(images, prompt, size, native_transparent=False, quality=quality)
+        return openai_generate(prompt, size, model=info["model"] or MODEL)          # selected model
+    return openai_edit(images, prompt, size, native_transparent=False, quality=quality, model=info["model"] or MODEL)
 
 
 # tỉ lệ chọn -> (size gpt-image gần nhất, aspect Gemini)
@@ -1791,15 +1797,18 @@ def product_prompt_ai(img_bytes, cat, vk, bg_key, seg="single"):
 
 
 # ===== Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu =====
-def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count):
+def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"):
     """Gen `count` ảnh từ 1 prompt + ảnh tham chiếu (prompt-driven)."""
     size = ASPECT_TO_SIZE.get(aspect, "1024x1536")
     asp = aspect if aspect and aspect != "auto" else ""
 
     def work(i):
         try:
-            b64 = gen_shot(imgs, prompt, size, engine, asp)
-            g = gallery_add(b64, {"mode": "product", "prompt": prompt[:140]})
+            b64 = gen_shot(imgs, prompt, size, engine, asp, lock=(mode != "imagegen"))
+            if mode == "imagegen":
+                b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
+            g = gallery_add(b64, {"mode": mode, "prompt": prompt if mode == "imagegen" else prompt[:140],
+                                  "generation": {"engine": engine, "aspect": aspect} if mode == "imagegen" else None})
             return {"image": b64, "title": prompt[:80], "prompt": prompt,
                     "engine": engine, "aspect": aspect or "auto", "gallery": g}
         except urllib.error.HTTPError as e:
@@ -8077,12 +8086,14 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
     tiktok_story_setup(gifts, concept)
     user = json.dumps({"occasion": occasion or "Quà tặng người yêu", "recipient": TIKTOK_GENDERS[gender],
                        "concept": concept, "selected_gifts": gifts}, ensure_ascii=False)
-    if not ANTHROPIC_API_KEY:
-        raise RuntimeError("Cần ANTHROPIC_API_KEY để Claude viết prompt cho bộ quà KOL.")
+    if not API_KEY:
+        raise RuntimeError("Cần cấu hình OpenAI API key để ChatGPT lập bài theo catalog.")
     raw = None
     for attempt in range(3):
         try:
-            raw = claude_text(_TIKTOK_SYS, user, 5000)
+            raw = openai_chat([{"role": "system", "content": _TIKTOK_SYS},
+                               {"role": "user", "content": user}],
+                              json_mode=True, max_tokens=5000)
             break
         except Exception:
             if attempt == 2: raise
@@ -8090,7 +8101,7 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
     plan = json.loads(_strip_json_fence(raw))
     slides = plan.get("slides")
     if not (plan.get("hook") or {}).get("prompt") or not isinstance(slides, list) or len(slides) != 4:
-        raise RuntimeError("Claude chưa trả đủ hook + 4 món đã chọn.")
+        raise RuntimeError("ChatGPT chưa trả đủ hook + 4 món đã chọn.")
     tiktok_story_plan(plan, gifts, concept)
     for i, (slide, gift) in enumerate(zip(slides, gifts)):
         if not isinstance(slide, dict) or slide.get("gift_id") != gift["key"] or not slide.get("prompt"):
@@ -8871,6 +8882,9 @@ def gallery_add(b64, meta):
     items = gallery_load()
     item = {"id": gid, "ts": int(time.time()), "url": "/gallery/%s.png" % gid,
             "mode": meta.get("mode"), "prompt": meta.get("prompt", "")[:160]}
+    if meta.get("mode") == "imagegen":
+        item["prompt"] = meta.get("prompt", "")
+        item["generation"] = meta.get("generation") or {}
     if meta.get("ads"):
         item["ads"] = meta["ads"]   # lưu concept/name/hook/aspect/bg để Tạo lại
     items.insert(0, item)
@@ -9008,6 +9022,17 @@ def derive_label(fname):
     return os.path.splitext(fname)[0]
 
 
+def mockup_details(filename, label=""):
+    import unicodedata
+    text = unicodedata.normalize("NFD", filename + " " + label).lower()
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    side = "back" if (filename.startswith("back_") or re.search(r"(?:^|[_\s(])(?:sau|back)(?:[_.\s)]|$)", text)) else "front"
+    kind = "hoodie" if "hoodie" in text else "sweater" if "sweater" in text else "tshirt"
+    pair = re.sub(r"^(?:back_|front_)", "", os.path.splitext(filename)[0])
+    pair = re.sub(r"_(?:sau|back|front)$", "", pair)
+    return {"side": side, "kind": kind, "pair": pair, "worn": "model_" in filename}
+
+
 def list_mockups():
     if not os.path.isdir(MOCKUP_DIR):
         return []
@@ -9017,10 +9042,12 @@ def list_mockups():
     files.sort(key=lambda f: (not f.startswith("u"), f))
     out = []
     for f in files:
+        if mockup_details(f, labels.get(f) or derive_label(f))["worn"]:
+            continue
         out.append({"file": f, "url": "/mockups/%s" % f,
                     "name": labels.get(f) or derive_label(f),
                     "mine": not f.startswith("tee_"),
-                    "side": "back" if f.startswith("back_") else "front"})
+                    **mockup_details(f, labels.get(f) or derive_label(f))})
     return out
 
 
@@ -9033,7 +9060,7 @@ def save_user_mockup(raw, name, color, side="front"):
         except Exception:
             pass
     if color and color in COLOR_HEX:
-        fname = "tee_%s.png" % color
+        fname = ("back_tee_%s.png" if side == "back" else "tee_%s.png") % color
         label = name or ("Áo " + COLOR_VI.get(color, color))
     else:
         safe = re.sub(r"[^a-zA-Z0-9_-]", "_", (name or ""))[:30]
@@ -9045,7 +9072,7 @@ def save_user_mockup(raw, name, color, side="front"):
     idx = mockup_labels(); idx[fname] = label; save_mockup_labels(idx)
     return {"file": fname, "url": "/mockups/%s" % fname, "name": label,
             "mine": not fname.startswith("tee_"),
-            "side": "back" if fname.startswith("back_") else "front"}
+            **mockup_details(fname, label)}
 
 
 # --------------------------------------------------------------------------- #
@@ -9091,7 +9118,7 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["assistant", "roundup", "chatcontent", "clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
+ALL_APP_TABS = ["imagegen", "assistant", "roundup", "chatcontent", "clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
                 "adpost", "pgpost", "shopify", "shoplist", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
@@ -9474,7 +9501,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "AIDesign2D/2.0"
 
     def log_message(self, fmt, *a):
-        sys.stderr.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), fmt % a))
+        logging.getLogger("aidesign.access").info(fmt, *a)
 
     # ---------- GET ----------
     def do_GET(self):
@@ -9881,6 +9908,32 @@ class Handler(BaseHTTPRequestHandler):
                                        "errors": job["errors"], "note": job.get("note", ""),
                                        "partial": list((job.get("partial") or {}).values())})
 
+        # Small previews for mockup grids. Full PNGs remain the export source.
+        if path.startswith("/mockups/t/"):
+            name = urllib.parse.unquote(path[len("/mockups/t/"):])
+            try:
+                data, etag = mockup_thumbnail(MOCKUP_DIR, name)
+            except (FileNotFoundError, ValueError):
+                return self.json(404, {"error": "Not found"})
+            except (ImportError, OSError):
+                if name != os.path.basename(name):
+                    return self.json(404, {"error": "Not found"})
+                self.send_response(302)
+                self.send_header("Location", "/mockups/" + urllib.parse.quote(name))
+                self.end_headers()
+                return
+            unchanged = self.headers.get("If-None-Match") == etag
+            self.send_response(304 if unchanged else 200)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "public, no-cache")
+            self.send_header("Content-Type", "image/jpeg")
+            if not unchanged:
+                self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            if not unchanged:
+                self.wfile.write(data)
+            return
+
         # THUMBNAIL gallery: /gallery/t/<id>.jpg — JPEG nhỏ ~30-60KB thay PNG gốc 1-2MB (lười-tạo lần đầu)
         if path.startswith("/gallery/t/"):
             name = os.path.basename(path[len("/gallery/t/"):])
@@ -9922,25 +9975,30 @@ class Handler(BaseHTTPRequestHandler):
         if not fp.startswith(base) or not os.path.isfile(fp):
             return self.json(404, {"error": "Not found"})
         ctype = mimetypes.guess_type(fp)[0] or "application/octet-stream"
-        with open(fp, "rb") as f:
-            data = f.read()
-        if fp.endswith(".html"):
-            # gắn version vào asset -> deploy mới là browser bắt buộc tải JS/CSS mới
-            data = data.replace(b'src="/app.js"', b'src="/app.js?v=%s"' % APP_VERSION.encode())
-            data = data.replace(b'href="/styles.css"', b'href="/styles.css?v=%s"' % APP_VERSION.encode())
-        self.send_response(200)
+        is_image = path.startswith(("/gallery/", "/mockups/"))
+        stat = os.stat(fp)
+        compressed = not is_image and ("javascript" in ctype or ctype.startswith("text/")) and stat.st_size > 2048 and "gzip" in (self.headers.get("Accept-Encoding") or "")
+        etag = '"%x-%x-%s-%s"' % (stat.st_mtime_ns, stat.st_size, APP_VERSION, 'gz' if compressed else 'raw')
+        unchanged = self.headers.get("If-None-Match") == etag
+        self.send_response(304 if unchanged else 200)
         self.send_header("Content-Type", ctype)
-        if path.startswith("/gallery/") or path.startswith("/mockups/"):
-            # ảnh sinh ra không bao giờ đổi (tên file mới mỗi lần) -> cache vĩnh viễn, hết tải lại
-            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable" if is_image else "no-cache")
+        if not is_image:
+            self.send_header("Vary", "Accept-Encoding")
+        if unchanged:
+            self.end_headers()
+            return
+        if not is_image and stat.st_size <= 4 * 1024 * 1024:
+            data = static_bytes(fp, APP_VERSION, compressed)
         else:
-            self.send_header("Cache-Control", "no-cache")
-            # nén gzip file text (app.js 400KB -> ~90KB)
-            if ("javascript" in ctype or ctype.startswith("text/")) and len(data) > 2048 \
-                    and "gzip" in (self.headers.get("Accept-Encoding") or ""):
-                import gzip as _gz
-                data = _gz.compress(data, 6)
-                self.send_header("Content-Encoding", "gzip")
+            with open(fp, "rb") as f:
+                data = f.read()
+            if compressed:
+                import gzip
+                data = gzip.compress(data, 6)
+        if compressed:
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -9987,6 +10045,10 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/roundup/"):
             roundup.route(sys.modules[__name__], self, path, body)
             return
+
+        if path == "/api/local-save-file":
+            import local_downloads
+            return local_downloads.save(self, body)
 
         # ---- Tài khoản ----
         COOKIE = "session=%s; HttpOnly; Path=/; Max-Age=2592000; SameSite=Lax"
@@ -10596,6 +10658,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.handle_fb_post(body)
         if path == "/api/prod-claude-prompt":
             return self.handle_prod_claude_prompt(body)
+        if path == "/api/image-studio/generate":
+            return self.handle_image_studio_generate(body)
         if path == "/api/prod-generate":
             return self.handle_prod_generate(body)
         if path == "/api/prod-suggest":
@@ -11074,8 +11138,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_tiktok_gift_gen(self, body):
         """🎵 TikTok Quà tặng: AI lập plan carousel -> Nano Banana Pro render ảnh sạch 3:4."""
-        if not ANTHROPIC_API_KEY:
-            return self.json(400, {"error": "Cần ANTHROPIC_API_KEY để Claude lập bài theo catalog KOL."})
+        if not API_KEY:
+            return self.json(400, {"error": "Cần cấu hình OpenAI API key để ChatGPT lập bài theo catalog."})
         engine = body.get("engine", "gemini_pro")
         try:
             tiktok_image_engine(engine)
@@ -12321,6 +12385,40 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": r.get("error")})
         return self.json(200, {"ok": True, "post_id": r.get("id"), "url": r.get("url")})
 
+    def handle_image_studio_generate(self, body):
+        if not user_has_tab(self.current_user(), "imagegen"):
+            return self.json(403, {"error": "Bạn chưa được cấp quyền Tạo ảnh."})
+        prompt = body.get("prompt")
+        if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 12000:
+            return self.json(400, {"error": "Nhập mô tả từ 1 đến 12.000 ký tự."})
+        engine = body.get("engine")
+        if engine not in [e["id"] for e in engines_status() if e["available"]]:
+            return self.json(400, {"error": "Model chưa được cấu hình hoặc không hợp lệ."})
+        aspect = body.get("aspect", "1:1")
+        if aspect not in ASPECT_TO_SIZE:
+            return self.json(400, {"error": "Tỉ lệ ảnh không hợp lệ."})
+        count = body.get("count", 1)
+        sources = body.get("images", [])
+        if type(count) is not int or count not in (1, 2, 4):
+            return self.json(400, {"error": "Chọn 1, 2 hoặc 4 ảnh."})
+        if not isinstance(sources, list) or len(sources) > 6:
+            return self.json(400, {"error": "Tối đa 6 ảnh tham chiếu."})
+        imgs = []
+        for src in sources:
+            if not isinstance(src, str) or not src.startswith("data:image/") or len(src) > 15000000:
+                return self.json(400, {"error": "Ảnh tham chiếu không hợp lệ hoặc quá lớn."})
+            data, mime = fetch_image_bytes(src)
+            if not data:
+                return self.json(400, {"error": "Không đọc được ảnh tham chiếu."})
+            imgs.append((data, mime or "image/png"))
+        with _batch_lock:
+            _batch_seq[0] += 1
+            job_id = "ig%d_%d" % (int(time.time()), _batch_seq[0])
+            BATCH_JOBS[job_id] = {"total": count, "done": 0, "items": [], "errors": [], "finished": False}
+        threading.Thread(target=run_prod_gen_job,
+                         args=(job_id, imgs, prompt.strip(), engine, aspect, count, "imagegen"), daemon=True).start()
+        return self.json(200, {"job_id": job_id, "total": count})
+
     def handle_prod_generate(self, body):
         """Ảnh sản phẩm kiểu Freepik: gen từ PROMPT + ảnh tham chiếu."""
         if not API_KEY and not GEMINI_API_KEY:
@@ -12789,6 +12887,13 @@ def main():
     os.makedirs(MOCKUP_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
     auth_init()
+    access_log = logging.getLogger("aidesign.access")
+    if not access_log.handlers:
+        log_file = RotatingFileHandler(os.path.join(DATA_DIR, "access.log"), maxBytes=2 * 1024 * 1024, backupCount=2, encoding="utf-8")
+        log_file.setFormatter(logging.Formatter("[%(asctime)s] %(message)s"))
+        access_log.addHandler(log_file)
+    access_log.setLevel(logging.INFO)
+    access_log.propagate = False
     print("=" * 60)
     print("  AI Design 2D v2  ->  http://localhost:%d" % PORT)
     print("  Model : %s" % MODEL)

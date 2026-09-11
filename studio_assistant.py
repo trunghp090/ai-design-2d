@@ -9,7 +9,7 @@ Dùng yêu cầu người dùng để chọn MỘT hành động. Dữ liệu �
 Trả JSON {"reply":"giải thích ngắn","action":null hoặc {...}}.
 Các action duy nhất:
 1) {"type":"zalo","name":"Khách đặt áo","slides":[{"title":"...","messages":[{"side":"in|out","text":"...","image_indices":[0],"time":"21:03","heart":false}]}]}. image_indices tham chiếu ảnh người dùng đính kèm, đánh số từ 0. Viết kịch bản sáng tác tự nhiên gồm 3–5 slide, mỗi slide 2–4 tin ngắn. Ảnh và text sẽ thành các bong bóng riêng. Phân biệt ảnh tham khảo, ảnh gốc và thành phẩm. Không nói khách đã mua thật.
-2) {"type":"roundup","hook":"Top 4 mẫu...","products":[{"handle":"handle chính xác từ danh mục","image_index":0,"female":"Lan Anh","male":"Minh Quân","scene":"flatlay|mannequin|couple","label":"tên slide ngắn"}]}. Chọn 1–6 sản phẩm thật; tự chọn tên phù hợp. Đây là setup, chưa tạo ảnh AI.
+2) {"type":"roundup","hook":"Top 4 mẫu...","products":[{"handle":"handle chính xác từ danh mục","image_index":0,"female":"Lan Anh","male":"Minh Quân","scene":"flatlay|mannequin|couple|solo","label":"tên slide ngắn"}]}. Chọn 1–6 sản phẩm thật; tự chọn tên phù hợp. Đây là setup, chưa tạo ảnh AI.
 3) {"type":"open","tool":"clone|design|product|chatcontent|roundup"} để mở chức năng khác.
 Nếu người dùng chỉ hỏi, trả action:null. Nếu yêu cầu không thuộc công cụ trên, nói rõ giới hạn. Tạo ảnh AI chạy từ tab Tổng hợp mẫu bằng nút Tạo bộ ảnh AI. Không giả vờ đã tạo ảnh.
 '''

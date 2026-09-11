@@ -6,3 +6,7 @@ File áo/
 .DS_Store
 .claude/
 data/
+
+.git/
+outputs/
+mockups/.thumbs/

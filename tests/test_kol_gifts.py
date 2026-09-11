@@ -26,14 +26,14 @@ class KolTests(unittest.TestCase):
     def test_plan_uses_catalog_no_web(self):
         import server
         slides=[{'gift_id':g['key'],'prompt':'photo','overlay':['Top %d: %s'%(4-i,g['label']),'Nhận xét']} for i,g in enumerate(selection(MID,'nam','kol_mid'))]
-        with patch.object(server,'ANTHROPIC_API_KEY','test'), patch.object(server,'claude_text',return_value=json.dumps({'concept':'countdown','hook':{'scene_kind':'couple','prompt':'couple','overlay':['Hook','Lướt nhé']},'slides':slides})), patch.object(server,'openai_web_search',side_effect=AssertionError('must not search')):
+        with patch.object(server,'API_KEY','test'), patch.object(server,'openai_chat',return_value=json.dumps({'concept':'countdown','hook':{'scene_kind':'couple','prompt':'couple','overlay':['Hook','Lướt nhé']},'slides':slides})), patch.object(server,'openai_web_search',side_effect=AssertionError('must not search')):
             plan=server.tiktok_gift_plan('Trung thu','nam','kol_mid',4,'auto',MID)
             self.assertEqual(plan['slides'][0]['product'],selection(MID,'nam','kol_mid')[0]['label'])
             self.assertIn('EXACT PRODUCT LOCK',plan['slides'][0]['prompt'])
     def test_wrong_model_response_stops(self):
         import server
         slides=[{'gift_id':'orion','prompt':'photo'}]*4
-        with patch.object(server,'ANTHROPIC_API_KEY','test'), patch.object(server,'claude_text',return_value=json.dumps({'hook':{'prompt':'hook'},'slides':slides})):
+        with patch.object(server,'API_KEY','test'), patch.object(server,'openai_chat',return_value=json.dumps({'hook':{'prompt':'hook'},'slides':slides})):
             with self.assertRaises((RuntimeError,ValueError)):server.tiktok_gift_plan('','nam','kol_mid',4,'auto',MID)
 
     def test_custom_and_expanded_mid_pool(self):

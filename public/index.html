@@ -7,9 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Dancing+Script:wght@400;700&family=Be+Vietnam+Pro:wght@400;600;700&family=Lobster&family=Pacifico&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/tiktok-kol.css?v=2026.09.10-kol-gift-catalog" />
-  <link rel="stylesheet" href="/studio.css?v=2026.09.10-full-content-studio" />
-<link rel="stylesheet" href="/roundup.css?v=2026.09.10-full-content-studio" />
+  <link rel="stylesheet" href="/studio.css?v=20260910-readable" />
+<link rel="stylesheet" href="/roundup.css?v=20260910-upload-shirts" />
+<link rel="stylesheet" href="/tiktok-kol.css?v=2026.09.10-kol-gift-catalog">
+<link rel="stylesheet" href="/image-studio.css?v=1">
 </head>
 <body>
   <div class="topbar">
@@ -56,6 +57,7 @@
     <button class="app-tab" data-app="recolor" data-group="work">🎨 Đổi màu áo</button>
     <button class="app-tab" data-app="lenao" data-group="work">👕 Lên áo</button>
     <button class="app-tab" data-app="design" data-group="work">✨ Tạo design</button>
+    <button class="app-tab" data-app="imagegen" data-group="work">✦ Tạo ảnh</button>
     <button class="app-tab" data-app="product" data-group="work">📸 Ảnh sản phẩm</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
@@ -71,6 +73,7 @@
     <button class="app-tab" data-app="shoplist" data-group="shopify">📦 SP Shopify</button>
   </nav>
 
+  <main class="app-view hidden" id="view-imagegen"></main>
   <main class="app-view hidden" id="view-assistant"></main>
   <main class="app-view hidden" id="view-roundup"></main>
   <main class="app-view hidden" id="view-chatcontent"></main>
@@ -227,6 +230,15 @@
           <div style="display:flex;justify-content:flex-end;margin-bottom:4px">
             <button type="button" class="btn-ghost sm" id="mkEditBtn">✏️ Chỉnh sửa mockup</button>
           </div>
+          <div class="side-switch mockup-kinds" role="group" aria-label="Loại áo flatlay">
+            <button type="button" class="mockup-kind active" data-kind="tshirt" aria-pressed="true">Áo thun / oversize</button>
+            <button type="button" class="mockup-kind" data-kind="sweater" aria-pressed="false">Sweater</button>
+            <button type="button" class="mockup-kind" data-kind="hoodie" aria-pressed="false">Hoodie</button>
+          </div>
+          <select id="mockupKind" hidden aria-label="Loại áo">
+            <option value="tshirt">Áo thun / oversize</option><option value="sweater">Sweater</option><option value="hoodie">Hoodie</option>
+          </select>
+          <p class="hint">Phôi flatlay không có người · Chọn loại áo, rồi chọn màu ở mặt trước hoặc mặt sau.</p>
           <div class="mk-mine">
             <div class="mk-mine-head">
               <span class="mk-label">👕 Mockup mặt trước áo</span>
@@ -276,6 +288,8 @@
           <div class="mockup-empty" id="mockupEmpty">Chưa có design — tạo ở tab Design rồi bấm “Đưa vào mockup”.</div>
         </div>
 
+        <div id="mockupComponents" aria-label="Thành phần design mặt áo đang chọn"></div>
+        <p id="mockupComponentHint" class="hint">Tải nhiều file hoặc kéo thả vào áo. Chọn từng phần để chỉnh riêng.</p>
         <div class="slider-row">
           <span>Kích thước</span>
           <input type="range" id="scaleSlider" min="10" max="100" value="38" />
@@ -288,11 +302,17 @@
         </div>
         <div class="mockup-actions">
           <label class="btn-ghost strong" id="designUploadBtn">
-            <input type="file" id="designUpload" accept="image/*" hidden />
-            📤 Tải design lên
+            <input type="file" id="designUpload" accept="image/*" multiple hidden />
+            📤 Thêm nhiều thành phần design
           </label>
           <button class="btn-ghost" id="resetMockup">↺ Căn giữa</button>
           <button class="btn-primary sm" id="exportMockup">⬇️ Xuất ảnh demo</button>
+          <button class="btn-ghost" id="previewMockupPair">👕 Xem trước + sau</button>
+          <div id="mockupPairPreview" class="hidden" style="width:100%">
+            <p class="hint">Mặt trước bên trái · Mặt sau bên phải. Sau khi chỉnh design, bấm “Xem trước + sau” để cập nhật.</p>
+            <img id="mockupPairImage" alt="Mockup mặt trước và mặt sau" style="width:100%;border-radius:12px">
+            <a id="downloadMockupPair" class="btn-ghost" download="mockup-truoc-sau.png">⬇ Tải ảnh trước + sau</a>
+          </div>
         </div>
         <p class="hint">Chọn <b>Mặt trước</b> / <b>Mặt sau</b> ở trên — mỗi mặt có ảnh áo &amp; design riêng. Tải design lên (nên dùng PNG nền trong suốt) hoặc lấy từ tab Design · kéo để di chuyển · kéo góc dưới-phải để resize.</p>
         <p class="hint">⌨️ <b>Bàn phím:</b> bấm vào design → <b>←↑→↓</b> nhích vị trí · giữ <b>Shift</b> = nhích nhanh · <b>+/−</b> = to/nhỏ. (Dùng được ở cả tab Đổi màu áo &amp; Lên áo.)</p>
@@ -730,16 +750,16 @@
           <button class="btn-ghost sm strong" id="lenaoToShopify">🛍️ Đẩy Shopify (0)</button>
         </div>
       </div>
-      <p class="panel-desc">Mỗi áo tải <b>design riêng</b> (📁 tải file · <b>📋 Dán ảnh</b> · bấm áo rồi <b>Ctrl/Cmd+V</b>), kéo-thả chỉnh vị trí/cỡ, rồi <b>tải đồng bộ</b>. Hoặc dùng design chung cho tất cả.</p>
+      <p class="panel-desc">Đủ <b>các màu · mặt trước và mặt sau</b>. Mỗi áo tải <b>nhiều thành phần design</b> (📁 tải file · <b>📋 Dán ảnh</b> · bấm áo rồi <b>Ctrl/Cmd+V</b>), kéo-thả chỉnh vị trí/cỡ, rồi <b>tải đồng bộ</b>. Mỗi lần tải thêm sẽ giữ các thành phần cũ. Kéo và chỉnh cỡ từng thành phần; bấm ✕ để xoá riêng.</p>
       <p class="gen-note" id="lenaoNote" style="margin:0 0 8px"></p>
       <div class="le-shared">
         <label class="dropzone sm" id="lenaoMultiDrop">
           <input type="file" id="lenaoMultiFile" accept="image/*" multiple hidden />
-          <span>📚 Tải NHIỀU design → mỗi design lên đủ áo</span>
+          <span>📚 Tải các mẫu riêng → mỗi file tạo một bộ áo</span>
         </label>
         <label class="dropzone sm" id="lenaoAllDrop">
-          <input type="file" id="lenaoAllFile" accept="image/*" hidden />
-          <span>⬆️ Tải 1 design áp cho TẤT CẢ áo</span>
+          <input type="file" id="lenaoAllFile" accept="image/*" multiple hidden />
+          <span>🧩 Thêm nhiều thành phần vào TẤT CẢ áo</span>
         </label>
         <button class="btn-ghost sm" id="lenaoUseCurrentAll">⬅️ Dùng design đang mở cho tất cả</button>
         <button class="btn-ghost sm" id="lenaoCenterAll">🎯 Căn giữa tất cả</button>
@@ -805,7 +825,7 @@
     </div>
   </section>
 
-  <!-- ===== VIEW: ẢNH SẢN PHẨM (gpt-image-2 edits theo phong cách Nano Banana) ===== -->
+  <!-- ===== VIEW: ẢNH SẢN PHẨM (GPT Image 2.5 Sunburst edits theo phong cách Nano Banana) ===== -->
   <section class="auto-view app-view hidden" id="view-product">
     <div class="fp-layout">
       <!-- LEFT: bảng điều khiển kiểu Freepik -->
@@ -1145,6 +1165,7 @@
           <button type="button" id="ttKolMix" class="btn-ghost">🎲 Mix 4 món · có custom</button>
           <label class="switch-row"><input type="checkbox" id="ttKolAutoRotate" checked> Tự đổi bộ quà khi tạo bài tiếp theo</label>
           <p class="hint">Mix kèm ít nhất 1 món custom (trừ khi chọn nhóm chỉ sản phẩm có sẵn). Nhớ các bộ đã mix trên trình duyệt này để ưu tiên món ít dùng. Chọn tất cả phân khúc để mở rộng lựa chọn; vẫn giữ đúng bộ lọc của bạn.</p>
+
           <p id="ttKolStatus" class="hint" role="status">Đang tải catalog KOL…</p>
           <div id="ttKolSelected"></div>
           <div id="ttKolProducts" style="max-height:340px;overflow:auto"></div>
@@ -1158,7 +1179,7 @@
           <option value="gemini_pro">1 · Nano Banana Pro</option>
           <option value="gpt_image_25">2 · GPT Image 2.5 Sunburst (OpenAI)</option>
         </select>
-        <p class="hint">Áp dụng cho bài quà và slide bonus. Claude viết nội dung; model bạn chọn vẽ ảnh.</p>
+        <p class="hint">Model ảnh áp dụng cho bài quà và slide bonus. ChatGPT lập nội dung bài theo catalog; model bạn chọn vẽ ảnh.</p>
 
         <button class="btn-primary" id="ttRunBtn" style="margin-top:14px">🎵 Tạo bài TikTok</button>
         <div class="batch-progress hidden" id="ttProgress" style="margin-top:8px">
@@ -1267,7 +1288,7 @@
     <div class="fp-layout">
       <aside class="panel fp-side">
         <h2 class="panel-title" style="font-size:18px;margin:0 0 4px">👕 Bộ áo theo tệp</h2>
-        <p class="panel-desc" style="margin:0 0 12px">Gửi <b>ảnh áo bố cục</b> (mặt trước + mặt sau) → gpt-image-2 tạo <b>bộ áo cho cả tệp</b>: giữ nguyên design/bố cục, <b>tự nghĩ tên</b> và điền cho từng người.</p>
+        <p class="panel-desc" style="margin:0 0 12px">Gửi <b>ảnh áo bố cục</b> (mặt trước + mặt sau) → GPT Image 2.5 Sunburst tạo <b>bộ áo cho cả tệp</b>: giữ nguyên design/bố cục, <b>tự nghĩ tên</b> và điền cho từng người.</p>
 
         <label class="fp-label">📐 ẢNH ÁO BỐ CỤC (mặt trước — hoặc mẫu có sẵn 2 mặt)</label>
         <label class="dropzone sm" id="ssDrop" style="min-height:90px;display:flex;align-items:center;justify-content:center;text-align:center">
@@ -2366,11 +2387,15 @@
     }
   }, 9000);
 </script>
+<script src="/image-studio.js?v=1"></script>
+<script src="/download-manager.js"></script>
 <script src="/app.js"></script>
 <script src="/gift-rotation.js?v=2026.09.10-custom-mix"></script>
 <script src="/tiktok-kol.js?v=2026.09.10-custom-mix"></script>
-<script src="/chat-content.js?v=2026.09.10-full-content-studio"></script>
-<script src="/roundup.js?v=2026.09.10-full-content-studio"></script>
-<script src="/studio-assistant.js?v=2026.09.10-full-content-studio"></script>
+<link rel="stylesheet" href="/zalo-scripts.css?v=20260911">
+<script src="/zalo-scripts.js?v=20260911"></script>
+<script src="/chat-content.js?v=20260911-scripts"></script>
+<script src="/roundup.js?v=20260910-upload-shirts"></script>
+<script src="/studio-assistant.js"></script>
 </body>
 </html>

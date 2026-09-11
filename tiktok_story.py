@@ -11,7 +11,7 @@ def validate_setup(gifts, concept):
 def validate_plan(plan, gifts, requested):
     actual = plan.get("concept")
     if actual not in ("countdown", "upgrade", "category", "mood", "compare") or (requested != "auto" and actual != requested):
-        raise ValueError("Claude chưa làm đúng dạng bài đã chọn.")
+        raise ValueError("ChatGPT chưa làm đúng dạng bài đã chọn.")
     validate_setup(gifts, actual)
     hook = plan.get("hook") or {}
     if hook.get("scene_kind") != "couple":

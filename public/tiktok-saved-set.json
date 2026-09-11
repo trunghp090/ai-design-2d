@@ -1,0 +1,123 @@
+{
+  "id": "qua-tang-nam-h-long-20260910",
+  "meta": {
+    "title": "Sinh nhật bạn trai: chọn quà theo thói quen của ảnh",
+    "caption": "Sinh nhật ảnh, mình chọn quà từ mấy thói quen nhỏ rồi giấu thêm một chiếc áo mang tên mình 🥹\n\n#quatangbantrai #quatangchonam #sinhnhatbantrai #quasinhnhat #goiyquatang #quatangnguoiyeu #yeunhau #couple #aodoi #aothundoi #aointen #riengvn",
+    "bonus": [
+      "Bonus: Áo đôi in tên RIENG.VN 🥹",
+      "Ảnh mặc Gia Hân, mình mặc Huy Hoàng",
+      "Quà cho ảnh, mà hai đứa cùng vui"
+    ],
+    "engine": "Nano Banana Pro · áo H lồng dùng ảnh đã duyệt"
+  },
+  "items": [
+    {
+      "idx": 0,
+      "title": "Slide 1 · Sinh nhật ảnh sắp tới rồi 🥹",
+      "overlay": [
+        "Sinh nhật ảnh sắp tới rồi 🥹",
+        "Chọn quà từ mấy thói quen nhỏ",
+        "Mấy bà lưu lại nha"
+      ],
+      "position": "1/3 dưới",
+      "gallery": {
+        "id": "d1789058711268_1",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711268_1.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 1"
+      },
+      "engine": "gemini_pro"
+    },
+    {
+      "idx": 1,
+      "title": "Slide 2 · soundcore Space One",
+      "overlay": [
+        "soundcore Space One",
+        "Ảnh đi đâu cũng mang tai nghe",
+        "Tặng đúng món ảnh dùng mỗi ngày"
+      ],
+      "position": "1/3 trên",
+      "gallery": {
+        "id": "d1789058711273_2",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711273_2.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 2"
+      },
+      "engine": "gemini_pro"
+    },
+    {
+      "idx": 2,
+      "title": "Slide 3 · Davidoff Cool Water Man EDT 75 ml",
+      "overlay": [
+        "Davidoff Cool Water Man EDT 75 ml",
+        "Nếu ảnh mê mùi hương này",
+        "Sinh nhật tặng lại đúng gu của ảnh"
+      ],
+      "position": "1/3 trên",
+      "gallery": {
+        "id": "d1789058711278_3",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711278_3.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 3"
+      },
+      "engine": "gemini_pro"
+    },
+    {
+      "idx": 3,
+      "title": "Slide 4 · HARIO V60 Coffee Server 02 Set",
+      "overlay": [
+        "HARIO V60 Coffee Server 02 Set",
+        "Cho chàng mê tự pha cà phê",
+        "Sáng cuối tuần ngồi nhâm nhi cùng nhau"
+      ],
+      "position": "1/3 trên",
+      "gallery": {
+        "id": "d1789058711282_4",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711282_4.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 4"
+      },
+      "engine": "gemini_pro"
+    },
+    {
+      "idx": 4,
+      "title": "Slide 5 · Casio G-SHOCK DW-5600UE-1",
+      "overlay": [
+        "Casio G-SHOCK DW-5600UE-1",
+        "Nếu ảnh mê đồng hồ dáng thể thao",
+        "Chọn đúng kiểu ảnh hay đeo nha"
+      ],
+      "position": "1/3 trên",
+      "gallery": {
+        "id": "d1789058711286_5",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711286_5.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 5"
+      },
+      "engine": "gemini_pro"
+    },
+    {
+      "idx": 5,
+      "title": "Slide 6 · Bonus: Áo đôi in tên RIENG.VN 🥹",
+      "overlay": [
+        "Bonus: Áo đôi in tên RIENG.VN 🥹",
+        "Ảnh mặc Gia Hân, mình mặc Huy Hoàng",
+        "Quà cho ảnh, mà hai đứa cùng vui"
+      ],
+      "position": "1/3 trên",
+      "gallery": {
+        "id": "d1789058711292_6",
+        "ts": 1789058711,
+        "url": "/gallery/d1789058711292_6.png",
+        "mode": "tiktok",
+        "prompt": "Quà sinh nhật bạn trai · Slide 6"
+      },
+      "engine": "gpt_image_25"
+    }
+  ]
+}

@@ -353,7 +353,6 @@ function showDesign(b64) {
   currentDesign = b64;
   const src = "data:image/png;base64," + b64;
   $("resultImg").src = src;
-  $("designOnShirt").src = src;
   $("resultImgWrap").classList.remove("hidden");
   $("resultActions").classList.remove("hidden");
   $("textTool").classList.remove("hidden");
@@ -490,9 +489,9 @@ document.querySelectorAll(".rtab").forEach(t => t.onclick = () => {
   if (tab === "mockup") ensureMockupBg();
   if (tab === "gallery") loadGallery();
 });
-$("sendToMockup").onclick = () => {
+$("sendToMockup").onclick = async () => {
   document.querySelector('.rtab[data-rtab="mockup"]').click();
-  if ($("designOnShirt").src) { $("designLayer").classList.add("active"); $("mockupEmpty").classList.add("hidden"); }
+  if (currentDesign) await mkAddSources([{src: "data:image/png;base64," + currentDesign, name: "Design đang mở"}]);
 };
 
 /* ---------- mockup: thư viện áo của bạn + tạo AI ---------- */
@@ -501,6 +500,7 @@ const COLORS = [
   ["red", "#b3261e"], ["sand", "#d8c3a5"], ["forest", "#2f5d3a"], ["pink", "#e8a0b8"],
 ];
 let mockupBgSrc = null, mockupsLoaded = false;
+let mockupCatalog = [];
 
 function buildSwatches() {
   const row = $("colorRow"); row.innerHTML = "";
@@ -525,16 +525,21 @@ if ($("mkEditBtn")) $("mkEditBtn").onclick = () => {
   $("mkEditBtn").textContent = on ? "✅ Xong" : "✏️ Chỉnh sửa mockup";
   $("mkEditBtn").classList.toggle("on", on);
 };
+function mthumb(url) { return url && url.startsWith("/mockups/") && !url.startsWith("/mockups/t/") ? url.replace("/mockups/", "/mockups/t/") : url; }
 async function loadMockups(selectFirst) {
   try {
     const r = await fetch("/api/mockups"); const data = await r.json();
-    const items = data.items || [];
+    if (!r.ok) throw new Error(data.error || "Không tải được mockup");
+    mockupCatalog = (data.items || []).filter(it => !it.worn);
+    const kind = $("mockupKind") ? $("mockupKind").value : "";
+    const items = mockupCatalog.filter(it => !kind || it.kind === kind);
     const front = $("mkThumbs"), back = $("mkThumbsBack");
     front.innerHTML = ""; back.innerHTML = "";
     items.forEach(it => {
       const d = document.createElement("div");
       d.className = "mk-thumb"; d.dataset.url = it.url; d.title = it.name;
-      d.innerHTML = `<img src="${it.url}" alt=""><button class="mkdel" title="xoá">×</button>`;
+      d.setAttribute("aria-label", it.name);
+      d.innerHTML = `<img src="${mthumb(it.url)}" loading="lazy" decoding="async" alt=""><button class="mkdel" title="xoá">×</button>`;
       d.querySelector("img").onclick = () => selectMockupForSide(it.url, it.side);
       d.querySelector(".mkdel").onclick = async (e) => {
         e.stopPropagation();
@@ -543,16 +548,31 @@ async function loadMockups(selectFirst) {
       };
       (it.side === "back" ? back : front).appendChild(d);
     });
-    $("mkHint").textContent = front.children.length ? "Bấm vào áo để chọn. (✏️ Chỉnh sửa để thêm/xoá)" : "Chưa có — bấm ✏️ Chỉnh sửa rồi ➕ Tải mặt trước.";
-    $("mkHintBack").textContent = back.children.length ? "Bấm vào áo để chọn. (✏️ Chỉnh sửa để thêm/xoá)" : "Chưa có — bấm ✏️ Chỉnh sửa rồi ➕ Tải mặt sau.";
+    $("mkHint").textContent = front.children.length ? front.children.length + " phôi mặt trước · Bấm vào áo để chọn." : "Chưa có — bấm ✏️ Chỉnh sửa rồi ➕ Tải mặt trước.";
+    $("mkHintBack").textContent = back.children.length ? back.children.length + " phôi mặt sau · Bấm vào áo để chọn." : "Chưa có phôi flatlay mặt sau cho loại áo này. Bấm ✏️ Chỉnh sửa → ➕ Tải mặt sau để bổ sung.";
     mockupsLoaded = true;
-    if (selectFirst && items.length && !mockupBgSrc) {
+    if (items.length && (!mockupBgSrc || !items.some(it => it.url === mockupBgSrc))) {
       const f = items.find(i => i.side !== "back") || items[0];
-      setMockupBg(f.url);
+      selectMockupForSide(f.url, f.side);
+      for (const side of ["front", "back"]) {
+        if (!items.some(it => it.url === sides[side].bg)) sides[side].bg = "";
+      }
     }
     return items;
-  } catch (e) { return []; }
+  } catch (e) { $("mkHint").textContent = "Không tải được thư viện áo: " + e.message; return []; }
 }
+if ($("mockupKind")) $("mockupKind").onchange = () => loadMockups();
+document.querySelectorAll(".mockup-kind").forEach(btn => {
+  btn.onclick = async () => {
+    $("mockupKind").value = btn.dataset.kind;
+    document.querySelectorAll(".mockup-kind").forEach(other => {
+      const active = other === btn;
+      other.classList.toggle("active", active); other.setAttribute("aria-pressed", String(active));
+    });
+    $("mockupPairPreview").classList.add("hidden");
+    await loadMockups(true);
+  };
+});
 
 async function selectColor(key) {
   document.querySelectorAll(".swatch").forEach(s => s.classList.toggle("active", s.dataset.color === key));
@@ -601,6 +621,7 @@ $("mockupFileBack").onchange = async (e) => { await uploadMockups([...e.target.f
 const layer = $("designLayer"), stage = $("mockupStage");
 let state = { xPct: 50, yPct: 42, wPct: 38, rot: 0 };
 function applyState() {
+  $("mockupPairPreview").classList.add("hidden");
   layer.style.left = state.xPct + "%"; layer.style.top = state.yPct + "%";
   layer.style.width = state.wPct + "%";
   layer.style.transform = `translate(-50%,-50%) rotate(${state.rot}deg)`;
@@ -687,18 +708,14 @@ handle.addEventListener("pointermove", (e) => {
 });
 handle.addEventListener("pointerup", () => { rs = null; });
 /* tải design lên thẳng trong tab mockup */
-$("designUpload").onchange = (e) => {
-  const f = e.target.files[0]; if (!f) return;
-  fileToDataURL(f).then(src => {
-    $("designOnShirt").src = src;
-    layer.classList.add("active");
-    $("mockupEmpty").classList.add("hidden");
-    state = { xPct: 50, yPct: 42, wPct: 38, rot: 0 };
-    applyState();
-    kbSetTarget(layer, () => state, applyState);   // phím mũi tên dùng được ngay
-  });
-  e.target.value = "";
+$("designUpload").onchange = async (e) => {
+  const files = [...e.target.files]; e.target.value = "";
+  await mkUploadComponents(files);
 };
+stage.addEventListener("dragover", e => { e.preventDefault(); });
+stage.addEventListener("drop", async e => {
+  e.preventDefault(); await mkUploadComponents([...e.dataTransfer.files]);
+});
 
 $("scaleSlider").oninput = (e) => { state.wPct = +e.target.value; applyState(); };
 $("rotateSlider").oninput = (e) => { state.rot = +e.target.value; applyState(); };
@@ -706,29 +723,83 @@ $("resetMockup").onclick = () => { state = { xPct: 50, yPct: 42, wPct: 38, rot: 
 
 /* ---------- mockup: mặt trước / mặt sau ---------- */
 const sides = {
-  front: { bg: "", design: "", active: false, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
-  back: { bg: "", design: "", active: false, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
+  front: { bg: "", design: "", active: false, layers: [], selected: -1, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
+  back: { bg: "", design: "", active: false, layers: [], selected: -1, state: { xPct: 50, yPct: 42, wPct: 38, rot: 0 } },
 };
 let currentSide = "front";
 
+function mkStoreCurrent() {
+  const s = sides[currentSide], part = s.layers[s.selected];
+  if (part) part.state = {...state};
+}
+function mkSelectPart(index) {
+  mkStoreCurrent(); sides[currentSide].selected = index; restoreSide();
+  if (index >= 0) kbSetTarget(layer, () => state, applyState);
+}
+async function mkAddSources(sources, side = currentSide) {
+  try {
+    const parts = await Promise.all(sources.map(async source => {
+      await loadImg(source.src);
+      return {src: source.src, name: source.name, state: {xPct:50,yPct:42,wPct:38,rot:0}};
+    }));
+    mkStoreCurrent();
+    const s = sides[side]; s.layers.push(...parts); s.selected = s.layers.length - 1;
+    if (side === currentSide) restoreSide();
+    $("mockupPairPreview").classList.add("hidden");
+  } catch (e) { alert("Không tải được ảnh design. Hãy kiểm tra định dạng ảnh rồi thử lại."); }
+}
+async function mkUploadComponents(files) {
+  const side = currentSide;
+  const valid = files.filter(f => f.type.startsWith("image/"));
+  if (!valid.length) return;
+  try {
+    const sources = await Promise.all(valid.map(async f => ({src: await fileToDataURL(f), name:f.name})));
+    await mkAddSources(sources, side);
+  } catch (e) { alert("Không đọc được file design: " + e.message); }
+}
+function mkRenderComponents() {
+  stage.querySelectorAll(".mk-passive-layer").forEach(el => el.remove());
+  const s = sides[currentSide], list = $("mockupComponents"); list.innerHTML = "";
+  s.layers.forEach((part, i) => {
+    if (i !== s.selected) {
+      const el = document.createElement("div"); el.className = "design-layer active mk-passive-layer";
+      const im = document.createElement("img"); im.src = part.src; im.alt = part.name; el.appendChild(im);
+      Object.assign(el.style, {left:part.state.xPct+"%",top:part.state.yPct+"%",width:part.state.wPct+"%",transform:`translate(-50%,-50%) rotate(${part.state.rot}deg)`,zIndex:String(i+1)});
+      stage.appendChild(el);
+    }
+    const row = document.createElement("div"); row.className = "mk-component-row";
+    const select = document.createElement("button"); select.type="button"; select.textContent = (i+1)+". "+part.name;
+    select.className = i === s.selected ? "active" : ""; select.setAttribute("aria-pressed", String(i === s.selected));
+    select.onclick = () => mkSelectPart(i);
+    const remove = document.createElement("button"); remove.type="button"; remove.textContent="✕"; remove.title="Xoá " + part.name;
+    remove.onclick=()=>{mkStoreCurrent();s.layers.splice(i,1);s.selected=Math.min(s.selected,s.layers.length-1);restoreSide();$("mockupPairPreview").classList.add("hidden");};
+    const up = document.createElement("button"); up.type="button";up.textContent="↑";up.title="Đưa lớp xuống dưới";up.disabled=i===0;
+    up.onclick=()=>{mkStoreCurrent();[s.layers[i-1],s.layers[i]]=[s.layers[i],s.layers[i-1]];s.selected=i-1;restoreSide();$("mockupPairPreview").classList.add("hidden");};
+    const down = document.createElement("button");down.type="button";down.textContent="↓";down.title="Đưa lớp lên trên";down.disabled=i===s.layers.length-1;
+    down.onclick=()=>{mkStoreCurrent();[s.layers[i+1],s.layers[i]]=[s.layers[i],s.layers[i+1]];s.selected=i+1;restoreSide();$("mockupPairPreview").classList.add("hidden");};
+    row.append(select,up,down,remove);list.appendChild(row);
+  });
+  $("mockupComponentHint").textContent = s.layers.length ? s.layers.length + " thành phần · Chọn một phần trong danh sách để kéo, đổi cỡ hoặc xoay. Lớp cuối nằm trên cùng." : "Tải nhiều file hoặc kéo thả vào áo. Mỗi mặt giữ các thành phần riêng.";
+}
 function snapshotSide() {
+  mkStoreCurrent();
   const s = sides[currentSide];
   s.bg = $("mockupBg").getAttribute("src") || "";
-  s.design = $("designOnShirt").getAttribute("src") || "";
-  s.active = layer.classList.contains("active");
-  s.state = { ...state };
+  const part = s.layers[s.selected];
+  s.design = part ? part.src : ""; s.active = !!part; s.state = {...state};
 }
 function restoreSide() {
   const s = sides[currentSide];
   if (s.bg) { $("mockupBg").src = s.bg; $("mockupBg").style.display = ""; mockupBgSrc = s.bg; }
   else { $("mockupBg").removeAttribute("src"); $("mockupBg").style.display = "none"; mockupBgSrc = null; }
-  if (s.design) $("designOnShirt").src = s.design;
+  const part = s.layers[s.selected];
+  if (part) $("designOnShirt").src = part.src;
   else $("designOnShirt").removeAttribute("src");
-  const hasDesign = s.active && !!s.design;
-  layer.classList.toggle("active", hasDesign);
-  $("mockupEmpty").classList.toggle("hidden", hasDesign);
-  state = { ...s.state };
-  applyState();
+  layer.classList.toggle("active", !!part);
+  layer.style.zIndex = String(s.selected + 1);
+  $("mockupEmpty").classList.toggle("hidden", s.layers.length > 0);
+  state = part ? {...part.state} : {xPct:50,yPct:42,wPct:38,rot:0};
+  applyState(); mkRenderComponents();
   document.querySelectorAll(".mk-thumb").forEach(t => t.classList.toggle("active", t.dataset.url === mockupBgSrc));
 }
 document.querySelectorAll(".side-btn").forEach(b => b.onclick = () => {
@@ -742,6 +813,7 @@ document.querySelectorAll(".side-btn").forEach(b => b.onclick = () => {
 
 /* chọn 1 áo từ thư viện: tự chuyển sang đúng mặt (trước/sau) rồi đặt làm nền */
 function selectMockupForSide(url, side) {
+  const previousSide = currentSide;
   side = side || "front";
   if (side !== currentSide) {
     snapshotSide();
@@ -750,31 +822,57 @@ function selectMockupForSide(url, side) {
     restoreSide();
   }
   setMockupBg(url);
+  sides[side].bg = url;
+  const selected = mockupCatalog.find(it => it.url === url);
+  const otherSide = side === "front" ? "back" : "front";
+  const match = selected && mockupCatalog.find(it => it.pair === selected.pair && it.side === otherSide);
+  // Update only the paired garment; retain the other side's artwork and placement.
+  if (match) sides[otherSide].bg = match.url;
+  else if (previousSide === side) sides[otherSide].bg = "";
 }
 
 /* ---------- xuất ảnh demo ---------- */
-$("exportMockup").onclick = async () => {
-  if (!$("designOnShirt").src || !layer.classList.contains("active")) {
-    alert("Chưa có design trong mockup. Bấm “Đưa vào mockup” trước nhé."); return;
-  }
-  const H = 3000, W = 2400;   // demo phân giải cao -> zoom không vỡ
+async function composeMockupSide(s) {
+  if (!s.bg) throw new Error("Chưa có phôi cho mặt áo này. Hãy chọn phôi trước khi xuất.");
+  const W = 2400, H = 3000;
   const canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-  const bg = new Image(), dzi = new Image();
-  bg.crossOrigin = "anonymous"; dzi.crossOrigin = "anonymous";
-  await new Promise(r => { bg.onload = r; bg.onerror = r; bg.src = $("mockupBg").src; });
-  await new Promise(r => { dzi.onload = r; dzi.onerror = r; dzi.src = $("designOnShirt").src; });
+  const bg = await loadImg(s.bg);
   ctx.fillStyle = "#f4f4f6"; ctx.fillRect(0, 0, W, H);
-  if (bg.width) { const s = Math.min(W / bg.width, H / bg.height); const bw = bg.width * s, bh = bg.height * s; ctx.drawImage(bg, (W - bw) / 2, (H - bh) / 2, bw, bh); }
-  const dw = (state.wPct / 100) * W;
-  const dh = dzi.height ? dw * (dzi.height / dzi.width) : dw;
-  ctx.save();
-  ctx.translate((state.xPct / 100) * W, (state.yPct / 100) * H);
-  ctx.rotate(state.rot * Math.PI / 180);
-  ctx.drawImage(dzi, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
-  const a = document.createElement("a"); a.download = "mockup-demo.png"; a.href = canvas.toDataURL("image/png"); a.click();
+  const scale = Math.min(W / bg.naturalWidth, H / bg.naturalHeight);
+  const bw = bg.naturalWidth * scale, bh = bg.naturalHeight * scale;
+  ctx.drawImage(bg, (W-bw)/2, (H-bh)/2, bw, bh);
+  const parts = s.layers || (s.active && s.design ? [{src:s.design,state:s.state}] : []);
+  for (const part of parts) {
+    const des = await loadImg(part.src);
+    const dw = part.state.wPct / 100 * W, dh = dw * des.naturalHeight / des.naturalWidth;
+    ctx.save(); ctx.translate(part.state.xPct / 100 * W, part.state.yPct / 100 * H);
+    ctx.rotate(part.state.rot * Math.PI / 180);
+    ctx.drawImage(des, -dw/2, -dh/2, dw, dh); ctx.restore();
+  }
+  return canvas;
+}
+$("exportMockup").onclick = async () => {
+  snapshotSide();
+  try {
+    const canvas = await composeMockupSide(sides[currentSide]);
+    const a = document.createElement("a"); a.download = "mockup-" + currentSide + ".png";
+    a.href = canvas.toDataURL("image/png"); a.click();
+  } catch (e) { alert(e.message); }
+};
+$("previewMockupPair").onclick = async () => {
+  snapshotSide();
+  const btn = $("previewMockupPair"); btn.disabled = true;
+  try {
+    if (!sides.front.bg || !sides.back.bg) throw new Error("Mẫu này chưa có đủ hai mặt. Hãy chọn thêm phôi ở hàng mặt trước / mặt sau.");
+    const front = await composeMockupSide(sides.front), back = await composeMockupSide(sides.back);
+    const canvas = document.createElement("canvas"); canvas.width = front.width * 2; canvas.height = front.height;
+    const ctx = canvas.getContext("2d"); ctx.drawImage(front, 0, 0); ctx.drawImage(back, front.width, 0);
+    const url = canvas.toDataURL("image/png");
+    $("mockupPairImage").src = url; $("downloadMockupPair").href = url;
+    $("mockupPairPreview").classList.remove("hidden");
+  } catch (e) { alert(e.message); }
+  finally { btn.disabled = false; }
 };
 
 /* ---------- gallery ---------- */
@@ -832,6 +930,8 @@ $("refreshGallery").onclick = loadGallery;
    APP TABS — chuyển giữa các tính năng độc lập (Clone / Auto / …)
    ===================================================================== */
 function showApp(app) {
+  document.getElementById("view-imagegen").classList.toggle("hidden", app !== "imagegen");
+  if (app === "imagegen") window.initImageStudio();
   document.getElementById("view-assistant").classList.toggle("hidden", app !== "assistant");
   document.getElementById("view-roundup").classList.toggle("hidden", app !== "roundup");
   if (app === "roundup" && window.initRoundup) window.initRoundup();
@@ -1344,6 +1444,7 @@ function recolorComposite(b64, preset, hex) {
 
 let _recolorRenderToken = 0;
 async function recolorRender(items) {
+  const token = ++_recolorRenderToken;
   if (items) { recolorItems = items; recolorSel.clear(); if ($("recolorSelAll")) $("recolorSelAll").checked = false; }
   const grid = $("recolorResults");
   if (!recolorItems.length) {
@@ -1357,18 +1458,21 @@ async function recolorRender(items) {
   $("recolorShirtAdjust").classList.toggle("hidden", recolorView !== "shirt");
   if (recolorView === "shirt") { await recolorLoadShirts(); recolorApplyStage(); }
   const preset = RECOLOR_BG.find(p => p.id === recolorBg) || RECOLOR_BG[0];
-  const token = ++_recolorRenderToken;
+  if (token !== _recolorRenderToken) return;
 
   // ghép tất cả trước (await), rồi dựng DOM 1 lần -> tránh race khi kéo nhanh
   const durls = [];
   for (let i = 0; i < recolorItems.length; i++) {
+    if (token !== _recolorRenderToken) return;
     const it = recolorItems[i];
     let durl;
     if (recolorView === "shirt" && recolorShirtMap[it.color]) {
       durl = await recolorOnShirt(it.image, recolorShirtMap[it.color], recolorState);
     }
     if (!durl) durl = await recolorComposite(it.image, preset, it.hex);
+    if (token !== _recolorRenderToken) return;
     durls.push(durl);
+    await new Promise(resolve => setTimeout(resolve, 0));
   }
   if (token !== _recolorRenderToken) return;   // có lần render mới hơn -> bỏ
   grid.innerHTML = "";
@@ -1430,10 +1534,16 @@ function recolorApplyStage() {
   layer.style.width = recolorState.wPct + "%";
   if ($("recolorDsize")) $("recolorDsize").value = Math.round(recolorState.wPct);
 }
+let recolorRenderTimer;
+function scheduleRecolorRender() {
+  ++_recolorRenderToken;
+  clearTimeout(recolorRenderTimer);
+  recolorRenderTimer = setTimeout(() => recolorRender(), 120);
+}
 $("recolorDsize").addEventListener("input", () => {
   recolorState.wPct = parseInt($("recolorDsize").value, 10);
   recolorApplyStage();
-  if (recolorView === "shirt") recolorRender();
+  if (recolorView === "shirt") scheduleRecolorRender();
 });
 /* Kéo-thả di chuyển + kéo góc resize (giống mockup) */
 (() => {
@@ -1442,7 +1552,7 @@ $("recolorDsize").addEventListener("input", () => {
   layer.addEventListener("pointerdown", (e) => {
     if (e.target.id === "recolorHandle") return;
     e.preventDefault();
-    kbSetTarget(layer, () => recolorState, () => { recolorApplyStage(); recolorRender(); });
+    kbSetTarget(layer, () => recolorState, () => { recolorApplyStage(); scheduleRecolorRender(); });
     drag = { r: stage.getBoundingClientRect(), sx: e.clientX, sy: e.clientY, x0: recolorState.xPct, y0: recolorState.yPct };
     layer.setPointerCapture(e.pointerId);
   });
@@ -1450,9 +1560,10 @@ $("recolorDsize").addEventListener("input", () => {
     if (!drag) return;
     recolorState.xPct = Math.max(0, Math.min(100, drag.x0 + (e.clientX - drag.sx) / drag.r.width * 100));
     recolorState.yPct = Math.max(0, Math.min(100, drag.y0 + (e.clientY - drag.sy) / drag.r.height * 100));
-    recolorApplyStage(); recolorRender();
+    recolorApplyStage();
   });
-  layer.addEventListener("pointerup", () => { drag = null; });
+  layer.addEventListener("pointerup", () => { if (drag) scheduleRecolorRender(); drag = null; });
+  layer.addEventListener("pointercancel", () => { if (drag) scheduleRecolorRender(); drag = null; });
   handle.addEventListener("pointerdown", (e) => {
     e.preventDefault(); e.stopPropagation();
     rs = { r: stage.getBoundingClientRect(), sx: e.clientX, w0: recolorState.wPct };
@@ -1461,9 +1572,10 @@ $("recolorDsize").addEventListener("input", () => {
   handle.addEventListener("pointermove", (e) => {
     if (!rs) return;
     recolorState.wPct = Math.max(8, Math.min(95, rs.w0 + (e.clientX - rs.sx) / rs.r.width * 100 * 2));
-    recolorApplyStage(); recolorRender();
+    recolorApplyStage();
   });
-  handle.addEventListener("pointerup", () => { rs = null; });
+  handle.addEventListener("pointerup", () => { if (rs) scheduleRecolorRender(); rs = null; });
+  handle.addEventListener("pointercancel", () => { if (rs) scheduleRecolorRender(); rs = null; });
 })();
 $("recolorSelAll").onchange = (e) => {
   recolorSel.clear();
@@ -1578,9 +1690,15 @@ document.querySelectorAll("#bgKindTabs .tab").forEach(t => t.onclick = () => {
   bgRender();
 });
 // đổi màu/hướng -> render lại
-["bgColor1", "bgGcolor1", "bgGcolor2", "bgGdir"].forEach(id => $(id).addEventListener("input", bgRender));
+let bgRenderTimer, bgRenderToken = 0;
+["bgColor1", "bgGcolor1", "bgGcolor2", "bgGdir"].forEach(id => $(id).addEventListener("input", () => {
+  ++bgRenderToken;
+  clearTimeout(bgRenderTimer);
+  bgRenderTimer = setTimeout(bgRender, 120);
+}));
 
 function bgRender() {
+  const token = ++bgRenderToken;
   if (!bgImg) {
     $("bgPreview").classList.add("hidden");
     $("bgEmpty").classList.remove("hidden");
@@ -1590,6 +1708,7 @@ function bgRender() {
   }
   const img = new Image();
   img.onload = () => {
+    if (token !== bgRenderToken) return;
     const w = img.naturalWidth, h = img.naturalHeight;
     const c = document.createElement("canvas"); c.width = w; c.height = h;
     const x = c.getContext("2d");
@@ -1693,7 +1812,9 @@ async function recolorLoadShirts() {
   if (recolorShirtMap) return recolorShirtMap;
   recolorShirtMap = {};
   try {
-    const data = await (await fetch("/api/mockups")).json();
+    const response = await fetch("/api/mockups");
+    if (!response.ok) throw new Error("Không tải được phôi áo");
+    const data = await response.json();
     const items = (data.items || []).filter(it => it.side !== "back");
     RECOLOR_LIST.forEach(c => {
       const want = ("áo " + c.vi).toLowerCase();
@@ -1730,15 +1851,22 @@ function recolorUpdateSelUI() {
 /* =====================================================================
    TÍNH NĂNG: LÊN ÁO (ghép design lên áo mockup, chỉnh cỡ/vị trí, tải hàng loạt)
    ===================================================================== */
-const _imgCache = {};            // url/dataURL -> Promise<Image>
+const _imgCache = new Map();            // url/dataURL -> Promise<Image>
 function loadImg(src) {
-  if (_imgCache[src]) return _imgCache[src];
-  _imgCache[src] = new Promise((res, rej) => {
+  if (_imgCache.has(src)) {
+    const hit = _imgCache.get(src);
+    _imgCache.delete(src); _imgCache.set(src, hit);
+    return hit;
+  }
+  const pending = new Promise((res, rej) => {
     const im = new Image(); im.crossOrigin = "anonymous";
-    im.onload = () => res(im); im.onerror = () => rej(new Error("img"));
+    im.onload = () => res(im);
+    im.onerror = () => { _imgCache.delete(src); rej(new Error("img")); };
     im.src = src;
   });
-  return _imgCache[src];
+  _imgCache.set(src, pending);
+  while (_imgCache.size > 24) _imgCache.delete(_imgCache.keys().next().value);
+  return pending;
 }
 
 let lenaoSlots = [];             // [{url,name,design,designImg,state:{xPct,yPct,wPct}}]
@@ -1749,17 +1877,17 @@ async function lenaoInit() {
   if (lenaoInited) return; lenaoInited = true;
   try {
     const data = await (await fetch("/api/mockups")).json();
-    lenaoBaseShirts = (data.items || []).filter(it => it.side !== "back" && /trang|trắng|white|_den|đen|black/i.test((it.file || "") + " " + (it.name || ""))).map(it => ({ url: it.url, name: it.name || "Áo" }));
+    lenaoBaseShirts = (data.items || []).map(it => ({ url: it.url, name: it.name || "Áo", side: it.side }));
     lenaoSlots = lenaoBaseShirts.map(s => ({
       url: s.url, name: s.name, design: null, designImg: null,
       state: { xPct: 50, yPct: 40, wPct: 42 },
     }));
-  } catch (e) { lenaoBaseShirts = []; lenaoSlots = []; }
+  } catch (e) { lenaoInited = false; lenaoBaseShirts = []; lenaoSlots = []; }
   lenaoBindPaste();
   lenaoRenderSlots();
 }
 
-// TẢI NHIỀU DESIGN: mỗi design tạo 1 bộ áo (trắng+đen) riêng, đã căn giữa
+// TẢI NHIỀU DESIGN: mỗi design tạo 1 bộ áo đủ màu, trước và sau riêng, đã căn giữa
 let _lenaoDesignSeq = 0;
 async function lenaoAddDesigns(durls) {
   if (!lenaoBaseShirts.length) { alert("Chưa có áo mockup."); return; }
@@ -1781,11 +1909,42 @@ function lenaoCenter(slot, keepSize) {
   const w = (keepSize && slot.state && slot.state.wPct) ? slot.state.wPct : 42;
   slot.state = { xPct: 50, yPct: 44, wPct: w };
 }
+// Keep the first-layer fields for existing selection and Shopify integration.
+function lenaoLayers(slot) {
+  if (!slot.layers) slot.layers = slot.design ? [{ design: slot.design, designImg: slot.designImg, state: {...slot.state}, name: "Design 1" }] : [];
+  return slot.layers;
+}
+function lenaoSync(slot) {
+  const first = lenaoLayers(slot)[0];
+  slot.design = first ? first.design : null;
+  slot.designImg = first ? first.designImg : null;
+}
+async function lenaoAddLayers(slot, sources) {
+  const ready = await Promise.all(sources.map(async (src) => ({
+    design: src.url, designImg: await loadImg(src.url), name: src.name || "Design",
+    state: { xPct: 50, yPct: 44, wPct: 42 },
+  })));
+  lenaoLayers(slot).push(...ready);
+  lenaoSync(slot);
+}
 async function lenaoSetSlotDesign(slot, durl) {
-  slot.design = durl;
-  try { slot.designImg = await loadImg(durl); } catch (e) { slot.designImg = null; }
-  lenaoCenter(slot, true);   // tự căn giữa khi vừa lên áo
+  await lenaoAddLayers(slot, [{url: durl}]);
   lenaoRenderSlots();
+}
+async function lenaoReadFiles(files) {
+  return Promise.all([...files].filter(f => f.type.startsWith("image/")).map(async f => ({url: await fileToDataURL(f), name: f.name})));
+}
+async function lenaoUploadLayers(files, slot = null) {
+  try {
+    const sources = await lenaoReadFiles(files);
+    if (!sources.length) return;
+    if (!lenaoInited) await lenaoInit();
+    const targets = slot ? [slot] : lenaoSlots;
+    if (!targets.length) throw new Error("Chưa tải được phôi áo. Hãy mở lại tab Lên áo.");
+    for (const target of targets) await lenaoAddLayers(target, sources);
+    lenaoRenderSlots();
+    $("lenaoNote").textContent = "✓ Đã thêm " + sources.length + " thành phần vào " + targets.length + " áo. Chọn từng thành phần để chỉnh riêng.";
+  } catch (e) { $("lenaoNote").textContent = "Không tải được design: " + e.message; }
 }
 
 // ===== Dán ảnh (copy/paste) vào từng áo =====
@@ -1919,24 +2078,49 @@ function lenaoRenderSlots() {
     card.innerHTML =
       '<div class="lhead"><input type="checkbox" class="gpick"' + (has && allChecked ? " checked" : "") + (has ? "" : " disabled") + '>' + slot.name + '</div>' +
       '<div class="le-stage">' +
-        '<img class="le-shirt active" src="' + slot.url + '" alt="">' +
+        '<img class="le-shirt active" src="' + mthumb(slot.url) + '" loading="lazy" decoding="async" alt="">' +
         '<div class="le-layer' + (has ? " active" : "") + '"><img alt=""><span class="le-handle"></span></div>' +
         '<div class="le-empty"' + (has ? ' style="display:none"' : "") + '>📁 Tải design cho áo này</div>' +
       '</div>' +
-      '<div class="lacts"><label>📁 ' + (has ? "Đổi" : "Design") + '<input type="file" accept="image/*" hidden></label>' +
+      '<div class="lacts"><label>📁 ' + (has ? "Thêm" : "Design") + '<input type="file" accept="image/*" hidden></label>' +
         '<button class="b-paste">📋 Dán ảnh</button>' +
         (has ? '<button class="b-center">🎯 Căn giữa</button>' : "") +
         (has ? '<button class="b-del">🗑️ Xoá</button>' : "") +
         '<button class="b-dl">⬇ Tải</button></div>';
     const stage = card.querySelector(".le-stage");
-    const layer = card.querySelector(".le-layer");
-    const layerImg = layer.querySelector("img");
-    const handle = card.querySelector(".le-handle");
-    if (has) { layerImg.src = slot.design; lenaoApplyLayer(layer, slot.state); }
-    lenaoAttachEditor(stage, layer, handle, slot);
-    // tải design riêng cho áo này (qua nút hoặc bấm vùng trống)
+    const shirtImage = stage.querySelector(".le-shirt");
+    const fitStage = () => { if (shirtImage.naturalWidth) stage.style.aspectRatio = shirtImage.naturalWidth + " / " + shirtImage.naturalHeight; };
+    shirtImage.onload = fitStage; fitStage();
+    card.querySelector(".le-layer").remove();
+    const parts = document.createElement("div");
+    parts.className = "lenao-parts";
+    card.appendChild(parts);
+    lenaoLayers(slot).forEach((part, partIndex) => {
+      const layer = document.createElement("div");
+      layer.className = "le-layer active";
+      const img = document.createElement("img"); img.src = part.design; img.alt = part.name;
+      const handle = document.createElement("span"); handle.className = "le-handle";
+      layer.append(img, handle); stage.appendChild(layer);
+      lenaoApplyLayer(layer, part.state);
+      lenaoAttachEditor(stage, layer, handle, part);
+      const row = document.createElement("div");
+      const select = document.createElement("button");
+      select.textContent = (partIndex + 1) + ". " + part.name;
+      select.onclick = () => {
+        stage.querySelectorAll(".le-layer").forEach(el => el.classList.remove("part-selected"));
+        layer.classList.add("part-selected");
+        kbSetTarget(layer, () => part.state, () => lenaoApplyLayer(layer, part.state));
+      };
+      layer.addEventListener("pointerdown", () => select.click());
+      const center = document.createElement("button"); center.textContent = "🎯"; center.title = "Căn giữa thành phần này";
+      center.onclick = () => { lenaoCenter(part, true); lenaoApplyLayer(layer, part.state); };
+      const remove = document.createElement("button"); remove.textContent = "✕"; remove.title = "Xoá thành phần này";
+      remove.onclick = () => { slot.layers.splice(partIndex, 1); lenaoSync(slot); lenaoRenderSlots(); };
+      row.append(select, center, remove); parts.appendChild(row);
+    });
     const fileInput = card.querySelector('.lacts input[type=file]');
-    fileInput.onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) { await lenaoSetSlotDesign(slot, await fileToDataURL(f)); } e.target.value = ""; };
+    fileInput.multiple = true;
+    fileInput.onchange = async (e) => { await lenaoUploadLayers(e.target.files, slot); e.target.value = ""; };
     card.querySelector(".le-empty").onclick = () => fileInput.click();
     // chọn áo này làm đích dán (Ctrl+V) khi bấm vào ô
     card.addEventListener("mousedown", () => lenaoSetPasteTarget(slot));
@@ -1952,12 +2136,12 @@ function lenaoRenderSlots() {
     card.querySelector(".gpick").onchange = lenaoUpdateSelUI;
     const centerBtn = card.querySelector(".b-center");
     if (centerBtn) centerBtn.onclick = () => {
-      lenaoCenter(slot, true);   // căn giữa, giữ nguyên cỡ
-      lenaoApplyLayer(layer, slot.state);
+      lenaoLayers(slot).forEach(part => lenaoCenter(part, true));
+      lenaoRenderSlots();
     };
     const delBtn = card.querySelector(".b-del");
     if (delBtn) delBtn.onclick = () => {
-      slot.design = null; slot.designImg = null;
+      slot.layers = []; slot.design = null; slot.designImg = null;
       slot.state = { xPct: 50, yPct: 40, wPct: 42 };
       lenaoRenderSlots();
     };
@@ -1974,27 +2158,26 @@ function lenaoRenderSlots() {
 // ghép design lên áo theo state -> dataURL (full độ phân giải áo)
 async function lenaoComposeSlot(slot) {
   const shirt = await loadImg(slot.url);
-  const des = slot.designImg || await loadImg(slot.design);
   const sw = shirt.naturalWidth, sh = shirt.naturalHeight;
   const c = document.createElement("canvas"); c.width = sw; c.height = sh;
   const x = c.getContext("2d");
   x.drawImage(shirt, 0, 0, sw, sh);
-  const dw = sw * (slot.state.wPct / 100);
-  const scale = dw / des.naturalWidth;
-  const dh = des.naturalHeight * scale;
-  const dx = sw * (slot.state.xPct / 100) - dw / 2;
-  const dy = sh * (slot.state.yPct / 100) - dh / 2;
-  x.drawImage(des, dx, dy, dw, dh);
+  for (const part of lenaoLayers(slot)) {
+    const des = part.designImg || await loadImg(part.design);
+    const dw = sw * part.state.wPct / 100;
+    const dh = des.naturalHeight * dw / des.naturalWidth;
+    x.drawImage(des, sw * part.state.xPct / 100 - dw / 2, sh * part.state.yPct / 100 - dh / 2, dw, dh);
+  }
   return c.toDataURL("image/png");
 }
 
 // design dùng chung -> áp cho tất cả áo
 async function lenaoApplyAll(durl) {
   const img = await loadImg(durl).catch(() => null);
-  lenaoSlots.forEach(s => { s.design = durl; s.designImg = img; lenaoCenter(s, true); });
+  lenaoSlots.forEach(s => { s.layers = [{design: durl, designImg: img, name: "Design", state: {xPct: 50, yPct: 44, wPct: 42}}]; lenaoSync(s); });
   lenaoRenderSlots();
 }
-$("lenaoAllFile").onchange = async (e) => { const f = e.target.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); e.target.value = ""; };
+$("lenaoAllFile").onchange = async (e) => { await lenaoUploadLayers(e.target.files); e.target.value = ""; };
 // tải NHIỀU design -> mỗi design 1 bộ áo
 async function _lenaoFilesToDesigns(files) {
   const durls = [];
@@ -2006,7 +2189,7 @@ if ($("lenaoMultiFile")) $("lenaoMultiFile").onchange = async (e) => { await _le
   const dz = $("lenaoAllDrop");
   dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
   dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
-  dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith("image/")) await lenaoApplyAll(await fileToDataURL(f)); });
+  dz.addEventListener("drop", async e => { e.preventDefault(); dz.classList.remove("drag"); await lenaoUploadLayers(e.dataTransfer.files); });
   const md = $("lenaoMultiDrop");
   if (md) {
     md.addEventListener("dragover", e => { e.preventDefault(); md.classList.add("drag"); });
@@ -2020,13 +2203,13 @@ $("lenaoUseCurrentAll").onclick = () => {
 };
 if ($("lenaoCenterAll")) $("lenaoCenterAll").onclick = () => {
   if (!lenaoSlots.some(s => s.design)) { alert("Chưa có áo nào có design."); return; }
-  lenaoSlots.forEach(s => { if (s.design) lenaoCenter(s, true); });   // căn giữa, giữ cỡ
+  lenaoSlots.forEach(s => lenaoLayers(s).forEach(part => lenaoCenter(part, true)));   // căn giữa, giữ cỡ
   lenaoRenderSlots();
 };
 $("lenaoClearAll").onclick = () => {
   if (!lenaoSlots.some(s => s.design)) return;
   if (!confirm("Xoá design khỏi tất cả áo?")) return;
-  lenaoSlots.forEach(s => { s.design = null; s.designImg = null; s.state = { xPct: 50, yPct: 40, wPct: 42 }; });
+  lenaoSlots.forEach(s => { s.layers = []; s.design = null; s.designImg = null; s.state = { xPct: 50, yPct: 40, wPct: 42 }; });
   lenaoRenderSlots();
 };
 $("lenaoSelAll").onchange = (e) => {
@@ -3015,21 +3198,31 @@ $("dsRate").onclick = async () => {
     btn.disabled = false; btn.textContent = old;
   }
 };
+let dsPolling = false;
 async function dsPollAll() {
+  if (dsPolling) return;
+  dsPolling = true;
+  try {
+  let changed = false;
   const active = dsJobs.filter(j => !j.finished);
   let errs = [];
   await Promise.all(active.map(async j => {
     try {
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      const response = await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + (j.have || 0));
+      if (!response.ok) throw new Error("Không đọc được tiến độ");
+      const d = await response.json();
+      if ((d.items || []).length || (!!d.finished !== !!j.finished) || d.total > (j.total || 0)) changed = true;
       // KHÔNG để total tụt về 0 khi job chưa đăng ký kịp -> tránh placeholder loading biến mất
       j.total = Math.max(j.total || 0, d.total || 0);
       j.done = Math.max(j.done || 0, d.done || 0);
       j.finished = !!d.finished;
       (d.items || []).forEach(it => { dsItems[dsItemKey(it)] = it; });
-      (d.errors || []).forEach(e => errs.push(e));
+      j.have = (j.have || 0) + (d.items || []).length;
+      j.errors = d.errors || j.errors || [];
+      j.errors.forEach(e => errs.push(e));
     } catch (e) { /* thử lại lần sau */ }
   }));
-  dsRender();
+  if (changed) dsRender();
   const total = dsJobs.reduce((a, j) => a + (j.total || 0), 0);
   const done = dsJobs.reduce((a, j) => a + (j.done || 0), 0);
   const running = dsJobs.filter(j => !j.finished).length;
@@ -3043,6 +3236,7 @@ async function dsPollAll() {
     $("dsNote").textContent = "✓ Xong tất cả! " + Object.keys(dsItems).length + " mẫu (đã lưu Lịch sử).";
     if (typeof loadGallery === "function") loadGallery();
   }
+  } finally { dsPolling = false; }
 }
 $("dsCount").addEventListener("change", dsUpdateTotal);
 $("dsRunBtn").onclick = async () => {
@@ -3117,6 +3311,7 @@ function ttConfirmDelete(count) {
   });
 }
 async function ttSaveFile(makeBlob, name, extension, button) {
+  if(window.saveToolFile){try{return await window.saveToolFile(await makeBlob(),name+'.'+extension);}catch(e){ttNotice(e.message,true);return;}}
   if(typeof window.showSaveFilePicker!=='function') {
     $('ttSaveHelp').style.display='block';
     $('ttManualLink').style.display='none';
@@ -3199,6 +3394,34 @@ async function ttDeleteImages(items) {
       const el = $(id); if (el) { el.className = "gen-note " + (failed ? "err" : "ok"); el.textContent = message; }
     }
     if (typeof loadGallery === "function") loadGallery();
+  }
+}
+async function ttRestoreSavedSet() {
+  try {
+    const response = await fetch('/tiktok-saved-set.json', {cache: 'no-store'});
+    if (!response.ok) return;
+    const saved = await response.json();
+    const galleryResponse = await fetch('/api/gallery');
+    if (!galleryResponse.ok) return;
+    const galleryData = await galleryResponse.json();
+    const gallery = Array.isArray(galleryData) ? galleryData : galleryData.items;
+    if (!Array.isArray(gallery) || !Array.isArray(saved.items)) return;
+    const live = new Set(gallery.map(item => item.id));
+    let added = 0;
+    for (const item of saved.items) {
+      if (!live.has(item.gallery?.id) || ttItems.some(existing => existing.gallery?.id === item.gallery.id)) continue;
+      const restored = {...item, _sel: true};
+      ttItems.push(restored);
+      await ttAutoBurn(restored);
+      added++;
+    }
+    if (added) {
+      ttMeta = saved.meta;
+      ttRender();
+      ttNotice('✓ Đã mở bộ quà tặng đã lưu: ' + added + ' ảnh, kèm text và caption.');
+    }
+  } catch (error) {
+    ttNotice('Chưa mở được bộ ảnh đã lưu: ' + error.message, true);
   }
 }
 function ttInit() {
@@ -3366,6 +3589,7 @@ function ttInit() {
     b.disabled = false; b.textContent = on ? "🅰️ Bỏ text tất cả" : "🅰️ Chèn text tất cả";
   };
   $("ttDlTexted").onclick = () => ttSaveSelected(true, $("ttDlTexted"));
+  ttRestoreSavedSet();
 }
 async function ttGenerate() {
   const note = $("ttNote"); note.className = "gen-note"; note.textContent = "";
@@ -3381,7 +3605,7 @@ async function ttGenerate() {
     window.ttKolSubmitted();
     ttJobs.push({ id: d.job_id, total: d.total, done: 0, finished: false });
     ttRender();
-    note.className = "gen-note ok"; note.textContent = "🧠 Claude đang lập bài theo đúng 4 món KOL đã chọn… rồi model đã chọn vẽ " + d.total + " slide.";
+    note.className = "gen-note ok"; note.textContent = "🧠 ChatGPT đang lập bài theo đúng 4 món đã chọn trong catalog… rồi model đã chọn vẽ " + d.total + " slide.";
     if (!ttPollTimer) ttPollTimer = setInterval(ttPollAll, 2500);
     ttPollAll();
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
@@ -3606,7 +3830,7 @@ function ttRender() {
 }
 
 /* =====================================================================
-   TAB 👕 BỘ ÁO THEO TỆP — áo bố cục -> gpt-image-2 tạo bộ couple/GĐ, tự nghĩ tên
+   TAB 👕 BỘ ÁO THEO TỆP — áo bố cục -> GPT Image 2.5 Sunburst tạo bộ couple/GĐ, tự nghĩ tên
    ===================================================================== */
 let ssInited = false, ssImg = null, ssBackImg = null, ssGroupKey = "couple", ssItems = [], ssJobs = [], ssPollTimer = null;
 function ssInit() {
@@ -3667,12 +3891,20 @@ async function ssGenerate() {
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = old;
 }
+let ssPolling = false;
 async function ssPollAll() {
+  if (ssPolling) return;
+  ssPolling = true;
+  try {
+  let changed = false;
   const active = ssJobs.filter(j => !j.finished);
   let errs = [];
   await Promise.all(active.map(async j => {
     try {
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      const response = await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + (j.have || 0));
+      if (!response.ok) throw new Error("Không đọc được tiến độ");
+      const d = await response.json();
+      if ((d.items || []).length || (!!d.finished !== !!j.finished) || d.total > (j.total || 0)) changed = true;
       j.total = Math.max(j.total || 0, d.total || 0);
       j.done = Math.max(j.done || 0, d.done || 0);
       j.finished = !!d.finished;
@@ -3680,10 +3912,12 @@ async function ssPollAll() {
         const key = (it.gallery && it.gallery.id) || it.title;
         if (!ssItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) ssItems.unshift(it);
       });
-      (d.errors || []).forEach(e => errs.push(e));
+      j.have = (j.have || 0) + (d.items || []).length;
+      j.errors = d.errors || j.errors || [];
+      j.errors.forEach(e => errs.push(e));
     } catch (e) {}
   }));
-  ssRender();
+  if (changed) ssRender();
   const total = ssJobs.reduce((a, j) => a + (j.total || 0), 0);
   const done = ssJobs.reduce((a, j) => a + (j.done || 0), 0);
   const running = ssJobs.filter(j => !j.finished).length;
@@ -3695,6 +3929,7 @@ async function ssPollAll() {
     if (!errs.length) { $("ssNote").className = "gen-note ok"; $("ssNote").textContent = "✓ Xong bộ áo! (đã lưu Lịch sử)"; }
     if (typeof loadGallery === "function") loadGallery();
   }
+  } finally { ssPolling = false; }
 }
 function ssRender() {
   const grid = $("ssResults");
@@ -3857,12 +4092,20 @@ async function psnGenerate() {
   } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
   btn.disabled = false; btn.textContent = old;
 }
+let psnPolling = false;
 async function psnPollAll() {
+  if (psnPolling) return;
+  psnPolling = true;
+  try {
+  let changed = false;
   const active = psnJobs.filter(j => !j.finished);
   let errs = [];
   await Promise.all(active.map(async j => {
     try {
-      const d = await (await fetch("/api/batch-status?id=" + encodeURIComponent(j.id))).json();
+      const response = await fetch("/api/batch-status?id=" + encodeURIComponent(j.id) + "&have=" + (j.have || 0));
+      if (!response.ok) throw new Error("Không đọc được tiến độ");
+      const d = await response.json();
+      if ((d.items || []).length || (!!d.finished !== !!j.finished) || d.total > (j.total || 0)) changed = true;
       j.total = Math.max(j.total || 0, d.total || 0);
       j.done = Math.max(j.done || 0, d.done || 0);
       j.finished = !!d.finished;
@@ -3871,10 +4114,12 @@ async function psnPollAll() {
         const key = (it.gallery && it.gallery.id) || it.title;
         if (!psnItems.some(x => ((x.gallery && x.gallery.id) || x.title) === key)) psnItems.unshift(it);
       });
-      (d.errors || []).forEach(e => errs.push(e));
+      j.have = (j.have || 0) + (d.items || []).length;
+      j.errors = d.errors || j.errors || [];
+      j.errors.forEach(e => errs.push(e));
     } catch (e) {}
   }));
-  psnRender();
+  if (changed) psnRender();
   const total = psnJobs.reduce((a, j) => a + (j.total || 0), 0);
   const done = psnJobs.reduce((a, j) => a + (j.done || 0), 0);
   const running = psnJobs.filter(j => !j.finished).length;
@@ -3886,6 +4131,7 @@ async function psnPollAll() {
     if (!errs.length) { $("psnNote").className = "gen-note ok"; $("psnNote").textContent = "✓ Xong! " + psnItems.length + " mẫu (đã lưu Lịch sử)."; }
     if (typeof loadGallery === "function") loadGallery();
   }
+  } finally { psnPolling = false; }
 }
 function psnRender() {
   const grid = $("psnResults");
@@ -7832,7 +8078,10 @@ async function adpostOnCampaignChange() {
 }
 const ADPOST_ST = { draft: ["⚪ Nháp", ""], pushing: ["⏳ Đang đẩy", ""], pushed: ["✓ Đã đẩy", "ok"], error: ["✗ Lỗi", "err"] };
 let adpostProds = null;   // cache danh sách SP Shopify (để gán cho từng bài)
+let adpostLoading = false, adpostSignature = null;
 async function adpostLoad() {
+  if (adpostLoading) return;
+  adpostLoading = true;
   try {
     if (!adpostProds) { try { adpostProds = (await (await fetch("/api/shopify-products")).json()).products || []; } catch (e) { adpostProds = []; } }
     // gợi ý link mặc định (bạn sửa lại link đúng nếu muốn) — KHÔNG tự gắn, chỉ điền sẵn ô
@@ -7842,7 +8091,11 @@ async function adpostLoad() {
     const d = await (await fetch("/api/adpost-list")).json();
     const items = d.items || [];
     $("adpostEmpty").classList.toggle("hidden", items.length > 0);
-    adpostRender(items);
+    const signature = JSON.stringify(items);
+    if (signature !== adpostSignature) {
+      adpostRender(items);
+      adpostSignature = signature;
+    }
     const p = d.pushing || {};
     const note = $("adpostNote");
     if (p.running) {
@@ -7852,7 +8105,7 @@ async function adpostLoad() {
       if (adpostPollTimer) { clearInterval(adpostPollTimer); adpostPollTimer = null; }
       if ((p.log || []).length && p.total) { note.className = "gen-note ok"; note.innerHTML = "✓ Xong đợt đẩy " + p.total + " bài.<br>" + p.log.map(l => '<span class="hint">' + l.slice(0, 80) + '</span>').join("<br>"); }
     }
-  } catch (e) {}
+  } catch (e) {} finally { adpostLoading = false; }
 }
 // ===== Upload ảnh/video ngoài -> gắn SP -> tự gen bài -> thêm vào bảng =====
 let adpostUpMedia = null, adpostUpType = null, adpostUpProduct = null;
@@ -8213,12 +8466,19 @@ async function pgpostCheckIg() {
   } catch (e) {}
 }
 const PGPOST_ST = { draft: ["⚪ Nháp", ""], posting: ["⏳ Đang đăng", ""], posted: ["✓ Đã đăng", "ok"], error: ["✗ Lỗi", "err"] };
+let pgpostLoading = false, pgpostSignature = null;
 async function pgpostLoad() {
+  if (pgpostLoading) return;
+  pgpostLoading = true;
   try {
     const d = await (await fetch("/api/pgpost-list")).json();
     const items = d.items || [];
     $("pgpostEmpty").classList.toggle("hidden", items.length > 0);
-    pgpostRender(items);
+    const signature = JSON.stringify(items);
+    if (signature !== pgpostSignature) {
+      pgpostRender(items);
+      pgpostSignature = signature;
+    }
     const p = d.pushing || {}, note = $("pgpostNote");
     if (p.running) {
       note.className = "gen-note"; note.innerHTML = "⏳ Đang đăng <b>" + p.done + "/" + p.total + "</b>" + (p.next_in ? " · bài kế trong <b>" + p.next_in + "s</b>" : "") + "…";
@@ -8227,7 +8487,7 @@ async function pgpostLoad() {
       if (pgpostPollTimer) { clearInterval(pgpostPollTimer); pgpostPollTimer = null; }
       if ((p.log || []).length && p.total) { note.className = "gen-note ok"; note.innerHTML = "✓ Xong đợt đăng " + p.total + " bài.<br>" + p.log.map(l => '<span class="hint">' + l.slice(0, 70) + '</span>').join("<br>"); }
     }
-  } catch (e) {}
+  } catch (e) {} finally { pgpostLoading = false; }
 }
 // ==== PREVIEW BÀI ĐĂNG NHƯ THẬT: mô phỏng cách FB xếp album & IG crop carousel ====
 let _pgPv = {};    // {id: "fb"|"ig"} chế độ preview từng bài

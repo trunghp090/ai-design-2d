@@ -1,0 +1,1214 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-10T05:49:26.400076+00:00",
+  "channel": "https://www.tiktok.com/@lck.hn",
+  "coverage": {
+    "complete_channel": false,
+    "note": "Đã xem toàn bộ ảnh của các album có status complete; các bài còn lại chưa được xác nhận. Kênh có thể ẩn bài khi chưa đăng nhập.",
+    "inventory_exhausted": false,
+    "discovered_posts": 64
+  },
+  "rules": [
+    "Tham chiếu cách chụp, bố cục, biểu cảm và nước ảnh; luôn tạo gương mặt người lớn mới.",
+    "Ảnh áo người dùng là nguồn duy nhất cho artwork, tên, màu và mặt áo.",
+    "Không tự suy diễn thiết kế mặt sau.",
+    "Dùng bao bì RIENG đúng ảnh tham chiếu, không sao chép nhãn hoặc túi LCK.",
+    "Mô tả quan sát không chứng minh ảnh gốc chưa qua chỉnh sửa."
+  ],
+  "posts": [
+    {
+      "id": "7361827200619842832",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7361827200619842832",
+      "status": "complete",
+      "total_slides": 9,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/01.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Sofa taupe, tường đen nan dọc; khung bầu dục trên nền đen.",
+          "expression": "Ngồi sát nhau, nữ quay lưng, nam nghiêng mặt sát má; hai gương mặt chỉ lộ một phần.",
+          "camera_color": "Máy ngang tầm thân, khung vừa; nâu ấm, bóng tối sâu, ánh sáng mềm.",
+          "layout": "Bìa: chữ serif trắng lớn ở vùng trống phía trên.",
+          "prompt_direction": "Seated close together on a taupe sofa against dark ribbed wall; an intimate partly turned-away moment, warm low ambient light, medium framing. Adapt orientation to the supplied print side.",
+          "generation_eligible": false
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/02.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "setting": "Rèm nâu, bàn phía trước có đồ chơi gấu và bộ bát đĩa.",
+          "expression": "Nam nhìn xuống đồ vật trong tay; nữ nhắm mắt nhẹ, khóe môi nâng ít, cầm đũa ngang thái dương.",
+          "camera_color": "Chụp chính diện khung từ đùi lên, ánh ấm đều, hậu cảnh vẫn rõ.",
+          "layout": "Tên mẫu ở trên; dòng mô tả nhỏ hơn.",
+          "prompt_direction": "Stand side by side before a brown curtain; one person looks down handling a small object, the other has relaxed closed eyes and a slight smile. Both front prints remain clear; everyday medium phone photograph."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/03.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo đen xếp chéo, cổ áo lệch nhau trên thảm kem; thiệp nhỏ phía trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc từ trên hơi xiên; crop thân áo lớn, thấy sợi vải và đồ gắn nổi.",
+          "layout": "Chữ nhỏ ở vùng vải trống phía dưới.",
+          "prompt_direction": "Overhead oblique close view of two offset collars and front prints on a cream textured surface; diagonal overlap with all prints visible; warm muted light. For packaging layout widen framing rather than shrinking the real box."
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/04.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "setting": "Sảnh cửa hàng, quầy và màn hình tối phía sau.",
+          "expression": "Nữ nhìn sang bên, tay chạm tóc; nam nhìn xuống, một tay ôm eo. Miệng cả hai thả lỏng, không cười đồng bộ.",
+          "camera_color": "Khung gần toàn thân, ánh trong nhà trung tính hơi lạnh, tương phản vừa.",
+          "layout": "Tiêu đề trên dải tối ở vùng trên đầu.",
+          "prompt_direction": "Standing in a public interior, woman glances off-frame while touching her hair, man looks down with an arm loosely around her waist. Relaxed unsynchronized mouths, frontal three-quarter-length phone shot, muted neutral indoor light; keep shirt prints unobstructed."
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/05.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "setting": "Crop hai vùng chữ kim tuyến trên vải đen; thiệp ở góc trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc chéo cận vải, ánh tạo điểm lấp lánh nhỏ, không bokeh mạnh.",
+          "layout": "Chữ giải thích nhỏ trên vùng vải.",
+          "prompt_direction": "Oblique close detail showing real cotton weave and the actual supplied print finish; keep natural directional highlights and restrained sharpening, never turn an ordinary print into glitter."
+        },
+        {
+          "index": 6,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/06.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Sảnh có thang cuốn và hồ phun nước.",
+          "expression": "Hai người quay lưng nắm tay, nam ngoái đầu về nữ; nữ hướng về người nam.",
+          "camera_color": "Khung toàn thân, tông xám đen, bóng hơi tối, cảnh nền rõ.",
+          "layout": "Tiêu đề và mô tả ở phần trên.",
+          "prompt_direction": "Full-body couple from behind in a public architectural interior, holding hands loosely, one person glances sideways toward the other; muted grey ambient light. Use rear orientation only if rear artwork is explicitly supplied."
+        },
+        {
+          "index": 7,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/07.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "setting": "Hai khung ảnh xếp dọc tại hồ nước, một vòng tròn cận hình in.",
+          "expression": "Khung trên nam chu môi đùa, nữ ngẩng nhìn; khung dưới hai người đang nhìn nhau/chỉnh tóc.",
+          "camera_color": "Ảnh ghép giữ cùng cảnh và tông trung tính tối.",
+          "layout": "Chữ ở ranh giới hai khung, vòng tròn phóng to hình in.",
+          "prompt_direction": "Use a single candid frame inspired by a two-moment sequence: couple looking toward each other, one adjusting hair, relaxed hands. Do not force smiles or reproduce the inset/collage unless the requested layout asks for it.",
+          "generation_eligible": false
+        },
+        {
+          "index": 8,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/08.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Tường đá kem, cửa sắt đen ngoài phố.",
+          "expression": "Quay lưng, nắm tay thấp, đứng lệch vai; không thấy nét mặt.",
+          "camera_color": "Khung từ đầu đến đùi, ánh ngoài trời mềm, hơi giảm bão hòa.",
+          "layout": "Tiêu đề trên vùng tường cao.",
+          "prompt_direction": "Back-view medium couple photo beside a cream stone wall and dark gate, loosely holding hands, slightly offset shoulders. Soft subdued outdoor light; use only when supplied garment references show back prints."
+        },
+        {
+          "index": 9,
+          "reviewed": true,
+          "asset": "data/references/lck/7361827200619842832/09.jpg",
+          "scene": "detail",
+          "design_side": "back",
+          "setting": "Hai vùng hình in ảnh kỷ niệm xếp chéo trên sofa nâu.",
+          "expression": "Không có người.",
+          "camera_color": "Chụp gần góc xiên, hình in chiếm phần lớn khung.",
+          "layout": "Mô tả góc trái trên vùng trống.",
+          "prompt_direction": "Close oblique view of the two supplied garment prints arranged diagonally on taupe upholstery, visible fabric folds. Preserve uploaded artwork exactly; no additional photo montage or price claims."
+        }
+      ]
+    },
+    {
+      "id": "7584788369310321941",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7584788369310321941",
+      "status": "complete",
+      "total_slides": 11,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/01.jpg",
+          "scene": "behind_scenes",
+          "design_side": "mixed",
+          "setting": "Góc cao rộng: nhiều người đang xếp, chụp và đóng áo trong phòng sofa taupe, tường nan đen; hàng nằm cả trên sàn.",
+          "expression": "Nhìn xuống công việc, không tạo dáng nhìn máy.",
+          "camera_color": "Ánh phòng trung tính, khung hơi nghiêng, nhiều lớp tiền/hậu cảnh.",
+          "layout": "Bìa chữ giữa phần tường trống; đây là cảnh hậu trường, không nên giả làm quy mô vận hành thật.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Behind-the-scenes composition is recorded for study only; do not imply actual shop staff or sales volume.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/02.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai sweater sáng chồng chéo trên ghế dài, túi giấy đứng trái, hai thú bông ở cổ áo, thiệp cạnh thân.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên, thấy toàn thân áo và mép ghế; nâu xám, sáng vừa.",
+          "layout": "Tên mẫu đánh số ở trên.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a wide view leaving real space beside the garments for the supplied full-size RIENG pouch, tag and kraft box; no source-branded bag or cartoon props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/03.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Cận hình in lớn và nhỏ của hai áo; thiệp cạnh hình in, thú bông bị crop phía trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc xiên gần, bề mặt vải sáng mềm.",
+          "layout": "Chữ nhỏ chỉ vị trí tên cá nhân.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a close detail framing of the exact supplied print, with surrounding fabric texture; optional hand holds an edge without covering artwork.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/04.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai áo sáng lệch cổ, tay áo mở chéo hai bên; túi trái, thiệp phải.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên, áo chiếm phần lớn khung, sofa vẫn hiện làm nền.",
+          "layout": "Tên mẫu đánh số phía trên.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a wide view leaving real space beside the garments for the supplied full-size RIENG pouch, tag and kraft box; no source-branded bag or cartoon props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/05.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Cận hai hình in; một bàn tay giữ mép trái áo nữ.",
+          "expression": "Tay kéo nhẹ vải làm rõ hình.",
+          "camera_color": "Chụp gần theo đường chéo, còn nếp vải thật.",
+          "layout": "Ghi chú riêng áo nam và chi tiết áo nữ.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a close detail framing of the exact supplied print, with surrounding fabric texture; optional hand holds an edge without covering artwork.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 6,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/06.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Một áo gấp phía trước, một áo trải phía sau; túi và thú bông sát lưng ghế; điện thoại và tay ở góc trái.",
+          "expression": "Động tác đang chụp sản phẩm.",
+          "camera_color": "Góc cao xiên, một vệt sáng và bóng điện thoại ở mép dưới.",
+          "layout": "Tên mẫu đánh số ở trên; ảnh tổng mẫu trước ảnh cận.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a wide view leaving real space beside the garments for the supplied full-size RIENG pouch, tag and kraft box; no source-branded bag or cartoon props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 7,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/07.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Cận hình in vé ảnh; tay nâng nhẹ vai áo phía phải, thiệp bên trái.",
+          "expression": "Tay giữ vải tự nhiên.",
+          "camera_color": "Góc gần xiên, nhìn rõ print và sợi vải, nền không bị xóa mạnh.",
+          "layout": "Mô tả ngắn trên vùng nền.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a close detail framing of the exact supplied print, with surrounding fabric texture; optional hand holds an edge without covering artwork.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 8,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/08.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo gấp chữ nhật lệch nhau trên sofa; một thú bông bên trái.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao, khung ít vật, bóng nhẹ dưới áo gấp.",
+          "layout": "Tiêu đề nhỏ góc trên phải.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a wide view leaving real space beside the garments for the supplied full-size RIENG pouch, tag and kraft box; no source-branded bag or cartoon props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 9,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/09.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Một áo gấp bên trái, áo mở có hình lớn ở phải; túi, thiệp và thú bông ở hàng trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên đủ rộng thấy toàn áo mở.",
+          "layout": "Tên mẫu đánh số trên cùng.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a wide view leaving real space beside the garments for the supplied full-size RIENG pouch, tag and kraft box; no source-branded bag or cartoon props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 10,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/10.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "setting": "Hai áo gấp cạnh nhau, cận logo/ngày/tên trước ngực.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao gần, ánh mềm, sắc nâu và kem.",
+          "layout": "Chữ cong nhỏ chú thích tên từng người.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Use a close detail framing of the exact supplied print, with surrounding fabric texture; optional hand holds an edge without covering artwork.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 11,
+          "reviewed": true,
+          "asset": "data/references/lck/7584788369310321941/11.jpg",
+          "scene": "behind_scenes",
+          "design_side": "back",
+          "setting": "Một người ngồi thấp quay lưng, cầm điện thoại chụp các áo trải trên ghế; hàng phía sau.",
+          "expression": "Chú ý vào màn hình, không lộ mặt.",
+          "camera_color": "Góc cao từ sau vai, bố cục nhiều lớp.",
+          "layout": "CTA cuối album trên hộp trắng. Không tự tạo tuyên bố đơn hàng/quy mô thật.",
+          "prompt_direction": "Photograph two supplied garments on a taupe suede sofa, naturally offset at an oblique overhead angle; preserve visible fabric folds and muted neutral indoor light. Behind-the-scenes composition is recorded for study only; do not imply actual shop staff or sales volume.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        }
+      ]
+    },
+    {
+      "id": "7582892539338886407",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7582892539338886407",
+      "status": "complete",
+      "total_slides": 9,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/01.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Đi bộ nắm tay quay lưng ở khu vui chơi, nam ngoái nhìn nữ; cổ tay thấp, chân lệch nhịp.",
+          "expression": "Đi bộ nắm tay quay lưng ở khu vui chơi, nam ngoái nhìn nữ; cổ tay thấp, chân lệch nhịp.",
+          "camera_color": "Toàn thân từ sau, ánh trời dịu hơi hồng xám, nền rõ.",
+          "layout": "Bìa trên khoảng trời.",
+          "prompt_direction": "Rear full-body walking shot with loosely held hands and staggered steps; one partner glances sideways. Soft subdued outdoor light, readable surroundings; rear artwork must be supplied.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/02.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Đứng sát cửa kính có trang trí lễ, nam đặt tay lên đầu nữ, cả hai quay lưng; nữ cầm gói quà thấp.",
+          "expression": "Đứng sát cửa kính có trang trí lễ, nam đặt tay lên đầu nữ, cả hai quay lưng; nữ cầm gói quà thấp.",
+          "camera_color": "Khung đầu đến đùi, ánh tối ấm, áo sáng tách nền.",
+          "layout": "Tên mẫu lớn trên vùng tối cao.",
+          "prompt_direction": "Back-view couple near a decorated glass door, one hand resting gently on a partner’s head, shoulders relaxed; dim warm ambient light. Only show supplied back designs; avoid copying seasonal props unless requested.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/03.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Cận vé ảnh trên áo, tay giữ vai phải; trùng bố cục album 7584788369310321941 ảnh 7.",
+          "expression": "Không có mặt người.",
+          "camera_color": "Góc xiên gần, vải có nếp gợn.",
+          "layout": "Mô tả ngắn vùng nền.",
+          "prompt_direction": "Close diagonal garment-print view with one hand gently holding an edge; exact product artwork and natural fabric texture.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/04.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Áo ngực chữ nằm trước, áo hình lớn phía sau; hai thiệp ở dưới.",
+          "expression": "Không có mặt người.",
+          "camera_color": "Góc xiên, vùng nắng nhẹ tạo bóng tay ở góc.",
+          "layout": "Chú thích cạnh tên và ngày.",
+          "prompt_direction": "Offset garments on taupe upholstery, close view of the supplied name/date region, slight ambient shadow and fabric ripples.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/05.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "setting": "Cặp đôi cạnh cây trang trí trong phòng: nam nghiêng đầu sát nữ, tay ôm eo; nữ giơ V nhỏ, nhìn máy.",
+          "expression": "Cặp đôi cạnh cây trang trí trong phòng: nam nghiêng đầu sát nữ, tay ôm eo; nữ giơ V nhỏ, nhìn máy.",
+          "camera_color": "Khung đùi lên, ánh phòng vàng nhẹ, rèm và nội thất rõ.",
+          "layout": "Chữ nằm cao hơn đầu.",
+          "prompt_direction": "A casual indoor couple snapshot: man leans his head gently toward woman with a loose arm at her waist, woman makes a small peace sign away from the print. Modest different closed-mouth smiles, softly warm room light, three-quarter framing. Create new adult identities.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 6,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/06.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai áo trải chéo trên sofa, túi đứng trái và thiệp phải; tay áo nữ hướng xuống góc trái.",
+          "expression": "Không có mặt người.",
+          "camera_color": "Góc cao xiên, ánh mềm, nếp gấp vừa phải.",
+          "layout": "Chú thích trực tiếp cạnh hình in.",
+          "prompt_direction": "Two naturally overlapping garments on taupe sofa, offset collars and diagonal sleeves; high oblique camera, soft neutral warm light. Widen frame for full-size supplied RIENG packaging.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 7,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/07.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "setting": "Cặp đôi nắm tay nhìn nhau chu môi đùa ngoài phố, mắt khép nhẹ; áo trước ngực rõ.",
+          "expression": "Cặp đôi nắm tay nhìn nhau chu môi đùa ngoài phố, mắt khép nhẹ; áo trước ngực rõ.",
+          "camera_color": "Khung từ đùi, nắng thật khá mạnh, tóc có viền sáng, nền cây và tòa nhà rõ.",
+          "layout": "Tiêu đề vùng cao trên đầu.",
+          "prompt_direction": "A playful near-kiss moment outdoors, partners turned toward each other with gently pursed lips and loosely held hands; everyday daylight with modest hair highlights, visible street background. Keep front artwork clear; do not exaggerate lips or beautify faces.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 8,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/08.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "setting": "Cận áo hình lớn, điện thoại/tay mờ ở mép trái, túi và thiệp ở trên.",
+          "expression": "Không có mặt người.",
+          "camera_color": "Góc xiên cận, bóng người chụp trên vải.",
+          "layout": "Dòng chú thích ngắn trên khoảng trống.",
+          "prompt_direction": "Close handheld-looking view of exact shirt print on sofa, natural mild edge shadow and clear cotton texture; avoid source logos and unsolicited props.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 9,
+          "reviewed": true,
+          "asset": "data/references/lck/7582892539338886407/09.jpg",
+          "scene": "graphic",
+          "design_side": "mixed",
+          "setting": "Bốn áo trên móc được ghép lên nền mờ, hai mặt sau ở trên hai mặt trước ở dưới.",
+          "expression": "Không có mặt người.",
+          "camera_color": "Bố cục quảng cáo ghép, không phải ảnh candid.",
+          "layout": "CTA giữa khung, chữ viết tay góc trái.",
+          "prompt_direction": "Record as a graphic outro only, do not use as a realism reference.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        }
+      ]
+    },
+    {
+      "id": "7627391802282102024",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7627391802282102024",
+      "status": "complete",
+      "total_slides": 5,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7627391802282102024/01.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai áo đen trải chéo trên sofa, áo lưng ở trước áo ngực phía sau; túi trắng đứng góc trái và hai thiệp ở vai phải.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên thấy cả áo và mép ghế; tông trung tính hơi lạnh.",
+          "layout": "Câu hook trắng viền đen ở mép dưới.",
+          "prompt_direction": "Two supplied garments naturally offset on taupe sofa, oblique overhead camera, muted neutral light. Keep each supplied print visible, with natural fabric folds and a slightly diagonal composition."
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7627391802282102024/02.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo gấp lệch nhau, túi trắng bên trái, hộp trắng to nằm phía trên, thiệp góc phải.",
+          "expression": "Không có người.",
+          "camera_color": "Chụp cao khá gần, hộp có kích thước đủ chứa áo gấp; không thu nhỏ hộp để nhét vào khung.",
+          "layout": "Chú thích trên khoảng trống cạnh hộp.",
+          "prompt_direction": "Two supplied garments naturally offset on taupe sofa, oblique overhead camera, muted neutral light. Fold each garment so the supplied design remains visible; a full-sized shirt mailer beside them provides believable scale."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7627391802282102024/03.jpg",
+          "scene": "detail",
+          "design_side": "back",
+          "setting": "Cận hình trái tim và ngày in trên lưng, áo còn lại lộ một phần ở trên, thiệp góc phải.",
+          "expression": "Không có người.",
+          "camera_color": "Góc xiên gần, không làm phẳng toàn bộ nếp vải.",
+          "layout": "Chữ trắng viền đen phía trên trái.",
+          "prompt_direction": "Two supplied garments naturally offset on taupe sofa, oblique overhead camera, muted neutral light. Keep each supplied print visible, with natural fabric folds and a slightly diagonal composition."
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7627391802282102024/04.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "setting": "Cận hai logo ngực, cổ áo lệch nhau, thiệp có họa tiết tim bên phải.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên, nền vải đen chiếm gần toàn khung.",
+          "layout": "Câu ngắn giữa hai cổ áo.",
+          "prompt_direction": "Two supplied garments naturally offset on taupe sofa, oblique overhead camera, muted neutral light. Keep each supplied print visible, with natural fabric folds and a slightly diagonal composition."
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7627391802282102024/05.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo trước ngực trải chéo, túi đứng góc trái, thiệp góc vai phải, áo chiếm gần hết khung.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên, bóng nhẹ dưới túi, bề mặt sofa giữ rõ.",
+          "layout": "CTA ở vùng thân áo trống dưới cùng.",
+          "prompt_direction": "Two supplied garments naturally offset on taupe sofa, oblique overhead camera, muted neutral light. Keep each supplied print visible, with natural fabric folds and a slightly diagonal composition."
+        }
+      ]
+    },
+    {
+      "id": "7621076421221371156",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7621076421221371156",
+      "status": "complete",
+      "total_slides": 5,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7621076421221371156/01.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo đen gấp lệch, hộp trắng to bên phải, túi trắng phía sau trái; gấu nhỏ trên hộp và áo.",
+          "expression": "Không có người.",
+          "camera_color": "Khung cao xiên, hai áo và hộp tạo ba mảng lớn; ánh trung tính ấm nhẹ.",
+          "layout": "Hook phía dưới trên vải đen.",
+          "prompt_direction": "Two exact supplied garments on taupe upholstery in an offset diagonal arrangement; folded shirts beside a full-size mailer, overhead oblique view with realistic scale and contact shadows. Muted neutral warm indoor light; use only supplied RIENG packaging, no teddy props or source branding.",
+          "generation_eligible": true
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7621076421221371156/02.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Áo lưng có hình lớn phía trước, áo ngực phía sau, túi trái và thiệp trên vai phải.",
+          "expression": "Không có người.",
+          "camera_color": "Góc xiên cận, hình in lớn làm trọng tâm.",
+          "layout": "Mô tả nằm trên vùng vải trống.",
+          "prompt_direction": "Two exact supplied garments on taupe upholstery in an offset diagonal arrangement; naturally spread garments with unobstructed prints, high oblique handheld framing. Muted neutral warm indoor light; use only supplied RIENG packaging, no teddy props or source branding.",
+          "generation_eligible": true
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7621076421221371156/03.jpg",
+          "scene": "prop_detail",
+          "design_side": "mixed",
+          "setting": "Một tay cầm hai móc khóa gấu ở tiền cảnh, áo và thiệp phía sau.",
+          "expression": "Một tay giữ đồ vật.",
+          "camera_color": "Cận đồ vật; tay và gấu nét hơn nền áo.",
+          "layout": "Dòng ngắn phía trái; không dùng làm tham chiếu áo vì che nhiều design.",
+          "prompt_direction": "Two exact supplied garments on taupe upholstery in an offset diagonal arrangement; naturally spread garments with unobstructed prints, high oblique handheld framing. Muted neutral warm indoor light; use only supplied RIENG packaging, no teddy props or source branding.",
+          "generation_eligible": false
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7621076421221371156/04.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "setting": "Cận hai logo ngực, thiệp phải và gấu ở vai trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên, vải rõ, ánh sáng mềm.",
+          "layout": "Dòng mô tả chất liệu ở dưới; không chuyển thông số chất liệu sang sản phẩm RIENG.",
+          "prompt_direction": "Two exact supplied garments on taupe upholstery in an offset diagonal arrangement; naturally spread garments with unobstructed prints, high oblique handheld framing. Muted neutral warm indoor light; use only supplied RIENG packaging, no teddy props or source branding.",
+          "generation_eligible": true
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7621076421221371156/05.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai áo đen trải đủ thân, lưng áo ở trước, ngực áo ở sau; túi trái, gấu nhỏ trên vai áo.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên rộng thấy sofa và thảm; nếp nhăn vừa phải.",
+          "layout": "CTA ngắn phía dưới.",
+          "prompt_direction": "Two exact supplied garments on taupe upholstery in an offset diagonal arrangement; naturally spread garments with unobstructed prints, high oblique handheld framing. Muted neutral warm indoor light; use only supplied RIENG packaging, no teddy props or source branding.",
+          "generation_eligible": true
+        }
+      ]
+    },
+    {
+      "id": "7584713576384974100",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7584713576384974100",
+      "status": "complete",
+      "total_slides": 9,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/01.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Hai người quay lưng trước cửa kính trang trí, nam giơ tay sửa đồ phía trên, nữ đứng sát nghiêng đầu.",
+          "expression": "Không thấy nét mặt; vai và cánh tay có chuyển động.",
+          "camera_color": "Khung đùi lên, ánh tối ấm, áo sáng nổi trên nền kính.",
+          "layout": "Bìa hội thoại ngắn trong hộp trắng.",
+          "prompt_direction": "A back-view couple in a dim warm interior, one reaching up toward a small decoration, the other leaning gently closer. Natural changing shoulder lines, medium framing. Adapt orientation to supplied print side.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/02.jpg",
+          "scene": "flatlay",
+          "design_side": "mixed",
+          "setting": "Hai áo sáng trải lệch nhau trên sofa, tay áo cuộn lỏng; túi trái, thiệp và thú bông ở hàng trên.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao xiên rộng, thấy mép ghế; áo không được là phẳng tuyệt đối.",
+          "layout": "Tên mẫu viết tay lớn góc trên phải.",
+          "prompt_direction": "Two offset garments loosely spread on a taupe sofa, sleeves naturally bent and print areas clear; high oblique medium-wide framing with room for full-size RIENG packaging.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/03.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "setting": "Hai áo gấp so le trên sofa, thú bông cạnh trái.",
+          "expression": "Không có người.",
+          "camera_color": "Góc cao, bóng dưới áo gấp, tông kem nâu.",
+          "layout": "Chú thích riêng áo anh và áo em.",
+          "prompt_direction": "Two neatly but naturally folded supplied garments, staggered on taupe upholstery; expose the entire supplied design, muted soft indoor light. Do not fold over artwork.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/04.jpg",
+          "scene": "solo",
+          "design_side": "front",
+          "setting": "Nữ ngồi cạnh cây trang trí, hai tay đặt gần nhau ở đùi.",
+          "expression": "Nhìn máy, môi thả lỏng không cười, đầu hơi nghiêng. Da ảnh rất mịn và makeup mắt đậm; chỉ học tư thế và biểu cảm, không dùng độ mịn này làm chuẩn da thật.",
+          "camera_color": "Khung ngồi từ đùi lên, ánh mặt sáng hơn nền, đèn phía sau mờ.",
+          "layout": "Chữ đặt trên vùng tối cao bên phải.",
+          "prompt_direction": "One newly created adult woman seated with both hands resting loosely in her lap, head slightly tilted, calm direct glance and relaxed unsmiling lips. Medium portrait with a softly lit face against a darker warm interior. Preserve real skin texture instead of source beauty smoothing.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/05.jpg",
+          "scene": "detail",
+          "design_side": "mixed",
+          "setting": "Cận vé ảnh mặt sau, tay giữ vai phải; áo ngực tên nằm trước.",
+          "expression": "Một bàn tay giữ vải.",
+          "camera_color": "Góc cận xiên, vải có gợn và bóng tiếp xúc.",
+          "layout": "Chú thích mặt sau ở giữa vùng vải.",
+          "prompt_direction": "Close oblique view of exact supplied garment prints with a hand gently holding a fabric edge without covering artwork; real cotton texture.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 6,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/06.jpg",
+          "scene": "couple",
+          "design_side": "back",
+          "setting": "Nam đặt tay lên đầu nữ trước cửa kính, nữ giữ quà thấp.",
+          "expression": "Gương mặt bị che, nam nghiêng xuống nhẹ.",
+          "camera_color": "Áo sáng trên nền tối ấm, khung gần toàn thân.",
+          "layout": "Thông điệp ở góc trái phía trên.",
+          "prompt_direction": "Close couple photographed from behind by a dark glass doorway, one resting a hand gently on the other’s head; quiet body language and warm subdued light. Only show supplied artwork sides.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 7,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/07.jpg",
+          "scene": "material_detail",
+          "design_side": "inside",
+          "setting": "Tay lật mép áo để lộ lớp nỉ mặt trong.",
+          "expression": "Tay đỡ vải ở tiền cảnh.",
+          "camera_color": "Chụp rất gần, nền túi và áo mờ.",
+          "layout": "Chữ mô tả chất liệu; không suy ra sản phẩm RIENG có cùng cấu tạo.",
+          "prompt_direction": "Material-detail reference only; do not invent inner fleece or fabric specifications absent from product references.",
+          "generation_eligible": false
+        },
+        {
+          "index": 8,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/08.jpg",
+          "scene": "graphic",
+          "design_side": "mixed",
+          "setting": "Bốn áo ghép trên nền blur, trước/sau chia hai hàng.",
+          "expression": "Không có người.",
+          "camera_color": "Ảnh ghép quảng cáo, không là nguồn phong cách chụp đời thường.",
+          "layout": "Hook trong hộp trắng trên cùng.",
+          "prompt_direction": "Graphic layout only; not a photographic realism reference.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        },
+        {
+          "index": 9,
+          "reviewed": true,
+          "asset": "data/references/lck/7584713576384974100/09.jpg",
+          "scene": "couple",
+          "design_side": "mixed",
+          "setting": "Nam nhìn máy, nữ quay lưng; tay nam khoác lên vai, tay còn lại trong túi.",
+          "expression": "Nam môi hé rất nhẹ, ánh mắt thẳng, không cười; nữ không lộ mặt.",
+          "camera_color": "Khung từ đùi lên, ánh mặt khá trực diện như flash, nền tối với điểm đèn nhỏ.",
+          "layout": "CTA trong hộp trắng góc trên trái.",
+          "prompt_direction": "A medium couple snapshot with one person facing camera calmly and the other turned away, loose arm around shoulder, relaxed slightly parted lips and direct gaze. Modest direct phone-flash feeling against a dim warm background. Adapt turns so both exact supplied garment designs remain visible; new adult identities, no beauty smoothing.",
+          "generation_eligible": false,
+          "exclusion_reason": "mickey_minnie_reference",
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie."
+        }
+      ]
+    },
+    {
+      "id": "7578106700503305480",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7578106700503305480",
+      "status": "complete",
+      "total_slides": 6,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/01.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Gương vàng, cây thông và đồ trang trí đỏ; nữ phía trước, nam nghiêng má lại gần phía sau.",
+          "expression": "Nữ chu môi, mắt gần nhắm; nam cúi nhẹ, tay dưới cằm nữ.",
+          "camera_color": "Khung từ eo lên hơi nghiêng; ánh phòng vàng dịu.",
+          "layout": "Hộp chữ đỏ gạch phía trên trái.",
+          "prompt_direction": "Layered mirror framing, a brief puckered expression with almost closed eyes and an affectionate lean; warm imperfect ambient light.",
+          "generation_eligible": false,
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie.",
+          "exclusion_reason": "mickey_minnie_reference"
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/02.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Đứng cạnh nhau trong phòng vàng ấm, khăn kem phủ trước áo đen.",
+          "expression": "Nữ nhìn lên trái, miệng mở như đang nói; nam nhìn xuống và chỉnh khăn.",
+          "camera_color": "Máy ngang tầm mắt; mặt sáng trực diện kiểu flash, nền vàng tối hơn.",
+          "layout": "Hộp chữ đỏ trên trái.",
+          "prompt_direction": "Different attention directions: one person speaking mid-sentence, the other looking down at their hands; modest direct flash against amber interior.",
+          "generation_eligible": false,
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie.",
+          "exclusion_reason": "mickey_minnie_reference"
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/03.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Chụp gương có viền vàng, nam cầm máy phía sau, nữ chỉ vào tên thêu.",
+          "expression": "Nam nhìn màn hình máy; nữ hé môi nhìn gương.",
+          "camera_color": "Hai đầu lệch độ cao, ánh ấm, vật trang trí mờ ở mép dưới.",
+          "layout": "Nhãn đỏ nhỏ chỉ vị trí tên.",
+          "prompt_direction": "Uneven head heights and separate eye lines in a mirror photograph, one watching the camera screen and the other the mirror.",
+          "generation_eligible": false,
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie.",
+          "exclusion_reason": "mickey_minnie_reference"
+        },
+        {
+          "index": 4,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/04.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Đứng cạnh nhau, nam chỉnh khăn, không gian trang trí Noel.",
+          "expression": "Nữ nhìn sang trái, môi khép cười rất nhẹ lệch bên; nam nhìn xuống.",
+          "camera_color": "Khung ba phần tư, mặt sáng kiểu flash và nền vàng ấm.",
+          "layout": "Hộp chữ đỏ trên trái.",
+          "prompt_direction": "A small uneven closed-mouth half smile looking away; partner concentrating downward, medium three-quarter framing.",
+          "generation_eligible": false,
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie.",
+          "exclusion_reason": "mickey_minnie_reference"
+        },
+        {
+          "index": 5,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/05.jpg",
+          "scene": "couple",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Áo đen với khăn kem, nam vòng tay nhẹ qua vai nữ.",
+          "expression": "Nữ nhìn trước với môi khép trung tính; nam nháy một mắt, kéo khăn gần miệng.",
+          "camera_color": "Ánh trực diện sáng trên mặt, nền gấu và phòng ấm.",
+          "layout": "Hộp chữ đỏ trên trái.",
+          "prompt_direction": "One neutral face and one momentary wink, relaxed shoulders, modest direct flash. No synchronized smiles.",
+          "generation_eligible": false,
+          "eligibility_note": "Đã loại khỏi tham chiếu tạo ảnh theo yêu cầu: Mickey/Minnie trên áo, thú bông, phụ kiện hoặc thuộc bộ ảnh thiết kế Mickey/Minnie.",
+          "exclusion_reason": "mickey_minnie_reference"
+        },
+        {
+          "index": 6,
+          "reviewed": true,
+          "asset": "data/references/lck/7578106700503305480/06.jpg",
+          "scene": "graphic",
+          "design_side": "front",
+          "product_type": "scarf",
+          "setting": "Hai khăn tách nền cạnh ảnh giao diện tùy chỉnh trên nền phòng làm mờ.",
+          "expression": "Không có người.",
+          "camera_color": "Ảnh ghép quảng cáo, không phải cảnh chụp tự nhiên.",
+          "layout": "Hộp CTA đỏ trên phải.",
+          "prompt_direction": "Graphic product outro, not a natural portrait reference.",
+          "generation_eligible": false,
+          "eligibility_note": "Ảnh ghép, không dùng làm tham chiếu ảnh chụp."
+        }
+      ]
+    },
+    {
+      "id": "7566676595360943378",
+      "url": "https://www.tiktok.com/@lck.hn/photo/7566676595360943378",
+      "status": "complete",
+      "total_slides": 3,
+      "slides": [
+        {
+          "index": 1,
+          "reviewed": true,
+          "asset": "data/references/lck/7566676595360943378/01.jpg",
+          "scene": "flatlay",
+          "design_side": "front",
+          "product_type": "scarf",
+          "generation_eligible": false,
+          "eligibility_note": "Nghiên cứu cách chụp phụ kiện; không tự chọn thay tham chiếu áo.",
+          "setting": "Khăn kem thả tự nhiên trên sofa nâu, hộp nằm phía sau trái, túi dựng phải, thiệp nhỏ bên cạnh.",
+          "expression": "Không có người.",
+          "camera_color": "Góc từ trên chéo xuống; ánh mềm trung tính ấm, thấy vân sofa và nếp vải.",
+          "layout": "Hook chữ trắng viền đen phía trên trái.",
+          "prompt_direction": "Soft neutral-warm oblique overhead product photograph on textured brown sofa. Packaging has credible physical volume, large standing bag behind and shallow box beside product; small card close to textile."
+        },
+        {
+          "index": 2,
+          "reviewed": true,
+          "asset": "data/references/lck/7566676595360943378/02.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "product_type": "scarf",
+          "generation_eligible": false,
+          "eligibility_note": "Nghiên cứu cách chụp phụ kiện; không tự chọn thay tham chiếu áo.",
+          "setting": "Cận khăn quàng trên áo đen của người ngồi; cắt mặt phía trên miệng, bàn tay thả ở ghế.",
+          "expression": "Không đủ mặt để đánh giá; tư thế ngồi thả lỏng.",
+          "camera_color": "Góc gần ngang ngực, nền quán mờ; ánh mềm, màu kem giữ chi tiết.",
+          "layout": "Chữ trắng viền đen ở khoảng trống phải dưới.",
+          "prompt_direction": "Relaxed seated torso close-up, natural folds, restrained warm color, soft side light; not a face-expression reference."
+        },
+        {
+          "index": 3,
+          "reviewed": true,
+          "asset": "data/references/lck/7566676595360943378/03.jpg",
+          "scene": "detail",
+          "design_side": "front",
+          "product_type": "scarf",
+          "generation_eligible": false,
+          "eligibility_note": "Nghiên cứu cách chụp phụ kiện; không tự chọn thay tham chiếu áo.",
+          "setting": "Cận tên thêu và tua khăn; hộp mở trái, túi lớn sau, card đặt trên vải.",
+          "expression": "Không có người.",
+          "camera_color": "Chụp chéo gần, có lớp trước sau; không thu nhỏ túi thành đạo cụ tí hon.",
+          "layout": "Chữ trắng viền đen phía trên trái.",
+          "prompt_direction": "Close angled product detail with physically plausible packaging: bag taller than folded textile, open shallow box, small card. Preserve material texture and soft natural shadows."
+        }
+      ]
+    }
+  ],
+  "inventory": [
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7418910818600832264",
+      "kind": "video",
+      "id": "7418910818600832264"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7347643515389627649",
+      "kind": "video",
+      "id": "7347643515389627649"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7361827200619842832",
+      "kind": "photo",
+      "id": "7361827200619842832"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7627391802282102024",
+      "kind": "photo",
+      "id": "7627391802282102024"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7621076421221371156",
+      "kind": "photo",
+      "id": "7621076421221371156"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7615181186738048274",
+      "kind": "video",
+      "id": "7615181186738048274"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7612549203549490450",
+      "kind": "video",
+      "id": "7612549203549490450"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7605475234883390741",
+      "kind": "video",
+      "id": "7605475234883390741"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7600016989762899221",
+      "kind": "video",
+      "id": "7600016989762899221"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7599922575220690196",
+      "kind": "video",
+      "id": "7599922575220690196"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7599260496885288200",
+      "kind": "video",
+      "id": "7599260496885288200"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7594444052381043986",
+      "kind": "video",
+      "id": "7594444052381043986"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7592125911202303239",
+      "kind": "video",
+      "id": "7592125911202303239"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7584788369310321941",
+      "kind": "photo",
+      "id": "7584788369310321941"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7584713576384974100",
+      "kind": "photo",
+      "id": "7584713576384974100"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7582892539338886407",
+      "kind": "photo",
+      "id": "7582892539338886407"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7582539850310536456",
+      "kind": "video",
+      "id": "7582539850310536456"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7579254936064757010",
+      "kind": "video",
+      "id": "7579254936064757010"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7578106700503305480",
+      "kind": "photo",
+      "id": "7578106700503305480"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7577776355639692551",
+      "kind": "video",
+      "id": "7577776355639692551"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7576548300363435271",
+      "kind": "video",
+      "id": "7576548300363435271"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7566676595360943378",
+      "kind": "photo",
+      "id": "7566676595360943378"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/video/7566604278471609618",
+      "kind": "video",
+      "id": "7566604278471609618"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7563608931889646856",
+      "kind": "photo",
+      "id": "7563608931889646856"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7555451015881870600",
+      "kind": "photo",
+      "id": "7555451015881870600"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7540922505624620306",
+      "kind": "photo",
+      "id": "7540922505624620306"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7536078954470427912",
+      "kind": "photo",
+      "id": "7536078954470427912"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7534649325700336914",
+      "kind": "photo",
+      "id": "7534649325700336914"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7532773479653920008",
+      "kind": "photo",
+      "id": "7532773479653920008"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7530180001178897682",
+      "kind": "photo",
+      "id": "7530180001178897682"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7529838390540668178",
+      "kind": "photo",
+      "id": "7529838390540668178"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7522418691565194514",
+      "kind": "photo",
+      "id": "7522418691565194514"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7518329971715132690",
+      "kind": "photo",
+      "id": "7518329971715132690"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7517624972118920456",
+      "kind": "photo",
+      "id": "7517624972118920456"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7517304296455572743",
+      "kind": "photo",
+      "id": "7517304296455572743"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7515670100725288210",
+      "kind": "photo",
+      "id": "7515670100725288210"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7506794328598039826",
+      "kind": "photo",
+      "id": "7506794328598039826"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7506046608191065352",
+      "kind": "photo",
+      "id": "7506046608191065352"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7504952386339818759",
+      "kind": "photo",
+      "id": "7504952386339818759"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7498662627934080274",
+      "kind": "photo",
+      "id": "7498662627934080274"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7490891798995340551",
+      "kind": "photo",
+      "id": "7490891798995340551"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7490075784908950789",
+      "kind": "photo",
+      "id": "7490075784908950789"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7489699286297349382",
+      "kind": "photo",
+      "id": "7489699286297349382"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7488983716174351671",
+      "kind": "photo",
+      "id": "7488983716174351671"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7487140203992272133",
+      "kind": "photo",
+      "id": "7487140203992272133"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7485970615732636935",
+      "kind": "photo",
+      "id": "7485970615732636935"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7485945382673927432",
+      "kind": "photo",
+      "id": "7485945382673927432"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7484589235232689415",
+      "kind": "photo",
+      "id": "7484589235232689415"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7483896843341024530",
+      "kind": "photo",
+      "id": "7483896843341024530"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7481922478726499592",
+      "kind": "photo",
+      "id": "7481922478726499592"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7481621159117638919",
+      "kind": "photo",
+      "id": "7481621159117638919"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7481218075476364551",
+      "kind": "photo",
+      "id": "7481218075476364551"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7481186244198681874",
+      "kind": "photo",
+      "id": "7481186244198681874"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7480746572880383250",
+      "kind": "photo",
+      "id": "7480746572880383250"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7480504649372470546",
+      "kind": "photo",
+      "id": "7480504649372470546"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7479740872284802322",
+      "kind": "photo",
+      "id": "7479740872284802322"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7479736660993772807",
+      "kind": "photo",
+      "id": "7479736660993772807"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7479018482831543559",
+      "kind": "photo",
+      "id": "7479018482831543559"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7478628704051105031",
+      "kind": "photo",
+      "id": "7478628704051105031"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7478623349422247186",
+      "kind": "photo",
+      "id": "7478623349422247186"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7478161556765805832",
+      "kind": "photo",
+      "id": "7478161556765805832"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7477895518757244178",
+      "kind": "photo",
+      "id": "7477895518757244178"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7477088058714721544",
+      "kind": "photo",
+      "id": "7477088058714721544"
+    },
+    {
+      "url": "https://www.tiktok.com/@lck.hn/photo/7476795795015093512",
+      "kind": "photo",
+      "id": "7476795795015093512"
+    }
+  ]
+}

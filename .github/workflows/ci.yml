@@ -43,6 +43,19 @@ jobs:
       - name: "JS: cú pháp app.js"
         run: node --check public/app.js
 
+      - name: "Regression tests (offline)"
+        run: |
+          pip install 'Pillow>=10,<12'
+          node --test tests/*.cjs
+          python - <<'EOF'
+          import unittest
+          from unittest.mock import patch
+          suite = unittest.defaultTestLoader.discover('tests', pattern='test_*.py')
+          with patch('urllib.request.urlopen', side_effect=RuntimeError('Network disabled in tests')), patch('time.sleep'):
+              result = unittest.TextTestRunner(verbosity=1).run(suite)
+          raise SystemExit(not result.wasSuccessful())
+          EOF
+
       - name: "Nhắc bump APP_VERSION (cảnh báo, không chặn)"
         if: github.event_name == 'pull_request'
         run: |
@@ -61,13 +74,15 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: "Đợi Dokploy deploy rồi kiểm tra /api/version (tối đa ~6 phút)"
         run: |
+          expected=$(python -c 'import ast; tree=ast.parse(open("server.py").read()); print(next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=="APP_VERSION" for t in n.targets)))')
           echo "Đợi 60s cho Dokploy bắt đầu build…"
           sleep 60
           for i in $(seq 1 30); do
             body=$(curl -s -m 10 https://riengvnapp.cloud/api/version || true)
-            if echo "$body" | grep -q '"version"'; then
+            if echo "$body" | python -c 'import json,sys; sys.exit(json.load(sys.stdin).get("version") != sys.argv[1])' "$expected"; then
               echo "✓ Site sống: $body"
               exit 0
             fi

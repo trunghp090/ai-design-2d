@@ -1,0 +1,36 @@
+{
+  "people": [
+    {
+      "role": "male",
+      "name": "Huy Hoàng",
+      "kol_id": 12,
+      "image_id": null,
+      "source": "/var/folders/88/krdj4ln53gldghb8pgb5hgz40000gn/T/codex-clipboard-d4c56d84-bb79-41b4-870f-fd66340a97c3.png",
+      "crop": [
+        0,
+        0,
+        1099,
+        1431
+      ],
+      "asset": "male.png",
+      "reference_origin": "user_uploaded_portrait",
+      "sha256": "b16350f890135a0faade936a1af28abfce71f81306da4f4b1f515952c9808f7b"
+    },
+    {
+      "role": "female",
+      "name": "Gia Hân",
+      "kol_id": 8,
+      "image_id": null,
+      "source": "/var/folders/88/krdj4ln53gldghb8pgb5hgz40000gn/T/codex-clipboard-fcede59b-c32c-45bb-84c3-7b2b17ba870e.png",
+      "crop": [
+        0,
+        0,
+        1122,
+        1402
+      ],
+      "asset": "female.png",
+      "reference_origin": "user_uploaded_portrait",
+      "sha256": "2e1b851e13a5aecc02cd425c9f6990ec751477d0dd15490db84bddfb9048fcdf"
+    }
+  ]
+}

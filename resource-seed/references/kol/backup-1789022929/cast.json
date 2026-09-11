@@ -1,0 +1,32 @@
+{
+  "people": [
+    {
+      "role": "male",
+      "name": "Huy Hoàng",
+      "kol_id": 12,
+      "image_id": 133,
+      "source": "/Users/trung/AI influencer/app/data/images/1788261074288-65cbc895.png",
+      "crop": [
+        1250,
+        5,
+        1560,
+        420
+      ],
+      "asset": "male.png"
+    },
+    {
+      "role": "female",
+      "name": "Gia Hân",
+      "kol_id": 8,
+      "image_id": 162,
+      "source": "/Users/trung/AI influencer/app/data/images/1788320474102-41e41d02.png",
+      "crop": [
+        1050,
+        15,
+        1440,
+        435
+      ],
+      "asset": "female.png"
+    }
+  ]
+}
