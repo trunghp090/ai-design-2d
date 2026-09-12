@@ -41,7 +41,7 @@ from perf_assets import static_bytes, mockup_thumbnail
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.12-kol-studio-4k"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.12-kol-upload"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -500,7 +500,7 @@ def _openai_call(req, timeout=300, tries=3):
     raise last
 
 
-def gemini_edit(images, prompt, aspect="", model=""):
+def gemini_edit(images, prompt, aspect="", model="", image_size=""):
     """Nano Banana (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
     if not GEMINI_API_KEY:
         raise RuntimeError("Chưa cấu hình GEMINI_API_KEY")
@@ -517,6 +517,9 @@ def gemini_edit(images, prompt, aspect="", model=""):
     gen = {"responseModalities": ["IMAGE"]}
     if aspect:
         gen["imageConfig"] = {"aspectRatio": aspect}   # vd "4:5", "1:1"
+    if image_size:
+        if image_size not in ("1K", "2K", "4K"):raise ValueError("Invalid Gemini image size")
+        gen.setdefault("imageConfig", {})["imageSize"] = image_size
     payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": gen}
     url = ("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
            % (model or GEMINI_IMAGE_MODEL))

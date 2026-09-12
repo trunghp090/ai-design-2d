@@ -6,3 +6,5 @@
 .ru-brand-thumbs{display:flex;gap:10px;margin:10px 0}.ru-brand-thumbs img{width:85px;height:110px;object-fit:contain;background:#eee;border-radius:8px}.ru-brand-kit{padding:12px 0}
 
 .ru-upload-intro{padding:16px;margin:12px 0 18px;border:1px dashed #6f7e39;border-radius:12px;background:#20251a}.ru-upload-intro input[type=file]{display:block;margin-top:10px;width:100%;font-size:12px}.ru-upload-intro input::file-selector-button{padding:9px;border-radius:6px;border:1px solid #555;color:#eee;background:#30342b;margin-right:8px}
+
+.ru-brand-thumbs figure{margin:0;min-width:0;flex:1}.ru-brand-thumbs figure .btn-ghost{display:block;margin-top:8px;white-space:normal}.ru-brand-thumbs figure img{width:100%;height:180px;object-fit:contain}

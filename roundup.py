@@ -334,6 +334,11 @@ def route(app,h,path,body=None):
             if app.AUTH_REQUIRED and not app.user_has_tab(user,'roundup'):raise Problem('Tài khoản chưa được cấp tab Tổng hợp mẫu.',403)
             owner=str((user or {}).get('id') or (user or {}).get('email') or 'local')
             if body is not None and action=='generate':result=start(app,body,owner)
+            elif body is not None and action in ('kol-upload','kol-reset'):
+                with LOCK:
+                    if LIVE:raise Problem('Đợi bộ ảnh đang tạo hoàn tất trước khi đổi KOL.',409)
+                    try:result=roundup_cast.update(body.get('role'),body.get('image'),reset=action=='kol-reset')
+                    except ValueError as e:raise Problem(str(e))
             elif body is None and action=='kol-image':
                 person=next((p for p in roundup_cast.people('couple') if p['role']==get('role')),None)
                 if not person:raise Problem('Không tìm thấy KOL.',404)
