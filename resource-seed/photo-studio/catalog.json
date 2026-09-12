@@ -1,0 +1,619 @@
+{
+  "concepts": [
+    {
+      "id": "romance-boucle-burgundy",
+      "name": "Sofa bouclé kem · hộp đỏ",
+      "category": "romance",
+      "icon": "▰",
+      "badge": "Mới · ảnh thật",
+      "description": "Áo đôi trên sofa kem, hộp đỏ rượu vang và card cá nhân hoá",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a real modern Vietnamese bedroom or living-room corner where an ivory cream bouclé sofa or lounge chair fills most of the frame; two dark couple garments create strong contrast on the textured upholstery, alternating naturally between one fully spread plus one softly folded garment and two fully spread garments; reveal only believable edge details of the room such as warm light-oak flooring, a neutral rug, beige curtains, white bedding or a small cream bedside cabinet; shoot handheld like a premium Instagram shop post from a 60-to-75-degree high phone-camera angle rather than a perfectly flat overhead view; use an off-center diagonal layout, natural partial cropping at the frame edges, soft indoor daylight, slightly subdued exposure, warm-neutral white balance, realistic phone sharpening, gentle grain, soft contact shadows and small fabric wrinkles. PACKAGING SETUP: use deep burgundy or wine-red rigid mailer gift boxes as the signature color accent: one closed box upright behind the garments and one or two additional box corners partly cropped near the lower frame edge; include one matching burgundy thank-you, love or personalization card placed near a collar or in the gap between the garments; keep the burgundy packaging to roughly ten-to-twenty percent of the composition so the garments remain the hero; for the packaging shot fold both garments into loose neighboring rectangles with the box behind and card in front; for the detail shot frame the garment artwork, knit or print texture together with a burgundy card edge or box corner; never copy any brand name, logo, slogan, garment artwork or readable text from the style references. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#eee9df",
+        "#7e1722"
+      ]
+    },
+    {
+      "id": "studio-symmetry",
+      "name": "Bàn đóng đơn buổi chiều",
+      "category": "studio",
+      "icon": "▤",
+      "description": "Áo gấp tự nhiên, hộp mở, túi giấy và tag dưới nắng ấm",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments softly folded in a loose layered cluster on a real warm wooden packing table, photographed from a slightly oblique high angle with late-afternoon window light. PACKAGING SETUP: one open gift box behind the garments, one upright paper shopping bag at the back edge, a hang tag and thank-you card casually resting near the collars. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#8f674e",
+        "#d7b58c"
+      ]
+    },
+    {
+      "id": "studio-diagonal",
+      "name": "Set hộp mở xếp lớp",
+      "category": "studio",
+      "icon": "▱",
+      "description": "Nhiều lớp hộp và áo như ảnh ra đơn trên Instagram",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments folded into overlapping diagonal layers across two open shallow boxes, with one product partly outside its box for visual depth and a spontaneous shop-made look. PACKAGING SETUP: two offset open box lids, a semi-transparent zip pouch peeking from one side and a small tag card bridging the layers. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#392d29",
+        "#d8c8ad"
+      ]
+    },
+    {
+      "id": "studio-folded-stack",
+      "name": "Một áo mở · một áo gấp",
+      "category": "studio",
+      "icon": "◫",
+      "description": "Vừa thấy form áo vừa có cảm giác chuẩn bị đóng quà",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: one garment laid mostly open with relaxed sleeve folds and the second garment folded compactly beside it on a textured linen or wood surface, leaving the personalized artwork fully readable. PACKAGING SETUP: an open kraft mailer box, folded tissue paper, a zip pouch and one hang tag arranged as if the order is halfway through packing. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#c7b59d",
+        "#655044"
+      ]
+    },
+    {
+      "id": "studio-front-back",
+      "name": "Mặt trước · mặt sau trong hộp",
+      "category": "studio",
+      "icon": "↔",
+      "description": "Trưng thiết kế hai mặt bằng bố cục hộp quà thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: show the two supplied garments as complementary front-and-back views, one folded inside an open box and one laid over the box edge, with realistic folds and no duplicate garment. PACKAGING SETUP: one rigid gift box with lid, one translucent clothing pouch and one small care tag positioned where they support the front-back comparison. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d9d3c7",
+        "#77736c"
+      ]
+    },
+    {
+      "id": "studio-monochrome",
+      "name": "Tông kem local brand",
+      "category": "studio",
+      "icon": "●",
+      "description": "Kem, be và giấy mờ nhưng vẫn có chất ảnh thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: soft cream and beige tonal styling on wrinkled muslin fabric or matte paper over a real table, with the garments casually offset rather than perfectly centered. PACKAGING SETUP: a cream gift box, frosted zip pouch, uncoated hang tag and small thank-you card in matching neutral tones. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#eadfce",
+        "#948676"
+      ]
+    },
+    {
+      "id": "studio-shadow-play",
+      "name": "Nắng cửa sổ thật",
+      "category": "studio",
+      "icon": "☀",
+      "description": "Bóng rèm tự nhiên, hộp giấy và tag có chiều sâu",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments arranged near a real window on a wood or tile floor, crossed by soft blind shadows and warm daylight with a believable home-shop atmosphere. PACKAGING SETUP: an open box catching part of the window shadow, a paper bag near the wall and a hang tag plus envelope beside the garments. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#e7bf7b",
+        "#7e5239"
+      ]
+    },
+    {
+      "id": "studio-light-stone",
+      "name": "Bàn đá sáng của shop",
+      "category": "studio",
+      "icon": "◇",
+      "description": "Mặt đá thật, ánh cửa sổ và bao bì tối giản",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments loosely folded on a pale stone counter in a small boutique packing corner, natural side light revealing fabric and stone texture. PACKAGING SETUP: a kraft or white mailer box, one frosted zip bag and a small hang tag placed close to the garment edges. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d9d5cb",
+        "#8c8982"
+      ]
+    },
+    {
+      "id": "studio-dark-luxury",
+      "name": "Bàn gỗ tối premium",
+      "category": "studio",
+      "icon": "◆",
+      "description": "Nâu đen ấm, hộp cứng và túi giấy như set quà cao cấp",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: moody but realistic evening product photo on a dark walnut table, warm lamp light, gentle falloff and deep natural shadows around two folded garments. PACKAGING SETUP: one dark rigid box open behind the shirts, a matte paper shopping bag, black tissue and a small tag card with restrained contrast. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#3a302d",
+        "#111112"
+      ]
+    },
+    {
+      "id": "romance-valentine",
+      "name": "Valentine Photo Gift",
+      "category": "romance",
+      "icon": "♥",
+      "description": "Hộp áo đôi, phong bì và photo strip kiểu quà cá nhân hoá",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a warm Valentine gift scene with the two garments folded in neighboring open boxes, cream and deep red accents, intimate window light and room depth like a real personalized-gift shop post. PACKAGING SETUP: two open gift boxes, one ribboned envelope, one small blank photo-strip style card and one hang tag; never invent faces or readable names on the cards. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#edd0cf",
+        "#9b2938"
+      ]
+    },
+    {
+      "id": "romance-anniversary",
+      "name": "Kỷ niệm đôi mở hộp",
+      "category": "romance",
+      "icon": "∞",
+      "description": "Áo đôi xếp trong hộp cùng thiệp kỷ niệm tinh tế",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: anniversary unboxing on a real sofa-side table, both garments softly folded and slightly overlapping, warm home light with a quiet sentimental mood. PACKAGING SETUP: one open keepsake box, a paper shopping bag behind it, neutral ribbon, a small anniversary card and product tag. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d9c1ae",
+        "#755448"
+      ]
+    },
+    {
+      "id": "romance-love-letter",
+      "name": "Love Letter & áo đôi",
+      "category": "romance",
+      "icon": "✉",
+      "description": "Phong bì sáp, tag và hộp quà trên mặt bàn thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a love-letter inspired setup on warm wood with the two folded garments framing an envelope, slight oblique camera angle and soft intimate daylight. PACKAGING SETUP: an open shallow gift box, one translucent zip pouch, a sealed blank envelope, a hang tag and a small thank-you card. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#eadac4",
+        "#a36e68"
+      ]
+    },
+    {
+      "id": "romance-heart-layout",
+      "name": "Hai hộp hướng vào nhau",
+      "category": "romance",
+      "icon": "♡",
+      "description": "Hai áo trong hai hộp tạo nhịp đôi tự nhiên, không tạo hình giả",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two open boxes angled gently toward each other on a textured floor or low table, one garment in each box with relaxed folds and a subtle heart-like negative space between them. PACKAGING SETUP: two box lids partly visible, one shared paper bag at the back, two small tags and one understated card in the center gap. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#efcfda",
+        "#ba5575"
+      ]
+    },
+    {
+      "id": "romance-rose-petal",
+      "name": "Hoa nhỏ & hộp kem",
+      "category": "romance",
+      "icon": "❀",
+      "description": "Một ít hoa thật, không rải cánh giả kín áo",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a romantic cream-box setup with both garments naturally folded and only one or two small fresh flowers at the edge, realistic morning light and no excessive petals. PACKAGING SETUP: one cream rigid box, one frosted clothing zip pouch, a paper hang tag and a small blank card tied with thin ribbon. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#ebd3d0",
+        "#9d4a50"
+      ]
+    },
+    {
+      "id": "romance-date-night",
+      "name": "Date Night trên sofa",
+      "category": "romance",
+      "icon": "☾",
+      "description": "Sofa nâu, đèn ấm và set quà chuẩn bị cho buổi hẹn",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments and their gift set casually arranged on a brown or charcoal sofa, warm evening lamp light and a candid high-angle view as if photographed just before gifting. PACKAGING SETUP: one open dark gift box, an upright paper bag, a zip pouch edge and a small envelope or tag near the garments. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#68463b",
+        "#1a1718"
+      ]
+    },
+    {
+      "id": "romance-wedding-gift",
+      "name": "Quà cưới · pre-wedding",
+      "category": "romance",
+      "icon": "♢",
+      "description": "Hộp ivory, ruy băng và tag đôi thanh lịch",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: an ivory and champagne pre-wedding gift setup on linen, with the two garments folded in soft layers and natural daylight rather than a formal wedding catalog. PACKAGING SETUP: an open ivory keepsake box, a matching paper bag, tissue paper, two small tags and one blank card with a narrow satin ribbon. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#eee5d9",
+        "#bea279"
+      ]
+    },
+    {
+      "id": "lifestyle-cozy-sofa",
+      "name": "Sofa đóng quà tại nhà",
+      "category": "lifestyle",
+      "icon": "▰",
+      "description": "Áo, hộp và túi giấy trên sofa như shop vừa chụp bằng điện thoại",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a cozy brown or neutral sofa scene with two garments laid and folded across adjacent cushions, camera held from above at a natural angle, warm room light and visible upholstery texture. PACKAGING SETUP: an open gift box on one cushion, a paper bag at the sofa corner, one translucent zip pouch and a loose thank-you tag. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#98775f",
+        "#4f3a32"
+      ]
+    },
+    {
+      "id": "lifestyle-bedroom",
+      "name": "Unbox trên ga giường",
+      "category": "lifestyle",
+      "icon": "☁",
+      "description": "Ga sáng hơi nhăn, hộp mở và thiệp dưới nắng sáng",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: bright morning bedroom photo on softly rumpled neutral bedding, two garments casually unfolded from a gift box, airy side daylight and gentle fabric shadows. PACKAGING SETUP: one open mailer box, folded tissue, a frosted zip pouch, small care tag and thank-you card lying naturally on the bed. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#eee8df",
+        "#b4c0c7"
+      ]
+    },
+    {
+      "id": "lifestyle-coffee-date",
+      "name": "Bàn cà phê nhận quà",
+      "category": "lifestyle",
+      "icon": "☕",
+      "description": "Mặt bàn gỗ, hộp áo và card đôi trong ánh cửa sổ",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a real cafe table near a window with the two folded garments occupying most of the frame, relaxed warm-brown palette and a casual social-post crop. PACKAGING SETUP: a compact open gift box, one paper shopping bag cropped at the frame edge, a zip pouch and one small gift card; a single coffee cup may sit far from the garments. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#c6a276",
+        "#68452f"
+      ]
+    },
+    {
+      "id": "lifestyle-picnic",
+      "name": "Picnic nhận quà",
+      "category": "lifestyle",
+      "icon": "▧",
+      "description": "Khăn caro, hộp kraft và tag dưới nắng ngoài trời",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a believable outdoor picnic blanket with both garments loosely folded and sunlit, a little grass visible at the edges and enough clean space to read the product artwork. PACKAGING SETUP: an open kraft gift box, a paper carrier bag, a folded translucent pouch and a small tag card held down by ribbon. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d5ddb6",
+        "#a65a4f"
+      ]
+    },
+    {
+      "id": "lifestyle-travel",
+      "name": "Vali đôi đi du lịch",
+      "category": "lifestyle",
+      "icon": "✈",
+      "description": "Áo cạnh vali mở, túi zip và tag hành lý",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments packed loosely beside an open carry-on suitcase on a real bedroom floor, bright travel-morning light and natural partial cropping. PACKAGING SETUP: two clothing zip pouches, one small mailer box, tissue paper and a hang tag placed as practical travel packing rather than decoration. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d5c2a2",
+        "#53757a"
+      ]
+    },
+    {
+      "id": "lifestyle-beach",
+      "name": "Ban công mùa hè",
+      "category": "lifestyle",
+      "icon": "≈",
+      "description": "Nắng ban công, ghế mây, túi giấy và áo đôi sáng màu",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a sunny apartment balcony or rattan-chair corner with two garments arranged over a woven mat, bright humid Vietnamese summer daylight and honest warm shadows. PACKAGING SETUP: a light paper shopping bag, one open white box, a translucent zip pouch and a small tag near the woven edge. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#e8d4a5",
+        "#6aa6b4"
+      ]
+    },
+    {
+      "id": "lifestyle-streetwear",
+      "name": "Bàn workshop streetwear",
+      "category": "lifestyle",
+      "icon": "▥",
+      "description": "Bê tông thật, hộp ship và tag như local brand ra drop",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: an urban small-studio packing bench with concrete texture, two graphic garments loosely layered, strong side daylight and an energetic handheld high-angle crop. PACKAGING SETUP: a dark corrugated mailer box, matte zip pouch, bold blank hang tag, tissue sheet and paper bag partly cropped at the frame edge. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#818285",
+        "#303237"
+      ]
+    },
+    {
+      "id": "lifestyle-campus",
+      "name": "Bàn học nhận đơn",
+      "category": "lifestyle",
+      "icon": "A+",
+      "description": "Áo đôi trên bàn gỗ cùng hộp nhỏ, tag và giấy gói",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a real student desk with warm wood grain, two garments folded beside a notebook edge, youthful daylight and an easy phone-photo composition. PACKAGING SETUP: one compact mailer box, one translucent clothing pouch, a product tag and thank-you card; keep stationery sparse and secondary. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d3c093",
+        "#647760"
+      ]
+    },
+    {
+      "id": "packaging-zip-bag",
+      "name": "Túi zip thương hiệu",
+      "category": "packaging",
+      "icon": "▱",
+      "description": "Túi zip là điểm chính nhưng áo và tag vẫn rõ",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a real packing-table photo showing one garment partly inside a translucent clothing zip pouch and the other folded beside it, clear material reflections and realistic thickness. PACKAGING SETUP: make the selected zip pouch the primary packaging hero, supported by one open mailer box, a hang tag and a small thank-you card. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#dfe2df",
+        "#89908d"
+      ]
+    },
+    {
+      "id": "packaging-gift-box",
+      "name": "Gift Box Unboxing",
+      "category": "packaging",
+      "icon": "▣",
+      "description": "Hai áo trong hộp mở, giấy lót và túi giấy phía sau",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments presented in and around an open rigid gift box on a real table, one folded inside and one draped slightly over the front edge, photographed from a natural high angle. PACKAGING SETUP: large open gift box and lid, tissue paper, upright shopping bag, one zip pouch and one small tag or card. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d4bfa3",
+        "#74594a"
+      ]
+    },
+    {
+      "id": "packaging-shipping",
+      "name": "Bàn đóng đơn online",
+      "category": "packaging",
+      "icon": "□",
+      "description": "Khung hình hậu trường đóng hàng gần gũi và đáng tin",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a candid behind-the-scenes online-order packing desk with two garments, tape roll and folded tissue arranged naturally, warm practical light and clear product hierarchy. PACKAGING SETUP: one open shipping mailer, two clothing zip pouches, a hang tag and thank-you card ready to be packed; no visible address or customer data. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#cfbd9e",
+        "#826f54"
+      ]
+    },
+    {
+      "id": "packaging-hangtag",
+      "name": "Cận tag & cổ áo",
+      "category": "packaging",
+      "icon": "🏷",
+      "description": "Tag thật nằm sát cổ áo, có hộp và túi zip làm nền",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a detail-led high-angle photo with both garments still identifiable, the neckline and fabric texture in focus and a natural shallow depth of field. PACKAGING SETUP: place the selected hang tag clearly beside the neckline, with an open box and softly blurred zip pouch behind it plus one small care card. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#c96372",
+        "#6c2d38"
+      ]
+    },
+    {
+      "id": "packaging-thank-you",
+      "name": "Thank-you Card sau mua",
+      "category": "packaging",
+      "icon": "✉",
+      "description": "Trải nghiệm mở đơn: áo, card cảm ơn, tag và giấy gói",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a warm customer-unboxing scene with two garments unfolded just enough to reveal their designs, photographed on a real table or sofa with casual layered edges. PACKAGING SETUP: one gift box, one clothing pouch, tissue paper, a prominently placed selected thank-you card and a separate hang tag. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#dfbdc2",
+        "#934b56"
+      ]
+    },
+    {
+      "id": "packaging-store-display",
+      "name": "Kệ shop vừa restock",
+      "category": "packaging",
+      "icon": "▦",
+      "description": "Áo gấp trên kệ cùng hộp, túi và tag như ảnh shop thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a small boutique counter or low shelf just after restocking, two folded garments at slightly different heights and a candid high-angle camera view. PACKAGING SETUP: stacked gift boxes, one upright paper bag, one translucent zip pouch and visible product tags with realistic retail spacing. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#ddd8d0",
+        "#766e66"
+      ]
+    },
+    {
+      "id": "seasonal-tet",
+      "name": "Set quà Tết Việt",
+      "category": "seasonal",
+      "icon": "✿",
+      "description": "Hộp đỏ kem, bao lì xì và tag trong nắng ấm ngày Tết",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a modern Vietnamese Tet gift scene on warm wood with red, cream and muted gold accents, two garments folded naturally and soft morning sunlight. PACKAGING SETUP: one open red or kraft gift box, paper shopping bag, tissue paper, one blank lucky-envelope accent and a hang tag; keep festive props restrained. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#cc3035",
+        "#cf9e39"
+      ]
+    },
+    {
+      "id": "seasonal-christmas",
+      "name": "Giáng sinh đóng quà",
+      "category": "seasonal",
+      "icon": "✦",
+      "description": "Hộp áo, giấy gói và đèn vàng trong phòng thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a cozy Christmas packing scene in a real room, pine green and burgundy accents, two folded garments under warm string-light glow without fake bokeh overload. PACKAGING SETUP: one open gift box, wrapping tissue, a paper bag, zip pouch, ribbon and small tag card; use only a tiny pine sprig if needed. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#284a3b",
+        "#842e37"
+      ]
+    },
+    {
+      "id": "seasonal-birthday",
+      "name": "Birthday Unboxing",
+      "category": "seasonal",
+      "icon": "★",
+      "description": "Hộp mở, thiệp sinh nhật và áo đôi đầy màu nhưng không giả",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a cheerful birthday unboxing on a real table with the two garments softly stacked, lively daylight and a casual Instagram crop. PACKAGING SETUP: one colorful but tasteful gift box, one zip pouch, ribbon, a small blank birthday card and hang tag; use only a few paper confetti pieces at the edges. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#edc34f",
+        "#d97083"
+      ]
+    },
+    {
+      "id": "seasonal-summer",
+      "name": "Summer Drop đóng đơn",
+      "category": "seasonal",
+      "icon": "☀",
+      "description": "Nắng mạnh, hộp trắng và túi zip trong khung ảnh tươi",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a bright summer collection packing scene near an open window, two garments in a fresh loose composition with strong but believable sunlight. PACKAGING SETUP: one white mailer box, translucent zip pouch, paper bag, hang tag and thank-you card with a restrained citrus-color accent. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#efd044",
+        "#dd7545"
+      ]
+    },
+    {
+      "id": "seasonal-autumn",
+      "name": "Đơn hàng mùa thu",
+      "category": "seasonal",
+      "icon": "❧",
+      "description": "Áo nâu kem, hộp kraft và giấy lót trong nắng cuối chiều",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a warm autumn packing-table scene in caramel, rust and muted brown, two garments layered with rich textile texture and late-afternoon window light. PACKAGING SETUP: one kraft gift box, brown tissue, translucent zip pouch, paper tag and small card; use one dried leaf at most. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#bd7e4b",
+        "#624236"
+      ]
+    },
+    {
+      "id": "seasonal-spring",
+      "name": "Spring Pastel Parcel",
+      "category": "seasonal",
+      "icon": "❀",
+      "description": "Hộp pastel, tag giấy và một nhành hoa nhỏ",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: an airy spring parcel scene on pale linen with two garments casually offset, soft diffused daylight and pastel accents that do not overpower the product colors. PACKAGING SETUP: one pastel mailer box, frosted zip pouch, paper shopping bag, hang tag and thank-you card; add only one small fresh flower stem. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#d4e3ce",
+        "#e3c3d0"
+      ]
+    },
+    {
+      "id": "seasonal-back-school",
+      "name": "Back to School Parcel",
+      "category": "seasonal",
+      "icon": "✎",
+      "description": "Bàn học, hộp ship và tag trẻ trung cho mùa tựu trường",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a youthful real desk scene with two folded garments, notebook corner and warm daylight, photographed casually from above for a Vietnamese social-commerce post. PACKAGING SETUP: one compact shipping box, one zip pouch, tissue sheet, hang tag and thank-you card; keep stationery limited to two supporting pieces. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#dfcf9e",
+        "#55799b"
+      ]
+    },
+    {
+      "id": "creative-y2k",
+      "name": "Y2K Package Drop",
+      "category": "creative",
+      "icon": "★",
+      "description": "Hồng bạc vui nhưng vẫn là ảnh đóng gói thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a playful Y2K small-brand package drop on a real acrylic or laminate table, candy-pink and silver accents, direct on-camera flash softened by room light. PACKAGING SETUP: one metallic mailer box, translucent zip pouch, paper bag, bold hang tag and small card; keep shiny props practical rather than futuristic CGI. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#e891ba",
+        "#8896df"
+      ]
+    },
+    {
+      "id": "creative-korean",
+      "name": "Korean Parcel tông kem",
+      "category": "creative",
+      "icon": "○",
+      "description": "Pastel dịu, hộp giấy và nếp gấp tự nhiên kiểu shop Việt",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a calm cream-and-pastel parcel setup on wrinkled linen or warm wood, Korean-inspired restraint adapted to a real Vietnamese online shop, soft side daylight. PACKAGING SETUP: one cream mailer box, frosted zip pouch, uncoated paper bag, hang tag and small thank-you card in a relaxed asymmetrical layout. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#e6dbce",
+        "#b3c2ba"
+      ]
+    },
+    {
+      "id": "creative-magazine",
+      "name": "Editorial x Packaging",
+      "category": "creative",
+      "icon": "M",
+      "description": "Bố cục tạp chí nhưng giữ hộp, túi và tag thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: an editorial product arrangement on a real studio worktable with bold cropping, layered matte paper and directional daylight, while retaining believable object scale and fabric weight. PACKAGING SETUP: one open design box, paper shopping bag cropped at the back, translucent pouch, hang tag and card used as physical graphic planes. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#bdad9f",
+        "#29282b"
+      ]
+    },
+    {
+      "id": "creative-scrapbook",
+      "name": "Kỷ niệm scrapbook thật",
+      "category": "creative",
+      "icon": "▧",
+      "description": "Áo đôi, card ảnh trống, băng giấy và hộp quà",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a warm couple-memory scrapbook setup on a real wooden table, two garments folded around layered blank paper cards and small tape pieces, nostalgic phone-camera color. PACKAGING SETUP: one shallow gift box, one zip pouch, a blank photo-strip style card, envelope and hang tag; do not invent people, names or readable messages. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#dfcbae",
+        "#93705c"
+      ]
+    },
+    {
+      "id": "creative-color-block",
+      "name": "Color Block đóng đơn",
+      "category": "creative",
+      "icon": "▩",
+      "description": "Giấy màu, hộp và túi zip tạo mảng nhưng vẫn có bóng thật",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a social-ready color-block setup made from real overlapping paper sheets on a packing table, two garments naturally layered with visible contact shadows and a casual high-angle crop. PACKAGING SETUP: one colored mailer box, clear zip pouch, matching paper bag, hang tag and small card integrated into the color blocks. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#e84c60",
+        "#5669d8"
+      ]
+    },
+    {
+      "id": "creative-neon",
+      "name": "Flash đêm tại shop",
+      "category": "creative",
+      "icon": "⌁",
+      "description": "Flash điện thoại, bàn tối và hộp hàng thật thay vì neon CGI",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a candid after-hours shop packing photo on a dark table, direct phone-camera flash mixed with subtle purple-blue room light, real fabric texture and hard-but-believable shadows. PACKAGING SETUP: one dark open box, reflective zip pouch, paper bag, hang tag and thank-you card catching the flash naturally. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#7448cd",
+        "#175f7e"
+      ]
+    },
+    {
+      "id": "creative-checkerboard",
+      "name": "Khăn caro local shop",
+      "category": "creative",
+      "icon": "▦",
+      "description": "Khăn caro thật, hộp giấy và tag hợp áo graphic",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: two garments on a real restrained checkerboard cloth over a wood table, relaxed folds, direct daylight and a graphic but believable local-shop composition. PACKAGING SETUP: one open kraft box, one translucent zip pouch, paper shopping bag cropped at the edge, hang tag and small card. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#dfdcd4",
+        "#3b3a3d"
+      ]
+    },
+    {
+      "id": "creative-campaign-grid",
+      "name": "Grid đơn hàng thật",
+      "category": "creative",
+      "icon": "⌗",
+      "description": "Lưới áo, hộp, túi và tag có trật tự nhưng không cứng",
+      "prompt": "Authentic Vietnamese small-fashion-brand Instagram product photography, not a sterile international catalog render; use a believable real shop, packing-room or home surface with natural material texture and practical spatial depth; shoot from a casual high angle around 60 to 80 degrees, or a relaxed overhead angle only when the setup calls for it; soft Vietnamese daylight or warm room light, realistic exposure, gentle phone-camera or mirrorless-camera grain, natural white balance and grounded contact shadows; keep intentional human styling imperfections: softly folded fabric, small wrinkles, slightly offset box lids, layered edges and asymmetrical spacing; the scene must feel hand-arranged for a real Instagram post, premium and trustworthy but never CGI-perfect, floating, overly symmetrical or clinically empty. CONCEPT SETUP: a loose campaign grid assembled from real products on a studio floor, two garments and packaging in aligned clusters with small irregular gaps, overhead daylight and natural contact shadows. PACKAGING SETUP: one open box, one closed box, a zip pouch, paper bag, hang tag and thank-you card distributed across the grid without covering the garments. Build a coherent local-brand unboxing story with two to four supporting pieces; always include at least one primary packaging item such as an open rigid gift box, kraft mailer, translucent clothing zip pouch or paper shopping bag; also include at least one small brand-collateral item such as a hang tag, thank-you card, care card, photo card, envelope, ribbon or tissue paper; place packaging naturally beside, behind or partly underneath the garments without covering their main artwork; when real packaging or tag references are supplied, use those exact selected items and preserve their logo, colors, material and proportions; when no packaging reference is supplied, use tasteful neutral packaging with blank or unreadable surfaces and never invent a fake brand name, logo, slogan, customer photo or legible marketing copy.",
+      "colors": [
+        "#accdc9",
+        "#ca594b"
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": "all",
+      "label": "Tất cả",
+      "icon": "✦"
+    },
+    {
+      "id": "studio",
+      "label": "Bán hàng tự nhiên",
+      "icon": "📷"
+    },
+    {
+      "id": "romance",
+      "label": "Quà cá nhân hoá",
+      "icon": "♥"
+    },
+    {
+      "id": "lifestyle",
+      "label": "Đời thường",
+      "icon": "☕"
+    },
+    {
+      "id": "packaging",
+      "label": "Đóng gói",
+      "icon": "▣"
+    },
+    {
+      "id": "seasonal",
+      "label": "Mùa lễ Việt",
+      "icon": "✿"
+    },
+    {
+      "id": "creative",
+      "label": "Trend social",
+      "icon": "◆"
+    }
+  ],
+  "shots": [
+    {
+      "id": "hero",
+      "label": "Ảnh xa tổng thể",
+      "shortLabel": "Ảnh xa",
+      "description": "Thấy trọn áo, bối cảnh và toàn bộ câu chuyện bao bì.",
+      "prompt": "WIDE ESTABLISHING SHOT: use a clearly wider camera distance and show the complete flatlay scene, every supplied garment, the main surface or room context, and all selected packaging. Keep the products easy to identify and do not cover their main artwork."
+    },
+    {
+      "id": "spread",
+      "label": "Ảnh áo trải nguyên form",
+      "shortLabel": "Áo trải",
+      "description": "Mỗi áo tải lên đều mở nguyên form, thấy rõ thân, hai tay và gấu áo.",
+      "prompt": "MEDIUM SOCIAL-SELLING SHOT WITH OPEN GARMENTS: lay every supplied garment fully open and flat. The complete torso, full hem and both sleeves of each garment must be visible at the same time, with enough space between garments to read their complete silhouettes and artwork. Use a distinct high-angle composition with relaxed asymmetry and retain the most important box, zip bag or tag around the outer edges. Never turn any garment into a compact square or rectangular fold."
+    },
+    {
+      "id": "detail",
+      "label": "Ảnh cận chi tiết",
+      "shortLabel": "Ảnh cận",
+      "description": "Cận hình in, chất vải, cổ áo và một chi tiết tag/túi zip/hộp.",
+      "prompt": "CLOSE DETAIL OR MACRO SHOT: create a genuinely close camera view, not another full-scene composition. Fill most of the frame with faithful garment print, embroidery, collar, stitching or fabric texture together with one selected packaging detail such as a tag, zip closure, logo area or box edge. A second garment may appear partially for set continuity. Use realistic shallow depth and contact shadows."
+    },
+    {
+      "id": "editorial",
+      "label": "Ảnh editorial bán hàng",
+      "shortLabel": "Bán hàng",
+      "description": "Góc trung khác bố cục, sản phẩm nổi bật nhưng vẫn giữ chất Instagram.",
+      "prompt": "MEDIUM EDITORIAL SOCIAL-SELLING SHOT: create a distinctly new medium high-angle composition with relaxed asymmetry, natural draping and layered product placement. Keep the garments as the hero and retain the most useful box, zip pouch or tag in frame. This must not repeat the full overview, fully spread catalog view or macro detail crop."
+    },
+    {
+      "id": "packaging",
+      "label": "Ảnh bao bì · unboxing",
+      "shortLabel": "Bao bì",
+      "description": "Góc mở hộp/túi zip, thấy tag và trải nghiệm nhận hàng cùng áo.",
+      "prompt": "PACKAGING AND UNBOXING SHOT: create a distinct order-packing or gift-unboxing composition. Show the selected box, zip pouch, tag and collateral as a coherent packaging story while keeping both supplied garments identifiable and their important artwork unobstructed. One garment may sit partly inside an open box or pouch and the other naturally beside it. Do not repeat the overview or close-detail framing."
+    }
+  ]
+}

@@ -965,6 +965,10 @@ $("refreshGallery").onclick = loadGallery;
    APP TABS — chuyển giữa các tính năng độc lập (Clone / Auto / …)
    ===================================================================== */
 function showApp(app) {
+  for (const mode of ["flatlay","wearer"]) {
+    document.getElementById("view-"+mode).classList.toggle("hidden",app!==mode);
+    if(app===mode&&window.initPhotoStudio)window.initPhotoStudio(mode);
+  }
   document.getElementById("view-imagegen").classList.toggle("hidden", app !== "imagegen");
   if (app === "imagegen") window.initImageStudio();
   document.getElementById("view-assistant").classList.toggle("hidden", app !== "assistant");
