@@ -46,3 +46,24 @@ class PhotoStudioTests(unittest.TestCase):
   h.current_user=lambda:{'id':'one'};p.route(self.app,h,h.path,self.body);self.assertEqual(h.json.call_args.args[0],403)
   self.app.user_has_tab=lambda u,t:t=='flatlay';p.route(self.app,h,h.path,self.body);self.assertEqual(h.json.call_args.args[0],200)
   self.app.gen_shot.assert_not_called();self.app.gemini_edit.assert_not_called()
+ def test_regenerate_preserves_source_and_is_idempotent(self):
+  source={'id':self.body['request_id'],'owner':'one','mode':'wearer','model':roundup.PEOPLE_MODEL,'aspect':'3:4','status':'done','items':[{'index':0,'shot':'wearer','filename':'source.png'}]}
+  p.write(p.folder(self.app)/(source['id']+'.json'),source);(p.folder(self.app)/'source.png').write_bytes(self.raw)
+  body={'request_id':'22222222-2222-2222-2222-222222222222','source_job':source['id'],'index':0,'prompt':'Làm mặt nét hơn'}
+  with patch.object(p.threading,'Thread') as thread:
+   j=p.regenerate(self.app,body,'one',source)
+   self.assertEqual(p.regenerate(self.app,body,'one',source)['id'],j['id']);self.assertEqual(thread.call_count,1)
+   snapshot=thread.call_args.kwargs['args'][2]
+   self.assertEqual(snapshot[0][1],[(self.raw,'image/png')]);self.assertIn(body['prompt'],snapshot[0][2])
+   with self.assertRaises(roundup.Problem):p.regenerate(self.app,{**body,'prompt':'Different'},'one',source)
+  p.run(self.app,j,snapshot)
+  self.assertEqual(j['status'],'done');self.assertEqual(j['source_job'],source['id']);self.assertEqual(j['total'],1)
+  self.assertEqual(json.loads((p.folder(self.app)/(source['id']+'.json')).read_text()),source)
+  self.assertEqual(self.app.gemini_edit.call_args.kwargs['image_size'],'4K');self.app.gen_shot.assert_not_called()
+  for changes in [{'prompt':''},{'index':99}]:
+   with self.assertRaises(roundup.Problem):p.regenerate(self.app,{**body,**changes},'one',source)
+  h=SimpleNamespace(path='/api/photo-studio/regenerate',current_user=lambda:{'id':'two'},json=Mock())
+  self.app.AUTH_REQUIRED=True;self.app.user_has_tab=lambda u,t:True
+  p.route(self.app,h,h.path,body);self.assertNotEqual(h.json.call_args.args[0],200)
+  h.current_user=lambda:{'id':'one'};self.app.user_has_tab=lambda u,t:t=='flatlay'
+  p.route(self.app,h,h.path,{**body,'mode':'flatlay'});self.assertEqual(h.json.call_args.args[0],403)

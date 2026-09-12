@@ -111,6 +111,31 @@ def start(app,body,owner):
         threading.Thread(target=run,args=(app,j,snapshot),daemon=True).start()
         return public(j)
 
+def regenerate(app,body,owner,source):
+    jid=body.get('request_id','');note=body.get('prompt','')
+    if not re.fullmatch(r'[a-f0-9-]{36}',str(jid)):raise roundup.Problem('Thiếu mã yêu cầu.')
+    if not isinstance(note,str) or not note.strip() or len(note)>4000:raise roundup.Problem('Nhập prompt chỉnh sửa, tối đa 4000 ký tự.')
+    item=next((i for i in source['items'] if str(i['index'])==str(body.get('index'))),None)
+    if not item:raise roundup.Problem('Ảnh nguồn chưa hoàn thành.',404)
+    digest=hashlib.sha256(json.dumps({'source':source['id'],'index':item['index'],'prompt':note},sort_keys=True).encode()).hexdigest()
+    with LOCK:
+        if (folder(app)/(jid+'.json')).exists():
+            old=read(app,jid,owner)
+            if old['digest']!=digest:raise roundup.Problem('Mã yêu cầu đã dùng cho nội dung khác.',409)
+            return public(old)
+        if not (app.GEMINI_API_KEY if source['mode']=='wearer' else app.API_KEY):raise roundup.Problem('Chưa cấu hình API cho model của tab này.',503)
+        file=folder(app)/item['filename']
+        refs=[(file.read_bytes(),'image/jpeg' if file.suffix=='.jpg' else 'image/png')]
+        prompt=('Edit the supplied finished photograph according to the requested changes. '
+                '[REFERENCE_ROLE 1: EDIT TARGET] This is the exact previous result to revise. '
+                'Preserve the identities, facial proportions, clothing, original garment artwork, printed text and all unrequested details. '
+                'Change only what the user requests. Do not add captions, watermarks or collage panels. '
+                'Output one photograph, aspect '+source['aspect']+'. USER EDIT REQUEST: '+note.strip())
+        j={'id':jid,'owner':owner,'digest':digest,'mode':source['mode'],'model':source['model'],'aspect':source['aspect'],'status':'running','created':time.time(),'items':[],'total':1,'error':'','note':'Đang tạo lại ảnh…','source_job':source['id'],'source_index':item['index'],'edit_prompt':note.strip()}
+        write(folder(app)/(jid+'.json'),j);LIVE.add(jid)
+        threading.Thread(target=run,args=(app,j,[(item['shot'],refs,prompt)]),daemon=True).start()
+        return public(j)
+
 def run(app,j,snapshot):
     try:
         for shot,refs,prompt in snapshot:
@@ -141,11 +166,12 @@ def route(app,h,path,body=None):
         owner=str((user or {}).get('id') or (user or {}).get('email') or 'local')
         q=urllib.parse.parse_qs(urllib.parse.urlparse(h.path).query);get=lambda k,d='':q.get(k,[d])[0]
         action=path.rsplit('/',1)[-1]
-        job=read(app,get('id'),owner) if action in ('job','result') else None
+        job=read(app,(body or {}).get('source_job','') if action=='regenerate' else get('id'),owner) if action in ('job','result','regenerate') else None
         mode=job['mode'] if job else (body or {}).get('mode',get('mode'))
         if mode not in ('flatlay','wearer'):raise roundup.Problem('Tab không hợp lệ.')
         if app.AUTH_REQUIRED and not app.user_has_tab(user,mode):raise roundup.Problem('Tài khoản chưa được cấp tab này.',403)
         if body is not None and action=='generate':result=start(app,body,owner)
+        elif body is not None and action=='regenerate':result=regenerate(app,body,owner,job)
         elif body is not None and action=='preview':
             spec=validate(body);result={'prompts':[{'shot':s,'prompt':inputs(spec,s)[1]} for s in spec['shots']]}
         elif body is None and action=='catalog':result=CATALOG

@@ -9,3 +9,5 @@ Flatlay dùng ChatGPT Image (`gpt-image-2.5-sunburst`), 45 concept và 5 góc đ
 `photo_studio.py` cung cấp preview prompt không mất lượt tạo ảnh, generate có mã chống gửi trùng, history/job/result riêng theo chủ tài khoản. Job lưu trong `data/photo-studio`; ảnh và prompt/audit được giữ, lỗi trả phí không tự thử lại. Restart chuyển job đang dở thành interrupted khi đọc, giữ các ảnh đã xong. Giao diện lưu bản nháp qua IndexedDB, polling nối tiếp, thumbnail JPEG cho lưới kết quả.
 
 Kiểm tra: Python mô phỏng cả hai provider, vai trò đầu vào, quyền truy cập, idempotency, lỗi từng phần và preview không gọi model. Kiểm tra giao diện bằng tải ảnh thật và xem prompt, không chạy sinh ảnh trả phí chỉ để kiểm thử tính năng.
+
+Mỗi ảnh kết quả có ô Prompt tạo lại ảnh và nút Tạo lại ảnh này. Endpoint `regenerate` lấy chính ảnh kết quả đã chọn làm đầu vào, cùng yêu cầu chỉnh sửa, dùng model và tỉ lệ của tab nguồn. Không chạy lại toàn bộ bộ ảnh; bản cũ giữ nguyên, bản mới lưu quan hệ nguồn và prompt riêng. Áp dụng được cho ảnh trong lịch sử trước khi có tính năng này. Mã yêu cầu chống gửi trùng và quyền chủ tài khoản/tab được kiểm tra trước khi gọi provider.
