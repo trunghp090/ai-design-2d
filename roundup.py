@@ -337,7 +337,11 @@ def route(app,h,path,body=None):
             elif body is None and action=='kol-image':
                 person=next((p for p in roundup_cast.people('couple') if p['role']==get('role')),None)
                 if not person:raise Problem('Không tìm thấy KOL.',404)
-                send_bytes(h,person['file'].read_bytes(),'image/png');return True
+                preview=person['file'].parent/person.get('preview_asset','')
+                if get('preview')=='1' and preview.is_file() and preview.parent==person['file'].parent:
+                    send_bytes(h,preview.read_bytes(),'image/jpeg')
+                else:send_bytes(h,person['file'].read_bytes(),person.get('mime','image/png'))
+                return True
             elif body is None and action=='style-library':result=lck_style.public_data()
             elif body is None and action=='style-image':
                 slide=next((s for p in lck_style.load()['posts'] if p['id']==get('post') for s in p.get('slides',[]) if str(s['index'])==get('index')),None)

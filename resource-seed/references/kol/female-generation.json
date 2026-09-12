@@ -1,0 +1,10 @@
+{
+  "provider": "Google Gemini",
+  "model": "gemini-3-pro-image-preview",
+  "image_size": "4K",
+  "width": 3584,
+  "height": 4800,
+  "source_sha256": "2e1b851e13a5aecc02cd425c9f6990ec751477d0dd15490db84bddfb9048fcdf",
+  "sha256": "435b3731d39e0b427929077e0d29c90940b8863d38017a9478a2ec59ad444d9b",
+  "prompt": "Re-photograph exactly this same woman as an exceptionally clear professional studio identity-reference portrait. IDENTITY IS THE FIRST PRIORITY. Preserve the exact facial proportions, eye shape and spacing, eyelids, nose, lips, jawline, ears, hairline, hair color, age, and the individual asymmetries of the supplied person. No beautification that changes identity. One person only, straight-on head-and-shoulders close portrait, camera exactly at eye level, centered face, calm relaxed closed lips, eyes looking directly into the lens. Include the entire hair silhouette, both ears if visible in the source, neck and upper shoulders. Neutral light grey seamless studio backdrop, neutral white balance, premium large softbox with subtle fill and natural small catchlights, even face illumination with gentle shaping and no harsh shadows. Keep the plain white crew-neck shirt and existing small accessories. Use the reference hairstyle and hair texture. Photorealistic high-resolution studio capture, medium-format camera, 85mm portrait perspective, f/8 depth of field so both eyes, nose, lips, ears and individual hair strands are in crisp focus. Highest clean resolving power: defined eyelashes, realistic iris detail, natural fine pores, subtle peach fuzz and accurately resolved lips. Preserve natural smooth skin without exaggerating pores, adding acne, scars or freckles. No waxy plastic skin, no face reshaping, no enlarged eyes, no heavy makeup, no illustration, no noisy artificial grain, no oversharpening halos or crunchy edges. No text, collage, borders, watermark or extra people. Render a new full-detail 4K photographic portrait based on this exact identity, not a generic similar-looking model."
+}

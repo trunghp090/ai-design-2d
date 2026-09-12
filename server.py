@@ -41,7 +41,7 @@ from perf_assets import static_bytes, mockup_thumbnail
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.11-design-paste"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.12-kol-studio-4k"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")

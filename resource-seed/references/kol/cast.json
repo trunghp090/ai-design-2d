@@ -5,32 +5,45 @@
       "name": "Huy Hoàng",
       "kol_id": 12,
       "image_id": null,
-      "source": "/var/folders/88/krdj4ln53gldghb8pgb5hgz40000gn/T/codex-clipboard-d4c56d84-bb79-41b4-870f-fd66340a97c3.png",
+      "source": "user-provided portrait",
       "crop": [
         0,
         0,
-        1099,
-        1431
+        3584,
+        4800
       ],
-      "asset": "male.png",
-      "reference_origin": "user_uploaded_portrait",
-      "sha256": "b16350f890135a0faade936a1af28abfce71f81306da4f4b1f515952c9808f7b"
+      "asset": "male.jpg",
+      "reference_origin": "nano_banana_pro_studio_portrait",
+      "sha256": "a8b24bf69f577ec80fc90e2bc938c085eefb381c2e848498cf8d80832e26683d",
+      "preview_asset": "male-preview.jpg",
+      "generation_model": "gemini-3-pro-image-preview",
+      "source_sha256": "b16350f890135a0faade936a1af28abfce71f81306da4f4b1f515952c9808f7b",
+      "width": 3584,
+      "height": 4800,
+      "mime": "image/jpeg"
     },
     {
       "role": "female",
       "name": "Gia Hân",
       "kol_id": 8,
       "image_id": null,
-      "source": "/var/folders/88/krdj4ln53gldghb8pgb5hgz40000gn/T/codex-clipboard-fcede59b-c32c-45bb-84c3-7b2b17ba870e.png",
+      "source": "user-provided portrait",
       "crop": [
         0,
         0,
-        1122,
-        1402
+        3584,
+        4800
       ],
-      "asset": "female.png",
-      "reference_origin": "user_uploaded_portrait",
-      "sha256": "2e1b851e13a5aecc02cd425c9f6990ec751477d0dd15490db84bddfb9048fcdf"
+      "asset": "female.jpg",
+      "reference_origin": "nano_banana_pro_studio_portrait",
+      "sha256": "435b3731d39e0b427929077e0d29c90940b8863d38017a9478a2ec59ad444d9b",
+      "preview_asset": "female-preview.jpg",
+      "generation_model": "gemini-3-pro-image-preview",
+      "source_sha256": "2e1b851e13a5aecc02cd425c9f6990ec751477d0dd15490db84bddfb9048fcdf",
+      "width": 3584,
+      "height": 4800,
+      "mime": "image/jpeg"
     }
-  ]
+  ],
+  "revision": "2026-09-12-studio-4k"
 }

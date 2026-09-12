@@ -26,7 +26,7 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(job['status'],'done')
             refs,prompt=app.gen_shot.call_args.args[:2]
             self.assertEqual(refs[0],(b'product','image/png'))
-            self.assertEqual(refs[1][0],(roundup.roundup_cast.ROOT/'female.png').read_bytes())
+            self.assertEqual(refs[1][0],roundup.roundup_cast.people('solo')[0]['file'].read_bytes())
             self.assertIn(chosen['prompt_direction'],prompt)
             self.assertIn('IDENTITY ONLY for the female',prompt)
             self.assertIn('IDENTITY ONLY for the male',prompt)
@@ -41,8 +41,9 @@ class LibraryTests(unittest.TestCase):
         refs=[]
         rules,audit=roundup_cast.attach(refs,'couple')
         self.assertEqual([p['role'] for p in audit],['female','male'])
-        self.assertEqual(refs[0][0],(roundup_cast.ROOT/'female.png').read_bytes())
-        self.assertEqual(refs[1][0],(roundup_cast.ROOT/'male.png').read_bytes())
+        self.assertEqual(refs[0][0],roundup_cast.people('couple')[0]['file'].read_bytes())
+        self.assertEqual(refs[1][0],roundup_cast.people('couple')[1]['file'].read_bytes())
+        self.assertEqual([mime for _,mime in refs],['image/jpeg','image/jpeg'])
         self.assertIn('Reference #1 is IDENTITY ONLY for the female',rules)
         refs=[]
         _,audit=roundup_cast.attach(refs,'solo')
