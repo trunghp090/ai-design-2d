@@ -72,7 +72,7 @@ def plan_people_references(spec, plans):
 
 def reference_inputs(raw, mime, scene, spec, study=None):
     refs=[(raw,mime)]
-    instructions=['[REFERENCE_ROLE 1: PRODUCT DESIGN] Reference #1 alone defines garment artwork, color, print position and garment type.']
+    instructions=['[REFERENCE_ROLE 1: PRODUCT DESIGN] Reference #1 alone defines garment artwork, color, print position and garment type. Any headline, ranking, UI or letterbox area outside the actual garment is not printed artwork; exclude it from the generated photo.']
     folder=ROOT/'public'/'roundup-references'
     if spec.get('style')=='lck-inspired' and scene=='flatlay':
         name={'flatlay':'lck-flatlay.png','mannequin':'lck-mannequin.png','couple':'lck-couple.png','solo':'lck-couple.png'}[scene]
@@ -166,11 +166,25 @@ def read(app,jid,owner):
             j['status']='interrupted';j['error']='Máy chủ đã khởi động lại. Các ảnh đã xong vẫn được giữ; tác vụ chưa rõ kết quả không tự chạy lại.';save(app,j)
     return j
 
+def plans_for(spec):
+    scenario=spec.get('scenario','custom');rows=spec['products'];plans=[]
+    if not rows:return plans
+    if spec.get('cover'):
+        plans.append((rows[0],'flatlay' if scenario=='flatlay' else 'couple',True))
+    for row in rows:
+        scene='flatlay' if scenario=='flatlay' else ('solo' if row['scene']=='solo' else 'couple') if scenario in ('mixed','people') else row['scene']
+        plans.append((row,scene,False))
+        if scenario=='mixed' or (scenario=='custom' and spec.get('paired')):
+            plans.append((row,'flatlay',False))
+    return plans
+
 def settings(app):
     return {'prompt_ready':bool(app.API_KEY), 'prompt_provider':'openai', 'prompt_model':getattr(app,'TEXT_MODEL','gpt-4o-mini'), 'engines':[{'id':'scene_auto','label':'Nano Banana Pro · ảnh người / GPT Image · ảnh sản phẩm','ready':bool(app.API_KEY)}]}
 
 def validate(body):
     if not isinstance(body,dict):raise Problem('Dữ liệu không hợp lệ.')
+    scenario=body.get('scenario','custom')
+    if scenario not in ('custom','flatlay','mixed','people'):raise Problem('Kịch bản bài không hợp lệ.')
     rows=body.get('products')
     if not isinstance(rows,list) or not 1<=len(rows)<=6:raise Problem('Chọn từ 1 đến 6 sản phẩm.')
     if body.get('engine') not in ('openai','openai_25','gemini_pro','scene_auto'):raise Problem('Chọn OpenAI hoặc Nano Banana Pro.')
@@ -196,7 +210,7 @@ def validate(body):
     if len({x['handle'] for x in clean})!=len(clean):raise Problem('Không chọn trùng sản phẩm.')
     if not isinstance(body.get('brand_packaging',True),bool):raise Problem('Thiết lập bao bì không hợp lệ.')
     if not isinstance(body.get('paired',False),bool):raise Problem('Thiết lập cặp ảnh không hợp lệ.')
-    return {'paired':body.get('paired',False),'brand_packaging':body.get('brand_packaging',True),'prompt_provider':provider,'style':style,'products':clean,'engine':'scene_auto','aspect':body['aspect'],'cover':bool(body.get('cover',True)), 'hook':str(body.get('hook',''))[:180]}
+    return {'scenario':scenario,'paired':body.get('paired',False),'brand_packaging':body.get('brand_packaging',True),'prompt_provider':provider,'style':style,'products':clean,'engine':'scene_auto','aspect':body['aspect'],'cover':bool(body.get('cover',True)), 'hook':str(body.get('hook',''))[:180]}
 
 def uploaded_image(value):
     import io
@@ -224,24 +238,20 @@ def start(app,body,owner):
         conf=settings(app)
         if not (app.API_KEY if spec['prompt_provider']=='openai' else app.ANTHROPIC_API_KEY):raise Problem('Chưa cấu hình '+('OPENAI_API_KEY' if spec['prompt_provider']=='openai' else 'ANTHROPIC_API_KEY')+' để viết prompt riêng cho từng ảnh.',503)
         if not next(x['ready'] for x in conf['engines'] if x['id']==spec['engine']):raise Problem('Model đã chọn chưa được cấu hình API key.',503)
-        if spec['cover'] or any(r['scene'] in ('couple','solo') for r in spec['products']):
+        if any(scene in ('couple','solo') for _,scene,_ in plans_for(spec)):
             if not app.GEMINI_API_KEY:raise Problem('Ảnh có người cần cấu hình Gemini API cho Nano Banana Pro.',503)
             roundup_cast.people('couple')
         for r in spec['products']:
             if r.get('uploads'):continue
             p=product(r['handle'])
             if r['image_index']>=len(p['images']):raise Problem('Ảnh đã chọn không còn tồn tại.')
-        job={'id':jid,'owner':owner,'digest':digest,'spec':spec,'status':'running','items':[],'error':'','created':time.time(),'total':len(spec['products'])*(2 if spec.get('paired') else 1)+int(spec['cover'])}
+        job={'id':jid,'owner':owner,'digest':digest,'spec':spec,'status':'running','items':[],'error':'','created':time.time(),'total':len(plans_for(spec))}
         save(app,job);LIVE.add(jid)
         threading.Thread(target=run,args=(app,job),daemon=True).start()
         return job
 
 def run(app,job):
-    spec=job['spec'];plans=[]
-    if spec['cover']:plans.append((spec['products'][0],'couple',True))
-    for r in spec['products']:
-        plans.append((r,r['scene'],False))
-        if spec.get('paired'):plans.append((r,'flatlay',False))
+    spec=job['spec'];plans=plans_for(spec)
     try:
         people_studies=plan_people_references(spec,plans) if spec.get('style')=='lck-inspired' else {}
         for n,(row,scene,cover) in enumerate(plans):

@@ -46,3 +46,6 @@ Lượt đầu lưu tại outputs/roundup-web-previews/: 4 mẫu Text Split, Ann
 
 ### Quy tắc mặc áo chéo tên (người dùng chốt sau đó)
 Ưu tiên cho nam mặc áo in tên nữ, nữ mặc áo in tên nam cho tất cả mẫu áo đôi. Với cặp Gia Hân/Huy Hoàng: upload ảnh 1 là áo nữ mặc, mang tên Huy Hoàng; upload ảnh 2 là áo nam mặc, mang tên Gia Hân. Riêng Text Split lượt này: cả hai áo dùng H lồng, không dùng G; H + Huy Hoàng cho nữ, H + Gia Hân cho nam. Bản setup cập nhật: outputs/roundup-web-previews/setup-partner-names.json.
+
+## Kịch bản bài LCK (12/9/2026)
+Chọn ở mục Kịch bản bài LCK: chỉ flatlay, người mặc + flatlay, chỉ người mặc, hoặc tự chỉnh. Flatlay: mỗi mẫu 1 ảnh và bìa flatlay nếu bật. Kết hợp: mỗi mẫu người mặc rồi flatlay, bìa couple nếu bật. Chỉ người mặc: mỗi mẫu couple hoặc nữ đơn, bìa couple nếu bật. Giao diện hiện số ảnh và tên cảnh cho từng slide. Setup cũ giữ chế độ tự chỉnh. Backend dùng cùng quy tắc cho kế hoạch, số lượt và kiểm tra key; bài flatlay không cần Gemini. Ảnh người dùng Nano Banana Pro 4K, ảnh sản phẩm dùng GPT Image.
