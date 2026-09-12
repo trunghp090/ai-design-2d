@@ -16,7 +16,8 @@ class LibraryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             app=SimpleNamespace(DATA_DIR=temp,ASPECT_TO_SIZE={'3:4':'1024x1536'},MODEL='test',_vn_name_spec=lambda s:s)
             app.openai_chat=Mock(return_value='A detailed realistic photograph. '*20)
-            app.gen_shot=Mock(return_value=base64.b64encode(b'png').decode())
+            app.gen_shot=Mock()
+            app.gemini_edit=Mock(return_value=base64.b64encode(b'png').decode())
             row={'handle':'ao-doi','image_index':0,'female':'Lan','male':'Nam','scene':'couple','label':'Top 1'}
             spec={'products':[row],'cover':False,'style':'lck-inspired','engine':'openai','aspect':'3:4','prompt_provider':'openai','hook':'Top 1'}
             job={'id':'11111111-1111-1111-1111-111111111111','owner':'u','spec':spec,'items':[],'total':1}
@@ -24,7 +25,11 @@ class LibraryTests(unittest.TestCase):
             self.assertIsNotNone(chosen)
             with patch.object(roundup,'image',return_value=(b'product','image/png')),patch.object(roundup,'product',return_value={'title':'Áo đôi'}):roundup.run(app,job)
             self.assertEqual(job['status'],'done')
-            refs,prompt=app.gen_shot.call_args.args[:2]
+            refs,prompt=app.gemini_edit.call_args.args[:2]
+            app.gen_shot.assert_not_called()
+            self.assertEqual(app.gemini_edit.call_args.args[3],'gemini-3-pro-image')
+            self.assertEqual(app.gemini_edit.call_args.kwargs['image_size'],'4K')
+            self.assertEqual(job['items'][0]['image_model'],'gemini-3-pro-image')
             self.assertEqual(refs[0],(b'product','image/png'))
             self.assertEqual(refs[1][0],roundup.roundup_cast.people('solo')[0]['file'].read_bytes())
             self.assertIn(chosen['prompt_direction'],prompt)

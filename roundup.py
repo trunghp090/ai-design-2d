@@ -15,6 +15,7 @@ ROOT = Path(__file__).parent
 LOCK = threading.RLock()
 CACHE = {}
 LIVE = set()
+PEOPLE_MODEL = 'gemini-3-pro-image'
 SCENES = {
     'solo': 'One adult Vietnamese woman wearing the selected garment in a natural candid outfit photo, cream apartment or quiet cafe, waist-up to full-body framing with print unobstructed, relaxed pose and realistic fabric drape.',
     'flatlay': 'Two matching garments laid diagonally on a taupe suede sofa, showing only supplied design sides, soft daylight and natural folds; use only the selected packaging references, or neutral unbranded props when none are selected.',
@@ -166,7 +167,7 @@ def read(app,jid,owner):
     return j
 
 def settings(app):
-    return {'prompt_ready':bool(app.API_KEY), 'prompt_provider':'openai', 'prompt_model':getattr(app,'TEXT_MODEL','gpt-4o-mini'), 'engines':[{'id':'openai_25','label':'GPT Image 2.5 Sunburst · toàn bộ ảnh','ready':bool(app.API_KEY)}]}
+    return {'prompt_ready':bool(app.API_KEY), 'prompt_provider':'openai', 'prompt_model':getattr(app,'TEXT_MODEL','gpt-4o-mini'), 'engines':[{'id':'scene_auto','label':'Nano Banana Pro · ảnh người / GPT Image · ảnh sản phẩm','ready':bool(app.API_KEY)}]}
 
 def validate(body):
     if not isinstance(body,dict):raise Problem('Dữ liệu không hợp lệ.')
@@ -195,7 +196,7 @@ def validate(body):
     if len({x['handle'] for x in clean})!=len(clean):raise Problem('Không chọn trùng sản phẩm.')
     if not isinstance(body.get('brand_packaging',True),bool):raise Problem('Thiết lập bao bì không hợp lệ.')
     if not isinstance(body.get('paired',False),bool):raise Problem('Thiết lập cặp ảnh không hợp lệ.')
-    return {'paired':body.get('paired',False),'brand_packaging':body.get('brand_packaging',True),'prompt_provider':provider,'style':style,'products':clean,'engine':'openai_25','aspect':body['aspect'],'cover':bool(body.get('cover',True)), 'hook':str(body.get('hook',''))[:180]}
+    return {'paired':body.get('paired',False),'brand_packaging':body.get('brand_packaging',True),'prompt_provider':provider,'style':style,'products':clean,'engine':'scene_auto','aspect':body['aspect'],'cover':bool(body.get('cover',True)), 'hook':str(body.get('hook',''))[:180]}
 
 def uploaded_image(value):
     import io
@@ -223,7 +224,9 @@ def start(app,body,owner):
         conf=settings(app)
         if not (app.API_KEY if spec['prompt_provider']=='openai' else app.ANTHROPIC_API_KEY):raise Problem('Chưa cấu hình '+('OPENAI_API_KEY' if spec['prompt_provider']=='openai' else 'ANTHROPIC_API_KEY')+' để viết prompt riêng cho từng ảnh.',503)
         if not next(x['ready'] for x in conf['engines'] if x['id']==spec['engine']):raise Problem('Model đã chọn chưa được cấu hình API key.',503)
-        if spec['cover'] or any(r['scene'] in ('couple','solo') for r in spec['products']):roundup_cast.people('couple')
+        if spec['cover'] or any(r['scene'] in ('couple','solo') for r in spec['products']):
+            if not app.GEMINI_API_KEY:raise Problem('Ảnh có người cần cấu hình Gemini API cho Nano Banana Pro.',503)
+            roundup_cast.people('couple')
         for r in spec['products']:
             if r.get('uploads'):continue
             p=product(r['handle'])
@@ -243,7 +246,7 @@ def run(app,job):
         people_studies=plan_people_references(spec,plans) if spec.get('style')=='lck-inspired' else {}
         for n,(row,scene,cover) in enumerate(plans):
             if any(i['index']==n for i in job['items']):continue
-            engine=('gemini_pro' if scene in ('couple','solo') else 'openai_25') if spec['engine']=='scene_auto' else spec['engine']
+            engine='gemini_pro' if scene in ('couple','solo') else 'openai_25'
             raw,mime=uploaded_image(row['uploads'][0]) if row.get('uploads') else image(row['handle'],row['image_index'])
             study=(people_studies[n] if n in people_studies else lck_style.choose(scene,row,n)) if spec.get('style')=='lck-inspired' else None
             refs,ref_rules=reference_inputs(raw,mime,scene,spec,study)
@@ -302,12 +305,15 @@ def run(app,job):
                 prompt+='Keep the original illustration and typography. Only replace existing customizable names: female wearer shirt shows '+app._vn_name_spec(row['male'])+'; male wearer shirt shows '+app._vn_name_spec(row['female'])+'. Do not add names if the source has no name field. '
             prompt+='\nREFERENCE ROLES: '+ref_rules
             with LOCK:job['note']='Đang tạo ảnh %d/%d'%(n+1,job['total']);save(app,job)
-            audit={'pose_key':pose_key,'index':n,'engine':engine,'scene':scene,'print_side':side,'kol_references':identity_audit,'references':[{'index':i+1,'mime':m,'bytes':len(r),'sha256':hashlib.sha256(r).hexdigest()} for i,(r,m) in enumerate(refs)],'prompt_sha256':hashlib.sha256(prompt.encode()).hexdigest(),'prompt':prompt}
+            audit={'pose_key':pose_key,'index':n,'engine':engine,'image_model':PEOPLE_MODEL if engine=='gemini_pro' else 'gpt-image-2.5-sunburst','image_size':'4K' if engine=='gemini_pro' else 'high','scene':scene,'print_side':side,'kol_references':identity_audit,'references':[{'index':i+1,'mime':m,'bytes':len(r),'sha256':hashlib.sha256(r).hexdigest()} for i,(r,m) in enumerate(refs)],'prompt_sha256':hashlib.sha256(prompt.encode()).hexdigest(),'prompt':prompt}
             (directory(app)/(job['id']+'-'+str(n)+'.request.json')).write_text(json.dumps(audit,ensure_ascii=False))
             # No automatic image retries: uncertain paid responses require explicit review.
-            b64=app.gen_shot(refs,prompt,app.ASPECT_TO_SIZE[spec['aspect']],engine,spec['aspect'],lock=False,quality='high')
+            if engine=='gemini_pro':
+                b64=app.gemini_edit(refs,prompt,spec['aspect'],PEOPLE_MODEL,image_size='4K')
+            else:
+                b64=app.gen_shot(refs,prompt,app.ASPECT_TO_SIZE[spec['aspect']],engine,spec['aspect'],lock=False,quality='high')
             dest=directory(app)/(job['id']+'-'+str(n)+'.png');dest.write_bytes(base64.b64decode(b64))
-            item={'pose_key':pose_key,'index':n,'cover':cover,'label':spec['hook'] if cover else row['label'],'handle':row['handle'],'female':row['female'],'male':row['male'],'scene':scene,'people_reference_used':False,'kol_identity_used':bool(identity_audit),'image_model':'gpt-image-2.5-sunburst' if engine=='openai_25' else getattr(app,'MODEL','') if engine=='openai' else getattr(app,'GEMINI_IMAGE_MODEL',''),'print_side':side,'image_engine':engine,'reference_count':len(refs),'brand_packaging':scene=='flatlay' and spec.get('brand_packaging',False),'prompt_provider':spec.get('prompt_provider','claude'),'prompt':prompt,'base':base,'image':'/api/roundup/result?id='+job['id']+'&index='+str(n)}
+            item={'pose_key':pose_key,'index':n,'cover':cover,'label':spec['hook'] if cover else row['label'],'handle':row['handle'],'female':row['female'],'male':row['male'],'scene':scene,'people_reference_used':False,'kol_identity_used':bool(identity_audit),'image_model':'gpt-image-2.5-sunburst' if engine=='openai_25' else getattr(app,'MODEL','') if engine=='openai' else PEOPLE_MODEL,'print_side':side,'image_engine':engine,'reference_count':len(refs),'brand_packaging':scene=='flatlay' and spec.get('brand_packaging',False),'prompt_provider':spec.get('prompt_provider','claude'),'prompt':prompt,'base':base,'image':'/api/roundup/result?id='+job['id']+'&index='+str(n)}
             if identity_audit:item['kol_references']=identity_audit
             if study:item['style_reference']={'post_id':study['post_id'],'slide':study['index'],'url':study['source_url'],'direction':study['prompt_direction']}
             with LOCK:job['items'].append(item);save(app,job)
