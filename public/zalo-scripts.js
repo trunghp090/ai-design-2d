@@ -27,7 +27,7 @@
   const media = (side,slot,kind='image') => ({side,slot,kind,text:'',time:'',images:[],heart:false,hd:true});
   window.ZALO_SCRIPTS = rows.map(([id,title,category,photoHint,a,b,c,d,caption]) => ({
     id,title,category,photoHint,caption:caption+'\n\n#aointen #aoinhinh #quatang #riengvn',
-    project:{version:1,templateId:id,name:'Khách hàng',avatar:'',ratio:'portrait',font:36,header:true,
+    project:{version:1,templateId:id,name:'Khách hàng',avatar:'',ratio:'portrait',font:36,header:false,
       slides:[
         {title:'Khách gửi ảnh',messages:[text('in',a,'20:01'),text('out',b,'20:02'),media('in','source')]},
         {title:'Shop gửi mẫu',messages:[text('in',c,'20:05'),text('out',d,'20:08'),media('out','result')]},

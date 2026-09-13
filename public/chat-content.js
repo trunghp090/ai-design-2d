@@ -8,7 +8,7 @@
         <label for="cc-name">Tên người trò chuyện</label><input id="cc-name" class="input" maxlength="60" value="Khách hàng">
         <label for="cc-avatar">Avatar khách hàng</label><input class="cc-file" type="file" id="cc-avatar" accept="image/*"><button class="btn-ghost sm" id="cc-clear-avatar" style="margin-top:8px">Bỏ avatar</button>
         <div class="cc-row"><div><label for="cc-ratio">Khung hình</label><select id="cc-ratio" class="input"><option value="portrait">9:16 · Story / TikTok</option><option value="feed">4:5 · Bài đăng</option><option value="square">1:1 · Vuông</option></select></div><div><label for="cc-font">Cỡ chữ</label><input id="cc-font" class="input" type="number" min="24" max="52" value="36"></div></div>
-        <label class="cc-check"><input type="checkbox" id="cc-header" checked> Hiện thanh tên hội thoại</label><label class="cc-check"><input type="checkbox" id="cc-trim"> Cắt gọn theo đoạn hội thoại</label>
+        <p class="hint">Ảnh xuất bắt đầu từ tin nhắn, không hiện thanh tên khách.</p><label class="cc-check"><input type="checkbox" id="cc-trim"> Cắt gọn theo đoạn hội thoại</label>
         <hr style="border:0;border-top:1px solid var(--line);margin:22px 0"><h2><span class="cc-step">02</span><span id="cc-editor-title">Thêm tin nhắn</span></h2>
         <div class="cc-row"><div><label for="cc-side">Người gửi</label><select id="cc-side" class="input"><option value="in">Khách · bên trái</option><option value="out">Shop · bên phải</option></select></div><div><label for="cc-time">Giờ gửi</label><input id="cc-time" class="input" type="time" value="21:03"></div></div>
         <label for="cc-kind">Loại nội dung</label><select id="cc-kind" class="input"><option value="text">Tin nhắn văn bản</option><option value="image">Ảnh / album ảnh</option><option value="cover">Ảnh tràn khung (slide thành phẩm)</option></select>
@@ -60,7 +60,7 @@
   root.querySelector('.cc-heading h1').textContent = 'Content Zalo';
   root.querySelector('.cc-heading p').textContent = 'Soạn tin nhắn bên trái · Xem thành phẩm bên phải · Xuất ảnh khi hoàn tất.';
   const $ = id => document.getElementById('cc-' + id);
-  const seed = () => ({version:1,name:'Khách hàng',avatar:'',ratio:'portrait',font:36,header:true,slides:[{messages:[
+  const seed = () => ({version:1,name:'Khách hàng',avatar:'',ratio:'portrait',font:36,header:false,slides:[{messages:[
     {side:'in',kind:'text',text:'Vâng shop đợi em chọn ảnh anh nhà đã nhen',time:'21:03',heart:false,images:[]},
     {side:'out',kind:'text',text:'Dạ b ạ',time:'21:08',heart:false,images:[]},
     {side:'in',kind:'text',text:'Shop ghép hộ em 2 ảnh này với được kh ạ',time:'21:37',heart:false,images:[]},
@@ -155,7 +155,7 @@
     }));
     saveQueue.catch(()=>{});
   }
-  function settings(){for(const k of ['name','ratio','font']) $(k).value=state[k];$('header').checked=state.header;$('trim').checked=!!state.trim;}
+  function settings(){for(const k of ['name','ratio','font']) $(k).value=state[k];state.header=false;$('trim').checked=!!state.trim;}
   function resetEditor(){editing=-1;pending=[];$('text').value='';$('images').value='';$('thumbs').innerHTML='';$('add').textContent='+ Thêm tin nhắn';$('editor-title').textContent='Thêm tin nhắn';$('cancel').hidden=true;}
   function kindFields(){const media=$('kind').value!=='text';$('text-fields').hidden=media;$('image-fields').hidden=!media;$('hd-label').hidden=!media;}
   function thumbs(){ $('thumbs').innerHTML=pending.map(src=>`<img src="${esc(src)}" alt="Ảnh đã chọn">`).join(''); }
@@ -189,7 +189,6 @@
     if(token!==revision)return;
     c.fillStyle='#e3e7f0';c.fillRect(0,0,W,H);let y=40;const font=Number(snapshot.font),lineH=font*1.38;
     const avatarAt=(x,yy)=>{c.save();c.beginPath();c.arc(x+30,yy+30,30,0,Math.PI*2);c.clip();if(avatar)crop(c,avatar,x,yy,60,60);else{c.fillStyle='#899d88';c.fillRect(x,yy,60,60);c.fillStyle='#fff';c.font='25px Arial';c.textAlign='center';c.fillText((snapshot.name.trim()[0]||'K').toUpperCase(),x+30,yy+39);c.textAlign='left';}c.restore();};
-    if(snapshot.header&&!ms.some(m=>m.kind==='cover')){c.fillStyle='#fff';c.fillRect(0,0,W,126);c.fillStyle='#252a34';c.font='46px Arial';c.fillText('‹',30,75);avatarAt(80,30);c.font='bold 30px Arial';c.fillText(snapshot.name,160,57,740);c.font='22px Arial';c.fillStyle='#87909a';c.fillText('Đang hoạt động',160,91);c.fillText('•••',985,70);y=162;}
     for(let i=0;i<ms.length;i++){
       const m=ms[i], incoming=m.side==='in';
       if(m.kind==='cover'){if(imgs[i][0])crop(c,imgs[i][0],0,0,W,H);else{c.fillStyle='#87909a';c.font='36px Arial';c.fillText('Chọn ảnh thành phẩm',70,160);}y=H-35;continue;}
@@ -211,7 +210,7 @@
   $('images').onchange=async e=>{try{const files=[...e.target.files];if(files.length>4)throw Error('Chọn tối đa 4 ảnh mỗi album.');pending=await Promise.all(files.map(readFile));thumbs();notice('Ảnh đã sẵn sàng. Bấm thêm hoặc lưu tin nhắn.');}catch(e){notice(e.message,true);}};
   $('avatar').onchange=async e=>{if(!e.target.files[0])return;try{state.avatar=await readFile(e.target.files[0]);update();}catch(e){notice(e.message,true);}};
   $('clear-avatar').onclick=()=>{state.avatar='';$('avatar').value='';update();};
-  for(const k of ['name','ratio','font','header','trim'])$(k).oninput=()=>{state[k]=(k==='header'||k==='trim')?$(k).checked:k==='font'?Math.max(24,Math.min(52,Number($(k).value)||36)):$(k).value;update();};
+  for(const k of ['name','ratio','font','trim'])$(k).oninput=()=>{state[k]=k==='trim'?$(k).checked:k==='font'?Math.max(24,Math.min(52,Number($(k).value)||36)):$(k).value;update();};
   $('kind').onchange=kindFields;$('cancel').onclick=()=>{resetEditor();list();};
   $('add').onclick=()=>{
     const kind=$('kind').value;if(kind==='text'&&!$('text').value.trim())return notice('Nhập nội dung tin nhắn trước nhé.',true);
