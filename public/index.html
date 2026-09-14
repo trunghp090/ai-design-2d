@@ -96,6 +96,7 @@
         <option value="extract">🎯 Tách gốc (không AI) — giữ màu y hệt, dự phòng</option>
       </select>
       <p class="hint" id="modeHint">Cloner: AI clone lại design trên áo. Nếu cần giữ màu tuyệt đối thì dùng “Tách gốc (không AI)”.</p>
+      <p class="hint" id="cloneModelStatus" role="status">Đang kiểm tra model Clone…</p>
 
       <label class="field-label">Ảnh áo đầu vào</label>
       <div class="tabs">
@@ -164,7 +165,7 @@
           <button type="button" class="btn-ghost sm" id="rebuildPrompt">↻ Dựng lại từ cài đặt</button>
           <label class="mini-switch"><input type="checkbox" id="useCustomPrompt" /> Dùng prompt đã sửa</label>
         </div>
-        <p class="hint">Đây là prompt thật gửi cho gpt-image-2. Sửa nội dung trong ô rồi tick “Dùng prompt đã sửa” để áp dụng. Bấm “Dựng lại” để lấy lại bản gốc theo cài đặt.</p>
+        <p class="hint">Đây là prompt thật gửi cho <span id="clonePromptModel">model Clone</span>. Sửa nội dung trong ô rồi tick “Dùng prompt đã sửa” để áp dụng. Bấm “Dựng lại” để lấy lại bản gốc theo cài đặt.</p>
       </details>
 
       <button class="btn-primary" id="generateBtn">✨ Tạo design</button>

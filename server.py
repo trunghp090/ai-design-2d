@@ -42,7 +42,7 @@ from perf_assets import static_bytes, mockup_thumbnail
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.14-tiktok-download"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.14-clone-image25"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -148,6 +148,10 @@ def load_env():
 load_env()
 API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst").strip()
+# Clone has its own model so an older deployment-wide setting cannot downgrade it.
+CLONE_IMAGE_MODEL = (os.environ.get("OPENAI_CLONE_IMAGE_MODEL", "").strip()
+                     or "gpt-image-2.5-sunburst")
+CLONE_IMAGE_QUALITY = "high"
 # Model "đọc ảnh + nghĩ ý tưởng" (vision) cho chế độ Auto. gpt-4o-mini có vision, rẻ.
 TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 # Model cao nhất cho việc sáng tạo (art director thiết kế tên) — mặc định gpt-4o
@@ -402,6 +406,13 @@ def build_prompt(mode, user_prompt, bg_mode):
             "Clone the design/artwork printed on the garment in the provided image exactly "
             "as it appears — same illustration, same text (keep all Vietnamese diacritics, "
             "e.g. 'Mẹ Kẽ Chuối'), same colors, same composition. Reproduce it as a clean, "
+            "faithful extraction, not a redesign. Preserve the original typography: exact "
+            "letterforms, font style, stroke weight, width, spacing, baseline, curves, "
+            "swashes, texture, outlines and existing effects. Do not introduce embossing, "
+            "bevels, 3D volume, highlights or shadows that are absent from the reference. "
+            "If a name or other text replacement is requested, change only the specified "
+            "word or line, with the new text in that line's original typographic style; "
+            "preserve all other lettering and artwork. Reproduce it as a "
             "sharp, high-resolution standalone graphic. Output ONLY the artwork itself "
             "(no t-shirt, no body, no folds, no wrinkles). " + bg
         )
@@ -1446,9 +1457,12 @@ def run_generate_job(job_id, images, mode, user_prompt, size, transparent, overr
             if j:
                 j.update(fields); j["done"] = 1; j["finished"] = True
     try:
-        b64, used_prompt = gen_design(images, mode, user_prompt, size, transparent, override)
-        item = gallery_add(b64, {"mode": mode, "prompt": user_prompt})
-        _fin(items=[{"image": b64, "prompt": used_prompt, "gallery": item, "mock": False}])
+        b64, used_prompt = gen_design(images, mode, user_prompt, size, transparent, override,
+                                     quality=CLONE_IMAGE_QUALITY, model=CLONE_IMAGE_MODEL)
+        generation = {"model": CLONE_IMAGE_MODEL, "quality": CLONE_IMAGE_QUALITY}
+        item = gallery_add(b64, {"mode": mode, "prompt": user_prompt, **generation})
+        _fin(items=[{"image": b64, "prompt": used_prompt, "gallery": item, "mock": False,
+                     **generation}])
     except urllib.error.HTTPError as e:
         try:
             detail = e.read().decode("utf-8", "ignore")
@@ -7420,22 +7434,25 @@ def strip_background(raw, method, matting=True):
     return remove_flat_bg(raw)
 
 
-def gen_design(images, mode, user_prompt, size, transparent, override=None, quality=""):
+def gen_design(images, mode, user_prompt, size, transparent, override=None, quality="", model=None):
     """Tạo design. override = prompt người dùng tự sửa (nếu có) -> dùng thẳng.
     quality: '' (mặc định) | 'high' | 'medium' | 'low' -> độ nét gpt-image.
     Trả về (b64, prompt_đã_dùng).
     """
     override = (override or "").strip()
+    edit_options = {"quality": quality}
+    if model is not None:
+        edit_options["model"] = model
     if transparent and NATIVE_TRANSPARENT:
         p = override or build_prompt(mode, user_prompt, "transparent")
         try:
-            return openai_edit(images, p, size, native_transparent=True, quality=quality), p
+            return openai_edit(images, p, size, native_transparent=True, **edit_options), p
         except urllib.error.HTTPError as e:
             msg = e.read().decode("utf-8", "ignore")
             if not (e.code == 400 and "background" in msg):
                 raise urllib.error.HTTPError(e.url, e.code, msg, e.headers, None)
     p = override or build_prompt(mode, user_prompt, "chroma" if transparent else "solid")
-    b64 = openai_edit(images, p, size, native_transparent=False, quality=quality)
+    b64 = openai_edit(images, p, size, native_transparent=False, **edit_options)
     # TÍCH HỢP: clone xong tự tách nền luôn -> trả design trong suốt sẵn.
     # Design là chữ/logo trên nền phẳng -> TÁCH PHẲNG (floodfill từ mép, alpha mềm) sạch hơn
     # rembg U2Net (rembg tưởng cả khối là vật thể -> cắt nham nhở/răng cưa). Giữ trắng trong bụng chữ.
@@ -8660,19 +8677,26 @@ def run_name_design_job(job_id, name, stamp, style, n, transparent):
             BATCH_JOBS[job_id]["finished"] = True
 
 
-def clone_compare_fix(orig_bytes, result_bytes, size="auto", transparent=True):
+def clone_compare_fix(orig_bytes, result_bytes, size="auto", transparent=True, user_prompt=""):
     """AI đối chiếu MẪU GỐC vs KẾT QUẢ (sau tách nền) -> liệt kê khác biệt -> vẽ lại từ gốc cho khớp.
     Trả (b64_đã_sửa, info{match,differences,fix})."""
     ob = base64.b64encode(orig_bytes).decode()
     rb = base64.b64encode(result_bytes).decode()
+    user_prompt = (user_prompt or "").strip()
     sys = ("Bạn là QC thiết kế áo. ẢNH 1 = mẫu GỐC. ẢNH 2 = KẾT QUẢ sau khi clone/tách nền. "
            "Chỉ so sánh PHẦN ĐỒ HOẠ/CHỮ (artwork), BỎ QUA màu nền — nền luôn để TRONG SUỐT. "
+           "Mẫu đúng là ảnh GỐC sau khi áp dụng YÊU CẦU SỬA của người dùng. "
+           "Đổi tên/chữ có chủ đích KHÔNG phải lỗi; KHÔNG yêu cầu đổi về tên gốc. "
+           "Giữ kiểu chữ gốc cho tên mới: hình dáng ký tự, độ dày nét, khoảng cách, đường "
+           "chân chữ, chất liệu và hiệu ứng; không thêm dập nổi/3D nếu mẫu gốc không có. "
            "So sánh KỸ: chi tiết/nét/CHỮ (đúng từng chữ & dấu tiếng Việt)/MÀU CHỮ/bố cục/độ dày nét "
            "bị MẤT, SAI, LỆCH, RĂNG CƯA, THIẾU hoặc THỪA so với gốc. Trả JSON "
            "{\"match\": true/false, \"differences\": [\"...\" tiếng Việt ngắn gọn về ĐỒ HOẠ], "
-           "\"fix\": \"câu lệnh TIẾNG ANH vẽ lại đồ hoạ/chữ cho GIỐNG HỆT mẫu gốc (giữ mọi chi "
-           "tiết/chữ/màu chữ/bố cục/độ dày nét). TUYỆT ĐỐI KHÔNG nhắc tới màu nền/background.\"}.")
-    content = [{"type": "text", "text": "ẢNH 1 = GỐC. ẢNH 2 = KẾT QUẢ. So sánh & trả JSON đúng schema."},
+           "\"fix\": \"câu lệnh TIẾNG ANH sửa đồ hoạ/chữ theo mẫu gốc SAU KHI áp dụng yêu cầu "
+           "sửa của người dùng (giữ mọi chi tiết/màu chữ/bố cục/độ dày nét không được yêu cầu "
+           "đổi). TUYỆT ĐỐI KHÔNG nhắc tới màu nền/background.\"}.")
+    content = [{"type": "text", "text": "ẢNH 1 = GỐC. ẢNH 2 = KẾT QUẢ. So sánh & trả JSON đúng schema.\n"
+                "YÊU CẦU SỬA CỦA NGƯỜI DÙNG: " + (user_prompt or "Không thay đổi chữ hay design.")},
                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + ob}},
                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + rb}}]
     info = {"match": True, "differences": [], "fix": ""}
@@ -8685,13 +8709,14 @@ def clone_compare_fix(orig_bytes, result_bytes, size="auto", transparent=True):
     except Exception:
         pass
     fix = (info.get("fix") or "").strip()
-    instr = ("Recreate the reference design with 100% fidelity — IDENTICAL artwork, every letter and "
-             "word (correct Vietnamese diacritics), every color, detail, line and composition as the "
-             "reference image. Do NOT omit, simplify, recolor, move or redraw anything. "
+    instr = (build_prompt("cloner", user_prompt, "transparent" if transparent else "solid") + " "
              + (("Specifically fix these issues: " + fix + " ") if fix else "")
+             + "The user's requested changes take precedence over the comparison notes. "
+               "Do not revert an intentionally replaced name or text to the reference wording. "
              + "Output crisp and complete on a clean, fully transparent background with smooth "
                "anti-aliased edges.")
-    b64, _ = gen_design([(orig_bytes, "image/png")], "cloner", "", size, transparent, override=instr)
+    b64, _ = gen_design([(orig_bytes, "image/png")], "cloner", user_prompt, size, transparent,
+                        override=instr, quality=CLONE_IMAGE_QUALITY, model=CLONE_IMAGE_MODEL)
     return b64, info
 
 
@@ -8886,6 +8911,9 @@ def gallery_add(b64, meta):
     items = gallery_load()
     item = {"id": gid, "ts": int(time.time()), "url": "/gallery/%s.png" % gid,
             "mode": meta.get("mode"), "prompt": meta.get("prompt", "")[:160]}
+    for field in ("model", "quality"):
+        if meta.get(field):
+            item[field] = meta[field]
     if meta.get("mode") == "imagegen":
         item["prompt"] = meta.get("prompt", "")
         item["generation"] = meta.get("generation") or {}
@@ -9527,6 +9555,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/status":
             return self.json(200, {"ok": True, "mock": not bool(API_KEY),
                                    "model": MODEL, "pillow": HAS_PIL,
+                                   "clone_image_model": CLONE_IMAGE_MODEL,
+                                   "clone_image_quality": CLONE_IMAGE_QUALITY,
                                    "rembg": HAS_REMBG,
                                    "cutoutpro": bool(CUTOUTPRO_KEY),
                                    "ai_upscale": HAS_ONNX,
@@ -9534,6 +9564,8 @@ class Handler(BaseHTTPRequestHandler):
                                    "freepik": bool(FREEPIK_API_KEY)})
         if path == "/api/version":
             return self.json(200, {"version": APP_VERSION, "image_model": MODEL,
+                                   "clone_image_model": CLONE_IMAGE_MODEL,
+                                   "clone_image_quality": CLONE_IMAGE_QUALITY,
                                    "agent_brain": ("Claude " + ANTHROPIC_MODEL) if ANTHROPIC_API_KEY else "gpt-4o (chưa có ANTHROPIC_API_KEY)"})
         if path == "/api/fb-status":
             return self.json(200, {"configured": fb_configured(),
@@ -10840,14 +10872,17 @@ class Handler(BaseHTTPRequestHandler):
         rb, _ = fetch_image_bytes(r)
         if not ob or not rb:
             return self.json(400, {"error": "Ảnh không hợp lệ."})
-        size = body.get("size", "auto")
+        size = SIZE_MAP.get(body.get("size", "auto"), "auto")
+        user_prompt = (body.get("user_prompt") or "").strip()
         try:
-            b64, info = clone_compare_fix(ob, rb, size)
-            g = gallery_add(b64, {"mode": "design", "prompt": "Đối chiếu & sửa"})
+            b64, info = clone_compare_fix(ob, rb, size, user_prompt=user_prompt)
+            generation = {"model": CLONE_IMAGE_MODEL, "quality": CLONE_IMAGE_QUALITY}
+            g = gallery_add(b64, {"mode": "design", "prompt": "Đối chiếu & sửa: " + user_prompt,
+                                  **generation})
             return self.json(200, {"image": b64, "gallery": g,
                                    "match": bool(info.get("match")),
                                    "differences": info.get("differences", []),
-                                   "fix": info.get("fix", "")})
+                                   "fix": info.get("fix", ""), **generation})
         except urllib.error.HTTPError as e:
             return self.json(400, {"error": openai_error_message(e)})
         except Exception as e:
@@ -10933,7 +10968,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": "Không tải được ảnh đầu vào."})
         override = body.get("override_prompt", "")
         try:
-            b64, used_prompt = gen_design(images, mode, user_prompt, size, transparent, override)
+            b64, used_prompt = gen_design(images, mode, user_prompt, size, transparent, override,
+                                         quality=CLONE_IMAGE_QUALITY, model=CLONE_IMAGE_MODEL)
         except urllib.error.HTTPError as e:
             try:
                 detail = e.read().decode('utf-8', 'ignore')
@@ -10954,9 +10990,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(502, {"error": msg})
         except Exception as e:
             return self.json(500, {"error": "Lỗi: %s" % e})
-        item = gallery_add(b64, {"mode": mode, "prompt": user_prompt})
+        generation = {"model": CLONE_IMAGE_MODEL, "quality": CLONE_IMAGE_QUALITY}
+        item = gallery_add(b64, {"mode": mode, "prompt": user_prompt, **generation})
         return self.json(200, {"image": b64, "mock": False, "gallery": item,
-                               "prompt": used_prompt})
+                               "prompt": used_prompt, **generation})
 
     def handle_auto_gen(self, body):
         """Chế độ AUTO: AI nhìn mẫu -> GIỮ NGUYÊN STYLE, chỉ đổi text -> ra n mẫu.

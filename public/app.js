@@ -2,6 +2,8 @@
 const $ = (id) => document.getElementById(id);
 let currentDesign = null; // base64 (không data: prefix) của design hiện tại
 let lastCloneSource = null; // ảnh GỐC (data URL/url) dùng để clone -> đối chiếu
+let lastCloneRequest = null;
+let cloneModelConfig = null;
 
 /* ---------- kiểm tra đăng nhập (chưa thì sang /auth.html) ---------- */
 window.IS_ADMIN = false;
@@ -99,10 +101,24 @@ $("logoutBtn") && ($("logoutBtn").onclick = async () => {
 });
 
 /* ---------- trạng thái ---------- */
+function cloneModelLabel(model, quality) {
+  const name=model==='gpt-image-2.5-sunburst'?'GPT Image 2.5 Sunburst':(model||'Chưa xác định model');
+  return name+(quality?' · '+quality:'');
+}
+function updateCloneModelStatus() {
+  if(!cloneModelConfig)return;
+  const config=cloneModelConfig;
+  if($('cloneModelStatus'))$('cloneModelStatus').textContent=$('mode').value==='extract'?
+    'Tách gốc · không qua AI':config.mock?'Chế độ mô phỏng — chưa cấu hình API key':
+    'Clone: '+cloneModelLabel(config.clone_image_model,config.clone_image_quality);
+  if($('clonePromptModel'))$('clonePromptModel').textContent=cloneModelLabel(config.clone_image_model);
+}
+$('mode').addEventListener('change',updateCloneModelStatus);
 fetch("/api/status").then(r => { if (!r.ok) throw new Error("Status unavailable"); return r.json(); }).then(s => {
   const pill = $("statusPill");
   if (s.mock) { pill.textContent = "● MOCK — chưa cắm key"; pill.className = "status-pill mock"; }
-  else { pill.textContent = "● Live · " + s.model; pill.className = "status-pill live"; }
+  else { pill.textContent = "● Live"; pill.className = "status-pill live"; }
+  cloneModelConfig=s;updateCloneModelStatus();
   if (!s.pillow) $("printRes").title = "Chưa có Pillow — sẽ tải nguyên bản";
 }).catch(() => { $("statusPill").textContent = "● mất kết nối"; });
 
@@ -313,7 +329,9 @@ $("generateBtn").onclick = async () => {
   const cropOn = $("cropEnable").checked && uploaded.length && !$("cropArea").classList.contains("hidden");
   if (cropOn) { try { upl[cropIndex] = await croppedDataURL(); } catch (e) { /* dùng ảnh gốc */ } }
   const images = [...upl, ...urls];
-  lastCloneSource = images[0] || null;   // ảnh gốc để đối chiếu sau khi tách nền
+  const requestedPrompt=$('promptInput').value;
+  const requestedOverride=$('useCustomPrompt').checked?$('promptPreview').value:'';
+  const cloneRequest={source:cropOn?images[cropIndex]:images[0],user_prompt:requestedOverride||requestedPrompt};
 
   const btn = $("generateBtn"); btn.disabled = true;
   $("emptyState").classList.add("hidden");
@@ -322,19 +340,22 @@ $("generateBtn").onclick = async () => {
   $("spinner").classList.remove("hidden");
 
   const applyResult = (data) => {
+    lastCloneSource=cloneRequest.source||null;
+    lastCloneRequest=cloneRequest;
     showDesign(data.image);
     if (data.prompt) $("promptPreview").value = data.prompt;
     note.className = "gen-note ok";
-    note.textContent = data.mock ? "✓ Đã tạo (MOCK). Cắm key để dùng AI thật." : "✓ Tạo design thành công!";
+    note.textContent = data.mock ? "✓ Đã tạo (MOCK). Cắm key để dùng AI thật." :
+      "✓ Tạo design thành công!"+(data.model?' · '+cloneModelLabel(data.model,data.quality):'');
     loadGallery();
   };
   try {
     const r = await fetch("/api/generate-async", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        images, mode: $("mode").value, prompt: $("promptInput").value,
+        images, mode: $("mode").value, prompt: requestedPrompt,
         size: $("size").value, transparent: $("transparent").checked,
-        override_prompt: $("useCustomPrompt").checked ? $("promptPreview").value : "",
+        override_prompt: requestedOverride,
       }),
     });
     const data = await r.json();
@@ -388,7 +409,8 @@ if ($("cloneCheckBtn")) $("cloneCheckBtn").onclick = async () => {
   try {
     const r = await fetch("/api/clone-check", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ original: lastCloneSource, result: "data:image/png;base64," + currentDesign, size: $("size").value }),
+      body: JSON.stringify({ original: lastCloneSource, result: "data:image/png;base64," + currentDesign, size: $("size").value,
+        user_prompt:lastCloneRequest?.user_prompt||'' }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Lỗi đối chiếu");
@@ -396,7 +418,7 @@ if ($("cloneCheckBtn")) $("cloneCheckBtn").onclick = async () => {
     loadGallery();
     const diffs = (d.differences || []);
     note.className = "gen-note ok";
-    note.innerHTML = "✓ Đã đối chiếu & sửa lại cho khớp mẫu gốc." +
+    note.innerHTML = "✓ Đã đối chiếu & sửa theo mẫu và yêu cầu của bạn." +
       (diffs.length ? "<br>Đã chỉnh: " + diffs.slice(0, 6).map(x => "• " + x).join("  ") : "");
   } catch (err) {
     note.className = "gen-note err"; note.textContent = "✗ " + err.message;
