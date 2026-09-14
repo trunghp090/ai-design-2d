@@ -8,3 +8,21 @@ test('asks save location before building file; writes after selection',async()=>
 });
 test('cancel never builds or writes',async()=>{const c=setup(async()=>{throw Object.assign(Error(),{name:'AbortError'});});let built=false;await c.ttSaveFile(async()=>built=true,'x','png');assert.equal(built,false);});
 test('unsupported browser offers manual preparation without automatic download',async()=>{const c=setup();let built=false;await c.ttSaveFile(async()=>built=true,'x','zip');assert.equal(built,false);assert.equal(c.els.ttSaveHelp.style.display,'block');assert.equal(typeof c.els.ttPrepareSave.onclick,'function');});
+test('shared manager receives lazy ZIP work before it runs',async()=>{
+ const c=setup(),events=[],button={dataset:{},textContent:'Tải ZIP',disabled:false};
+ c.ttUpdateSel=()=>{};
+ c.window.saveToolFile=async(makeBlob,name)=>{
+  assert.equal(typeof makeBlob,'function');assert.equal(name,'bo-anh.zip');
+  events.push('picker');await makeBlob();return 'saved';
+ };
+ await c.ttSaveFile(async()=>events.push('build'),'bo-anh','zip',button);
+ assert.deepEqual(events,['picker','build']);assert.equal(button.disabled,false);
+ assert.match(c.notes.at(-1),/Đã lưu/);
+});
+test('shared manager cancellation never builds ZIP and restores its button',async()=>{
+ const c=setup(),button={dataset:{},textContent:'Tải ZIP',disabled:false};let built=false;
+ c.ttUpdateSel=()=>{};c.window.saveToolFile=async()=> 'cancelled';
+ await c.ttSaveFile(async()=>built=true,'bo-anh','zip',button);
+ assert.equal(built,false);assert.equal(button.disabled,false);assert.equal(button.textContent,'Tải ZIP');
+ assert.match(c.notes.at(-1),/huỷ/);
+});

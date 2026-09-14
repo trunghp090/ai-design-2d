@@ -1,123 +1,106 @@
 {
-  "id": "qua-tang-nam-h-long-20260910",
+  "id": "tiktok-qua-ky-niem-plush-20260914",
   "meta": {
-    "title": "Sinh nhật bạn trai: chọn quà theo thói quen của ảnh",
-    "caption": "Sinh nhật ảnh, mình chọn quà từ mấy thói quen nhỏ rồi giấu thêm một chiếc áo mang tên mình 🥹\n\n#quatangbantrai #quatangchonam #sinhnhatbantrai #quasinhnhat #goiyquatang #quatangnguoiyeu #yeunhau #couple #aodoi #aothundoi #aointen #riengvn",
-    "bonus": [
-      "Bonus: Áo đôi in tên RIENG.VN 🥹",
-      "Ảnh mặc Gia Hân, mình mặc Huy Hoàng",
-      "Quà cho ảnh, mà hai đứa cùng vui"
-    ],
-    "engine": "Nano Banana Pro · áo H lồng dùng ảnh đã duyệt"
+    "title": "5 món quà cho ngày kỷ niệm",
+    "caption": "Sắp tới ngày kỷ niệm mà chưa biết tặng gì thì thử nghĩ từ mấy điều người ấy thích nhé. Thích chụp ảnh, thích tự tay làm đồ, hay đơn giản là món dùng được mỗi ngày.\n\nCòn món cuối: gửi ảnh của hai bạn và tên muốn in, RIENG biến thành art búp bê trên hai áo trắng. Mỗi người mặc hình người yêu, nhìn là biết quà dành riêng cho mình.\n\nMuốn xem mẫu từ ảnh của hai bạn thì nhắn RIENG nhé.\n\n#riengvn #quatangnguoiyeu #quakyniem #aodoicanhanhoa #aointheoanh",
+    "bonus": []
   },
   "items": [
     {
       "idx": 0,
-      "title": "Slide 1 · Sinh nhật ảnh sắp tới rồi 🥹",
+      "title": "5 món quà cho ngày kỷ niệm",
       "overlay": [
-        "Sinh nhật ảnh sắp tới rồi 🥹",
-        "Chọn quà từ mấy thói quen nhỏ",
-        "Mấy bà lưu lại nha"
+        "5 món quà cho ngày kỷ niệm",
+        "Món cuối có hình của hai bạn"
       ],
       "position": "1/3 dưới",
       "gallery": {
-        "id": "d1789058711268_1",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711268_1.png",
+        "id": "d1789359366399_9",
+        "ts": 1789359366,
+        "url": "/gallery/d1789359366399_9.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 1"
-      },
-      "engine": "gemini_pro"
+        "prompt": "Slide up · 5 món quà cho ngày kỷ niệm"
+      }
     },
     {
       "idx": 1,
-      "title": "Slide 2 · soundcore Space One",
+      "title": "01. Fujifilm instax mini 12",
       "overlay": [
-        "soundcore Space One",
-        "Ảnh đi đâu cũng mang tai nghe",
-        "Tặng đúng món ảnh dùng mỗi ngày"
+        "01. Fujifilm instax mini 12",
+        "Giữ lại những buổi hẹn bằng ảnh"
       ],
       "position": "1/3 trên",
       "gallery": {
-        "id": "d1789058711273_2",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711273_2.png",
+        "id": "d1789359407142_10",
+        "ts": 1789359407,
+        "url": "/gallery/d1789359407142_10.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 2"
-      },
-      "engine": "gemini_pro"
+        "prompt": "Slide up · 01. Fujifilm instax mini 12"
+      }
     },
     {
       "idx": 2,
-      "title": "Slide 3 · Davidoff Cool Water Man EDT 75 ml",
+      "title": "02. LEGO Roses 40460",
       "overlay": [
-        "Davidoff Cool Water Man EDT 75 ml",
-        "Nếu ảnh mê mùi hương này",
-        "Sinh nhật tặng lại đúng gu của ảnh"
+        "02. LEGO Roses 40460",
+        "Một tối ở nhà, cùng lắp hoa"
       ],
       "position": "1/3 trên",
       "gallery": {
-        "id": "d1789058711278_3",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711278_3.png",
+        "id": "d1789359433180_11",
+        "ts": 1789359433,
+        "url": "/gallery/d1789359433180_11.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 3"
-      },
-      "engine": "gemini_pro"
+        "prompt": "Slide up · 02. LEGO Roses 40460"
+      }
     },
     {
       "idx": 3,
-      "title": "Slide 4 · HARIO V60 Coffee Server 02 Set",
+      "title": "03. Anker Nano 10.000 mAh",
       "overlay": [
-        "HARIO V60 Coffee Server 02 Set",
-        "Cho chàng mê tự pha cà phê",
-        "Sáng cuối tuần ngồi nhâm nhi cùng nhau"
+        "03. Anker Nano 10.000 mAh",
+        "Cho người ra đường hay hết pin"
       ],
       "position": "1/3 trên",
       "gallery": {
-        "id": "d1789058711282_4",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711282_4.png",
+        "id": "d1789359465209_12",
+        "ts": 1789359465,
+        "url": "/gallery/d1789359465209_12.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 4"
-      },
-      "engine": "gemini_pro"
+        "prompt": "Slide up · 03. Anker Nano 10.000 mAh"
+      }
     },
     {
       "idx": 4,
-      "title": "Slide 5 · Casio G-SHOCK DW-5600UE-1",
+      "title": "04. Casio G-SHOCK DW-5600UE-1",
       "overlay": [
-        "Casio G-SHOCK DW-5600UE-1",
-        "Nếu ảnh mê đồng hồ dáng thể thao",
-        "Chọn đúng kiểu ảnh hay đeo nha"
+        "04. Casio G-SHOCK",
+        "DW-5600UE-1 · đeo mỗi ngày"
       ],
       "position": "1/3 trên",
       "gallery": {
-        "id": "d1789058711286_5",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711286_5.png",
+        "id": "d1789359486454_13",
+        "ts": 1789359486,
+        "url": "/gallery/d1789359486454_13.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 5"
-      },
-      "engine": "gemini_pro"
+        "prompt": "Slide up · 04. Casio G-SHOCK"
+      }
     },
     {
       "idx": 5,
-      "title": "Slide 6 · Bonus: Áo đôi in tên RIENG.VN 🥹",
+      "title": "05. Áo đôi từ ảnh + tên",
       "overlay": [
-        "Bonus: Áo đôi in tên RIENG.VN 🥹",
-        "Ảnh mặc Gia Hân, mình mặc Huy Hoàng",
-        "Quà cho ảnh, mà hai đứa cùng vui"
+        "05. Áo đôi từ ảnh + tên",
+        "Mỗi người mặc hình người yêu"
       ],
       "position": "1/3 trên",
       "gallery": {
-        "id": "d1789058711292_6",
-        "ts": 1789058711,
-        "url": "/gallery/d1789058711292_6.png",
+        "id": "d1789359507914_14",
+        "ts": 1789359507,
+        "url": "/gallery/d1789359507914_14.png",
         "mode": "tiktok",
-        "prompt": "Quà sinh nhật bạn trai · Slide 6"
-      },
-      "engine": "gpt_image_25"
+        "prompt": "Slide up · 05. Áo đôi từ ảnh + tên"
+      }
     }
   ]
 }

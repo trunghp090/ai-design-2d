@@ -3354,7 +3354,24 @@ function ttConfirmDelete(count) {
   });
 }
 async function ttSaveFile(makeBlob, name, extension, button) {
-  if(window.saveToolFile){try{return await window.saveToolFile(await makeBlob(),name+'.'+extension);}catch(e){ttNotice(e.message,true);return;}}
+  if(window.saveToolFile){
+    if(button?.disabled)return;
+    const label=button?.textContent;
+    if(button){button.disabled=true;button.dataset.saving='1';button.textContent='⏳ Đang chuẩn bị…';}
+    ttNotice('Đang chuẩn bị file tải xuống…');
+    try{
+      // Pass the work itself: the save picker must open during this click,
+      // before rendering images or waiting for the ZIP response.
+      const result=await window.saveToolFile(makeBlob,name+'.'+extension);
+      ttNotice(result==='saved'?'✓ Đã lưu file vào nơi bạn chọn.':
+        result==='cancelled'?'Đã huỷ lưu file.':
+        result==='ready'?'File đã sẵn sàng. Bấm liên kết tải ở góc dưới bên phải.':
+        '✓ Đã gửi yêu cầu tải file cho trình duyệt.');
+      return result;
+    }catch(e){ttNotice(e.message,true);}
+    finally{if(button){delete button.dataset.saving;button.disabled=false;button.textContent=label;}ttUpdateSel();}
+    return;
+  }
   if(typeof window.showSaveFilePicker!=='function') {
     $('ttSaveHelp').style.display='block';
     $('ttManualLink').style.display='none';
@@ -3391,8 +3408,8 @@ async function ttSaveFile(makeBlob, name, extension, button) {
     else ttNotice('Không lưu được file: '+e.message,true);
   } finally {if(button){button.disabled=false;button.textContent=old;}}
 }
-function ttSaveSelected(forceText, button) {
-  const chosen=ttItems.filter(it=>it._sel);
+function ttSaveSelected(forceText, button, all=false) {
+  const chosen=(all?ttItems.slice():ttItems.filter(it=>it._sel)).sort((a,b)=>(a.idx||0)-(b.idx||0));
   if(!chosen.length){ttNotice('Chọn ảnh trước khi lưu.',true);return;}
   return ttSaveFile(async()=>{
     const items=[];
@@ -3570,8 +3587,9 @@ function ttInit() {
     } catch (e) { note.className = "gen-note err"; note.textContent = "✗ " + e.message; }
     b.disabled = false; b.textContent = o;
   };
-  if ($("ttPickAll")) $("ttPickAll").onchange = (e) => { ttItems.forEach(it => it._sel = e.target.checked); ttRender(); };
-  $("ttZipBtn").onclick = () => ttSaveSelected(false, $("ttZipBtn"));
+  if ($("ttPickAll")) $("ttPickAll").onchange = e => ttSetAllSelected(e.target.checked);
+  window.downloadTiktokAll = () => ttSaveSelected(false, $("ttZipBtn"), true);
+  $("ttZipBtn").onclick = window.downloadTiktokAll;
   if ($("ttCapCopy")) $("ttCapCopy").onclick = async () => {
     if (!ttMeta) return;
     try { await navigator.clipboard.writeText(ttMeta.caption || ""); $("ttCapCopy").textContent = "✓ Đã copy"; setTimeout(() => $("ttCapCopy").textContent = "📋 Copy caption", 1200); } catch (e) {}
@@ -3612,7 +3630,7 @@ function ttInit() {
         const d = await r.json(); g = d.gallery || null;
       } catch (e) {}
       const it = { idx: 500 + ttItems.length, title: "Slide up · " + (lines[0] || "ảnh của bạn").slice(0, 30),
-                   overlay: lines, position: $("ttUpPos").value, image: durl.split(",")[1], gallery: g };
+                   overlay: lines, position: $("ttUpPos").value, image: durl.split(",")[1], gallery: g, _sel: true };
       ttItems.push(it);
       await ttAutoBurn(it);
     }
@@ -3782,13 +3800,30 @@ async function ttToggleText(it, card) {
   const b = card.querySelector(".b-text");
   if (b) { b.textContent = it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh"; b.classList.toggle("on", it._showText); }
 }
+function ttSetAllSelected(checked) {
+  ttItems.forEach(it => it._sel = checked);
+  document.querySelectorAll('#ttResults .tt-pick').forEach(input => input.checked = checked);
+  ttUpdateSel();
+}
 function ttUpdateSel() {
   const real = ttItems.length, sel = ttItems.filter(it => it._sel).length;
   if ($("ttDeleteSelected")) $("ttDeleteSelected").disabled = ttDeleting || !sel;
   if ($("ttDeleteAll")) $("ttDeleteAll").disabled = ttDeleting || !real;
   if ($("ttSelBar")) $("ttSelBar").classList.toggle("hidden", real === 0);
   if ($("ttSelCount")) $("ttSelCount").textContent = "Đã chọn " + sel + "/" + real;
-  if ($("ttPickAll")) $("ttPickAll").checked = real > 0 && sel === real;
+  if ($("ttPickAll")) {
+    $("ttPickAll").checked = real > 0 && sel === real;
+    $("ttPickAll").indeterminate = sel > 0 && sel < real;
+  }
+  const selectedButton=$("ttDlTexted"), allButton=$("ttZipBtn");
+  if(selectedButton&&!selectedButton.dataset?.saving){
+    selectedButton.disabled=!sel;
+    selectedButton.textContent='💾 Tải '+sel+' ảnh đã chọn (có chữ · ZIP)';
+  }
+  if(allButton&&!allButton.dataset?.saving){
+    allButton.disabled=!real;
+    allButton.textContent='⬇ Tải toàn bộ '+real+' ảnh (ZIP)';
+  }
 }
 function ttRender() {
   const grid = $("ttResults");
@@ -3807,11 +3842,11 @@ function ttRender() {
   $("ttEmpty").classList.add("hidden");
   grid.innerHTML = "";
   const sorted = ttItems.slice().sort((a, b) => (a.idx || 0) - (b.idx || 0));
-  sorted.forEach(it => {
+  sorted.forEach((it, index) => {
     const src = it.image ? "data:image/png;base64," + it.image : ((it.gallery && it.gallery.url) || it.url);
     const card = document.createElement("div"); card.className = "gcard";
     card.innerHTML =
-      '<input type="checkbox" class="gpick tt-pick"' + (it._sel ? " checked" : "") + '>' +
+      '<input type="checkbox" class="gpick tt-pick" aria-label="Chọn ảnh '+(index+1)+'"' + (it._sel ? " checked" : "") + '>' +
       '<img src="' + src + '" loading="lazy" alt="">' +
       '<div class="gmeta">' + (it.title || "Slide") + '</div>' +
       '<div class="gacts"><button class="b-text">' + (it._showText ? "🅰️ Bỏ text" : "🅰️ Text vào ảnh") + '</button><button class="b-zoom">🔍 Zoom</button><button class="b-copy">📋 Ảnh</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>';
