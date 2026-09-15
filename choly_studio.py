@@ -124,6 +124,19 @@ def start(app,body,owner):
         write(folder(app)/(jid+'.json'),j);LIVE.add(jid)
         threading.Thread(target=run,args=(app,j,spec,identities),daemon=True).start()
         return public(j)
+CANDID_DIRECTION = (
+    'CANDID MOMENT: Photograph an ordinary moment from a partner\'s handheld phone viewpoint. '
+    'The subject is absorbed in the scene activity, not demonstrating merchandise to the camera. '
+    'Use relaxed asymmetric shoulders, believable weight and visible support for any resting arm. '
+    'Hands perform one simple action with a relaxed wrist and natural grip. '
+    'Keep a quiet, unforced expression; do not prescribe a smile in every frame. '
+    'Use the scene-specific crop and pose, slightly off-centre framing and natural window or available light '
+    'with real shadows, skin texture and ordinary cloth folds. No catalogue lighting, beauty smoothing or HDR sheen. '
+    'Never twist the body or lift an object just to expose the shirt print; preserve the supplied artwork exactly wherever visible. '
+    'For hands-only scenes keep the face and body outside the frame. '
+    'These scene-specific everyday actions take precedence over generic fashion pose banks and advertising expressions. '
+)
+
 def run(app,j,spec,identities=None):
     try:
         identities=identity_snapshot(spec) if identities is None else identities
@@ -150,11 +163,11 @@ def run(app,j,spec,identities=None):
             constraint+='Caption placement: '+position+'. Leave quiet space there, avoid faces and shirt artwork. '
             if not scene['people']:constraint+='No people, hands, faces, bodies or mannequins. '
             if scene['people']:
-                constraint='IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
+                constraint=CANDID_DIRECTION+'IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
             brief=f'Scene {index+1}: {direction}\nCommunication concept: {spec["concept"]["name"]}: {spec["concept"]["angle"]}\nUser topic: {spec["topic"]}\nCaption to support visually, DO NOT render: {spec["captions"][index]}\n{constraint}'
             for attempt in range(3):
                 try:
-                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one complete image prompt only. Respect explicit scene and 3:4 ratio.',brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
+                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one complete image prompt only. Respect explicit scene and 3:4 ratio.'+('\n'+CANDID_DIRECTION if scene['people'] else ''),brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
                     if not base.strip():raise ValueError('Claude trả prompt rỗng.')
                     break
                 except Exception:
