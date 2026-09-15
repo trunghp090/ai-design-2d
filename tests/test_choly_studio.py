@@ -63,8 +63,8 @@ class CholyTests(unittest.TestCase):
   self.assertEqual(self.app.gemini_edit.call_count,3)
   for call in self.app.gemini_edit.call_args_list:
    refs,prompt=call.args[:2]
-   self.assertEqual(refs[0][0],self.raw)
-   self.assertEqual(refs[1][0],portrait)
+   self.assertEqual(refs[1][0],self.raw)
+   self.assertEqual(refs[2][0],portrait)
    self.assertIn('IDENTITY LOCK',prompt)
    self.assertIn('IDENTITY MALE ONLY',prompt)
    self.assertNotIn('Use new adult',prompt)
@@ -84,6 +84,22 @@ class CholyTests(unittest.TestCase):
     if scene['id'] in ('reader','reader-smile'):
      self.assertIn('Match the actual pose and crop in the last reference',scene['direction'])
      self.assertEqual(scene['position'],'top')
+ def test_base_photo_is_first_for_both_engines_and_clean_output_saved(self):
+  spec=p.validate({**self.body,'visual':'cafe-date'})
+  j={'id':self.body['request_id'],'items':[]}
+  p.run(self.app,j,spec,{'male':(self.raw,'image/png')})
+  self.assertEqual(j['status'],'done')
+  for index,(scene,writer) in enumerate(zip(spec['visual']['shots'],self.app.claude_vision_multi.call_args_list)):
+   expected=(p.ROOT/'public/choly-references'/scene['reference']).read_bytes()
+   self.assertEqual(writer.args[2][0],expected)
+   self.assertIn('BASE PHOTO TO EDIT',writer.args[0])
+   self.assertTrue((p.folder(self.app)/(j['id']+f'-{index}.clean.png')).is_file())
+   self.assertEqual(j['items'][index]['mode'],'source_edit')
+  for call in self.app.gemini_edit.call_args_list+self.app.gen_shot.call_args_list:
+   self.assertNotEqual(call.args[0][0][0],self.raw)
+   self.assertEqual(call.args[0][1][0],self.raw)
+   self.assertIn('[REFERENCE_ROLE 1: BASE PHOTO TO EDIT]',call.args[1])
+   self.assertIn('[REFERENCE_ROLE 2: REPLACEMENT GARMENT 1 ONLY]',call.args[1])
  def test_uploaded_identity_overrides_saved_cast(self):
   spec=p.validate({**self.body,'files':{**self.body['files'],'male':self.body['files']['shirt1']}})
   with patch.object(p.roundup_cast,'people',side_effect=AssertionError('Must not load default')):

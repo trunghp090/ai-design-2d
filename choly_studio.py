@@ -125,7 +125,7 @@ def start(app,body,owner):
         threading.Thread(target=run,args=(app,j,spec,identities),daemon=True).start()
         return public(j)
 POSE_REFERENCE_DIRECTION = (
-    'POSE REFERENCE LOCK: The LAST image is the selected Choly scene and is the primary reference for pose and composition. '
+    'POSE REFERENCE LOCK: Image #1 is the selected Choly scene and is the primary reference for pose and composition. '
     'Inspect it visually and describe its actual torso lean, shoulder angle, head tilt, gaze, expression, '
     'elbow support, wrist orientation, finger grip, prop height, visible leg placement and camera crop in the scene prompt. '
     'Reproduce these observed relationships, subject scale, camera height, viewing angle and framing with the pinned adult KOL and supplied garment. '
@@ -137,6 +137,20 @@ POSE_REFERENCE_DIRECTION = (
     'Never copy source branding, garment graphics or caption text. Preserve artwork exactly where visible without forcing the body to display it. '
 )
 
+SOURCE_EDIT_DIRECTION = (
+    '[REFERENCE_ROLE 1: BASE PHOTO TO EDIT] Edit image #1 itself; do not generate a new scene inspired by it. '
+    'Keep the existing camera viewpoint, crop, background geometry, furniture, shadows, exposure and colour grading. '
+    'Limit changes to replacing visible clothing with the supplied product, replacing visible source characters with the pinned KOL, '
+    'and replacing gift packaging where selected. Remove existing overlaid captions and source-brand lettering, restoring the underlying surface. '
+    'Retain the original body pose, hand contact points, facial expression and object positions. '
+    'For flatlays retain the garment silhouette, folds, perspective, object spacing and shadows while substituting the supplied garment and artwork. '
+    'Fit replacement artwork to existing folds and perspective; do not flatten, neatly restyle or relight the arrangement. '
+    'References after #1 are replacement assets only, never alternative compositions. '
+    'Scene prose and communication concept explain context only; do not use them to restage the base photo. '
+    'If the requested scene excludes people, remove incidental people/hands locally while preserving the remaining scene. '
+    'Do not add garments to letter-only or object-only scenes that have no garment. '
+)
+
 def run(app,j,spec,identities=None):
     try:
         identities=identity_snapshot(spec) if identities is None else identities
@@ -146,7 +160,8 @@ def run(app,j,spec,identities=None):
             position=spec['positions'][index]
             with LOCK:j['note']=f'Claude viết cảnh {index+1}/4: {label}';write(folder(app)/(j['id']+'.json'),j)
             ref=ROOT/'public/choly-references'/scene['reference']
-            refs=list(product);identity_rules=[]
+            refs=[(ref.read_bytes(),'image/jpeg')]+list(product);identity_rules=[]
+            product_rules=' '.join(f'[REFERENCE_ROLE {i+2}: REPLACEMENT GARMENT {i+1} ONLY]' for i in range(len(product)))
             for role in roles_for(scene):
                 refs.append(identities[role])
                 identity_rules.append(f'[REFERENCE_ROLE {len(refs)}: IDENTITY {role.upper()} ONLY] Match this exact adult face, facial proportions, eyes, nose, mouth, hairstyle, hairline, skin tone and eyewear in every scene. Never borrow clothes, pose or background from this reference.')
@@ -156,18 +171,17 @@ def run(app,j,spec,identities=None):
                     asset,label=ACCESSORIES[key]
                     refs.append(((ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'))
                     packaging_rules.append(f'[REFERENCE_ROLE {len(refs)}: PACKAGING ONLY — {label}] Include this exact packaging in the gift arrangement. Preserve its material, shape, logo and printed typography; never place packaging graphics on the shirt.')
-            refs.append((ref.read_bytes(),'image/jpeg'))
-            constraint='PRODUCT references are first. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Last reference supplies scene composition and, for people scenes, the exact pose. Never copy its identity, clothing design, logo or caption. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
+            constraint=SOURCE_EDIT_DIRECTION+product_rules+' Product references start at image #2. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Image #1 is the base photograph, not a garment or identity reference. Replace its original identity, clothing design, logo and caption as instructed. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
             if packaging_rules:constraint+=' '.join(packaging_rules)+' Keep the zip pouch garment-sized and translucent, with shirt visible; keep the tag small, about 5–8 percent of shirt width, beside the shirt or on the pouch. Keep shirt artwork and faces unobstructed. Do not copy Choly branding from style references. '
             constraint+=' Layout: '+scene['layout']+'. '+('Keep one continuous photograph, no collage. ' if scene['layout']=='photo' else 'Follow the explicitly requested layout. ')
-            constraint+='Caption placement: '+position+'. Leave quiet space there, avoid faces and shirt artwork. '
+            constraint+='Caption placement: '+position+'. Do not move subjects or change the crop to make room for text; the overlay is applied separately. '
             if not scene['people']:constraint+='No people, hands, faces, bodies or mannequins. '
             if scene['people']:
                 constraint=POSE_REFERENCE_DIRECTION+'IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
             brief=f'Scene {index+1}: {direction}\nCommunication concept: {spec["concept"]["name"]}: {spec["concept"]["angle"]}\nUser topic: {spec["topic"]}\nCaption to support visually, DO NOT render: {spec["captions"][index]}\n{constraint}'
             for attempt in range(3):
                 try:
-                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one complete image prompt only. Respect explicit scene and 3:4 ratio.'+('\n'+POSE_REFERENCE_DIRECTION if scene['people'] else ''),brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
+                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one image EDIT instruction, not a new-scene generation prompt. The following source-edit contract overrides generic scene, lighting and pose banks. Keep the 3:4 base composition.\n'+SOURCE_EDIT_DIRECTION+('\n'+POSE_REFERENCE_DIRECTION if scene['people'] else ''),brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
                     if not base.strip():raise ValueError('Claude trả prompt rỗng.')
                     break
                 except Exception:
@@ -176,11 +190,13 @@ def run(app,j,spec,identities=None):
             prompt=constraint+'\n'+direction+'\n'+base
             model=roundup.PEOPLE_MODEL if scene['people'] else 'gpt-image-2.5-sunburst'
             with LOCK:j['note']=f'Đang tạo ảnh {index+1}/4: {label}';write(folder(app)/(j['id']+'.json'),j)
-            write(folder(app)/(j['id']+f'-{index}.audit.json'),dict(base=base,prompt=prompt,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
+            write(folder(app)/(j['id']+f'-{index}.audit.json'),dict(mode='source_edit',source_reference=scene['reference'],base=base,prompt=prompt,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
             b64=app.gemini_edit(refs,prompt,'3:4',model,image_size='4K') if scene['people'] else app.gen_shot(refs,prompt,'1152x1536','openai_25','3:4',lock=False,quality='high')
-            raw=caption_image(base64.b64decode(b64),spec['captions'][index],position);filename=j['id']+f'-{index}.png';(folder(app)/filename).write_bytes(raw)
+            clean_raw=base64.b64decode(b64)
+            (folder(app)/(j['id']+f'-{index}.clean.png')).write_bytes(clean_raw)
+            raw=caption_image(clean_raw,spec['captions'][index],position);filename=j['id']+f'-{index}.png';(folder(app)/filename).write_bytes(raw)
             with LOCK:
-                j['items'].append(dict(index=index,shot=label,filename=filename,base=base,prompt=prompt,model=model,caption=spec['captions'][index],position=position,visual=spec['visual']['id'],identity_roles=roles_for(scene),image='/api/choly-studio/result?id='+j['id']+'&index='+str(index)))
+                j['items'].append(dict(mode='source_edit',source_reference=scene['reference'],index=index,shot=label,filename=filename,base=base,prompt=prompt,model=model,caption=spec['captions'][index],position=position,visual=spec['visual']['id'],identity_roles=roles_for(scene),image='/api/choly-studio/result?id='+j['id']+'&index='+str(index)))
                 write(folder(app)/(j['id']+'.json'),j)
         with LOCK:j.update(status='done',note='Đã tạo đủ 4 ảnh có chữ.');write(folder(app)/(j['id']+'.json'),j)
     except Exception as e:
