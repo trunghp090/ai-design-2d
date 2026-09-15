@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import tempfile
@@ -5,7 +6,14 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
+from PIL import Image
+
 import server
+
+
+_fixture = io.BytesIO()
+Image.new('RGBA', (2, 2), (30, 60, 90, 120)).save(_fixture, 'PNG')
+PNG_B64 = base64.b64encode(_fixture.getvalue()).decode('ascii')
 
 
 class Request:
@@ -29,7 +37,7 @@ class CloneModelTests(unittest.TestCase):
 
         def response(req, **kwargs):
             requests.append(req)
-            return json.dumps({'data': [{'b64_json': 'aW1hZ2U='}]})
+            return json.dumps({'data': [{'b64_json': PNG_B64}]})
 
         with patch.object(server, '_openai_call', side_effect=response), \
                 patch.object(server, 'gallery_add', return_value={'id': 'clone'}) as gallery:
@@ -92,7 +100,7 @@ class CloneModelTests(unittest.TestCase):
 
     def test_shared_generator_retains_existing_defaults_for_other_callers(self):
         with patch.object(server, '_openai_call', return_value=json.dumps({
-                'data': [{'b64_json': 'image'}]})) as call:
+                'data': [{'b64_json': PNG_B64}]})) as call:
             server.gen_design([(b'source', 'image/png')], 'cloner', '', '1024x1024', False)
         fields = call.call_args.args[0].data.decode()
         self.assertIn('name="model"\r\n\r\ngpt-image-2\r\n', fields)
@@ -147,7 +155,7 @@ class CloneModelTests(unittest.TestCase):
                 patch.object(server, 'GALLERY_DIR', directory), \
                 patch.object(server, 'gallery_load', return_value=[]), \
                 patch.object(server, 'gallery_save_index') as save:
-            item = server.gallery_add('aW1hZ2U=', {
+            item = server.gallery_add(PNG_B64, {
                 'mode': 'cloner', 'prompt': 'Đổi tên thành Nhung Hồng.',
                 'model': 'gpt-image-2.5-sunburst', 'quality': 'high',
             })

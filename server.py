@@ -39,10 +39,11 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from perf_assets import static_bytes, mockup_thumbnail
+from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.14-clone-image25"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.15-image-metadata"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -543,7 +544,7 @@ def gemini_edit(images, prompt, aspect="", model="", image_size=""):
         for p in (cand.get("content") or {}).get("parts", []):
             inl = p.get("inline_data") or p.get("inlineData")
             if inl and inl.get("data"):
-                return inl["data"]
+                return strip_ai_meta_b64(inl["data"])
     raise RuntimeError("Gemini không trả ảnh (%s)" % json.dumps(res)[:200])
 
 
@@ -679,27 +680,12 @@ def crop_to_aspect(raw, aspect):
 
 
 def strip_ai_meta(raw):
-    """Tạo lại file ảnh sạch (bỏ metadata C2PA/EXIF/XMP mà gpt-image nhúng) — giống xuất qua Canva.
-    Giúp Facebook/IG không gắn nhãn 'Made with AI'. Giữ nguyên pixel + alpha."""
-    if not HAS_PIL:
-        return raw
-    try:
-        im = Image.open(io.BytesIO(raw))
-        # vẽ lại sang ảnh MỚI tinh -> không kế thừa bất kỳ metadata/info nào của file gốc
-        clean = Image.new(im.mode, im.size)
-        clean.putdata(list(im.getdata()))
-        buf = io.BytesIO()
-        clean.save(buf, "PNG")   # PNG mới, không truyền exif/pnginfo -> sạch metadata
-        return buf.getvalue()
-    except Exception:
-        return raw
+    """Bỏ metadata mô tả/nguồn gốc; không xoá watermark nằm trong điểm ảnh."""
+    return clean_image(raw)
 
 
 def strip_ai_meta_b64(b64):
-    try:
-        return base64.b64encode(strip_ai_meta(base64.b64decode(b64))).decode()
-    except Exception:
-        return b64
+    return clean_image_b64(b64)
 
 
 def _p_transparent(prompt):
@@ -783,7 +769,7 @@ def openai_edit(images, prompt, size, native_transparent, quality="", model=None
     req = urllib.request.Request(EDITS_URL, data=body, method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "multipart/form-data; boundary=" + boundary)
-    return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
+    return strip_ai_meta_b64(json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"])
 
 
 def openai_generate(prompt, size="1024x1024", model=None, transparent=False):
@@ -796,7 +782,7 @@ def openai_generate(prompt, size="1024x1024", model=None, transparent=False):
                                  method="POST")
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "application/json")
-    return json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"]
+    return strip_ai_meta_b64(json.loads(_openai_call(req, timeout=300))["data"][0]["b64_json"])
 
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -2235,7 +2221,7 @@ def run_ads_job(job_id, design_img, concepts, name, hook, engine, aspect="4:5", 
                     b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
                 except Exception:
                     pass
-            b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB không gắn nhãn "Made with AI"
+            b64 = strip_ai_meta_b64(b64)   # làm sạch metadata đầu ra
             label = "Ads · %s · %s" % (ADS_CONCEPTS[c["key"]][0], name)
             model = engine_model_label(engine)
             adsmeta = {"concept": key, "name": name, "hook": hook, "aspect": asp, "bg": bg, "model": model}
@@ -2896,7 +2882,7 @@ def run_fbpost_job(job_id, design_img, concepts, engine, aspect="4:5", quality="
                         b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), asp)).decode()
                     except Exception:
                         pass
-                b64 = strip_ai_meta_b64(b64)   # bỏ metadata C2PA -> FB/IG không gắn nhãn "Made with AI"
+                b64 = strip_ai_meta_b64(b64)   # làm sạch metadata đầu ra
                 g = gallery_add(b64, {"mode": "fbpost", "prompt": label})
                 # prompt = BẰNG CHỨNG; base = prompt Claude RIÊNG của shot này (dùng khi 🔄 gen lại)
                 pics.append({"image": b64, "url": g.get("url"), "id": g.get("id"),
@@ -7381,7 +7367,7 @@ def remove_bg_cutoutpro(raw):
         detail = e.read().decode("utf-8", "ignore")[:300]
         raise RuntimeError("cutout.pro HTTP %s: %s" % (e.code, detail))
     if ctype.startswith("image"):
-        return data
+        return strip_ai_meta(data)
     # không phải ảnh -> chắc là JSON báo lỗi
     try:
         j = json.loads(data.decode("utf-8", "ignore"))
@@ -7391,10 +7377,10 @@ def remove_bg_cutoutpro(raw):
     d = j.get("data") or {}
     if isinstance(d, dict):
         if d.get("imageBase64"):
-            return base64.b64decode(d["imageBase64"])
+            return strip_ai_meta(base64.b64decode(d["imageBase64"]))
         if d.get("imageUrl"):
             with urllib.request.urlopen(d["imageUrl"], timeout=60) as r2:
-                return r2.read()
+                return strip_ai_meta(r2.read())
     raise RuntimeError("cutout.pro lỗi: " + str(j.get("msg") or j))
 
 
@@ -8902,12 +8888,13 @@ _gallery_seq = [0]
 
 
 def gallery_add(b64, meta):
+    raw = strip_ai_meta(base64.b64decode(b64))
     os.makedirs(GALLERY_DIR, exist_ok=True)
     with _batch_lock:
         _gallery_seq[0] += 1
         gid = "d%d_%d" % (int(time.time() * 1000), _gallery_seq[0])
     with open(os.path.join(GALLERY_DIR, gid + ".png"), "wb") as f:
-        f.write(base64.b64decode(b64))
+        f.write(raw)
     items = gallery_load()
     item = {"id": gid, "ts": int(time.time()), "url": "/gallery/%s.png" % gid,
             "mode": meta.get("mode"), "prompt": meta.get("prompt", "")[:160]}
@@ -8940,6 +8927,12 @@ def save_media_file(data_url):
         return None, None, None
     ext = _MEDIA_EXT.get(mime) or (mime.split("/")[-1][:4] if "/" in mime else "bin")
     mtype = "video" if mime.startswith("video") else "image"
+    if mime.startswith("image/"):
+        try:
+            raw = strip_ai_meta(raw)
+        except (ValueError, TypeError):
+            return None, None, None
+        ext = "png"
     os.makedirs(GALLERY_DIR, exist_ok=True)
     fn = "u%d.%s" % (int(time.time() * 1000), ext)
     with open(os.path.join(GALLERY_DIR, fn), "wb") as f:
@@ -9554,6 +9547,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/status":
             return self.json(200, {"ok": True, "mock": not bool(API_KEY),
+                                   "generated_image_metadata_cleanup": True,
                                    "model": MODEL, "pillow": HAS_PIL,
                                    "clone_image_model": CLONE_IMAGE_MODEL,
                                    "clone_image_quality": CLONE_IMAGE_QUALITY,
@@ -9564,6 +9558,7 @@ class Handler(BaseHTTPRequestHandler):
                                    "freepik": bool(FREEPIK_API_KEY)})
         if path == "/api/version":
             return self.json(200, {"version": APP_VERSION, "image_model": MODEL,
+                                   "generated_image_metadata_cleanup": True,
                                    "clone_image_model": CLONE_IMAGE_MODEL,
                                    "clone_image_quality": CLONE_IMAGE_QUALITY,
                                    "agent_brain": ("Claude " + ANTHROPIC_MODEL) if ANTHROPIC_API_KEY else "gpt-4o (chưa có ANTHROPIC_API_KEY)"})
@@ -10852,6 +10847,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(400, {"error": "Không đọc được ảnh."})
         try:
             out = strip_background(data, method, matting)
+            out = strip_ai_meta(out)
         except Exception as e:
             return self.json(500, {"error": "Xoá nền lỗi: %s" % e})
         out_b64 = base64.b64encode(out).decode()
@@ -10944,6 +10940,7 @@ class Handler(BaseHTTPRequestHandler):
                     out = remove_flat_bg(data)
                 if HAS_PIL:
                     out = upscale_png(out, 1400)  # phóng to vừa phải, giữ alpha
+                out = strip_ai_meta(out)
             except Exception as e:
                 return self.json(500, {"error": "Tách nền lỗi: %s" % e})
             b64 = base64.b64encode(out).decode()
@@ -11247,6 +11244,10 @@ class Handler(BaseHTTPRequestHandler):
                         data = None
                 if not data:
                     continue
+                try:
+                    data = strip_ai_meta(data)
+                except (ValueError, TypeError):
+                    return self.json(400, {"error": "Không thể làm sạch metadata ảnh thứ %d. File ZIP chưa được xuất; hãy chọn lại ảnh." % (i + 1)})
                 name = re.sub(r"[^\w\sÀ-ỹ&·-]+", "", str(it.get("name") or "anh")).strip()[:60] or "anh"
                 z.writestr("%02d-%s.png" % (i + 1, name.replace(" ", "-")), data)
                 count += 1
@@ -12840,13 +12841,12 @@ class Handler(BaseHTTPRequestHandler):
             img = img.split(",", 1)[1]
         if not img:
             return self.json(400, {"error": "Thiếu ảnh."})
-        try:
-            base64.b64decode(img)  # kiểm tra hợp lệ
-        except Exception:
-            return self.json(400, {"error": "Ảnh không hợp lệ."})
         mode = body.get("mode", "bg")
         label = (body.get("label", "") or "")[:160]
-        item = gallery_add(img, {"mode": mode, "prompt": label})
+        try:
+            item = gallery_add(img, {"mode": mode, "prompt": label})
+        except (ValueError, TypeError) as exc:
+            return self.json(400, {"error": "Ảnh không hợp lệ hoặc không thể làm sạch metadata: " + str(exc)})
         return self.json(200, {"gallery": item})
 
     def handle_upscale(self, body):
@@ -12860,6 +12860,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             raw = base64.b64decode(img)
             big = ai_upscale_png(raw, target) if method == "ai" else upscale_png(raw, target)
+            big = strip_ai_meta(big)
         except Exception as e:
             return self.json(500, {"error": "Upscale lỗi: %s" % e})
         return self.json(200, {"image": base64.b64encode(big).decode(),
