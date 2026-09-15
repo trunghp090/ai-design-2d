@@ -1,0 +1,542 @@
+[
+  {
+    "id": "reaction",
+    "name": "Nhận quà xúc động",
+    "description": "Bàn ăn tối → thư tay → hộp quà → áo đôi.",
+    "cover": "/choly-references/reaction.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7655916291395472660",
+    "shots": [
+      {
+        "id": "reaction",
+        "label": "Cảm xúc nhận quà",
+        "reference": "reaction.jpg",
+        "people": true,
+        "direction": "An adult Vietnamese man at a restaurant table rests his head on his forearm beside a red gift box, moved by a gift. Candid phone photo, imperfect framing, neutral dim light.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "box",
+        "label": "Hộp áo mở trên bàn",
+        "reference": "gift-open.jpg",
+        "people": false,
+        "direction": "Open plain red gift box on a grey table, the supplied folded shirts, small plain thank-you card and two unbranded wrapped chocolates. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "cafe-letter",
+    "name": "Đọc thiệp ở quán",
+    "description": "Đọc thiệp che nửa mặt, mở hộp trên tay, nụ cười sau khi đọc.",
+    "cover": "/choly-references/cafe-letter-0.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7682651649675906325",
+    "shots": [
+      {
+        "id": "reader",
+        "label": "Đọc thiệp ở quán",
+        "reference": "cafe-letter-0.jpg",
+        "people": true,
+        "direction": "An adult Vietnamese man with glasses in an airy industrial cafe holds a plain red greeting card in front of his mouth while reading it. Eyes visible. Medium casual phone photo.",
+        "position": "middle",
+        "layout": "photo"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "hands-box",
+        "label": "Mở hộp trên tay",
+        "reference": "cafe-letter-2.jpg",
+        "people": true,
+        "direction": "Close top-down POV of adult hands holding an open red box on their lap, supplied folded garment, red card and clear keychain spaced apart. Keep fingers anatomically correct. Leave small empty areas near each object for callouts.",
+        "position": "callouts",
+        "layout": "photo"
+      },
+      {
+        "id": "reader-smile",
+        "label": "Nụ cười sau khi đọc",
+        "reference": "cafe-letter-4.jpg",
+        "people": true,
+        "direction": "The same adult man seated in the same cafe smiles naturally with lips nearly closed while looking at a small red greeting card. Red gift bag next to him. Casual wide seated photo.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "night-ride",
+    "name": "Chuyến xe đêm",
+    "description": "Góc chụp từ yên sau, đèn phố và món quà mang theo.",
+    "cover": "/choly-references/night-ride.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7636242074098027796",
+    "shots": [
+      {
+        "id": "ride",
+        "label": "Góc người ngồi sau xe",
+        "reference": "night-ride.jpg",
+        "people": true,
+        "direction": "POV from an adult passenger behind an adult wearing a secured motorcycle helmet and supplied shirt, on a stationary scooter at a Vietnamese city traffic light at night. Rear shirt visible if the product has back artwork; otherwise preserve blank back. Natural street lights, candid phone grain.",
+        "position": "middle",
+        "layout": "photo"
+      },
+      {
+        "id": "night-note",
+        "label": "Thiệp giữa chuyến đi",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A handwritten note beside a plain red gift bag on a dark surface, city night light in soft background. No people or hands.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "night-pair",
+        "label": "Áo đôi sau buổi hẹn",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "Supplied shirts arranged together with a red card on dark stone, casual slightly oblique overhead camera, neutral low light. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirt-detail",
+        "label": "Chi tiết áo và thiệp",
+        "reference": "cafe-letter-3.jpg",
+        "people": false,
+        "direction": "Supplied shirt laid loosely in front of a plain red gift box and small card. Close phone photo, print clearly visible, no people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "cafe-date",
+    "name": "Hẹn hò cà phê",
+    "description": "Chân dung tự nhiên, áo trải trên bàn, ảnh mặc áo trước và sau.",
+    "cover": "/choly-references/cafe-table-0.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7678924923460439316",
+    "shots": [
+      {
+        "id": "cafe-portrait",
+        "label": "Chân dung quán sân vườn",
+        "reference": "cafe-table-0.jpg",
+        "people": true,
+        "direction": "Adult Vietnamese man wearing supplied garment seated sideways at a shaded garden cafe, looking away, dark foliage and wood behind, neutral daylight, casual portrait.",
+        "position": "bottom",
+        "layout": "photo"
+      },
+      {
+        "id": "table",
+        "label": "Áo trên bàn cà phê",
+        "reference": "cafe-table-1.jpg",
+        "people": false,
+        "direction": "Supplied garment laid across a round dark cafe table, plain red box and bag behind, small card next to shirt, trees in background. No hands or people.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "back",
+        "label": "Mặt lưng áo khi đi dạo",
+        "reference": "cafe-table-2.jpg",
+        "people": true,
+        "direction": "Same adult man standing facing away in shaded wood garden cafe wearing supplied garment. Only reproduce back artwork if back is shown in product references; otherwise keep back blank. Never move front print onto back.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "coffee",
+        "label": "Uống cà phê trong áo mới",
+        "reference": "cafe-table-3.jpg",
+        "people": true,
+        "direction": "Same adult Vietnamese man seated at garden cafe wearing supplied garment and holding a small glass near chest without blocking print. Natural side glance.",
+        "position": "none",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "gift-unbox",
+    "name": "Mở hộp & chú thích",
+    "description": "Cận hộp quà, chữ chú thích từng món, áo và thiệp.",
+    "cover": "/choly-references/cafe-letter-2.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7682651649675906325",
+    "shots": [
+      {
+        "id": "hands-box",
+        "label": "Mở hộp trên tay",
+        "reference": "cafe-letter-2.jpg",
+        "people": true,
+        "direction": "Close top-down POV of adult hands holding an open red box on their lap, supplied folded garment, red card and clear keychain spaced apart. Keep fingers anatomically correct. Leave small empty areas near each object for callouts.",
+        "position": "callouts",
+        "layout": "photo"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "shirt-detail",
+        "label": "Chi tiết áo và thiệp",
+        "reference": "cafe-letter-3.jpg",
+        "people": false,
+        "direction": "Supplied shirt laid loosely in front of a plain red gift box and small card. Close phone photo, print clearly visible, no people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "box",
+        "label": "Hộp áo mở trên bàn",
+        "reference": "gift-open.jpg",
+        "people": false,
+        "direction": "Open plain red gift box on a grey table, the supplied folded shirts, small plain thank-you card and two unbranded wrapped chocolates. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "dark-flatlay",
+    "name": "Flatlay quà tặng",
+    "description": "Chỉ sản phẩm: áo, hộp đỏ, thiệp và phụ kiện trên nền tối.",
+    "cover": "/choly-references/shirts.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7655916291395472660",
+    "shots": [
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "box",
+        "label": "Hộp áo mở trên bàn",
+        "reference": "gift-open.jpg",
+        "people": false,
+        "direction": "Open plain red gift box on a grey table, the supplied folded shirts, small plain thank-you card and two unbranded wrapped chocolates. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirt-detail",
+        "label": "Chi tiết áo và thiệp",
+        "reference": "cafe-letter-3.jpg",
+        "people": false,
+        "direction": "Supplied shirt laid loosely in front of a plain red gift box and small card. Close phone photo, print clearly visible, no people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "night-pair",
+        "label": "Áo đôi sau buổi hẹn",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "Supplied shirts arranged together with a red card on dark stone, casual slightly oblique overhead camera, neutral low light. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "bouquet",
+    "name": "Bó hoa & áo đôi",
+    "description": "Bó hoa mở đầu, lời nhắn, áo bên hoa và ảnh đôi.",
+    "cover": "/choly-references/bouquet.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7639607914897968405",
+    "shots": [
+      {
+        "id": "bouquet",
+        "label": "Bó hoa và tấm thiệp",
+        "reference": "bouquet.jpg",
+        "people": true,
+        "direction": "Close adult POV: bouquet of pink carnations and white daisies wrapped in brown kraft paper, adult hand holds an opened plain note alongside. Dim room, natural phone grain, heartfelt intimate gift snapshot.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "bouquet-shirt",
+        "label": "Thư tay bên bó hoa",
+        "reference": "bouquet-shirt.jpg",
+        "people": false,
+        "direction": "A short original handwritten Vietnamese affectionate note nestled against pink carnations and white daisies. No people or hands. Match intimate natural low light and paper detail.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "diptych",
+        "label": "Hai khoảnh khắc ghép dọc",
+        "reference": "diptych.jpg",
+        "people": true,
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "position": "middle",
+        "layout": "diptych"
+      }
+    ]
+  },
+  {
+    "id": "mirror",
+    "name": "Selfie gương đôi",
+    "description": "Ảnh gương đời thường, che mặt bằng điện thoại hoặc hoa.",
+    "cover": "/choly-references/mirror.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7677826673735208212",
+    "shots": [
+      {
+        "id": "mirror",
+        "label": "Selfie gương áo đôi",
+        "reference": "mirror.jpg",
+        "people": true,
+        "direction": "Adult Vietnamese couple in supplied shirts making a casual mirror selfie in a simple neutral bedroom. Woman holds phone partly covering her face, man turned three quarters showing only artwork supported by supplied garment views. Soft neutral indoor light.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "mirror-flower",
+        "label": "Người yêu cầm hoa",
+        "reference": "mirror-flower.jpg",
+        "people": true,
+        "direction": "An adult Vietnamese man with his back three quarters to camera holds pink flowers near his shoulder while wearing the supplied shirt in a simple bedroom. Never move front artwork onto his back. Candid phone photo.",
+        "position": "middle",
+        "layout": "photo"
+      },
+      {
+        "id": "shirt-detail",
+        "label": "Chi tiết áo và thiệp",
+        "reference": "cafe-letter-3.jpg",
+        "people": false,
+        "direction": "Supplied shirt laid loosely in front of a plain red gift box and small card. Close phone photo, print clearly visible, no people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "diptych",
+        "label": "Hai khoảnh khắc ghép dọc",
+        "reference": "diptych.jpg",
+        "people": true,
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "position": "middle",
+        "layout": "diptych"
+      }
+    ]
+  },
+  {
+    "id": "memory-screen",
+    "name": "Kỷ niệm trên màn hình",
+    "description": "Ảnh trong máy tính bảng, selfie và chiếc áo lưu kỷ niệm.",
+    "cover": "/choly-references/memory.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7670046350905494804",
+    "shots": [
+      {
+        "id": "memory",
+        "label": "Kỷ niệm trên màn hình",
+        "reference": "memory.jpg",
+        "people": true,
+        "direction": "A tablet resting on rumpled light bedding displays an original casual selfie of two adult Vietnamese people wearing supplied shirts. Phone-within-photo composition, neutral home lighting, device tilted, screen reflection subtle.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "mirror",
+        "label": "Selfie gương áo đôi",
+        "reference": "mirror.jpg",
+        "people": true,
+        "direction": "Adult Vietnamese couple in supplied shirts making a casual mirror selfie in a simple neutral bedroom. Woman holds phone partly covering her face, man turned three quarters showing only artwork supported by supplied garment views. Soft neutral indoor light.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "chat-story",
+    "name": "Tin nhắn kể chuyện",
+    "description": "Hội thoại minh hoạ dẫn vào món quà; dùng lời nhắn mới.",
+    "cover": "/choly-references/chat.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7639607914897968405",
+    "shots": [
+      {
+        "id": "chat",
+        "label": "Đoạn hội thoại minh hoạ",
+        "reference": "chat.jpg",
+        "people": false,
+        "direction": "Create a dark anonymous FICTIONAL Vietnamese chat illustration about choosing a meaningful shirt gift. Minimal dark grey and muted blue message bubbles on black with short original messages. No usernames, profile photos, timestamps, platform logo, contact information or actual testimonial. Do not transcribe reference conversation.",
+        "position": "top",
+        "layout": "chat"
+      },
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "box",
+        "label": "Hộp áo mở trên bàn",
+        "reference": "gift-open.jpg",
+        "people": false,
+        "direction": "Open plain red gift box on a grey table, the supplied folded shirts, small plain thank-you card and two unbranded wrapped chocolates. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "couple-diptych",
+    "name": "Ảnh đôi ghép dọc",
+    "description": "Hai khoảnh khắc cùng bối cảnh, chữ đặt ở khoảng nối.",
+    "cover": "/choly-references/diptych.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7639607914897968405",
+    "shots": [
+      {
+        "id": "diptych",
+        "label": "Hai khoảnh khắc ghép dọc",
+        "reference": "diptych.jpg",
+        "people": true,
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "position": "middle",
+        "layout": "diptych"
+      },
+      {
+        "id": "mirror",
+        "label": "Selfie gương áo đôi",
+        "reference": "mirror.jpg",
+        "people": true,
+        "direction": "Adult Vietnamese couple in supplied shirts making a casual mirror selfie in a simple neutral bedroom. Woman holds phone partly covering her face, man turned three quarters showing only artwork supported by supplied garment views. Soft neutral indoor light.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "bouquet-shirt",
+        "label": "Thư tay bên bó hoa",
+        "reference": "bouquet-shirt.jpg",
+        "people": false,
+        "direction": "A short original handwritten Vietnamese affectionate note nestled against pink carnations and white daisies. No people or hands. Match intimate natural low light and paper detail.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  },
+  {
+    "id": "letter-first",
+    "name": "Thư tay & món quà",
+    "description": "Bắt đầu bằng bức thư; bộ không người với giấy, áo và hộp.",
+    "cover": "/choly-references/letter.jpg",
+    "source": "https://www.tiktok.com/@choly.cutie/photo/7677072574035102996",
+    "shots": [
+      {
+        "id": "letter",
+        "label": "Lá thư viết tay",
+        "reference": "letter.jpg",
+        "people": false,
+        "direction": "A single handwritten Vietnamese love letter diagonally on dark cloth. Short original affectionate message without personal names. No people or hands. Preserve the intimate paper texture.",
+        "position": "none",
+        "layout": "photo"
+      },
+      {
+        "id": "box",
+        "label": "Hộp áo mở trên bàn",
+        "reference": "gift-open.jpg",
+        "people": false,
+        "direction": "Open plain red gift box on a grey table, the supplied folded shirts, small plain thank-you card and two unbranded wrapped chocolates. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirt-detail",
+        "label": "Chi tiết áo và thiệp",
+        "reference": "cafe-letter-3.jpg",
+        "people": false,
+        "direction": "Supplied shirt laid loosely in front of a plain red gift box and small card. Close phone photo, print clearly visible, no people or hands.",
+        "position": "top",
+        "layout": "photo"
+      },
+      {
+        "id": "shirts",
+        "label": "Áo đôi trên nền tối",
+        "reference": "shirts.jpg",
+        "people": false,
+        "direction": "The supplied shirts loosely laid on dark neutral cloth beside a small plain red card and teddy accessory. Imperfect overhead phone photograph. No people or hands.",
+        "position": "top",
+        "layout": "photo"
+      }
+    ]
+  }
+]
