@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.15-choly-identity-zoom"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.15-choly-packaging"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")

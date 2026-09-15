@@ -9,6 +9,8 @@ LOCK=threading.RLock()
 LIVE=set()
 CONCEPTS=json.loads((ROOT/'resource-seed/choly/concepts.json').read_text())
 PRESETS=json.loads((ROOT/'resource-seed/choly/visual-presets.json').read_text())
+ACCESSORIES={'zip':('rieng-zip.png','Túi zip RIENG.VN'),'tag':('rieng-tag.png','Tag cảm ơn RIENG.VN')}
+PACKAGING_SCENES={'reaction','reader','reader-smile','hands-box','shirts','box','shirt-detail','night-pair','table'}
 def folder(app):
     p=Path(app.DATA_DIR)/'choly-studio';p.mkdir(parents=True,exist_ok=True);return p
 def write(path,data):
@@ -21,6 +23,8 @@ def validate(body):
     if not visual:raise roundup.Problem('Concept hình ảnh không hợp lệ.')
     positions=body.get('positions',[shot['position'] for shot in visual['shots']])
     if not isinstance(positions,list) or len(positions)!=4 or any(v not in ('top','middle','bottom','none','callouts') for v in positions):raise roundup.Problem('Vị trí chữ không hợp lệ.')
+    accessories=body.get('accessories',[])
+    if not isinstance(accessories,list) or len(accessories)>2 or any(not isinstance(x,str) or x not in ACCESSORIES for x in accessories) or len(set(accessories))!=len(accessories):raise roundup.Problem('Chọn túi zip hoặc tag hợp lệ.')
     topic=body.get('topic','')
     if not isinstance(topic,str) or len(topic)>2000:raise roundup.Problem('Chủ đề tối đa 2000 ký tự.')
     captions=body.get('captions')
@@ -29,7 +33,7 @@ def validate(body):
     if not isinstance(files,dict) or set(files)-{'shirt1','shirt2','male','female'} or not files.get('shirt1'):raise roundup.Problem('Tải ảnh áo trước.')
     if sum(len(v) if isinstance(v,str) else 99999999 for v in files.values())>19000000:raise roundup.Problem('Ảnh tải lên quá lớn.')
     for v in files.values():roundup.uploaded_image(v)
-    return dict(concept=concept,visual=visual,positions=positions,topic=topic,files=files,captions=captions)
+    return dict(concept=concept,visual=visual,positions=positions,topic=topic,files=files,captions=captions,accessories=sorted(accessories))
 # Explicit roles prevent a one-person scene from accidentally introducing a couple.
 SCENE_ROLES={'bouquet':['female'],'mirror':['female','male'],'memory':['female','male'],'diptych':['female','male']}
 def roles_for(scene):
@@ -116,7 +120,7 @@ def start(app,body,owner):
             return public(old)
         if not (app.ANTHROPIC_API_KEY and (app.GEMINI_API_KEY or not any(x['people'] for x in spec['visual']['shots'])) and (app.API_KEY or all(x['people'] for x in spec['visual']['shots']))):raise roundup.Problem('Cần cấu hình Claude, Nano Banana Pro và GPT Image trong máy chủ.',503)
         identities=identity_snapshot(spec)
-        j=dict(id=jid,owner=owner,digest=digest,status='running',created=time.time(),items=[],total=4,error='',note='Claude đang viết kịch bản từng ảnh…',concept=spec['concept']['name'],visual=spec['visual']['name'],visual_id=spec['visual']['id'],topic=spec['topic'],identity_lock=bool(identities),identity_hashes={role:hashlib.sha256(raw).hexdigest() for role,(raw,mime) in identities.items()})
+        j=dict(id=jid,owner=owner,digest=digest,status='running',created=time.time(),items=[],total=4,error='',note='Claude đang viết kịch bản từng ảnh…',concept=spec['concept']['name'],visual=spec['visual']['name'],visual_id=spec['visual']['id'],topic=spec['topic'],accessories=spec['accessories'],identity_lock=bool(identities),identity_hashes={role:hashlib.sha256(raw).hexdigest() for role,(raw,mime) in identities.items()})
         write(folder(app)/(jid+'.json'),j);LIVE.add(jid)
         threading.Thread(target=run,args=(app,j,spec,identities),daemon=True).start()
         return public(j)
@@ -133,8 +137,15 @@ def run(app,j,spec,identities=None):
             for role in roles_for(scene):
                 refs.append(identities[role])
                 identity_rules.append(f'[REFERENCE_ROLE {len(refs)}: IDENTITY {role.upper()} ONLY] Match this exact adult face, facial proportions, eyes, nose, mouth, hairstyle, hairline, skin tone and eyewear in every scene. Never borrow clothes, pose or background from this reference.')
+            packaging_rules=[]
+            if scene['id'] in PACKAGING_SCENES:
+                for key in spec['accessories']:
+                    asset,label=ACCESSORIES[key]
+                    refs.append(((ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'))
+                    packaging_rules.append(f'[REFERENCE_ROLE {len(refs)}: PACKAGING ONLY — {label}] Include this exact packaging in the gift arrangement. Preserve its material, shape, logo and printed typography; never place packaging graphics on the shirt.')
             refs.append((ref.read_bytes(),'image/jpeg'))
             constraint='PRODUCT references are first. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Last reference is STYLE ONLY, never copy its identity, clothing design, logo or caption. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
+            if packaging_rules:constraint+=' '.join(packaging_rules)+' Keep the zip pouch garment-sized and translucent, with shirt visible; keep the tag small, about 5–8 percent of shirt width, beside the shirt or on the pouch. Keep shirt artwork and faces unobstructed. Do not copy Choly branding from style references. '
             constraint+=' Layout: '+scene['layout']+'. '+('Keep one continuous photograph, no collage. ' if scene['layout']=='photo' else 'Follow the explicitly requested layout. ')
             constraint+='Caption placement: '+position+'. Leave quiet space there, avoid faces and shirt artwork. '
             if not scene['people']:constraint+='No people, hands, faces, bodies or mannequins. '

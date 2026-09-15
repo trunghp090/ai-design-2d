@@ -80,4 +80,18 @@ class CholyTests(unittest.TestCase):
   self.app.claude_text.return_value='Invalid'
   with patch.object(p.time,'sleep'):
    with self.assertRaises(ValueError):p.write_dialogue(self.app,body)
+ def test_selected_packaging_is_passed_only_to_gift_scenes(self):
+  spec=p.validate({**self.body,'visual':'cafe-letter','accessories':['zip','tag']})
+  j={'id':self.body['request_id'],'items':[]}
+  p.run(self.app,j,spec,{'male':(self.raw,'image/png')})
+  self.assertEqual(j['status'],'done')
+  zip_raw=(p.ROOT/'public/roundup-references/rieng-zip.png').read_bytes()
+  tag_raw=(p.ROOT/'public/roundup-references/rieng-tag.png').read_bytes()
+  for call in self.app.gemini_edit.call_args_list:
+   raws=[raw for raw,mime in call.args[0]]
+   self.assertIn(zip_raw,raws);self.assertIn(tag_raw,raws)
+   self.assertIn('PACKAGING ONLY',call.args[1])
+  self.assertNotIn(zip_raw,[raw for raw,mime in self.app.gen_shot.call_args.args[0]])
+  for accessories in [['bad'],['zip','zip'],'zip']:
+   with self.assertRaises(roundup.Problem):p.validate({**self.body,'accessories':accessories})
 if __name__=='__main__':unittest.main()
