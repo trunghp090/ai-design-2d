@@ -56,7 +56,7 @@
         "label": "Đọc thiệp ở quán",
         "reference": "cafe-letter-0.jpg",
         "people": true,
-        "direction": "An adult Vietnamese man with the pinned identity sits on an ordinary cafe chair at a table, both feet resting on the floor. He leans slightly forward reading a small plain red greeting card held below his chin with both hands, elbows supported near the table edge. His eyes follow the writing, expression attentive and neutral, shoulders loose. Partner phone snapshot from across the table, eye level, medium chest-to-thigh crop. Follow the style reference cafe architecture and available light; no staged product presentation, no crossed legs or window-ledge sitting. Leave clear wall above the head for the caption.",
+        "direction": "Match the actual pose and crop in the last reference: seated adult man facing the camera, one hand holding an upright red card in front of his lower face, eyes visible above its top edge and looking toward the camera. The other forearm rests down across his lap. Keep the same head-to-lap framing and industrial cafe perspective; do not add legs or shoes outside the reference crop. Replace his identity with the pinned KOL and clothing with the supplied shirt. Use a plain unbranded card.",
         "position": "top",
         "layout": "photo"
       },
@@ -83,7 +83,7 @@
         "label": "Nụ cười sau khi đọc",
         "reference": "cafe-letter-4.jpg",
         "people": true,
-        "direction": "The same adult man in the same cafe outfit and setting is caught just after reading the small red card. Seated on an ordinary chair, both feet on the floor, torso leaning slightly toward the table, one forearm resting on the tabletop. His other hand loosely supports the lowered card near the table, gaze still on its writing, a barely noticeable closed-mouth smile rather than a performed reaction. A red gift bag rests casually beside the chair. Partner phone photo from across the table, a slightly off-centre medium crop from head to mid-thigh; keep shoes out of frame. No crossed or folded legs, no window-ledge pose, no floating hands or displaying the card to camera. Leave quiet space above the head for the caption.",
+        "direction": "Match the actual pose and crop in the last reference: seated adult man leaning sideways toward the upright red card at image left, holding its lower edge with one hand, the bent elbow supported on his thigh. His opposite arm bends back with the hand near his hip/chair. Head tilts toward the card and he smiles with the same spontaneous expression intensity as the reference. Keep the original seated leg arrangement, head-to-thigh crop, industrial cafe perspective and red bag at lower right. Do not substitute crossed legs on a window ledge or both forearms on a table. Use the pinned KOL, supplied shirt and unbranded card/bag.",
         "position": "top",
         "layout": "photo"
       }
@@ -173,7 +173,7 @@
         "label": "Uống cà phê trong áo mới",
         "reference": "cafe-table-3.jpg",
         "people": true,
-        "direction": "Same adult Vietnamese man seated at garden cafe wearing supplied garment and holding a small glass near chest without blocking print. Natural side glance.",
+        "direction": "Same adult Vietnamese man seated at garden cafe wearing supplied garment and holding a small glass in the same hand position as the reference. Natural side glance.",
         "position": "none",
         "layout": "photo"
       }
@@ -308,7 +308,7 @@
         "label": "Hai khoảnh khắc ghép dọc",
         "reference": "diptych.jpg",
         "people": true,
-        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep the pinned KOL identities, consistent garment source, no transferred front artwork to backs.",
         "position": "middle",
         "layout": "diptych"
       }
@@ -353,7 +353,7 @@
         "label": "Hai khoảnh khắc ghép dọc",
         "reference": "diptych.jpg",
         "people": true,
-        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep the pinned KOL identities, consistent garment source, no transferred front artwork to backs.",
         "position": "middle",
         "layout": "diptych"
       }
@@ -461,7 +461,7 @@
         "label": "Hai khoảnh khắc ghép dọc",
         "reference": "diptych.jpg",
         "people": true,
-        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep faces anonymous/new, consistent garment source, no transferred front artwork to backs.",
+        "direction": "One vertical image split into TWO equally sized photographs stacked without frame: same adult Vietnamese couple wearing supplied shirts, first man facing away in front of a stone doorway, second woman in same doorway. Keep the pinned KOL identities, consistent garment source, no transferred front artwork to backs.",
         "position": "middle",
         "layout": "diptych"
       },

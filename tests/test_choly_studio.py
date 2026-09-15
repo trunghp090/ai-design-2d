@@ -69,20 +69,20 @@ class CholyTests(unittest.TestCase):
    self.assertIn('IDENTITY MALE ONLY',prompt)
    self.assertNotIn('Use new adult',prompt)
   for call in self.app.gen_shot.call_args_list:self.assertNotIn(portrait,[raw for raw,mime in call.args[0]])
- def test_candid_direction_reaches_writer_and_people_renderer_only(self):
+ def test_pose_reference_reaches_writer_and_people_renderer_only(self):
   spec=p.validate({**self.body,'visual':'cafe-letter'})
   j={'id':self.body['request_id'],'items':[]}
   p.run(self.app,j,spec,{'male':(self.raw,'image/png')})
   self.assertEqual(j['status'],'done')
   for scene,call in zip(spec['visual']['shots'],self.app.claude_vision_multi.call_args_list):
-   self.assertEqual('CANDID MOMENT' in call.args[0],scene['people'])
-   self.assertEqual('CANDID MOMENT' in call.args[1],scene['people'])
-  for call in self.app.gemini_edit.call_args_list:self.assertIn('CANDID MOMENT',call.args[1])
-  for call in self.app.gen_shot.call_args_list:self.assertNotIn('CANDID MOMENT',call.args[1])
+   self.assertEqual('POSE REFERENCE LOCK' in call.args[0],scene['people'])
+   self.assertEqual('POSE REFERENCE LOCK' in call.args[1],scene['people'])
+  for call in self.app.gemini_edit.call_args_list:self.assertIn('POSE REFERENCE LOCK',call.args[1])
+  for call in self.app.gen_shot.call_args_list:self.assertNotIn('POSE REFERENCE LOCK',call.args[1])
   for preset in p.PRESETS:
    for scene in preset['shots']:
     if scene['id'] in ('reader','reader-smile'):
-     self.assertIn('both feet',scene['direction'])
+     self.assertIn('Match the actual pose and crop in the last reference',scene['direction'])
      self.assertEqual(scene['position'],'top')
  def test_uploaded_identity_overrides_saved_cast(self):
   spec=p.validate({**self.body,'files':{**self.body['files'],'male':self.body['files']['shirt1']}})

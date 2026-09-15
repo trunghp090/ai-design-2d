@@ -124,17 +124,17 @@ def start(app,body,owner):
         write(folder(app)/(jid+'.json'),j);LIVE.add(jid)
         threading.Thread(target=run,args=(app,j,spec,identities),daemon=True).start()
         return public(j)
-CANDID_DIRECTION = (
-    'CANDID MOMENT: Photograph an ordinary moment from a partner\'s handheld phone viewpoint. '
-    'The subject is absorbed in the scene activity, not demonstrating merchandise to the camera. '
-    'Use relaxed asymmetric shoulders, believable weight and visible support for any resting arm. '
-    'Hands perform one simple action with a relaxed wrist and natural grip. '
-    'Keep a quiet, unforced expression; do not prescribe a smile in every frame. '
-    'Use the scene-specific crop and pose, slightly off-centre framing and natural window or available light '
-    'with real shadows, skin texture and ordinary cloth folds. No catalogue lighting, beauty smoothing or HDR sheen. '
-    'Never twist the body or lift an object just to expose the shirt print; preserve the supplied artwork exactly wherever visible. '
-    'For hands-only scenes keep the face and body outside the frame. '
-    'These scene-specific everyday actions take precedence over generic fashion pose banks and advertising expressions. '
+POSE_REFERENCE_DIRECTION = (
+    'POSE REFERENCE LOCK: The LAST image is the selected Choly scene and is the primary reference for pose and composition. '
+    'Inspect it visually and describe its actual torso lean, shoulder angle, head tilt, gaze, expression, '
+    'elbow support, wrist orientation, finger grip, prop height, visible leg placement and camera crop in the scene prompt. '
+    'Reproduce these observed relationships, subject scale, camera height, viewing angle and framing with the pinned adult KOL and supplied garment. '
+    'Do not invent hidden limbs, widen the crop to add shoes, move the subject to another seat, lower a raised card or substitute a generic candid/fashion pose. '
+    'Match the observed expression intensity and available-light character, retaining believable anatomy and skin texture. '
+    'For hands-only references reproduce only the visible hands and their object interaction; keep faces outside the crop. '
+    'The source pose and crop take precedence over generic pose banks, expression rules and conflicting scene prose. '
+    'Transfer pose, not identity: keep the pinned KOL face, supplied shirt artwork and selected packaging. '
+    'Never copy source branding, garment graphics or caption text. Preserve artwork exactly where visible without forcing the body to display it. '
 )
 
 def run(app,j,spec,identities=None):
@@ -157,17 +157,17 @@ def run(app,j,spec,identities=None):
                     refs.append(((ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'))
                     packaging_rules.append(f'[REFERENCE_ROLE {len(refs)}: PACKAGING ONLY — {label}] Include this exact packaging in the gift arrangement. Preserve its material, shape, logo and printed typography; never place packaging graphics on the shirt.')
             refs.append((ref.read_bytes(),'image/jpeg'))
-            constraint='PRODUCT references are first. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Last reference is STYLE ONLY, never copy its identity, clothing design, logo or caption. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
+            constraint='PRODUCT references are first. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Last reference supplies scene composition and, for people scenes, the exact pose. Never copy its identity, clothing design, logo or caption. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
             if packaging_rules:constraint+=' '.join(packaging_rules)+' Keep the zip pouch garment-sized and translucent, with shirt visible; keep the tag small, about 5–8 percent of shirt width, beside the shirt or on the pouch. Keep shirt artwork and faces unobstructed. Do not copy Choly branding from style references. '
             constraint+=' Layout: '+scene['layout']+'. '+('Keep one continuous photograph, no collage. ' if scene['layout']=='photo' else 'Follow the explicitly requested layout. ')
             constraint+='Caption placement: '+position+'. Leave quiet space there, avoid faces and shirt artwork. '
             if not scene['people']:constraint+='No people, hands, faces, bodies or mannequins. '
             if scene['people']:
-                constraint=CANDID_DIRECTION+'IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
+                constraint=POSE_REFERENCE_DIRECTION+'IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
             brief=f'Scene {index+1}: {direction}\nCommunication concept: {spec["concept"]["name"]}: {spec["concept"]["angle"]}\nUser topic: {spec["topic"]}\nCaption to support visually, DO NOT render: {spec["captions"][index]}\n{constraint}'
             for attempt in range(3):
                 try:
-                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one complete image prompt only. Respect explicit scene and 3:4 ratio.'+('\n'+CANDID_DIRECTION if scene['people'] else ''),brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
+                    base=app.claude_vision_multi(app.PRODUCT_PROMPT_SYSTEM+'\nWrite one complete image prompt only. Respect explicit scene and 3:4 ratio.'+('\n'+POSE_REFERENCE_DIRECTION if scene['people'] else ''),brief,[raw for raw,mime in refs],max_tokens=1800,timeout=180)
                     if not base.strip():raise ValueError('Claude trả prompt rỗng.')
                     break
                 except Exception:
