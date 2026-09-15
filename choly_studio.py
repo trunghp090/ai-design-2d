@@ -3,6 +3,7 @@ import base64, hashlib, io, json, re, threading, time, urllib.parse
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import roundup
+import roundup_cast
 ROOT=Path(__file__).resolve().parent
 LOCK=threading.RLock()
 LIVE=set()
@@ -25,10 +26,43 @@ def validate(body):
     captions=body.get('captions')
     if not isinstance(captions,list) or len(captions)!=4 or any(not isinstance(t,str) or len(t)>220 for t in captions):raise roundup.Problem('Mỗi câu chữ tối đa 220 ký tự.')
     files=body.get('files',{})
-    if not isinstance(files,dict) or set(files)-{'shirt1','shirt2'} or not files.get('shirt1'):raise roundup.Problem('Tải ảnh áo trước.')
-    if sum(len(v) if isinstance(v,str) else 99999999 for v in files.values())>10000000:raise roundup.Problem('Ảnh tải lên quá lớn.')
+    if not isinstance(files,dict) or set(files)-{'shirt1','shirt2','male','female'} or not files.get('shirt1'):raise roundup.Problem('Tải ảnh áo trước.')
+    if sum(len(v) if isinstance(v,str) else 99999999 for v in files.values())>19000000:raise roundup.Problem('Ảnh tải lên quá lớn.')
     for v in files.values():roundup.uploaded_image(v)
     return dict(concept=concept,visual=visual,positions=positions,topic=topic,files=files,captions=captions)
+# Explicit roles prevent a one-person scene from accidentally introducing a couple.
+SCENE_ROLES={'bouquet':['female'],'mirror':['female','male'],'memory':['female','male'],'diptych':['female','male']}
+def roles_for(scene):
+    return SCENE_ROLES.get(scene['id'],['male']) if scene['people'] else []
+def identity_snapshot(spec):
+    needed={role for scene in spec['visual']['shots'] for role in roles_for(scene)}
+    if not needed:return {}
+    defaults={p['role']:p for p in roundup_cast.people('couple')} if any(role not in spec['files'] for role in needed) else {}
+    result={}
+    for role in sorted(needed):
+        if role in spec['files']:result[role]=roundup.uploaded_image(spec['files'][role])
+        else:
+            person=defaults[role];result[role]=(person['file'].read_bytes(),person.get('mime','image/jpeg'))
+    return result
+
+def write_dialogue(app,body):
+    if not isinstance(body,dict):raise roundup.Problem('Dữ liệu không hợp lệ.')
+    spec=next((v for v in PRESETS if v['id']==body.get('visual')),None)
+    concept=next((v for v in CONCEPTS if v['id']==body.get('concept')),None)
+    tone=body.get('tone','Cảm động');topic=body.get('topic','')
+    if not spec or not concept or tone not in ('Cảm động','Trêu yêu','Bất ngờ','Yêu xa','Đời thường') or not isinstance(topic,str) or len(topic)>2000:raise roundup.Problem('Chọn concept và nhập chủ đề hợp lệ.')
+    system='Bạn viết thoại ngắn cho carousel áo đôi. Viết MỚI bằng tiếng Việt, xưng anh/em, tự nhiên như nói chuyện, có mở đầu, đáp lại, món quà và câu kết. Không sao chép lời của thương hiệu khác, không bịa lời chứng thực khách hàng. Mỗi ảnh tối đa 180 ký tự, 1–2 câu. Trả đúng 4 khối, mỗi khối bắt đầu bằng ### SLIDE 1 (rồi 2, 3, 4). Không thêm giải thích.'
+    prompt=f"Chủ đề: {topic}\nGiọng: {tone}\nConcept truyền thông: {concept['name']} — {concept['angle']}\nCác cảnh: "+'; '.join(f"{i+1}. {x['label']}" for i,x in enumerate(spec['shots']))
+    for attempt in range(3):
+        try:
+            answer=app.claude_text(system,prompt,max_tokens=1600)
+            parts=re.split(r'###\s*SLIDE\s+[1-4]\s*',answer)[1:]
+            if len(parts)!=4 or any(not p.strip() or len(p.strip())>220 for p in parts):raise ValueError('Claude chưa trả đủ 4 đoạn thoại ngắn.')
+            return {'captions':[p.strip() for p in parts]}
+        except Exception:
+            if attempt==2:raise
+            time.sleep(2**attempt)
+
 def caption_image(raw,text,position='top'):
     im=ImageOps.fit(Image.open(io.BytesIO(raw)).convert('RGB'),(1152,1536))
     draw=ImageDraw.Draw(im)
@@ -81,24 +115,31 @@ def start(app,body,owner):
             if old['digest']!=digest:raise roundup.Problem('Mã yêu cầu đã dùng cho nội dung khác.',409)
             return public(old)
         if not (app.ANTHROPIC_API_KEY and (app.GEMINI_API_KEY or not any(x['people'] for x in spec['visual']['shots'])) and (app.API_KEY or all(x['people'] for x in spec['visual']['shots']))):raise roundup.Problem('Cần cấu hình Claude, Nano Banana Pro và GPT Image trong máy chủ.',503)
-        j=dict(id=jid,owner=owner,digest=digest,status='running',created=time.time(),items=[],total=4,error='',note='Claude đang viết kịch bản từng ảnh…',concept=spec['concept']['name'],visual=spec['visual']['name'],visual_id=spec['visual']['id'],topic=spec['topic'])
+        identities=identity_snapshot(spec)
+        j=dict(id=jid,owner=owner,digest=digest,status='running',created=time.time(),items=[],total=4,error='',note='Claude đang viết kịch bản từng ảnh…',concept=spec['concept']['name'],visual=spec['visual']['name'],visual_id=spec['visual']['id'],topic=spec['topic'],identity_lock=bool(identities),identity_hashes={role:hashlib.sha256(raw).hexdigest() for role,(raw,mime) in identities.items()})
         write(folder(app)/(jid+'.json'),j);LIVE.add(jid)
-        threading.Thread(target=run,args=(app,j,spec),daemon=True).start()
+        threading.Thread(target=run,args=(app,j,spec,identities),daemon=True).start()
         return public(j)
-def run(app,j,spec):
+def run(app,j,spec,identities=None):
     try:
-        product=[roundup.uploaded_image(v) for v in spec['files'].values()]
+        identities=identity_snapshot(spec) if identities is None else identities
+        product=[roundup.uploaded_image(spec['files'][k]) for k in ('shirt1','shirt2') if k in spec['files']]
         for index,scene in enumerate(spec['visual']['shots']):
             shot,label,direction=scene['id'],scene['label'],scene['direction']
             position=spec['positions'][index]
             with LOCK:j['note']=f'Claude viết cảnh {index+1}/4: {label}';write(folder(app)/(j['id']+'.json'),j)
             ref=ROOT/'public/choly-references'/scene['reference']
-            refs=product+[(ref.read_bytes(),'image/jpeg')]
+            refs=list(product);identity_rules=[]
+            for role in roles_for(scene):
+                refs.append(identities[role])
+                identity_rules.append(f'[REFERENCE_ROLE {len(refs)}: IDENTITY {role.upper()} ONLY] Match this exact adult face, facial proportions, eyes, nose, mouth, hairstyle, hairline, skin tone and eyewear in every scene. Never borrow clothes, pose or background from this reference.')
+            refs.append((ref.read_bytes(),'image/jpeg'))
             constraint='PRODUCT references are first. Copy garment artwork pixel-faithfully, exact print size and placement and every original Vietnamese name and accent. Never redraw or describe the artwork. Ignore any poster headings outside garments. Last reference is STYLE ONLY, never copy its identity, clothing design, logo or caption. Use supplied garments only where the scene calls for clothing. Preserve print on its original side; never transfer a front design to the back. Output ONE 3:4 image. No added watermark or copied source caption. Do not add overlay text; it will be rendered separately.'
             constraint+=' Layout: '+scene['layout']+'. '+('Keep one continuous photograph, no collage. ' if scene['layout']=='photo' else 'Follow the explicitly requested layout. ')
             constraint+='Caption placement: '+position+'. Leave quiet space there, avoid faces and shirt artwork. '
             if not scene['people']:constraint+='No people, hands, faces, bodies or mannequins. '
-            if scene['people']:constraint+='Use new adult Vietnamese characters; never copy reference identities. '
+            if scene['people']:
+                constraint='IDENTITY LOCK: '+ ' '.join(identity_rules)+' Only show the characters required by this scene ('+', '.join(roles_for(scene))+'); never add another person. Style-image faces must be replaced by the pinned identity faces. '+constraint
             brief=f'Scene {index+1}: {direction}\nCommunication concept: {spec["concept"]["name"]}: {spec["concept"]["angle"]}\nUser topic: {spec["topic"]}\nCaption to support visually, DO NOT render: {spec["captions"][index]}\n{constraint}'
             for attempt in range(3):
                 try:
@@ -115,7 +156,7 @@ def run(app,j,spec):
             b64=app.gemini_edit(refs,prompt,'3:4',model,image_size='4K') if scene['people'] else app.gen_shot(refs,prompt,'1152x1536','openai_25','3:4',lock=False,quality='high')
             raw=caption_image(base64.b64decode(b64),spec['captions'][index],position);filename=j['id']+f'-{index}.png';(folder(app)/filename).write_bytes(raw)
             with LOCK:
-                j['items'].append(dict(index=index,shot=label,filename=filename,base=base,prompt=prompt,model=model,caption=spec['captions'][index],position=position,visual=spec['visual']['id'],image='/api/choly-studio/result?id='+j['id']+'&index='+str(index)))
+                j['items'].append(dict(index=index,shot=label,filename=filename,base=base,prompt=prompt,model=model,caption=spec['captions'][index],position=position,visual=spec['visual']['id'],identity_roles=roles_for(scene),image='/api/choly-studio/result?id='+j['id']+'&index='+str(index)))
                 write(folder(app)/(j['id']+'.json'),j)
         with LOCK:j.update(status='done',note='Đã tạo đủ 4 ảnh có chữ.');write(folder(app)/(j['id']+'.json'),j)
     except Exception as e:
@@ -132,6 +173,12 @@ def route(app,h,path,body=None):
         q=urllib.parse.parse_qs(urllib.parse.urlparse(h.path).query);get=lambda k:q.get(k,[''])[0]
         action=path.rsplit('/',1)[-1]
         if body is not None and action=='generate':result=start(app,body,owner)
+        elif body is not None and action=='dialogue':result=write_dialogue(app,body)
+        elif body is None and action=='identity':
+            person=next((p for p in roundup_cast.people('couple') if p['role']==get('role')),None)
+            if not person:raise roundup.Problem('Nhân vật không hợp lệ.')
+            thumb=person['file'].parent/person.get('preview_asset','')
+            roundup.send_bytes(h,thumb.read_bytes() if thumb.is_file() else person['file'].read_bytes(),person.get('mime','image/jpeg'));return True
         elif body is None and action=='catalog':result={'concepts':CONCEPTS,'visuals':PRESETS}
         elif body is None and action=='job':result=public(read(app,get('id'),owner))
         elif body is None and action=='result':

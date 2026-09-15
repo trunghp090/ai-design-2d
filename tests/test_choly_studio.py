@@ -53,4 +53,31 @@ class CholyTests(unittest.TestCase):
   for pos in ['top','middle','bottom','callouts']:
    im=Image.open(io.BytesIO(p.caption_image(self.raw,'Thiệp | Áo | Quà',pos)))
    self.assertGreater(len(im.getcolors(2000000)),1)
+ def test_identity_reference_is_reused_and_excluded_from_products(self):
+  import hashlib
+  portrait=b'identity-test-bytes'
+  spec=p.validate({**self.body,'visual':'cafe-letter'})
+  j={'id':self.body['request_id'],'items':[]}
+  p.run(self.app,j,spec,{'male':(portrait,'image/jpeg')})
+  self.assertEqual(j['status'],'done')
+  self.assertEqual(self.app.gemini_edit.call_count,3)
+  for call in self.app.gemini_edit.call_args_list:
+   refs,prompt=call.args[:2]
+   self.assertEqual(refs[0][0],self.raw)
+   self.assertEqual(refs[1][0],portrait)
+   self.assertIn('IDENTITY LOCK',prompt)
+   self.assertIn('IDENTITY MALE ONLY',prompt)
+   self.assertNotIn('Use new adult',prompt)
+  for call in self.app.gen_shot.call_args_list:self.assertNotIn(portrait,[raw for raw,mime in call.args[0]])
+ def test_uploaded_identity_overrides_saved_cast(self):
+  spec=p.validate({**self.body,'files':{**self.body['files'],'male':self.body['files']['shirt1']}})
+  with patch.object(p.roundup_cast,'people',side_effect=AssertionError('Must not load default')):
+   self.assertEqual(p.identity_snapshot(spec)['male'][0],self.raw)
+ def test_dialogue_requires_four_blocks(self):
+  self.app.claude_text=Mock(return_value='### SLIDE 1\nAnh thích không?\n### SLIDE 2\nEm chọn cho anh đó.\n### SLIDE 3\nMai mình mặc cùng nhé.\n### SLIDE 4\nNhất trí rồi!')
+  body=dict(visual='cafe-letter',concept=19,topic='Kỷ niệm',tone='Trêu yêu')
+  self.assertEqual(len(p.write_dialogue(self.app,body)['captions']),4)
+  self.app.claude_text.return_value='Invalid'
+  with patch.object(p.time,'sleep'):
+   with self.assertRaises(ValueError):p.write_dialogue(self.app,body)
 if __name__=='__main__':unittest.main()
