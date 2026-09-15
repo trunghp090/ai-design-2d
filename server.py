@@ -16,6 +16,7 @@ from kol_gifts import selection as kol_gift_selection
 from tiktok_story import SYSTEM as _TIKTOK_SYS, validate_setup as tiktok_story_setup, validate_plan as tiktok_story_plan
 import roundup
 import photo_studio
+import choly_studio
 import studio_assistant
 import datetime
 import hashlib
@@ -43,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.15-image-metadata"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.15-choly-studio"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -9143,7 +9144,7 @@ def user_is_admin(u):
 USER_PERMS_FILE = os.path.join(DATA_DIR, "user-perms.json")
 _perms_lock = threading.Lock()
 # mọi tab thường (KHÔNG gồm admgr/pnl/members — 3 tab đó luôn chỉ admin)
-ALL_APP_TABS = ["flatlay", "wearer", "imagegen", "assistant", "roundup", "chatcontent", "clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
+ALL_APP_TABS = ["choly","flatlay", "wearer", "imagegen", "assistant", "roundup", "chatcontent", "clone", "recolor", "lenao", "design", "product", "ads", "fbpost", "tiktok",
                 "adpost", "pgpost", "shopify", "shoplist", "pnl", "admgr"]
 ADMIN_ONLY_TABS = ["members"]
 
@@ -9532,6 +9533,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         if studio_assistant.route(sys.modules[__name__], self, path):
+            return
+        if choly_studio.route(sys.modules[__name__], self, path):
             return
         if photo_studio.route(sys.modules[__name__], self, path):
             return
@@ -10074,6 +10077,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith("/api/studio-assistant/"):
             studio_assistant.route(sys.modules[__name__], self, path, body)
+            return
+        if path.startswith("/api/choly-studio/"):
+            choly_studio.route(sys.modules[__name__], self, path, body)
             return
         if path.startswith("/api/photo-studio/"):
             photo_studio.route(sys.modules[__name__], self, path, body)

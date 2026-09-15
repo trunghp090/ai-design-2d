@@ -1,0 +1,642 @@
+[
+  {
+    "id": 1,
+    "name": "So sánh",
+    "group": "Góc nhìn",
+    "angle": "Quà đẹp hay quà đúng gu?",
+    "lines": [
+      "Cùng là một món quà, vì sao cảm giác lại khác?",
+      "Một bên chọn theo điều mình thích; một bên nhớ điều người ấy hay mặc.",
+      "Đặt mẫu áo đã chọn cạnh chiếc thiệp: món quà hợp gu bắt đầu từ sự để ý.",
+      "Bạn chọn đẹp mắt hay đúng gu?"
+    ],
+    "shots": [
+      "Chia khung hình thành hai cách chuẩn bị quà.",
+      "Đặt hai tấm ghi chú: gu của mình và gu của người nhận."
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Chủ đề hot",
+    "group": "Thời điểm",
+    "angle": "Chuyện đang bàn: có cần mặc áo đôi?",
+    "lines": [
+      "Mặc áo đôi khi hẹn hò: bạn thích hay còn ngại?",
+      "Thử một cách phối thật đơn giản trước khi quyết định.",
+      "Cùng một mẫu áo, mỗi người phối theo gu riêng.",
+      "Bạn muốn bàn tiếp chuyện gì về áo đôi?"
+    ],
+    "shots": [
+      "Mở bằng một câu hỏi thảo luận, không dựng tin thời sự.",
+      "Hai người trao đổi góc nhìn, không tranh cãi với cá nhân thật."
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Con số",
+    "group": "Giá trị",
+    "angle": "3 điều để chọn một chiếc áo tặng người yêu",
+    "lines": [
+      "Đừng chọn áo chỉ vì nhìn đẹp: thử 3 bước này.",
+      "1. Hỏi size. 2. Nhớ màu hay mặc. 3. Nghĩ đến buổi hai người sẽ mặc cùng.",
+      "Đối chiếu mẫu áo này với ba điều vừa chọn.",
+      "Lưu lại cho lần chuẩn bị quà tiếp theo."
+    ],
+    "shots": [
+      "Đặt ba thẻ đánh số cạnh hộp quà.",
+      "Chụp ba bước lựa chọn bằng đồ vật có thật."
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Thúc giục",
+    "group": "Thời điểm",
+    "angle": "Viết thiệp trước khi gói quà",
+    "lines": [
+      "Khoan gói hộp lại. Còn một điều bạn muốn nói.",
+      "Viết câu đầu tiên ngay lúc này, dù chỉ là một lời cảm ơn.",
+      "Đặt chiếc thiệp vào cùng áo trước khi đóng hộp.",
+      "Bạn muốn người ấy đọc câu gì đầu tiên?"
+    ],
+    "shots": [
+      "Bàn tay sắp đóng nắp hộp thì dừng lại.",
+      "Cầm bút viết lời nhắn trên thẻ trống."
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Real time",
+    "group": "Thời điểm",
+    "angle": "Một lần gói quà không cắt cảnh",
+    "lines": [
+      "Cùng chuẩn bị món quà này từ đầu đến cuối.",
+      "Chọn áo, gấp lại, đặt thiệp: ghi lại đúng những gì đang làm.",
+      "Đến bước đặt áo vào hộp, quay cận để thấy rõ mẫu đã chọn.",
+      "Bạn thích xem tiếp công đoạn nào?"
+    ],
+    "shots": [
+      "Góc quay cố định trên bàn gói quà; chỉ gọi trực tiếp nếu đang phát thật.",
+      "Ghi lại tiến trình thật; ảnh AI phải được trình bày là minh họa."
+    ]
+  },
+  {
+    "id": 6,
+    "name": "Mượn influencer",
+    "group": "Niềm tin",
+    "angle": "Nhờ người có gu góp ý áo đôi",
+    "lines": [
+      "Nếu nhờ một stylist chọn áo đôi, bạn sẽ hỏi gì?",
+      "Hỏi về phom, cách phối và sự thoải mái trước khi hỏi có hợp trend không.",
+      "Đặt mẫu áo của bạn vào bài thử phối để cùng thảo luận.",
+      "Bạn muốn gửi câu hỏi nào cho người tư vấn?"
+    ],
+    "shots": [
+      "Dùng nhân vật tư vấn hư cấu hoặc cộng tác viên đã đồng ý.",
+      "Đặt các câu hỏi tư vấn cạnh áo; không dựng lời chứng thực của người nổi tiếng."
+    ]
+  },
+  {
+    "id": 7,
+    "name": "Tranh luận",
+    "group": "Góc nhìn",
+    "angle": "Áo đôi có nhất thiết giống hệt?",
+    "lines": [
+      "Không mặc giống nhau có còn là áo đôi?",
+      "Một người thích nổi bật, người kia chỉ thích đơn giản.",
+      "Thử giữ một chi tiết chung trên áo và thay cách phối.",
+      "Bạn thuộc đội giống hệt hay chỉ cần đồng điệu?"
+    ],
+    "shots": [
+      "Hai người đưa hai cách phối cạnh nhau.",
+      "So sánh lựa chọn bình đẳng; không gán một bên là sai."
+    ]
+  },
+  {
+    "id": 8,
+    "name": "Đồng thuận",
+    "group": "Niềm tin",
+    "angle": "Món quà không cần đúng gu của tất cả",
+    "lines": [
+      "Có một điều mình muốn hai đứa cùng đồng ý.",
+      "Quà tặng nên khiến người nhận thấy thoải mái khi dùng.",
+      "Chọn chiếc áo cả hai sẵn lòng mặc trong một ngày bình thường.",
+      "Hai bạn sẽ thống nhất điều gì trước khi chọn áo?"
+    ],
+    "shots": [
+      "Hai tờ ghi chú ghi sở thích của từng người.",
+      "Tìm điểm chung giữa hai lựa chọn, không tuyên bố đa số yêu thích."
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Dữ liệu",
+    "group": "Niềm tin",
+    "angle": "Chọn size bằng số đo thật",
+    "lines": [
+      "Đo trước, đoán sau: chọn áo bằng thông tin nào?",
+      "Ghi số đo một chiếc áo đang mặc vừa, rồi đối chiếu bảng size thật.",
+      "Đặt áo đã chọn cạnh bảng size được người bán xác nhận.",
+      "Bạn đã có bảng size của mẫu này chưa?"
+    ],
+    "shots": [
+      "Dùng thước đo trên áo thật, không tự tạo số đo.",
+      "Chỉ chèn bảng size và số liệu đã có nguồn; thiếu thì để khung cần bổ sung."
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Cảnh báo",
+    "group": "Giá trị",
+    "angle": "Đừng quên hỏi size trước khi tặng áo",
+    "lines": [
+      "Một chi tiết có thể khiến món quà khó dùng: chọn nhầm size.",
+      "Đừng đoán theo ảnh; hỏi kín đáo hoặc đối chiếu áo đang mặc vừa.",
+      "Kiểm tra size của mẫu đã chọn trước khi đặt.",
+      "Lưu lại để lần tặng áo tới bớt phải đoán."
+    ],
+    "shots": [
+      "Đặt dấu hỏi cạnh nhãn size, không dựng thiệt hại hoặc nỗi sợ.",
+      "Cận cảnh cách đối chiếu size với áo có sẵn."
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Phát kiến",
+    "group": "Khám phá",
+    "angle": "Một cách mới để kể chuyện bằng áo đôi",
+    "lines": [
+      "Nếu món quà bắt đầu bằng một lời hẹn thì sao?",
+      "Hai người viết riêng địa điểm muốn đến trong lần gặp tới.",
+      "Đặt áo cạnh hai tấm thiệp rồi cùng mở lời hẹn.",
+      "Bạn sẽ viết địa điểm nào?"
+    ],
+    "shots": [
+      "Hai tấm thiệp úp cạnh hộp áo.",
+      "Mở thiệp cùng lúc; đây là ý tưởng thử, không tuyên bố phát minh độc quyền."
+    ]
+  },
+  {
+    "id": 12,
+    "name": "Vùng miền",
+    "group": "Cảm xúc",
+    "angle": "Gửi một lời thương theo cách quê mình",
+    "lines": [
+      "Ở quê bạn, một lời thương thường được nói thế nào?",
+      "Viết lời nhắn bằng cách xưng hô mà hai người thấy gần gũi.",
+      "Gói áo cùng chiếc thiệp có giọng nói của riêng mình.",
+      "Chia sẻ một cách gọi thân thương ở nơi bạn sống."
+    ],
+    "shots": [
+      "Thiệp và bối cảnh đời thường theo địa phương người dùng cung cấp.",
+      "Dùng cách nói đã xác minh; không mô phỏng trang phục dân tộc theo phỏng đoán."
+    ]
+  },
+  {
+    "id": 13,
+    "name": "Sức hút",
+    "group": "Cảm xúc",
+    "angle": "Thích cách anh mặc chiếc áo đơn giản",
+    "lines": [
+      "Có khi điều làm mình rung động rất nhỏ.",
+      "Một lần chỉnh cổ áo, một ánh nhìn trước buổi hẹn.",
+      "Giữ trang phục kín đáo, cho mẫu áo xuất hiện trong khoảnh khắc tự nhiên.",
+      "Bạn hay để ý chi tiết nào ở người mình thích?"
+    ],
+    "shots": [
+      "Hai nhân vật trưởng thành chuẩn bị đi hẹn, trang phục đầy đủ.",
+      "Cận cảnh chỉnh cổ áo hoặc tay áo, không gợi cảnh tình dục."
+    ]
+  },
+  {
+    "id": 14,
+    "name": "Tài sản & thu nhập",
+    "group": "Góc nhìn",
+    "angle": "Món quà trong ngân sách của hai người",
+    "lines": [
+      "Món quà vừa túi tiền vẫn có thể được chuẩn bị rất kỹ.",
+      "Chọn ngân sách mình thoải mái, rồi dành công sức cho lời nhắn.",
+      "Đặt mẫu áo phù hợp vào hộp sau khi đã kiểm tra giá thực tế.",
+      "Bạn ưu tiên điều gì khi lên ngân sách quà tặng?"
+    ],
+    "shots": [
+      "Sổ kế hoạch chi tiêu không ghi số tiền chưa được cung cấp.",
+      "So sánh cách phân bổ ngân sách, không bịa doanh thu hoặc khoe tài sản."
+    ]
+  },
+  {
+    "id": 15,
+    "name": "Chuyện lạ",
+    "group": "Khám phá",
+    "angle": "Hộp quà chứa một chiếc áo quen thuộc",
+    "lines": [
+      "Mở quà ra, lại thấy một chiếc áo trông rất quen.",
+      "Hóa ra hai người đã âm thầm chọn cùng một mẫu.",
+      "Đặt hai áo cạnh nhau để lộ sự trùng hợp trong câu chuyện.",
+      "Hai bạn từng vô tình chọn giống nhau chưa?"
+    ],
+    "shots": [
+      "Kịch bản hư cấu: hai người cùng mang hộp quà tới.",
+      "Mở hộp và lộ cùng mẫu áo; không kể như câu chuyện khách hàng thật."
+    ]
+  },
+  {
+    "id": 16,
+    "name": "Người nổi tiếng",
+    "group": "Niềm tin",
+    "angle": "Đi hẹn như một buổi ra mắt phim",
+    "lines": [
+      "Nếu buổi hẹn của hai đứa có thảm đỏ riêng?",
+      "Tự chọn một góc đẹp và cùng bước vào khung hình.",
+      "Phối áo của mình theo tinh thần chỉn chu, không cần nhãn hàng nổi tiếng.",
+      "Bạn sẽ đặt tên gì cho buổi ra mắt của hai đứa?"
+    ],
+    "shots": [
+      "Dàn dựng thảm đỏ mini với nhân vật hư cấu.",
+      "Không dùng mặt, tên hoặc lời quảng bá giả của người nổi tiếng."
+    ]
+  },
+  {
+    "id": 17,
+    "name": "Bật mí",
+    "group": "Khám phá",
+    "angle": "Điều nằm dưới chiếc áo trong hộp quà",
+    "lines": [
+      "Trong hộp không chỉ có một chiếc áo.",
+      "Đợi mở hết lớp giấy gói mới thấy chiếc thiệp được giấu bên dưới.",
+      "Lộ mẫu áo và lời nhắn cùng một lần mở hộp.",
+      "Bạn sẽ giấu lời nhắn ở đâu?"
+    ],
+    "shots": [
+      "Chụp hộp quà chưa mở hết, để lộ mép thiệp.",
+      "Bàn tay nhấc áo lên để thấy chiếc thiệp phía dưới."
+    ]
+  },
+  {
+    "id": 18,
+    "name": "Đeo bám",
+    "group": "Thời điểm",
+    "angle": "Tập tiếp: chiếc áo đã tới nơi chưa?",
+    "lines": [
+      "Món quà ở tập trước đã đi đến đâu rồi?",
+      "Nối lại việc chuẩn bị, rồi kể bước tiếp theo của cùng câu chuyện.",
+      "Áo đã sẵn sàng cho buổi gặp: quay đúng giai đoạn đang có.",
+      "Tập sau bạn muốn thấy mở quà hay mặc thử?"
+    ],
+    "shots": [
+      "Dùng hình của tập trước nếu có; chưa có thì dựng tập mở đầu.",
+      "Chỉ ghi trạng thái giao hàng đã xác nhận, không bịa tiến trình."
+    ]
+  },
+  {
+    "id": 19,
+    "name": "Cảm động",
+    "group": "Cảm xúc",
+    "angle": "Món quà cho người luôn chờ mình",
+    "lines": [
+      "Có người chưa từng đòi quà, nhưng luôn nhớ phần của mình.",
+      "Lần này mình muốn người ấy được nhận trước.",
+      "Gói chiếc áo cùng một lời cảm ơn cụ thể.",
+      "Bạn muốn cảm ơn ai hôm nay?"
+    ],
+    "shots": [
+      "Góc bàn hai người, một phần quà được đẩy nhẹ sang phía người nhận.",
+      "Cận cảnh thiệp kể một việc nhỏ từng được quan tâm."
+    ]
+  },
+  {
+    "id": 20,
+    "name": "Hữu ích",
+    "group": "Giá trị",
+    "angle": "Chọn áo đôi cho hai người khác gu",
+    "lines": [
+      "Khác gu vẫn có thể chọn áo để mặc cùng.",
+      "Bắt đầu từ một điểm cả hai đều thích: màu, phom hoặc họa tiết.",
+      "Dùng áo đã chọn làm điểm chung; phụ kiện để mỗi người tự chọn.",
+      "Lưu ý tưởng này cho buổi hẹn tới."
+    ],
+    "shots": [
+      "Hai bộ phối đồ khác nhau đặt cạnh cùng một mẫu áo.",
+      "Chỉ rõ phần giống và phần khác bằng bố cục so sánh."
+    ]
+  },
+  {
+    "id": 21,
+    "name": "Phi thường",
+    "group": "Khám phá",
+    "angle": "Một chiếc thiệp đầy những điều nhỏ",
+    "lines": [
+      "Nếu viết hết những điều muốn cảm ơn, chiếc thiệp sẽ dài đến đâu?",
+      "Mỗi dòng nhắc một kỷ niệm riêng, không cần câu chữ hoa mỹ.",
+      "Cuộn tấm thiệp dài cạnh hộp áo.",
+      "Bạn sẽ bắt đầu bằng kỷ niệm nào?"
+    ],
+    "shots": [
+      "Một dải giấy dài làm đạo cụ nổi bật trên bàn.",
+      "Gấp hoặc cuộn thiệp từng đoạn; không tuyên bố kỷ lục."
+    ]
+  },
+  {
+    "id": 22,
+    "name": "Kỳ quặc",
+    "group": "Giải trí",
+    "angle": "Buổi tuyển chọn người được mặc áo đôi",
+    "lines": [
+      "Hôm nay chiếc áo mở một buổi phỏng vấn.",
+      "Câu hỏi duy nhất: có chịu cùng em đi ăn sau buổi hẹn không?",
+      "Mẫu áo được đặt ở ghế giám khảo trong tiểu phẩm vui.",
+      "Bạn sẽ thêm câu hỏi phỏng vấn nào?"
+    ],
+    "shots": [
+      "Đặt áo trên ghế như một đạo cụ nhân hóa hài hước.",
+      "Người lớn diễn một cuộc phỏng vấn tưởng tượng."
+    ]
+  },
+  {
+    "id": 23,
+    "name": "Giải thưởng",
+    "group": "Giải trí",
+    "angle": "Trao giải người đợi mình lâu nhất",
+    "lines": [
+      "Giải thưởng hôm nay do mình tự đặt.",
+      "Dành cho người vẫn kiên nhẫn chờ mỗi lần mình chọn đồ.",
+      "Phần quà là chiếc áo để lần tới hai đứa chuẩn bị cùng nhau.",
+      "Bạn muốn trao một giải vui nào cho người ấy?"
+    ],
+    "shots": [
+      "Cúp giấy hoặc tấm thẻ ghi giải vui do hai người tự đặt.",
+      "Trao hộp áo; không giả mạo giải thưởng của tổ chức."
+    ]
+  },
+  {
+    "id": 24,
+    "name": "Cuộc thi",
+    "group": "Giải trí",
+    "angle": "Thử thách phối cùng một mẫu áo",
+    "lines": [
+      "Cùng một mẫu áo, ai sẽ phối khác hơn?",
+      "Mỗi người tự chọn phần còn lại của bộ đồ.",
+      "Đặt hai cách phối cạnh nhau với áo làm điểm xuất phát.",
+      "Bạn chọn cách phối A hay B?"
+    ],
+    "shots": [
+      "Hai người đứng ở hai phía với áo giống mẫu.",
+      "Chụp kết quả A/B rõ ràng, không hứa phần thưởng chưa có."
+    ]
+  },
+  {
+    "id": 25,
+    "name": "Nghịch lý",
+    "group": "Góc nhìn",
+    "angle": "Áo giống nhau để thấy mỗi người khác nhau",
+    "lines": [
+      "Mặc cùng một mẫu lại càng nhìn ra gu riêng.",
+      "Một người chọn gọn gàng, một người thích nhiều lớp.",
+      "Giữ áo làm điểm chung rồi để mỗi người chọn phần còn lại.",
+      "Bạn thấy hai cách phối khác nhau ở đâu?"
+    ],
+    "shots": [
+      "Cùng một áo được phối theo hai dáng vẻ khác nhau.",
+      "Chụp cạnh nhau để làm rõ điều trái kỳ vọng."
+    ]
+  },
+  {
+    "id": 26,
+    "name": "Hài hước",
+    "group": "Giải trí",
+    "angle": "Bảo mua một chiếc, cuối cùng thành một đôi",
+    "lines": [
+      "Mình chỉ định mua áo cho người ấy thôi.",
+      "Rồi tự nhiên thấy thiếu một chiếc cho người tặng.",
+      "Hai áo nằm cạnh nhau: kế hoạch quà tặng đã đổi.",
+      "Bạn từng tự thêm phần quà cho mình chưa?"
+    ],
+    "shots": [
+      "Một hộp áo và nhân vật tự nhìn lại trang phục của mình.",
+      "Chuyển cảnh từ một áo sang hai áo như cú chốt hài."
+    ]
+  },
+  {
+    "id": 27,
+    "name": "Chứng nhận",
+    "group": "Niềm tin",
+    "angle": "Món quà có bằng chứng của sự để ý",
+    "lines": [
+      "Điều gì chứng minh bạn đã chọn đúng gu?",
+      "Một ghi chú về màu hay mặc và size đã được hỏi kỹ.",
+      "Đối chiếu thông tin thật với mẫu áo trước khi gói.",
+      "Bạn kiểm tra chi tiết nào trước khi mua áo tặng?"
+    ],
+    "shots": [
+      "Bảng kiểm tự lập về sở thích, không đóng dấu chứng nhận giả.",
+      "Chụp nhãn hoặc tài liệu thật nếu muốn nêu chứng nhận sản phẩm."
+    ]
+  },
+  {
+    "id": 28,
+    "name": "Duy nhất",
+    "group": "Cảm xúc",
+    "angle": "Một lời nhắn chỉ hai người hiểu",
+    "lines": [
+      "Mẫu áo có thể giống, câu chuyện bên trong thì riêng.",
+      "Viết lại một câu nói hoặc kỷ niệm chỉ hai người biết.",
+      "Đặt lời nhắn cạnh áo, giữ hình in đúng mẫu gốc.",
+      "Nếu được viết một câu riêng, bạn sẽ viết gì?"
+    ],
+    "shots": [
+      "Một chiếc thiệp riêng nằm cạnh áo.",
+      "Tập trung vào lời nhắn cá nhân; không tuyên bố sản phẩm độc quyền."
+    ]
+  },
+  {
+    "id": 29,
+    "name": "Phóng đại",
+    "group": "Giải trí",
+    "angle": "Cuộc họp khẩn trước buổi hẹn",
+    "lines": [
+      "Cảnh báo vui: tủ đồ sắp có cuộc họp quan trọng.",
+      "Nội dung họp: hôm nay hai đứa có mặc đồng điệu không?",
+      "Chiếc áo được chọn bước vào giữa khung hình như nhân vật chính.",
+      "Bạn có mất lâu để chọn đồ đi hẹn không?"
+    ],
+    "shots": [
+      "Dàn áo quanh bàn như một cuộc họp tưởng tượng.",
+      "Đưa mẫu áo vào trung tâm bằng cách dàn dựng hài rõ ràng."
+    ]
+  },
+  {
+    "id": 30,
+    "name": "Nguyên nhân–kết quả",
+    "group": "Góc nhìn",
+    "angle": "Nhớ một chi tiết, đổi cả cách chọn quà",
+    "lines": [
+      "Vì nhớ người ấy thường mặc gì, mình đổi món quà định mua.",
+      "Bắt đầu từ thói quen có thật thay vì chọn theo cảm hứng.",
+      "Mẫu áo cuối cùng được chọn dựa trên chi tiết vừa nhắc.",
+      "Điều nhỏ nào giúp bạn hiểu gu người ấy?"
+    ],
+    "shots": [
+      "Hai tấm ghi chú nối lựa chọn ban đầu và điều vừa nhớ ra.",
+      "Kể quan hệ nhân quả trong câu chuyện, không suy ra hiệu quả kinh doanh."
+    ]
+  },
+  {
+    "id": 31,
+    "name": "Bất ngờ tốt đẹp",
+    "group": "Cảm xúc",
+    "angle": "Mở hộp cho anh, lại có phần cho cả hai",
+    "lines": [
+      "Tưởng hôm nay chỉ một người nhận quà.",
+      "Dưới lớp giấy còn một chiếc áo dành cho người chuẩn bị.",
+      "Hai chiếc áo khiến lời hẹn đi chơi trở nên cụ thể.",
+      "Bạn thích bất ngờ ở lúc mở hộp hay lúc mặc thử?"
+    ],
+    "shots": [
+      "Người nhận mở một lớp giấy gói.",
+      "Lộ thêm chiếc áo thứ hai với phản ứng nhẹ nhàng tự nhiên."
+    ]
+  },
+  {
+    "id": 32,
+    "name": "Giả tưởng",
+    "group": "Khám phá",
+    "angle": "Nếu áo đôi biết gửi lời nhắn",
+    "lines": [
+      "Nếu chiếc áo có thể nói thay một điều bạn ngại nói?",
+      "Nó sẽ kể về lần gặp đầu tiên hay lần hai đứa làm hòa?",
+      "Đặt áo thật trong một câu chuyện tưởng tượng của hai người.",
+      "Bạn muốn chiếc áo nói hộ câu nào?"
+    ],
+    "shots": [
+      "Dàn dựng đoạn hội thoại tưởng tượng, chữ chèn sau.",
+      "Chiếc áo là đạo cụ kể chuyện; không làm giả tính năng biết nói."
+    ]
+  },
+  {
+    "id": 33,
+    "name": "Tâm linh",
+    "group": "Giải trí",
+    "angle": "Rút một lá bài cho buổi hẹn",
+    "lines": [
+      "Hôm nay thử rút một lời gợi ý cho buổi hẹn.",
+      "Lá bài viết: chọn một điều nhỏ để làm cùng nhau.",
+      "Gợi ý vui là mặc áo đôi rồi đi dạo.",
+      "Bạn muốn viết điều gì lên lá bài tiếp theo?"
+    ],
+    "shots": [
+      "Bộ thẻ tự viết dùng như trò chơi giải trí.",
+      "Không dự đoán tình duyên hoặc cam kết may mắn khi mua áo."
+    ]
+  },
+  {
+    "id": 34,
+    "name": "UFO",
+    "group": "Khám phá",
+    "angle": "Nếu người ngoài hành tinh hỏi về áo đôi",
+    "lines": [
+      "Vì sao hai người trên Trái Đất lại mặc cùng một mẫu?",
+      "Trong câu chuyện tưởng tượng, câu trả lời đơn giản là muốn nhận ra nhau.",
+      "Dùng áo thật làm vật chứng cho một thói quen đáng yêu.",
+      "Bạn sẽ giải thích áo đôi bằng một câu thế nào?"
+    ],
+    "shots": [
+      "Khung cảnh khoa học viễn tưởng minh họa rõ là hư cấu.",
+      "Đặt áo lên bàn quan sát trong bối cảnh tưởng tượng."
+    ]
+  },
+  {
+    "id": 35,
+    "name": "Vượt bản thân",
+    "group": "Cảm xúc",
+    "angle": "Lần đầu dám chuẩn bị quà bằng tay mình",
+    "lines": [
+      "Trước giờ mình cứ nghĩ mình không biết chuẩn bị quà.",
+      "Lần này thử gấp áo, viết thiệp và gói hộp từng bước.",
+      "Chiếc áo được gói chưa hoàn hảo, nhưng đã sẵn sàng trao đi.",
+      "Có điều nhỏ nào bạn muốn thử vì người ấy?"
+    ],
+    "shots": [
+      "Bàn gói quà với lần gấp đầu còn vụng.",
+      "Ghi lại tiến bộ trong thao tác; dùng câu chuyện thật hoặc ghi rõ minh họa."
+    ]
+  },
+  {
+    "id": 36,
+    "name": "Từ con số không",
+    "group": "Cảm xúc",
+    "angle": "Từ một ý định đến hộp quà đầu tiên",
+    "lines": [
+      "Lúc đầu mình chỉ có một ý định: muốn người ấy vui.",
+      "Rồi bắt đầu chọn áo, tìm giấy gói và nghĩ một câu viết thiệp.",
+      "Từng món nhỏ ghép thành hộp quà đầu tiên.",
+      "Bạn sẽ bắt đầu chuẩn bị quà từ đâu?"
+    ],
+    "shots": [
+      "Mặt bàn trống chuyển dần thành bàn chuẩn bị quà.",
+      "Thêm từng vật dụng; không kể thành tích khởi nghiệp hoặc thu nhập bịa."
+    ]
+  },
+  {
+    "id": 37,
+    "name": "Hành trình",
+    "group": "Cảm xúc",
+    "angle": "Đi tìm chiếc áo cho buổi gặp lại",
+    "lines": [
+      "Mình bắt đầu từ câu hỏi: người ấy sẽ muốn mặc gì?",
+      "Qua từng lựa chọn, giữ lại mẫu gắn với kỷ niệm của hai đứa.",
+      "Mẫu áo cuối cùng được đặt vào hộp cho buổi gặp.",
+      "Bạn muốn xem hành trình từ chọn áo đến trao quà không?"
+    ],
+    "shots": [
+      "Sổ ý tưởng và các lựa chọn được sắp theo tiến trình.",
+      "Tập trung đường đi của lựa chọn, tránh dựng dữ liệu đơn hàng."
+    ]
+  },
+  {
+    "id": 38,
+    "name": "Mini game",
+    "group": "Giải trí",
+    "angle": "Đoán chiếc áo người ấy sẽ chọn",
+    "lines": [
+      "Không hỏi trước: bạn đoán người ấy chọn mẫu nào?",
+      "Mỗi người ghi đáp án của mình rồi cùng mở.",
+      "Đặt áo thật hoặc hai cách phối làm lựa chọn A/B.",
+      "Bạn đoán đúng không? Kể kết quả của hai bạn."
+    ],
+    "shots": [
+      "Hai thẻ lựa chọn A/B đặt cạnh ảnh áo.",
+      "Mở đáp án bằng cử chỉ, trò chơi không có giải thưởng mặc định."
+    ]
+  },
+  {
+    "id": 39,
+    "name": "Hay",
+    "group": "Giá trị",
+    "angle": "Một đoạn gói áo muốn xem lại",
+    "lines": [
+      "Có những khoảnh khắc chỉ cần gọn gàng là đã dễ chịu.",
+      "Gấp áo, vuốt giấy, buộc dây: để từng thao tác kể chuyện.",
+      "Kết bằng khung hình nhìn rõ mẫu áo và chiếc thiệp.",
+      "Bạn thích nhất đoạn nào trong quá trình gói?"
+    ],
+    "shots": [
+      "Cận cảnh thao tác gấp áo, ánh sáng đẹp và nhịp hình rõ.",
+      "Tạo chất lượng thực thi: bố cục sạch, tiếng giấy nếu quay thật."
+    ]
+  },
+  {
+    "id": 40,
+    "name": "Trend",
+    "group": "Thời điểm",
+    "angle": "Biến một định dạng đang thích thành câu chuyện của mình",
+    "lines": [
+      "Nếu dùng định dạng bạn đang thích để kể chuyện áo đôi?",
+      "Chọn một nhịp chuyển cảnh rồi giữ lại câu chuyện riêng của hai người.",
+      "Cho mẫu áo xuất hiện ở nhịp chuyển chính.",
+      "Bạn muốn thử định dạng nào với áo của mình?"
+    ],
+    "shots": [
+      "Chỉ dùng trend cụ thể khi người dùng cung cấp; mặc định chuyển cảnh trước/sau.",
+      "Âm thanh chọn lúc đăng theo quyền sử dụng, không tự khẳng định đang thịnh hành."
+    ]
+  }
+]
