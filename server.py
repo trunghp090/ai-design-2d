@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.15-choly-source-edit"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.16-single-reference-studio"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -820,7 +820,13 @@ def openai_chat(messages, json_mode=True, max_tokens=1500, model=None):
     req.add_header("Authorization", "Bearer " + API_KEY)
     req.add_header("Content-Type", "application/json")
     res = json.loads(_openai_call(req, timeout=120))
-    return res["choices"][0]["message"]["content"]
+    choice = res["choices"][0]
+    message = choice["message"]
+    if message.get("refusal") or choice.get("finish_reason") == "content_filter":
+        raise ValueError("OpenAI từ chối yêu cầu này; chưa tạo nội dung. Hãy kiểm tra ảnh và nội dung yêu cầu.")
+    if choice.get("finish_reason") == "length":
+        raise ValueError("OpenAI trả nội dung bị cắt ngắn; chưa có kết quả hoàn chỉnh.")
+    return message.get("content") or ""
 
 
 def claude_vision(system, text, img_bytes, media="image/png", max_tokens=700, timeout=120):

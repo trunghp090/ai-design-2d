@@ -8,26 +8,27 @@ class CholyTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
   buf=io.BytesIO();Image.new('RGB',(24,32),'grey').save(buf,'PNG');self.raw=buf.getvalue();b64=base64.b64encode(self.raw).decode()
-  self.app=SimpleNamespace(DATA_DIR=self.tmp.name,API_KEY='x',GEMINI_API_KEY='x',ANTHROPIC_API_KEY='x',PRODUCT_PROMPT_SYSTEM='',claude_vision_multi=Mock(return_value='Claude scene'),gemini_edit=Mock(return_value=b64),gen_shot=Mock(return_value=b64))
+  self.app=SimpleNamespace(DATA_DIR=self.tmp.name,API_KEY='x',GEMINI_API_KEY='x',BEST_TEXT_MODEL='gpt-4o',openai_chat=Mock(return_value='ChatGPT scene'),PRODUCT_PROMPT_SYSTEM='',gemini_edit=Mock(return_value=b64),gen_shot=Mock(return_value=b64))
+  self.vision=Mock(side_effect=lambda system,text,raws,**kw:p.chatgpt_text(self.app,system,text,kw.get('max_tokens',4500)))
+  patcher=patch.object(p,'chatgpt_vision',side_effect=lambda app,*args,**kw:self.vision(*args,**kw));patcher.start();self.addCleanup(patcher.stop)
   self.body=dict(request_id='11111111-1111-1111-1111-111111111111',concept=1,topic='Kỷ niệm',captions=['Thương anh nhiều']*4,files={'shirt1':'data:image/png;base64,'+b64})
- def test_models_claude_proof_and_captions(self):
+ def test_models_openai_proof_and_captions(self):
   with patch.object(p.threading,'Thread'):j=p.start(self.app,self.body,'one')
   j=p.read(self.app,j['id'],'one');p.run(self.app,j,p.validate(self.body))
-  self.assertEqual(j['status'],'done');self.assertEqual(self.app.claude_vision_multi.call_count,4)
-  self.assertEqual(self.app.gemini_edit.call_count,1);self.assertEqual(self.app.gen_shot.call_count,3)
-  self.assertEqual(self.app.gemini_edit.call_args.args[3],'gemini-3-pro-image')
+  self.assertEqual(j['status'],'done');self.assertEqual(self.vision.call_count,4)
+  self.app.gemini_edit.assert_not_called();self.assertEqual(self.app.gen_shot.call_count,4)
   for c in self.app.gen_shot.call_args_list:self.assertEqual(c.args[3],'openai_25')
-  self.assertEqual(len({c.args[1] for c in self.app.claude_vision_multi.call_args_list}),4)
+  self.assertEqual(len({c.args[1] for c in self.vision.call_args_list}),4)
   for item in j['items']:
-   self.assertEqual(item['base'],'Claude scene')
+   self.assertEqual(item['base'],'ChatGPT scene')
    with Image.open(p.folder(self.app)/item['filename']) as im:
     self.assertEqual(im.size,(1152,1536))
     self.assertEqual(len(im.getcolors(2000000))>1,item['position']!='none')
  def test_no_template_fallback(self):
-  self.app.claude_vision_multi.side_effect=RuntimeError('Claude unavailable')
+  self.vision.side_effect=RuntimeError('OpenAI unavailable')
   with patch.object(p.threading,'Thread'):j=p.start(self.app,self.body,'one')
   with patch.object(p.time,'sleep'):p.run(self.app,j,p.validate(self.body))
-  self.assertEqual(j['status'],'failed');self.assertEqual(self.app.claude_vision_multi.call_count,3);self.app.gen_shot.assert_not_called();self.app.gemini_edit.assert_not_called()
+  self.assertEqual(j['status'],'failed');self.assertEqual(self.vision.call_count,3);self.app.gen_shot.assert_not_called();self.app.gemini_edit.assert_not_called()
  def test_idempotency_owner_and_validation(self):
   self.assertEqual(len(p.CONCEPTS),40)
   with patch.object(p.threading,'Thread') as t:
@@ -44,7 +45,7 @@ class CholyTests(unittest.TestCase):
    self.app.gemini_edit.reset_mock();self.app.gen_shot.reset_mock()
    spec=p.validate({**self.body,'visual':visual});j={'id':self.body['request_id'],'items':[]}
    p.run(self.app,j,spec)
-   self.assertEqual(j['status'],'done');self.assertEqual(self.app.gemini_edit.call_count,people);self.assertEqual(self.app.gen_shot.call_count,4-people)
+   self.assertEqual(j['status'],'done');self.app.gemini_edit.assert_not_called();self.assertEqual(self.app.gen_shot.call_count,4)
  def test_positions_and_invalid_visual(self):
   for change in [{'visual':'bad'},{'positions':['bad']*4}]:
    with self.assertRaises(roundup.Problem):p.validate({**self.body,**change})
@@ -60,25 +61,26 @@ class CholyTests(unittest.TestCase):
   j={'id':self.body['request_id'],'items':[]}
   p.run(self.app,j,spec,{'male':(portrait,'image/jpeg')})
   self.assertEqual(j['status'],'done')
-  self.assertEqual(self.app.gemini_edit.call_count,3)
-  for call in self.app.gemini_edit.call_args_list:
+  self.app.gemini_edit.assert_not_called()
+  for scene,call in zip(spec['visual']['shots'],self.app.gen_shot.call_args_list):
+   if not scene['people']:continue
    refs,prompt=call.args[:2]
    self.assertEqual(refs[1][0],self.raw)
    self.assertEqual(refs[2][0],portrait)
    self.assertIn('IDENTITY LOCK',prompt)
    self.assertIn('IDENTITY MALE ONLY',prompt)
    self.assertNotIn('Use new adult',prompt)
-  for call in self.app.gen_shot.call_args_list:self.assertNotIn(portrait,[raw for raw,mime in call.args[0]])
+  for scene,call in zip(spec['visual']['shots'],self.app.gen_shot.call_args_list):
+   if not scene['people']:self.assertFalse(portrait in [raw for raw,mime in call.args[0]])
  def test_pose_reference_reaches_writer_and_people_renderer_only(self):
   spec=p.validate({**self.body,'visual':'cafe-letter'})
   j={'id':self.body['request_id'],'items':[]}
   p.run(self.app,j,spec,{'male':(self.raw,'image/png')})
   self.assertEqual(j['status'],'done')
-  for scene,call in zip(spec['visual']['shots'],self.app.claude_vision_multi.call_args_list):
+  for scene,call in zip(spec['visual']['shots'],self.vision.call_args_list):
    self.assertEqual('POSE REFERENCE LOCK' in call.args[0],scene['people'])
    self.assertEqual('POSE REFERENCE LOCK' in call.args[1],scene['people'])
-  for call in self.app.gemini_edit.call_args_list:self.assertIn('POSE REFERENCE LOCK',call.args[1])
-  for call in self.app.gen_shot.call_args_list:self.assertNotIn('POSE REFERENCE LOCK',call.args[1])
+  for scene,call in zip(spec['visual']['shots'],self.app.gen_shot.call_args_list):self.assertEqual('POSE REFERENCE LOCK' in call.args[1],scene['people'])
   for preset in p.PRESETS:
    for scene in preset['shots']:
     if scene['id'] in ('reader','reader-smile'):
@@ -89,7 +91,7 @@ class CholyTests(unittest.TestCase):
   j={'id':self.body['request_id'],'items':[]}
   p.run(self.app,j,spec,{'male':(self.raw,'image/png')})
   self.assertEqual(j['status'],'done')
-  for index,(scene,writer) in enumerate(zip(spec['visual']['shots'],self.app.claude_vision_multi.call_args_list)):
+  for index,(scene,writer) in enumerate(zip(spec['visual']['shots'],self.vision.call_args_list)):
    expected=(p.ROOT/'public/choly-references'/scene['reference']).read_bytes()
    self.assertEqual(writer.args[2][0],expected)
    self.assertIn('BASE PHOTO TO EDIT',writer.args[0])
@@ -105,10 +107,10 @@ class CholyTests(unittest.TestCase):
   with patch.object(p.roundup_cast,'people',side_effect=AssertionError('Must not load default')):
    self.assertEqual(p.identity_snapshot(spec)['male'][0],self.raw)
  def test_dialogue_requires_four_blocks(self):
-  self.app.claude_text=Mock(return_value='### SLIDE 1\nAnh thích không?\n### SLIDE 2\nEm chọn cho anh đó.\n### SLIDE 3\nMai mình mặc cùng nhé.\n### SLIDE 4\nNhất trí rồi!')
+  self.app.openai_chat=Mock(return_value='### SLIDE 1\nAnh thích không?\n### SLIDE 2\nEm chọn cho anh đó.\n### SLIDE 3\nMai mình mặc cùng nhé.\n### SLIDE 4\nNhất trí rồi!')
   body=dict(visual='cafe-letter',concept=19,topic='Kỷ niệm',tone='Trêu yêu')
   self.assertEqual(len(p.write_dialogue(self.app,body)['captions']),4)
-  self.app.claude_text.return_value='Invalid'
+  self.app.openai_chat.return_value='Invalid'
   with patch.object(p.time,'sleep'):
    with self.assertRaises(ValueError):p.write_dialogue(self.app,body)
  def test_selected_packaging_is_passed_only_to_gift_scenes(self):
@@ -118,11 +120,50 @@ class CholyTests(unittest.TestCase):
   self.assertEqual(j['status'],'done')
   zip_raw=(p.ROOT/'public/roundup-references/rieng-zip.png').read_bytes()
   tag_raw=(p.ROOT/'public/roundup-references/rieng-tag.png').read_bytes()
-  for call in self.app.gemini_edit.call_args_list:
+  for scene,call in zip(spec['visual']['shots'],self.app.gen_shot.call_args_list):
    raws=[raw for raw,mime in call.args[0]]
-   self.assertIn(zip_raw,raws);self.assertIn(tag_raw,raws)
-   self.assertIn('PACKAGING ONLY',call.args[1])
-  self.assertNotIn(zip_raw,[raw for raw,mime in self.app.gen_shot.call_args.args[0]])
+   self.assertEqual(zip_raw in raws,scene['id'] in p.PACKAGING_SCENES)
+   self.assertEqual(tag_raw in raws,scene['id'] in p.PACKAGING_SCENES)
   for accessories in [['bad'],['zip','zip'],'zip']:
    with self.assertRaises(roundup.Problem):p.validate({**self.body,'accessories':accessories})
+ def test_prompt_only_with_uploaded_reference_and_packaging(self):
+  body={**self.body,'files':{**self.body['files'],'reference0':self.body['files']['shirt1'],'box':self.body['files']['shirt1']},'accessories':['zip','tag','box'],'scene_types':['female','preset','preset','preset']}
+  result=p.prepare_prompts(self.app,body)
+  self.assertEqual(len(result['prompts']),4)
+  self.app.gen_shot.assert_not_called();self.app.gemini_edit.assert_not_called()
+  first=self.vision.call_args_list[0]
+  self.assertEqual(first.args[2][0],self.raw)
+  self.assertEqual(first.args[2][3],self.raw)
+  self.assertIn('IDENTITY FEMALE ONLY',first.args[1])
+  self.assertIn('11. Aspect Ratio',first.args[0])
+  self.assertIn('10. Negative Prompt',first.args[0])
+ def test_edited_prompts_skip_analysis_and_need_no_gemini(self):
+  self.app.GEMINI_API_KEY=''
+  self.assertFalse(hasattr(self.app,'ANTHROPIC_API_KEY'))
+  body={**self.body,'prompts':['Edited prompt']*4}
+  with patch.object(p.threading,'Thread'):job=p.start(self.app,body,'one')
+  job=p.read(self.app,job['id'],'one');p.run(self.app,job,p.validate(body))
+  self.assertEqual(job['status'],'done')
+  self.vision.assert_not_called();self.app.gemini_edit.assert_not_called()
+  self.assertEqual(self.app.gen_shot.call_count,4)
+  for call in self.app.gen_shot.call_args_list:self.assertIn('Edited prompt',call.args[1])
+ def test_invalid_prompts_and_scene_types(self):
+  for change in [{'prompts':['x']},{'prompts':['x'*24001]*4},{'scene_types':['bad']*4}]:
+   with self.assertRaises(roundup.Problem):p.validate({**self.body,**change})
+class OpenAIAdapterTests(unittest.TestCase):
+ def test_vision_payload_mime_order_and_no_json_mode(self):
+  raws=[]
+  for fmt in ('JPEG','PNG'):
+   buf=io.BytesIO();Image.new('RGB',(24,32),'grey').save(buf,fmt);raws.append(buf.getvalue())
+  app=SimpleNamespace(API_KEY='test',BEST_TEXT_MODEL='configured-vision',openai_chat=Mock(return_value='English prompt'))
+  self.assertEqual(p.chatgpt_vision(app,'system','brief',raws),'English prompt')
+  call=app.openai_chat.call_args;messages=call.args[0]
+  self.assertEqual(messages[0],{'role':'system','content':'system'})
+  content=messages[1]['content'];self.assertEqual(content[0],{'type':'text','text':'brief'})
+  for item,mime,raw in zip(content[1:],('image/jpeg','image/png'),raws):
+   self.assertEqual(item['image_url']['url'],'data:'+mime+';base64,'+base64.b64encode(raw).decode())
+   self.assertEqual(item['image_url']['detail'],'high')
+  self.assertFalse(call.kwargs['json_mode']);self.assertEqual(call.kwargs['model'],'configured-vision')
+ def test_missing_openai_key(self):
+  with self.assertRaises(roundup.Problem):p.chatgpt_text(SimpleNamespace(API_KEY=''),'s','t')
 if __name__=='__main__':unittest.main()
