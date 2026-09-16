@@ -133,6 +133,18 @@ class SingleImageTests(unittest.TestCase):
   self.assertNotIn('ENVIRONMENT REFERENCE ONLY',rules)
   for value in [None,{},'x'*3001]:
    with self.assertRaises(roundup.Problem):s.validate({**body,'environment_description':value})
+ def test_clothing_restyle_keeps_uploaded_shirts(self):
+  body={**self.body,'kol':'none','shirts':'male','files':{'reference':self.data,'shirt_male':self.data},'accessories':[]}
+  refs,rules=s.references(s.validate(body))
+  self.assertIn('MALE SHIRT PRODUCT ONLY',rules)
+  self.assertIn('CLOTHING RESTYLE',rules)
+  self.assertIn('Keep every selected uploaded shirt exactly as supplied',rules)
+  self.assertIn('Only restyle items visible within the original crop',rules)
+  self.assertIn('In a product-only flatlay, do not add an outfit',rules)
+  s.analyze(self.app,body)
+  self.assertIn('CLOTHING RESTYLE',self.app.openai_chat.call_args.args[0][1]['content'][0]['text'])
+  job={'id':body['request_id'],'items':[]};s.run(self.app,job,refs,rules,'New outfit')
+  self.assertIn('CLOTHING RESTYLE',self.app.gen_shot.call_args.args[1])
  def test_validation(self):
   for change in [{'files':{}},{'kol':'bad'},{'accessories':['zip','zip']},{'prompt':''}]:
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
