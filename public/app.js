@@ -926,8 +926,8 @@ $("exportMockup").onclick = async () => {
         else reject(new Error("Không tạo được ảnh PNG. Hãy thử xuất lại."));
       }, "image/png"));
     };
-    // Open the save picker in the click gesture, before loading/compositing images.
-    if (window.saveToolFile) await window.saveToolFile(makeBlob, name);
+    // Demo exports download immediately using the browser's normal download flow.
+    if (window.saveToolFile) await window.saveToolFile(makeBlob, name, {directDownload: true});
     else {
       const url = URL.createObjectURL(await makeBlob());
       const a = document.createElement("a"); a.download = name; a.href = url;

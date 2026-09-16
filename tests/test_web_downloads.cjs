@@ -164,3 +164,14 @@ test('intercepted download links request a picker before fetching the file', asy
   const anchor = document.createElement('a'); anchor.href = '/file.png'; anchor.download = 'image.png'; anchor.click();
   await written; assert.deepEqual(order, ['picker', 'fetch', 'write']);
 });
+
+for (const local of [false, true]) {
+  test(`direct demo download skips both pickers (${local ? 'local' : 'online'})`, async () => {
+    const {ctx, events, link, button} = setup({local, picker: () => { throw Error('Must not open picker'); }});
+    let builds = 0;
+    assert.equal(await ctx.window.saveToolFile(async () => { builds++; return 'png'; }, 'mockup-front.png', {directDownload: true}), 'downloaded');
+    assert.equal(builds, 1); assert.deepEqual(events, ['download']);
+    assert.equal(link.download, 'mockup-front.png'); assert.equal(link.href, 'blob:test-1');
+    assert.equal(button.disabled, false);
+  });
+}

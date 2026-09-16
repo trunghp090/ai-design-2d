@@ -17,9 +17,10 @@ function setup(save, encode = true) {
   vm.createContext(ctx); vm.runInContext(handler, ctx);
   return {ctx, button, events, alerts};
 }
-test('mockup starts saving before any image work and freezes artwork and side', async () => {
+test('mockup requests direct download and freezes artwork and side', async () => {
   let prepare, finish, filename;
-  const {ctx, button, events, alerts} = setup((factory, name) => {
+  const {ctx, button, events, alerts} = setup((factory, name, options) => {
+    assert.equal(options.directDownload, true);
     prepare = factory; filename = name;
     return new Promise(resolve => { finish = resolve; });
   });
@@ -31,11 +32,6 @@ test('mockup starts saving before any image work and freezes artwork and side', 
   assert.equal(await prepare(), 'png-blob');
   assert.equal(events[1][1].layers[0].src, 'art'); assert.equal(filename, 'mockup-front.png');
   finish('saved'); await pending;
-  assert.equal(button.disabled, false); assert.deepEqual(alerts, []);
-});
-test('cancelled picker does not compose a mockup', async () => {
-  const {button, events, alerts} = setup(async () => 'cancelled');
-  await button.onclick(); assert.deepEqual(events, ['snapshot']);
   assert.equal(button.disabled, false); assert.deepEqual(alerts, []);
 });
 test('PNG failure is visible and restores export button', async () => {

@@ -30,7 +30,7 @@
   }
 
   // A factory lets callers open the picker during the user's click, before fetch/canvas work.
-  async function save(blobOrFactory, name) {
+  async function save(blobOrFactory, name, options = {}) {
     if (busy) throw Error('Đang chuẩn bị hoặc lưu file. Vui lòng đợi tác vụ hiện tại hoàn tất.');
     busy = true; button.disabled = true;
     const makeBlob = typeof blobOrFactory === 'function' ? blobOrFactory : () => blobOrFactory;
@@ -38,6 +38,10 @@
     if (preparedUrl) { URL.revokeObjectURL(preparedUrl); preparedUrl = null; }
     manualLink.style.display = 'none';
     try {
+      if (options.directDownload) {
+        status.textContent = 'Đang chuẩn bị file…';
+        return browserDownload(await makeBlob(), name);
+      }
       const local = location.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
       if (local) {
         status.textContent = 'Đang chuẩn bị file…';
