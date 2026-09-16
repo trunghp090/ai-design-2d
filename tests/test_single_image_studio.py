@@ -139,6 +139,8 @@ class SingleImageTests(unittest.TestCase):
   self.assertIn('MALE SHIRT PRODUCT ONLY',rules)
   self.assertIn('CLOTHING RESTYLE',rules)
   self.assertIn('VISIBLE OUTFIT CHANGE IS REQUIRED',rules)
+  self.assertIn('The female wears a skirt, never trousers or shorts',rules)
+  self.assertIn('The male wears denim jeans, never tailored trousers or chinos',rules)
   self.assertNotIn('Preserve source clothing only',rules)
   self.assertNotIn('expression and clothing',rules)
   self.assertIn('Keep every selected uploaded shirt exactly as supplied',rules)
