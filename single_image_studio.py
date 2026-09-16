@@ -12,9 +12,17 @@ def verify_prompt(text,structured=False):
     if is_refusal(text):raise roundup.Problem(REFUSAL_MESSAGE,422)
     if not isinstance(text,str) or not text.strip():raise roundup.Problem('ChatGPT chưa trả prompt. Không có ảnh nào được tạo.',502)
     if structured:
-        sections=re.findall(r'^\s*(?:#{1,6}\s*)?(?:\*\*)?(\d{1,2})[.)]\s+',text,re.M)
-        if sections!=[str(n) for n in range(1,12)]:raise roundup.Problem('ChatGPT trả nội dung chưa đủ 11 mục. Tool chưa dùng nội dung này để tạo ảnh. Bạn có thể phân tích lại hoặc nhập prompt của mình.',502)
+        try: data=json.loads(text)
+        except (ValueError,TypeError):raise roundup.Problem('Prompt phải là JSON hợp lệ. Hãy tạo lại prompt JSON.',422)
+        if not isinstance(data,dict) or data.get('task')!='generate_new_image':raise roundup.Problem('JSON cần task: generate_new_image để tạo ảnh mới.',422)
+        for key in ('subject','composition','clothing','pose','environment','lighting','camera','style','constraints','aspect_ratio'):
+            if not isinstance(data.get(key),str) or not data[key].strip():raise roundup.Problem('JSON thiếu mục '+key+'.',422)
+        if data['aspect_ratio'] not in ASPECTS:raise roundup.Problem('Tỉ lệ trong JSON không được hỗ trợ.',422)
+        return json.dumps(data,ensure_ascii=False,indent=2)
     return text.strip()
+
+ASPECTS={'1:1':1,'4:5':.8,'2:3':2/3,'3:4':.75,'9:16':9/16,'3:2':1.5,'4:3':4/3,'16:9':16/9}
+PROVIDERS={'openai_25':('GPT Image 2.5','gpt-image-2.5-sunburst','API_KEY'),'gemini_pro':('Nano Banana Pro','gemini-3-pro-image-preview','GEMINI_API_KEY')}
 
 def validate(body, generating=False):
     if not isinstance(body,dict):raise roundup.Problem('Dữ liệu không hợp lệ.')
@@ -37,85 +45,65 @@ def validate(body, generating=False):
     if not isinstance(environment_description,str) or len(environment_description)>3000:raise roundup.Problem('Mô tả bối cảnh tối đa 3000 ký tự.')
     prompt=body.get('prompt','')
     if not isinstance(prompt,str) or len(prompt)>24000 or (generating and not prompt.strip()):raise roundup.Problem('Tạo hoặc nhập prompt trước khi tạo ảnh (tối đa 24000 ký tự).')
-    if generating:verify_prompt(prompt)
-    return dict(files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
+    provider=body.get('provider','gemini_pro')
+    if provider not in PROVIDERS:raise roundup.Problem('Model tạo ảnh không hợp lệ.')
+    if generating:prompt=verify_prompt(prompt,structured=True)
+    return dict(provider=provider,files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
 
 def references(spec):
-    refs=[roundup.uploaded_image(spec['files']['reference'])]
-    rules=['Image #1 is the BASE PHOTO: preserve its actual camera angle, framing, composition, pose, expression, environment, lighting and atmosphere. Remove source overlay text and watermarks. Do not invent hidden details or copy source identity when a replacement KOL is supplied.']
-    if spec['kol']=='new':
-        rules.append('NEW FICTIONAL PEOPLE MODE: Create a new, distinct fictional adult identity for every visible person in the base photograph. Do not copy or reconstruct any source person’s face, and do not use any saved KOL identity. Change facial structure, eyes, nose, lips and distinguishing facial features so each person is clearly a different individual. If two people are visible, create two distinct new identities, never duplicate or blend faces. Preserve the number of people, original positions, head direction, gaze, expression intensity, body pose and interactions. Keep the original framing and occlusion: do not reveal a face hidden by a phone or turned away just to display a new identity. Do not introduce people into object-only scenes. Describe the new identities, not source facial features, in sections 1 and 9. Generate the new faces as part of the finished photograph, naturally lit with realistic skin texture.')
-    elif spec['kol']=='flatlay':
-        rules.append('FLATLAY / OBJECT-ONLY MODE: No KOL identity references are supplied. Recreate a product-only photograph: no people, faces, hands, bodies, mannequins or human reflections. Preserve the source camera angle, background and object arrangement; if people or hands appear in the source, remove them locally while retaining the products. Selected male/female shirts are product labels only, never instructions to add wearers. Replace corresponding visible garments with the selected shirt products, retaining their arrangement and folds.')
-    elif spec['kol']=='couple':
+    # The scene reference is for ChatGPT analysis only; it must never reach generation.
+    refs=[];rules=['Create a NEW photograph from the JSON scene description. No base photo is supplied. Do not edit any supplied asset into a scene; use each only for its assigned role.']
+    def add(asset,role):
+        refs.append(asset);rules.append(f'Image #{len(refs)}: '+role)
+    kol=spec['kol']
+    if kol=='couple':
         defaults=None
         for role in ('male','female'):
             key='kol_'+role
-            if key in spec['files']:identity=roundup.uploaded_image(spec['files'][key])
+            if key in spec['files']:asset=roundup.uploaded_image(spec['files'][key])
             else:
                 if defaults is None:defaults={p['role']:p for p in core.roundup_cast.people('couple')}
-                person=defaults[role];identity=(person['file'].read_bytes(),person.get('mime','image/jpeg'))
-            refs.append(identity)
+                person=defaults[role];asset=(person['file'].read_bytes(),person.get('mime','image/jpeg'))
             position=spec['male_position']
-            target=('the corresponding visible '+role+' subject in the base photo') if position=='auto' else ('the visible subject on the viewer’s '+(position if role=='male' else ('right' if position=='left' else 'left'))+' side of the base photo')
-            rules.append(f'Image #{len(refs)} is {role.upper()} KOL IDENTITY ONLY, assigned to {target}. Match this exact adult face, hair and skin features. Preserve that source subject’s position, pose, gaze and expression. Do not copy the identity portrait’s clothes or background.')
-        rules.append('DUAL IDENTITY LOCK: Keep the male and female faces distinct; never swap, blend or duplicate them. Preserve both subjects’ original positions and interaction. Describe the subject-to-reference mapping explicitly in sections 1 and 9. Replace only people already visible; do not add a second person if the base photo contains only one, or add people to an object-only photo.')
-    elif spec['kol'] not in ('none','flatlay'):
-        if spec['kol']=='upload':identity=roundup.uploaded_image(spec['files']['kol'])
+            target=role if position=='auto' else ('viewer '+(position if role=='male' else ('right' if position=='left' else 'left')))
+            add(asset,f'{role.upper()} KOL IDENTITY ONLY, assigned to {target}. Match face and hair; ignore portrait clothes and background. Never swap, blend or duplicate identities.')
+    elif kol in ('male','female','upload'):
+        if kol=='upload':asset=roundup.uploaded_image(spec['files']['kol'])
         else:
-            person=next(p for p in core.roundup_cast.people('couple') if p['role']==spec['kol'])
-            identity=(person['file'].read_bytes(),person.get('mime','image/jpeg'))
-        refs.append(identity)
-        rules.append(f'Image #{len(refs)} is KOL IDENTITY ONLY. Replace the main visible person with this exact adult face, hair and skin features; preserve source pose and expression. Do not copy the portrait background or clothing. Do not add a person to an object-only scene.')
-    shirts=spec.get('shirts','none')
-    shirt_roles=('male','female') if shirts=='both' else () if shirts=='none' else (shirts,)
-    for role in shirt_roles:
-        refs.append(roundup.uploaded_image(spec['files']['shirt_'+role]))
-        rules.append(f'Image #{len(refs)} is {role.upper()} SHIRT PRODUCT ONLY. Replace only the corresponding {role} subject’s shirt with this supplied garment, following the KOL position mapping above where specified. Preserve the supplied shirt color, fabric, collar, sleeve shape, silhouette, print placement, artwork, logos and exact physical lettering including Vietnamese accents. Adapt the garment naturally to the existing body pose, folds, perspective, light and shadows. Do not copy the product model’s face or background. Never swap male and female shirt designs, blend their artwork, mirror lettering or transfer a front print to the back. In a flatlay or gift arrangement, replace the corresponding visible garment; do not add people or change the source composition to display a shirt.')
-    if shirt_roles:rules.append('SELECTED SHIRT OVERRIDE: Keep only selected shirt products unchanged; restyle the other visible garments as instructed below. These selected shirt references take precedence over source clothing and KOL portrait clothing. Describe each selected shirt and its wearer/product assignment in sections 3 and 9. Keep faces and garment artwork unobstructed by packaging.')
-    rules.append('CLOTHING RESTYLE: Keep every selected uploaded shirt exactly as supplied, including color, fabric, cut, artwork and print placement. For all other visible clothing and worn accessories, create a noticeably different, coherent everyday outfit instead of copying the base photo: change visible trousers, skirt, shorts, footwear, belt, bag or jewelry as appropriate to the pose and setting. If no replacement shirt is supplied for a visible wearer, redesign that wearer’s top too. Never cover or alter an uploaded shirt with an added outer layer. Only restyle items visible within the original crop; do not invent legs, shoes, hidden garments or additional people, and do not change pose or framing to show an outfit. Keep selected zip pouch, box and thank-you tag references unchanged. In a product-only flatlay, do not add an outfit or worn accessories; keep selected shirt products and preserve the source product arrangement. Section 3 must describe the new visible outfit and clearly distinguish the unchanged uploaded shirt from restyled pieces. This clothing-restyle instruction overrides generic instructions to preserve source clothing or copy KOL portrait clothing.')
-    rules.append('VISIBLE OUTFIT CHANGE IS REQUIRED, not merely the word restyled: inspect the original visible bottoms and bag first. For every visible non-uploaded bottom, choose a different cut, wash, texture or color while obeying the requested garment category (follow the requested skirt-and-jeans styling below). For a visible bag, replace it with a concrete different shape and color and remove the original distinctive charms; retain a functional strap and the original hand-contact points. Never remove an object being held while retaining a grip on a nonexistent object. Sections 3, 4 and 9 must agree about the replacement bag and hand interactions. Do not repeat the source combination. In section 3 use explicit edit commands: Replace the source [observed item, color and cut] with [specific new item, color, material and cut], one per visible piece and wearer. Never present the observed source outfit as the desired final outfit. Section 9 must preserve uploaded shirts but list the non-shirt outfit replacements as intentional changes. If no changeable item is visible, state that limitation instead of inventing out-of-frame clothing. For object-only images this restyle comparison is not applicable.')
-    rules.append('USER OUTFIT PREFERENCE — HIGHEST CLOTHING PRIORITY: The female wears a skirt, never trousers or shorts; default to a simple flattering black A-line skirt with a clean silhouette, without tiered ruffles. The male wears denim jeans, never tailored trousers or chinos; default to relaxed straight-leg medium-blue denim jeans. Coordinate naturally with the uploaded shirts, which remain unchanged. Restyle within these categories using cut or wash instead of changing the category. Describe only portions visible in the original crop, preserve pose and hand interactions, and do not extend the frame to show garments. This preference overrides any earlier requirement for a different material or color family. Object-only flatlays must not gain new clothing props.')
+            person=next(p for p in core.roundup_cast.people('couple') if p['role']==kol)
+            asset=(person['file'].read_bytes(),person.get('mime','image/jpeg'))
+        add(asset,'KOL IDENTITY ONLY for the corresponding subject. Match face and hair, not portrait clothes or background.')
+    elif kol=='flatlay':rules.append('FLATLAY / OBJECT-ONLY MODE: no people, faces, hands, bodies, mannequins or human reflections. Shirt gender labels do not add wearers.')
+    elif kol=='new':rules.append('NEW FICTIONAL PEOPLE MODE: distinct new fictional adult identities, no source face or saved KOL identity.')
+    else:rules.append('Use the people described in the JSON. No source photograph or exact face reference is supplied.')
+    roles=('male','female') if spec['shirts']=='both' else () if spec['shirts']=='none' else (spec['shirts'],)
+    for role in roles:
+        add(roundup.uploaded_image(spec['files']['shirt_'+role]),f'{role.upper()} SHIRT PRODUCT ONLY. Preserve the exact supplied color, fabric, cut, print placement, artwork, logos and physical lettering including Vietnamese accents. Assign to the corresponding wearer or flatlay product. Never swap shirts, mirror lettering or transfer front print to back; ignore product model and background.')
+    rules.append('CLOTHING RESTYLE: selected uploaded shirts stay unchanged and unobstructed. Describe a new coordinated outfit for other visible clothing. The female wears a simple black A-line skirt; the male wears relaxed straight-leg medium-blue denim jeans. Describe only visible portions; no added limbs or clothing props in object-only scenes. Keep bag shape, straps and hand contact physically consistent.')
     for key in spec['accessories']:
         asset,label=core.ACCESSORIES[key]
-        refs.append(roundup.uploaded_image(spec['files'][key]) if key in spec['files'] else ((core.ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'))
-        rules.append(f'Image #{len(refs)} is {label} PACKAGING ONLY. Integrate this selected item naturally in the source arrangement, replacing the corresponding item if present. Preserve its shape, material, physical print and branding. Keep realistic scale, contact shadows and perspective; never transfer its artwork to clothing or faces.')
-    environment_description=spec.get('environment_description','')
+        add(roundup.uploaded_image(spec['files'][key]) if key in spec['files'] else ((core.ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'),f'{label} PACKAGING ONLY. Preserve exact shape, material, physical print and branding; realistic scale, placement, perspective and contact shadows. Never transfer artwork to clothing.')
     if spec['files'].get('environment'):
-        refs.append(roundup.uploaded_image(spec['files']['environment']))
-        rules.append(f'Image #{len(refs)} is ENVIRONMENT REFERENCE ONLY. Replace the base photo background with the visible setting, architecture, surfaces, furniture, vegetation, spatial layout, palette and lighting of this environment reference. Do not copy any people, faces, clothing, products, logos or overlay text from it. Keep the base subject count, pose, interactions, framing and camera perspective; adapt the background perspective and scale to that camera. Relight subjects and selected products naturally to match the environment, including contact shadows, reflections and light direction. Describe this environment in detail in section 5 and its light in section 6. Qualify uncertain details rather than inventing them.')
-    if environment_description:
-        rules.append('USER ENVIRONMENT DESCRIPTION: '+environment_description)
-    if spec['files'].get('environment') or environment_description:
-        rules.append('ENVIRONMENT OVERRIDE: The selected environment and user description intentionally replace source background and lighting. Explicit environment description edits take precedence over the environment photo; otherwise preserve its visible details. All instructions about preserving source background/light apply only when no environment replacement is selected. Preserve source subject pose and composition, with realistic integration into the new setting. If only a description is supplied, create that described setting without claiming an environment photo was provided. Sections 5, 6, 7 and 9 must reflect the requested setting.')
-    with Image.open(io.BytesIO(refs[0][0])) as im:width,height=im.size
-    rules.append(f'Source size {width}×{height}, aspect ratio {width}:{height}. Match this composition and aspect ratio as closely as the image model allows. One natural ultra-realistic photograph, no captions or added text, no collage. Only selected KOL, shirt, packaging and environment substitutions and the requested visible clothing restyle may change source content.')
+        add(roundup.uploaded_image(spec['files']['environment']),'ENVIRONMENT REFERENCE ONLY. Use setting, furniture, palette and light; do not copy people, clothes, products or overlay text. Match the JSON camera and subject placement.')
+    if spec['environment_description']:rules.append('USER ENVIRONMENT DESCRIPTION (takes precedence over environment image): '+spec['environment_description'])
+    rules.append('One natural ultra-realistic photograph, iPhone lifestyle photography, realistic skin and material textures. No overlay text, watermarks or collage. Preserve physical product lettering only.')
     return refs,'\n'.join(rules)
 
 def analyze(app,body):
     spec=validate(body);refs,rules=references(spec)
-    formula=core.PROMPT_FORMULA.replace('3. Clothing: supplied garment','3. Clothing: selected uploaded shirts unchanged, plus explicitly redesigned visible non-shirt garments').replace('specify the app output is portrait 3:4','specify output should match the source aspect ratio').replace('visible people/hands required by the selected scene and the supplied identity roles','visible people/hands in the source photo')
-    formula+='\nThis is a single-image workflow. There is no preset scene. If shirt product references are supplied, replace only those assigned garments; restyle other visible clothing as specified in CLOTHING RESTYLE. KOL portraits supply identity only, never clothing. Use the exact source dimensions in the brief for section 11; never force a 3:4 ratio. Include the numbered asset-role instructions in section 9 so this complete prompt can be used with those references.'
-    formula+='\nRequested photographic aesthetic: iPhone lifestyle photography. Include this exact phrase in sections 2 and 8. Describe a natural handheld smartphone lifestyle look, realistic available light, authentic skin and material texture, and unforced everyday framing. This is the requested recreation style, not a claim that the original was captured with a verified iPhone. Preserve the actual reference angle, crop, lighting and depth of field; do not invent a lens model, portrait blur, studio lighting or people for flatlays.'
-    formula+='\nGive detailed visual descriptions, not a short summary: aim for 2–4 specific sentences per section where evidence permits. In framing, inspect the entire reference including any physical photo border, the lowest visible body parts, relative subject sizes and placement. Never call it a shoulders-up crop when torsos or arms are visible. Do not transcribe any source lettering; describe graphics visually instead. Describe uncertain room type cautiously, without inventing architecture outside the crop.'
-    formula+='\nBegin the final prompt with this exact standalone sentence, before section 1: '+PROMPT_OPENING+' Return plain text without Markdown code fences.'
-    if spec['kol']=='new':formula+='\nFor this request NEW FICTIONAL PEOPLE MODE overrides every generic pinned-KOL instruction above. There are no KOL identity references. Describe new fictional adult faces; do not match any real source face.'
-    prompt=core.chatgpt_vision(app,formula,rules,[raw for raw,mime in refs])
-    prompt=verify_prompt(prompt,structured=True)
-    prompt=re.sub(r'^```[^\n]*\n|\n```$', '', prompt).strip()
-    if not prompt.startswith(PROMPT_OPENING):prompt=PROMPT_OPENING+'\n\n'+prompt
-    for section in (2,8):
-        pattern=rf'(^\s*(?:\*\*)?{section}[.)]\s+[^:\n]+:\s*)(.*?)(?=^\s*(?:\*\*)?\d+[.)]\s+|\Z)'
-        def ensure_style(match):
-            content=match.group(2)
-            return match.group(1)+(content if 'iphone lifestyle photography' in content.lower() else 'iPhone lifestyle photography. '+content)
-        prompt=re.sub(pattern,ensure_style,prompt,flags=re.M|re.S)
-    return {'prompt':prompt}
+    source=roundup.uploaded_image(spec['files']['reference'])
+    with Image.open(io.BytesIO(source[0])) as im:width,height=im.size
+    aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-width/height))
+    formula="""You are a photography prompt writer. Analyze the first image as visual evidence, then write a self-contained JSON prompt to GENERATE A NEW IMAGE, not edit or modify that photograph. The scene reference will NOT be sent to the image generator. Describe the desired final scene completely: subject count and positions, visible pose and hand-object contact, framing, environment, available light, textures and photographic style. Do not write edit commands, 'replace source', 'keep image #1', or depend on an unseen base photograph. Do not transcribe source overlay text. Qualify uncertainty; never infer ethnicity. Apply the selected KOL, shirt, packaging and environment requirements. For new-person mode describe new fictional adult faces; for flatlay omit humans entirely. Keep selected uploaded shirts and packaging exact, and restyle other visible clothing as requested.
+Return ONLY a valid JSON object without fences or commentary, with task='generate_new_image' and nonempty English string fields: subject, composition, clothing, pose, environment, lighting, camera, style, constraints, aspect_ratio. Give detailed final-state descriptions, 2–4 sentences where useful. Include iPhone lifestyle photography in camera and style. In constraints describe asset assignments using GENERATION numbering below. The first analysis image is the scene reference, NOT generation image #1. All later analysis images correspond in order to generation images #1, #2, etc. Never refer to the scene reference as a supplied generation image."""
+    prompt=core.chatgpt_vision(app,formula,f'Scene size: {width}×{height}. Use aspect_ratio: {aspect}.\nGeneration assets and requirements:\n'+rules,[source[0]]+[raw for raw,mime in refs],max_tokens=4500)
+    return {'prompt':verify_prompt(prompt,structured=True),'format':'json','mode':'generate_new_image'}
 
 def generate(app,body,owner):
     spec=validate(body,True);jid=body.get('request_id','')
     if not core.re.fullmatch(r'[a-f0-9-]{36}',str(jid)):raise roundup.Problem('Mã yêu cầu không hợp lệ.')
-    if not app.API_KEY:raise roundup.Problem('Chưa cấu hình OPENAI_API_KEY.',503)
+    label,model,key=PROVIDERS[spec['provider']]
+    if not getattr(app,key,''):raise roundup.Problem('Chưa cấu hình '+key+' cho '+label+'.',503)
     digest=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()
     with core.LOCK:
         path=core.folder(app)/(jid+'.json')
@@ -124,7 +112,7 @@ def generate(app,body,owner):
             if previous['digest']!=digest:raise roundup.Problem('Mã yêu cầu đã dùng cho nội dung khác.',409)
             return core.public(previous)
         refs,rules=references(spec)
-        job=dict(id=jid,owner=owner,digest=digest,mode='single',status='running',created=time.time(),items=[],total=1,error='',note='GPT Image 2.5 đang tạo ảnh…')
+        job=dict(id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
         core.write(path,job);core.LIVE.add(jid)
         threading.Thread(target=run,args=(app,job,refs,rules,spec['prompt']),daemon=True).start()
         return core.public(job)
@@ -132,9 +120,13 @@ def generate(app,body,owner):
 def run(app,job,refs,rules,prompt):
     path=core.folder(app)/(job['id']+'.json')
     try:
+        prompt=verify_prompt(prompt,structured=True)
+        provider=job.get('provider','gemini_pro');label,model,key=PROVIDERS[provider]
+        if not getattr(app,key,''):raise roundup.Problem('Chưa cấu hình '+key,503)
+        aspect=json.loads(prompt)['aspect_ratio']
         final=rules+'\n\n'+prompt
-        core.write(core.folder(app)/(job['id']+'-0.audit.json'),dict(mode='single',prompt=final,model='gpt-image-2.5-sunburst',references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
-        b64=app.gen_shot(refs,final,'auto','openai_25',lock=False,quality='high')
+        core.write(core.folder(app)/(job['id']+'-0.audit.json'),dict(mode='generate_new_image',prompt=final,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
+        b64=app.gen_shot(refs,final,'auto',provider,aspect,gem_model=model if provider=='gemini_pro' else '',lock=False,quality='high')
         raw=base64.b64decode(b64)
         with Image.open(io.BytesIO(raw)) as im:
             im.load();output=io.BytesIO();im.save(output,'PNG')
