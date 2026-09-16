@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: "Cài thư viện xử lý ảnh cho kiểm tra Python"
+        run: pip install 'Pillow>=10,<12'
+
       - name: "Python: cú pháp + import an toàn server.py"
         run: |
           python -m py_compile server.py
@@ -45,7 +48,6 @@ jobs:
 
       - name: "Regression tests (offline)"
         run: |
-          pip install 'Pillow>=10,<12'
           node --test tests/*.cjs
           python - <<'EOF'
           import unittest
