@@ -81,11 +81,19 @@ def analyze(app,body):
     spec=validate(body);refs,rules=references(spec)
     formula=core.PROMPT_FORMULA.replace('3. Clothing: supplied garment','3. Clothing: selected replacement garment if provided, otherwise source garment').replace('specify the app output is portrait 3:4','specify output should match the source aspect ratio').replace('visible people/hands required by the selected scene and the supplied identity roles','visible people/hands in the source photo')
     formula+='\nThis is a single-image workflow. There is no preset scene. If shirt product references are supplied, replace only those assigned garments; otherwise preserve source clothing. KOL portraits supply identity only, never clothing. Use the exact source dimensions in the brief for section 11; never force a 3:4 ratio. Include the numbered asset-role instructions in section 9 so this complete prompt can be used with those references.'
+    formula+='\nRequested photographic aesthetic: iPhone lifestyle photography. Include this exact phrase in sections 2 and 8. Describe a natural handheld smartphone lifestyle look, realistic available light, authentic skin and material texture, and unforced everyday framing. This is the requested recreation style, not a claim that the original was captured with a verified iPhone. Preserve the actual reference angle, crop, lighting and depth of field; do not invent a lens model, portrait blur, studio lighting or people for flatlays.'
+    formula+='\nGive detailed visual descriptions, not a short summary: aim for 2–4 specific sentences per section where evidence permits. In framing, inspect the entire reference including any physical photo border, the lowest visible body parts, relative subject sizes and placement. Never call it a shoulders-up crop when torsos or arms are visible. Do not transcribe any source lettering; describe graphics visually instead. Describe uncertain room type cautiously, without inventing architecture outside the crop.'
     formula+='\nBegin the final prompt with this exact standalone sentence, before section 1: '+PROMPT_OPENING+' Return plain text without Markdown code fences.'
     prompt=core.chatgpt_vision(app,formula,rules,[raw for raw,mime in refs])
     prompt=verify_prompt(prompt,structured=True)
     prompt=re.sub(r'^```[^\n]*\n|\n```$', '', prompt).strip()
     if not prompt.startswith(PROMPT_OPENING):prompt=PROMPT_OPENING+'\n\n'+prompt
+    for section in (2,8):
+        pattern=rf'(^\s*(?:\*\*)?{section}[.)]\s+[^:\n]+:\s*)(.*?)(?=^\s*(?:\*\*)?\d+[.)]\s+|\Z)'
+        def ensure_style(match):
+            content=match.group(2)
+            return match.group(1)+(content if 'iphone lifestyle photography' in content.lower() else 'iPhone lifestyle photography. '+content)
+        prompt=re.sub(pattern,ensure_style,prompt,flags=re.M|re.S)
     return {'prompt':prompt}
 
 def generate(app,body,owner):

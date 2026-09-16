@@ -96,6 +96,12 @@ class SingleImageTests(unittest.TestCase):
    self.assertTrue(result.startswith(s.PROMPT_OPENING+'\n\n1.'))
    self.assertEqual(result.count(s.PROMPT_OPENING),1)
    self.assertNotIn('```',result)
+ def test_iphone_style_preserved_in_camera_and_final_style(self):
+  sections='\n'.join(f'{i}. '+('Camera Angle / Framing: Handheld.' if i==2 else 'Final Style: Natural texture.' if i==8 else 'Detail: Visible features.') for i in range(1,12))
+  self.app.openai_chat.return_value=sections
+  prompt=s.analyze(self.app,self.body)['prompt']
+  self.assertIn('2. Camera Angle / Framing: iPhone lifestyle photography.',prompt)
+  self.assertIn('8. Final Style: iPhone lifestyle photography.',prompt)
  def test_validation(self):
   for change in [{'files':{}},{'kol':'bad'},{'accessories':['zip','zip']},{'prompt':''}]:
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
