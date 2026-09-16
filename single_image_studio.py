@@ -25,7 +25,7 @@ def validate(body, generating=False):
     selected=body.get('accessories',[])
     if not isinstance(selected,list) or any(k not in core.ACCESSORIES for k in selected) or len(set(selected))!=len(selected):raise roundup.Problem('Bao bì không hợp lệ.')
     kol=body.get('kol','none')
-    if kol not in ('none','flatlay','male','female','upload','couple') or (kol=='upload' and not files.get('kol')):raise roundup.Problem('Chọn hoặc tải ảnh KOL.')
+    if kol not in ('none','flatlay','new','male','female','upload','couple') or (kol=='upload' and not files.get('kol')):raise roundup.Problem('Chọn hoặc tải ảnh KOL.')
     male_position=body.get('male_position','auto')
     if male_position not in ('auto','left','right'):raise roundup.Problem('Vị trí KOL không hợp lệ.')
     shirts=body.get('shirts','none')
@@ -41,7 +41,9 @@ def validate(body, generating=False):
 def references(spec):
     refs=[roundup.uploaded_image(spec['files']['reference'])]
     rules=['Image #1 is the BASE PHOTO: preserve its actual camera angle, framing, composition, pose, expression, clothing, environment, lighting and atmosphere. Remove source overlay text and watermarks. Do not invent hidden details or copy source identity when a replacement KOL is supplied.']
-    if spec['kol']=='flatlay':
+    if spec['kol']=='new':
+        rules.append('NEW FICTIONAL PEOPLE MODE: Create a new, distinct fictional adult identity for every visible person in the base photograph. Do not copy or reconstruct any source person’s face, and do not use any saved KOL identity. Change facial structure, eyes, nose, lips and distinguishing facial features so each person is clearly a different individual. If two people are visible, create two distinct new identities, never duplicate or blend faces. Preserve the number of people, original positions, head direction, gaze, expression intensity, body pose and interactions. Keep the original framing and occlusion: do not reveal a face hidden by a phone or turned away just to display a new identity. Do not introduce people into object-only scenes. Describe the new identities, not source facial features, in sections 1 and 9. Generate the new faces as part of the finished photograph, naturally lit with realistic skin texture.')
+    elif spec['kol']=='flatlay':
         rules.append('FLATLAY / OBJECT-ONLY MODE: No KOL identity references are supplied. Recreate a product-only photograph: no people, faces, hands, bodies, mannequins or human reflections. Preserve the source camera angle, background and object arrangement; if people or hands appear in the source, remove them locally while retaining the products. Selected male/female shirts are product labels only, never instructions to add wearers. Replace corresponding visible garments with the selected shirt products, retaining their arrangement and folds.')
     elif spec['kol']=='couple':
         defaults=None
@@ -84,6 +86,7 @@ def analyze(app,body):
     formula+='\nRequested photographic aesthetic: iPhone lifestyle photography. Include this exact phrase in sections 2 and 8. Describe a natural handheld smartphone lifestyle look, realistic available light, authentic skin and material texture, and unforced everyday framing. This is the requested recreation style, not a claim that the original was captured with a verified iPhone. Preserve the actual reference angle, crop, lighting and depth of field; do not invent a lens model, portrait blur, studio lighting or people for flatlays.'
     formula+='\nGive detailed visual descriptions, not a short summary: aim for 2–4 specific sentences per section where evidence permits. In framing, inspect the entire reference including any physical photo border, the lowest visible body parts, relative subject sizes and placement. Never call it a shoulders-up crop when torsos or arms are visible. Do not transcribe any source lettering; describe graphics visually instead. Describe uncertain room type cautiously, without inventing architecture outside the crop.'
     formula+='\nBegin the final prompt with this exact standalone sentence, before section 1: '+PROMPT_OPENING+' Return plain text without Markdown code fences.'
+    if spec['kol']=='new':formula+='\nFor this request NEW FICTIONAL PEOPLE MODE overrides every generic pinned-KOL instruction above. There are no KOL identity references. Describe new fictional adult faces; do not match any real source face.'
     prompt=core.chatgpt_vision(app,formula,rules,[raw for raw,mime in refs])
     prompt=verify_prompt(prompt,structured=True)
     prompt=re.sub(r'^```[^\n]*\n|\n```$', '', prompt).strip()

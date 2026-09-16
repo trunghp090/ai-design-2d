@@ -102,6 +102,18 @@ class SingleImageTests(unittest.TestCase):
   prompt=s.analyze(self.app,self.body)['prompt']
   self.assertIn('2. Camera Angle / Framing: iPhone lifestyle photography.',prompt)
   self.assertIn('8. Final Style: iPhone lifestyle photography.',prompt)
+ def test_new_people_never_load_or_send_kol_faces(self):
+  body={**self.body,'kol':'new','accessories':[],'files':{'reference':self.data,'kol':self.data,'kol_male':self.data,'kol_female':self.data}}
+  with patch.object(core.roundup_cast,'people',side_effect=AssertionError('New people must not load KOLs')):
+   refs,rules=s.references(s.validate(body));s.analyze(self.app,body)
+  self.assertEqual(len(refs),1)
+  self.assertIn('NEW FICTIONAL PEOPLE MODE',rules)
+  self.assertIn('two distinct new identities',rules)
+  content=self.app.openai_chat.call_args.args[0][1]['content'];self.assertEqual(len(content),2)
+  self.assertIn('NEW FICTIONAL PEOPLE MODE',content[0]['text'])
+  job={'id':body['request_id'],'items':[]};s.run(self.app,job,refs,rules,'New people prompt')
+  self.assertEqual(len(self.app.gen_shot.call_args.args[0]),1)
+  self.assertIn('Do not copy or reconstruct any source person',self.app.gen_shot.call_args.args[1])
  def test_validation(self):
   for change in [{'files':{}},{'kol':'bad'},{'accessories':['zip','zip']},{'prompt':''}]:
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
