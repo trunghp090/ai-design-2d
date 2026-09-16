@@ -13,7 +13,7 @@ class SingleImageTests(unittest.TestCase):
   self.app=SimpleNamespace(DATA_DIR=self.tmp.name,API_KEY='x',BEST_TEXT_MODEL='gpt-4o',openai_chat=Mock(return_value='\n'.join(f'{i}. '+('Aspect Ratio: 4:3' if i==11 else 'Detail') for i in range(1,12))),gen_shot=Mock(return_value=base64.b64encode(self.raw).decode()))
   self.body={'files':{'reference':self.data,'kol':self.data,'zip':self.data},'kol':'upload','accessories':['zip','box','tag'],'prompt':'Edited prompt','request_id':'22222222-2222-2222-2222-222222222222'}
  def test_analyze_only_and_asset_order(self):
-  result=s.analyze(self.app,self.body);self.assertIn('11. Aspect Ratio',result['prompt']);self.app.gen_shot.assert_not_called()
+  result=s.analyze(self.app,self.body);self.assertTrue(result['prompt'].startswith(s.PROMPT_OPENING+'\n\n'));self.assertIn('11. Aspect Ratio',result['prompt']);self.app.gen_shot.assert_not_called()
   call=self.app.openai_chat.call_args;content=call.args[0][1]['content'];self.assertEqual(len(content),6)
   self.assertIn('KOL IDENTITY ONLY',content[0]['text']);self.assertIn('Source size 80×60',content[0]['text'])
   self.assertEqual(content[1]['image_url']['url'],self.data)
@@ -88,6 +88,14 @@ class SingleImageTests(unittest.TestCase):
   self.assertNotIn('KOL IDENTITY ONLY',rules)
   job={'id':body['request_id'],'items':[]};s.run(self.app,job,refs,rules,'Object photograph')
   self.assertIn('FLATLAY / OBJECT-ONLY MODE',self.app.gen_shot.call_args.args[1])
+ def test_opening_is_exact_and_not_duplicated(self):
+  sections='\n'.join(f'{i}. Detail' for i in range(1,12))
+  for answer in [sections,s.PROMPT_OPENING+'\n\n'+sections,'```plaintext\n'+sections+'\n```']:
+   self.app.openai_chat.return_value=answer
+   result=s.analyze(self.app,self.body)['prompt']
+   self.assertTrue(result.startswith(s.PROMPT_OPENING+'\n\n1.'))
+   self.assertEqual(result.count(s.PROMPT_OPENING),1)
+   self.assertNotIn('```',result)
  def test_validation(self):
   for change in [{'files':{}},{'kol':'bad'},{'accessories':['zip','zip']},{'prompt':''}]:
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
