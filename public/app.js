@@ -910,12 +910,32 @@ async function composeMockupSide(s) {
   return canvas;
 }
 $("exportMockup").onclick = async () => {
-  snapshotSide();
+  const btn = $("exportMockup");
+  if (btn.disabled) return;
+  btn.disabled = true;
   try {
-    const canvas = await composeMockupSide(sides[currentSide]);
-    const a = document.createElement("a"); a.download = "mockup-" + currentSide + ".png";
-    a.href = canvas.toDataURL("image/png"); a.click();
+    snapshotSide();
+    const side = currentSide;
+    const snapshot = JSON.parse(JSON.stringify(sides[side]));
+    if (!snapshot.bg) throw new Error("Chưa có phôi cho mặt áo này. Hãy chọn phôi trước khi xuất.");
+    const name = "mockup-" + side + ".png";
+    const makeBlob = async () => {
+      const canvas = await composeMockupSide(snapshot);
+      return new Promise((resolve, reject) => canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error("Không tạo được ảnh PNG. Hãy thử xuất lại."));
+      }, "image/png"));
+    };
+    // Open the save picker in the click gesture, before loading/compositing images.
+    if (window.saveToolFile) await window.saveToolFile(makeBlob, name);
+    else {
+      const url = URL.createObjectURL(await makeBlob());
+      const a = document.createElement("a"); a.download = name; a.href = url;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
   } catch (e) { alert(e.message); }
+  finally { btn.disabled = false; }
 };
 $("previewMockupPair").onclick = async () => {
   snapshotSide();
