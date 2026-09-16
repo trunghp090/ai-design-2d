@@ -40,11 +40,23 @@ class SingleImageTests(unittest.TestCase):
   with patch.object(core.roundup_cast,'people',side_effect=AssertionError('Uploaded KOLs only')):
    refs,rules=s.references(s.validate(body));s.analyze(self.app,body)
   self.assertEqual(len(refs),8);self.assertTrue(all(raw==self.asset for raw,mime in refs))
-  for phrase in ('Image #1: MALE KOL','Image #2: FEMALE KOL','Image #3: MALE SHIRT','Image #4: FEMALE SHIRT','viewer left','viewer right','PACKAGING ONLY','ENVIRONMENT REFERENCE ONLY','Outdoor cafe','Vietnamese accents','black A-line skirt','denim jeans'):self.assertIn(phrase,rules)
+  for phrase in ('Image #1: MALE KOL','Image #2: FEMALE KOL','Image #3: MALE SHIRT','Image #4: FEMALE SHIRT','viewer left','viewer right','PACKAGING ONLY','ENVIRONMENT REFERENCE ONLY','Outdoor cafe','Vietnamese accents','no outfit change is required','selected uploaded shirts stay unchanged'):self.assertIn(phrase,rules)
   content=self.app.openai_chat.call_args.args[0][1]['content'];self.assertEqual(len(content),10)
   self.assertEqual(content[1]['image_url']['url'],self.data(self.source))
   job={'id':body['request_id'],'provider':'gemini_pro'};s.run(self.app,job,refs,rules,self.prompt)
   self.assertEqual(self.app.gen_shot.call_args.args[0],refs)
+ def test_original_outfit_is_described_while_uploaded_shirt_overrides(self):
+  body={**self.body,'shirts':'male','files':{**self.body['files'],'shirt_male':self.data(self.asset)}}
+  refs,rules=s.references(s.validate(body));s.analyze(self.app,body)
+  self.assertEqual([raw for raw,mime in refs],[self.asset])
+  self.assertIn('MALE SHIRT PRODUCT ONLY',rules)
+  self.assertIn('exact supplied color, fabric, cut, print placement',rules)
+  self.assertIn('no outfit change is required',rules)
+  self.assertIn('original visible shirt too',rules)
+  self.assertNotIn('The female wears',rules);self.assertNotIn('CLOTHING RESTYLE',rules)
+  system=self.app.openai_chat.call_args.args[0][0]['content']
+  self.assertIn('without requiring restyling',system)
+  self.assertIn('Uploaded shirts override only the corresponding source shirts',system)
  def test_selected_assets_only(self):
   body={**self.body,'files':{**self.body['files'],'kol':self.data(self.asset),'shirt_male':self.data(self.asset),'zip':self.data(self.asset)}}
   self.assertEqual(s.references(s.validate(body))[0],[])
