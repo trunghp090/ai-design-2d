@@ -19,8 +19,8 @@ def verify_prompt(text,structured=False):
 def validate(body, generating=False):
     if not isinstance(body,dict):raise roundup.Problem('Dữ liệu không hợp lệ.')
     files=body.get('files',{})
-    if not isinstance(files,dict) or set(files)-{'reference','kol','kol_male','kol_female','shirt_male','shirt_female','zip','box','tag'} or not files.get('reference'):raise roundup.Problem('Tải một ảnh tham chiếu trước.')
-    if sum(len(v) if isinstance(v,str) else 99999999 for v in files.values())>41000000:raise roundup.Problem('Tổng dung lượng ảnh quá lớn.')
+    if not isinstance(files,dict) or set(files)-{'reference','kol','kol_male','kol_female','shirt_male','shirt_female','environment','zip','box','tag'} or not files.get('reference'):raise roundup.Problem('Tải một ảnh tham chiếu trước.')
+    if sum(len(v) if isinstance(v,str) else 99999999 for v in files.values())>46000000:raise roundup.Problem('Tổng dung lượng ảnh quá lớn.')
     for value in files.values():roundup.uploaded_image(value)
     selected=body.get('accessories',[])
     if not isinstance(selected,list) or any(k not in core.ACCESSORIES for k in selected) or len(set(selected))!=len(selected):raise roundup.Problem('Bao bì không hợp lệ.')
@@ -33,10 +33,12 @@ def validate(body, generating=False):
     shirt_roles=('male','female') if shirts=='both' else () if shirts=='none' else (shirts,)
     for role in shirt_roles:
         if not files.get('shirt_'+role):raise roundup.Problem('Tải ảnh áo '+('nam' if role=='male' else 'nữ')+' đã chọn.')
+    environment_description=body.get('environment_description','')
+    if not isinstance(environment_description,str) or len(environment_description)>3000:raise roundup.Problem('Mô tả bối cảnh tối đa 3000 ký tự.')
     prompt=body.get('prompt','')
     if not isinstance(prompt,str) or len(prompt)>24000 or (generating and not prompt.strip()):raise roundup.Problem('Tạo hoặc nhập prompt trước khi tạo ảnh (tối đa 24000 ký tự).')
     if generating:verify_prompt(prompt)
-    return dict(files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,prompt=prompt.strip())
+    return dict(files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
 
 def references(spec):
     refs=[roundup.uploaded_image(spec['files']['reference'])]
@@ -75,8 +77,16 @@ def references(spec):
         asset,label=core.ACCESSORIES[key]
         refs.append(roundup.uploaded_image(spec['files'][key]) if key in spec['files'] else ((core.ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'))
         rules.append(f'Image #{len(refs)} is {label} PACKAGING ONLY. Integrate this selected item naturally in the source arrangement, replacing the corresponding item if present. Preserve its shape, material, physical print and branding. Keep realistic scale, contact shadows and perspective; never transfer its artwork to clothing or faces.')
+    environment_description=spec.get('environment_description','')
+    if spec['files'].get('environment'):
+        refs.append(roundup.uploaded_image(spec['files']['environment']))
+        rules.append(f'Image #{len(refs)} is ENVIRONMENT REFERENCE ONLY. Replace the base photo background with the visible setting, architecture, surfaces, furniture, vegetation, spatial layout, palette and lighting of this environment reference. Do not copy any people, faces, clothing, products, logos or overlay text from it. Keep the base subject count, pose, interactions, framing and camera perspective; adapt the background perspective and scale to that camera. Relight subjects and selected products naturally to match the environment, including contact shadows, reflections and light direction. Describe this environment in detail in section 5 and its light in section 6. Qualify uncertain details rather than inventing them.')
+    if environment_description:
+        rules.append('USER ENVIRONMENT DESCRIPTION: '+environment_description)
+    if spec['files'].get('environment') or environment_description:
+        rules.append('ENVIRONMENT OVERRIDE: The selected environment and user description intentionally replace source background and lighting. Explicit environment description edits take precedence over the environment photo; otherwise preserve its visible details. All instructions about preserving source background/light apply only when no environment replacement is selected. Preserve source subject pose and composition, with realistic integration into the new setting. If only a description is supplied, create that described setting without claiming an environment photo was provided. Sections 5, 6, 7 and 9 must reflect the requested setting.')
     with Image.open(io.BytesIO(refs[0][0])) as im:width,height=im.size
-    rules.append(f'Source size {width}×{height}, aspect ratio {width}:{height}. Match this composition and aspect ratio as closely as the image model allows. One natural ultra-realistic photograph, no captions or added text, no collage. Only selected KOL, shirt and packaging substitutions may change source content.')
+    rules.append(f'Source size {width}×{height}, aspect ratio {width}:{height}. Match this composition and aspect ratio as closely as the image model allows. One natural ultra-realistic photograph, no captions or added text, no collage. Only selected KOL, shirt, packaging and environment substitutions may change source content.')
     return refs,'\n'.join(rules)
 
 def analyze(app,body):

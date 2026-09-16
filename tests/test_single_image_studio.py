@@ -114,6 +114,25 @@ class SingleImageTests(unittest.TestCase):
   job={'id':body['request_id'],'items':[]};s.run(self.app,job,refs,rules,'New people prompt')
   self.assertEqual(len(self.app.gen_shot.call_args.args[0]),1)
   self.assertIn('Do not copy or reconstruct any source person',self.app.gen_shot.call_args.args[1])
+ def test_environment_photo_and_description_reach_both_steps(self):
+  body={**self.body,'kol':'none','accessories':[],'files':{'reference':self.data,'environment':self.data},'environment_description':'Outdoor cafe, sunlight from left'}
+  refs,rules=s.references(s.validate(body))
+  self.assertEqual(len(refs),2);self.assertIn('Image #2 is ENVIRONMENT REFERENCE ONLY',rules)
+  self.assertIn('Outdoor cafe, sunlight from left',rules)
+  self.assertIn('ENVIRONMENT OVERRIDE',rules)
+  s.analyze(self.app,body)
+  content=self.app.openai_chat.call_args.args[0][1]['content'];self.assertEqual(len(content),3)
+  self.assertEqual(content[2]['image_url']['url'],self.data)
+  job={'id':body['request_id'],'items':[]};s.run(self.app,job,refs,rules,'Prompt')
+  self.assertEqual(len(self.app.gen_shot.call_args.args[0]),2)
+  self.assertIn('ENVIRONMENT OVERRIDE',self.app.gen_shot.call_args.args[1])
+ def test_environment_description_only_and_validation(self):
+  body={**self.body,'kol':'none','accessories':[],'files':{'reference':self.data},'environment_description':'Garden'}
+  refs,rules=s.references(s.validate(body));self.assertEqual(len(refs),1)
+  self.assertIn('USER ENVIRONMENT DESCRIPTION: Garden',rules)
+  self.assertNotIn('ENVIRONMENT REFERENCE ONLY',rules)
+  for value in [None,{},'x'*3001]:
+   with self.assertRaises(roundup.Problem):s.validate({**body,'environment_description':value})
  def test_validation(self):
   for change in [{'files':{}},{'kol':'bad'},{'accessories':['zip','zip']},{'prompt':''}]:
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
