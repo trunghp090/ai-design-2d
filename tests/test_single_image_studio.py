@@ -18,7 +18,7 @@ class SingleImageTests(unittest.TestCase):
   self.body=dict(files={'reference':self.data(self.source)},kol='none',accessories=[],prompt=self.prompt,request_id='22222222-2222-2222-2222-222222222222')
  def test_chatgpt_analyzes_source_but_does_not_generate(self):
   result=s.analyze(self.app,self.body)
-  self.assertEqual(result['prompt'],s.iphone_prompt(self.prompt));self.assertEqual(result['format'],'text');self.app.gen_shot.assert_not_called()
+  self.assertEqual(result['prompt'],self.prompt);self.assertEqual(result['format'],'text');self.app.gen_shot.assert_not_called()
   messages=self.app.openai_chat.call_args.args[0]
   self.assertIn('GENERATE A NEW IMAGE',messages[0]['content'])
   self.assertIn('NOT be sent',messages[0]['content'])
@@ -195,17 +195,6 @@ class SingleImageTests(unittest.TestCase):
   path=core.folder(self.app)/(original['id']+'.json');stored=json.loads(path.read_text());stored['status']='done';stored.pop('inputs');core.write(path,stored)
   with self.assertRaises(roundup.Problem) as error:s.regenerate(self.app,request,'owner')
   self.assertIn('Ảnh cũ',str(error.exception))
- def test_iphone_camera_in_visible_prompt_and_all_generations(self):
-  result=s.analyze(self.app,self.body)
-  camera=result['prompt'].split('2. ',1)[1].split('3. ',1)[0]
-  self.assertIn('Shot on iPhone',camera)
-  self.assertEqual(s.iphone_prompt(result['prompt']),result['prompt'])
-  for provider in s.PROVIDERS:
-   job={'id':self.body['request_id'],'provider':provider,'aspect':'4:3'}
-   s.run(self.app,job,[],'Old rules','Create a photograph using a DSLR.')
-   final=self.app.gen_shot.call_args.args[1]
-   self.assertIn('CAMERA REQUIREMENT (takes priority',final)
-   self.assertIn(s.IPHONE_CAMERA,final)
  def test_validation(self):
   for change in ({'files':{}},{'kol':'bad'},{'shirts':'male'},{'male_position':'bad'},{'environment_description':None},{'environment_description':'x'*3001},{'accessories':['zip','zip']}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)

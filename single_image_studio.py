@@ -5,15 +5,6 @@ import choly_studio as core
 import roundup
 
 PROMPT_OPENING='Create an extremely realistic image (ultra-realistic).'
-IPHONE_CAMERA='Shot on iPhone — iPhone lifestyle photography, natural handheld smartphone framing, realistic available light and authentic skin and material texture.'
-
-def iphone_prompt(text):
-    # Ensure the visible camera section always includes the requested capture style.
-    pattern=r'(^\s*(?:#{1,6}\s*)?(?:\*\*)?2[.)]\s+[^\n]*\n?)(.*?)(?=^\s*(?:#{1,6}\s*)?(?:\*\*)?3[.)]\s+|\Z)'
-    if IPHONE_CAMERA not in text:
-        text=re.sub(pattern,lambda m:m.group(1).rstrip()+'\n'+IPHONE_CAMERA+'\n'+m.group(2),text,count=1,flags=re.M|re.S)
-    return text
-
 REFUSAL_MESSAGE='ChatGPT đã từ chối yêu cầu này và chưa tạo prompt. Không có ảnh nào được tạo. Hãy kiểm tra ảnh tham chiếu và nội dung yêu cầu; phản hồi hiện tại không nêu lý do cụ thể.'
 def is_refusal(text):
     return isinstance(text,str) and bool(re.search(r"(?:I(?:['’]m| am) sorry[,.]?\s*)?I\s+(?:can(?:not|['’]t)|am unable to|['’]m unable to)\s+(?:assist|help|comply|fulfill|provide|create|generate)|I must decline|I have to decline|tôi không thể (?:hỗ trợ|giúp|thực hiện)",text,re.I))
@@ -142,7 +133,7 @@ def analyze(app,body):
 Return ONLY a detailed plain-text English prompt, NOT JSON, without code fences or commentary. Begin with: Create an extremely realistic image (ultra-realistic).
 Use these eleven numbered sections, with 2–4 concrete sentences per section where useful:
 1. Subject: describe each selected KOL's visible facial features, hair, expression and build from the identity assets, assigned to the correct person. If no KOL is selected, follow the selected people mode.
-2. Camera Angle / Framing: camera height, crop, subject positions, perspective. Always explicitly state Shot on iPhone and iPhone lifestyle photography. This is the requested output camera, regardless of the source camera. Never specify DSLR, mirrorless, film cameras, other phone brands or unsupported exact focal lengths.
+2. Camera Angle / Framing: camera height, crop, subject positions, perspective; iPhone lifestyle photography.
 3. Clothing: visually describe each selected shirt's actual color, material, cut, fit, artwork and print placement, with the correct wearer; do not merely say 'use uploaded shirt'. Other visible outfit pieces follow the scene reference.
 4. Pose: visible body positions, gaze, hands and contact with props.
 5. Environment: describe the final setting and selected packaging, including appearance, material, position and scale.
@@ -154,7 +145,7 @@ Use these eleven numbered sections, with 2–4 concrete sentences per section wh
 11. Aspect Ratio: the supplied output ratio.
 The first analysis image is the scene reference, NOT generation image #1. All later analysis images correspond in order to generation images #1, #2, etc. Never refer to the scene reference as a supplied generation image."""
     prompt=core.chatgpt_vision(app,formula,f'Scene size: {width}×{height}. Required output Aspect Ratio: {aspect}. Adapt framing to this output ratio while keeping all key subjects and product details in frame; do not force the source crop.\nGeneration assets and requirements:\n'+rules,[source[0]]+[raw for raw,mime in refs],max_tokens=4500)
-    return {'prompt':iphone_prompt(verify_prompt(prompt,structured=True)),'format':'text','mode':'generate_new_image'}
+    return {'prompt':verify_prompt(prompt,structured=True),'format':'text','mode':'generate_new_image'}
 
 def generate(app,body,owner):
     spec=validate(body,True);jid=body.get('request_id','')
@@ -210,7 +201,7 @@ def run(app,job,refs,rules,prompt):
             ratio=re.search(r'(?:Aspect Ratio|Tỉ lệ)\s*:\s*(\d+\s*:\s*\d+)',prompt,re.I)
             aspect=re.sub(r'\s','',ratio.group(1)) if ratio else ''
         if aspect not in ASPECTS:aspect=''
-        final=rules+'\n\n'+prompt+'\nCAMERA REQUIREMENT (takes priority over any conflicting camera or device in the prompt): '+IPHONE_CAMERA+' Use the iPhone capture style even for regenerated images. Preserve the requested composition; do not invent artificial portrait blur or change the pose to show a phone.'
+        final=rules+'\n\n'+prompt
         if aspect:final+='\nOUTPUT FORMAT (takes priority over any ratio in the prompt): '+aspect+'. Compose for this frame; keep faces, shirts, prints and selected packaging fully within the frame.'
         core.write(core.folder(app)/(job['id']+'-0.audit.json'),dict(mode='generate_new_image',prompt=final,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
         size=('1024x1024' if ASPECTS[aspect]==1 else '1536x1024' if ASPECTS[aspect]>1 else '1024x1536') if aspect else 'auto'
