@@ -1,6 +1,6 @@
 """One reference → editable photography prompt → one finished image."""
 import re, base64, hashlib, io, json, threading, time
-from PIL import Image
+from PIL import Image, ImageOps
 import choly_studio as core
 import roundup
 
@@ -60,10 +60,12 @@ def validate(body, generating=False):
     if not isinstance(environment_description,str) or len(environment_description)>3000:raise roundup.Problem('Mô tả bối cảnh tối đa 3000 ký tự.')
     prompt=body.get('prompt','')
     if not isinstance(prompt,str) or len(prompt)>24000 or (generating and not prompt.strip()):raise roundup.Problem('Tạo hoặc nhập prompt trước khi tạo ảnh (tối đa 24000 ký tự).')
+    aspect=body.get('aspect','auto')
+    if not isinstance(aspect,str) or (aspect!='auto' and aspect not in ASPECTS):raise roundup.Problem('Tỉ lệ ảnh không hợp lệ.')
     provider=body.get('provider','gemini_pro')
     if provider not in PROVIDERS:raise roundup.Problem('Model tạo ảnh không hợp lệ.')
     if generating:prompt=verify_prompt(prompt)
-    return dict(provider=provider,files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
+    return dict(aspect=aspect,provider=provider,files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
 
 def references(spec):
     # The scene reference is for ChatGPT analysis only; it must never reach generation.
@@ -108,7 +110,7 @@ def analyze(app,body):
     spec=validate(body);refs,rules=references(spec)
     source=roundup.uploaded_image(spec['files']['reference'])
     with Image.open(io.BytesIO(source[0])) as im:width,height=im.size
-    aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-width/height))
+    aspect=spec['aspect'] if spec['aspect']!='auto' else min(ASPECTS,key=lambda a:abs(ASPECTS[a]-width/height))
     formula="""You are a photography prompt writer. Analyze the first image as visual evidence, then write a self-contained English text prompt to GENERATE A NEW IMAGE, not edit or modify that photograph. The scene reference will NOT be sent to the image generator. Describe the desired final scene completely: subject count and positions, visible pose and hand-object contact, framing, environment, available light, textures and photographic style. Do not write edit commands, 'replace source', 'keep image #1', or depend on an unseen base photograph. Do not transcribe source overlay text. Qualify uncertainty; never infer ethnicity. Apply the selected KOL, shirt, packaging and environment requirements. For new-person mode describe new fictional adult faces; for flatlay omit humans entirely. Keep selected uploaded shirts and packaging exact. Describe all other visible clothing and worn accessories from the scene reference as the final outfit, without requiring restyling. Uploaded shirts override only the corresponding source shirts; never substitute clothing from a KOL identity portrait.
 Return ONLY a detailed plain-text English prompt, NOT JSON, without code fences or commentary. Begin with: Create an extremely realistic image (ultra-realistic).
 Use these eleven numbered sections, with 2–4 concrete sentences per section where useful:
@@ -124,7 +126,7 @@ Use these eleven numbered sections, with 2–4 concrete sentences per section wh
 10. Negative Prompt: unwanted overlays, watermarks, distorted anatomy, swapped faces, incorrect artwork, extra limbs and artifacts.
 11. Aspect Ratio: the supplied output ratio.
 The first analysis image is the scene reference, NOT generation image #1. All later analysis images correspond in order to generation images #1, #2, etc. Never refer to the scene reference as a supplied generation image."""
-    prompt=core.chatgpt_vision(app,formula,f'Scene size: {width}×{height}. Use aspect_ratio: {aspect}.\nGeneration assets and requirements:\n'+rules,[source[0]]+[raw for raw,mime in refs],max_tokens=4500)
+    prompt=core.chatgpt_vision(app,formula,f'Scene size: {width}×{height}. Required output Aspect Ratio: {aspect}. Adapt framing to this output ratio while keeping all key subjects and product details in frame; do not force the source crop.\nGeneration assets and requirements:\n'+rules,[source[0]]+[raw for raw,mime in refs],max_tokens=4500)
     return {'prompt':verify_prompt(prompt,structured=True),'format':'text','mode':'generate_new_image'}
 
 def generate(app,body,owner):
@@ -142,7 +144,7 @@ def generate(app,body,owner):
         refs,rules=references(spec)
         with Image.open(io.BytesIO(roundup.uploaded_image(spec['files']['reference'])[0])) as im:
             source_aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-im.width/im.height))
-        job=dict(aspect=source_aspect,id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
+        job=dict(aspect=spec['aspect'] if spec['aspect']!='auto' else source_aspect,id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
         core.write(path,job);core.LIVE.add(jid)
         threading.Thread(target=run,args=(app,job,refs,rules,spec['prompt']),daemon=True).start()
         return core.public(job)
@@ -153,16 +155,23 @@ def run(app,job,refs,rules,prompt):
         prompt=verify_prompt(prompt)
         provider=job.get('provider','gemini_pro');label,model,key=PROVIDERS[provider]
         if not getattr(app,key,''):raise roundup.Problem('Chưa cấu hình '+key,503)
-        ratio=re.search(r'(?:Aspect Ratio|Tỉ lệ)\s*:\s*(\d+\s*:\s*\d+)',prompt,re.I)
-        aspect=re.sub(r'\s','',ratio.group(1)) if ratio else job.get('aspect','')
-        if aspect not in ASPECTS:aspect=job.get('aspect','')
+        aspect=job.get('aspect','')
+        if aspect not in ASPECTS:
+            ratio=re.search(r'(?:Aspect Ratio|Tỉ lệ)\s*:\s*(\d+\s*:\s*\d+)',prompt,re.I)
+            aspect=re.sub(r'\s','',ratio.group(1)) if ratio else ''
         if aspect not in ASPECTS:aspect=''
         final=rules+'\n\n'+prompt
+        if aspect:final+='\nOUTPUT FORMAT (takes priority over any ratio in the prompt): '+aspect+'. Compose for this frame; keep faces, shirts, prints and selected packaging fully within the frame.'
         core.write(core.folder(app)/(job['id']+'-0.audit.json'),dict(mode='generate_new_image',prompt=final,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
-        b64=app.gen_shot(refs,final,'auto',provider,aspect,gem_model=model if provider=='gemini_pro' else '',lock=False,quality='high')
+        size=('1024x1024' if ASPECTS[aspect]==1 else '1536x1024' if ASPECTS[aspect]>1 else '1024x1536') if aspect else 'auto'
+        b64=app.gen_shot(refs,final,size,provider,aspect,gem_model=model if provider=='gemini_pro' else '',lock=False,quality='high')
         raw=base64.b64decode(b64)
         with Image.open(io.BytesIO(raw)) as im:
-            im.load();output=io.BytesIO();im.save(output,'PNG')
+            im.load()
+            if aspect:
+                aw,ah=map(int,aspect.split(':'));unit=min(im.width//aw,im.height//ah)
+                if unit>0 and im.width*ah!=im.height*aw:im=ImageOps.fit(im,(unit*aw,unit*ah),method=Image.Resampling.LANCZOS)
+            output=io.BytesIO();im.save(output,'PNG')
         filename=job['id']+'-0.png';(core.folder(app)/filename).write_bytes(output.getvalue())
         with core.LOCK:
             job.update(status='done',note='Ảnh đã hoàn thiện.',items=[dict(index=0,filename=filename,prompt=prompt,image='/api/choly-studio/result?id='+job['id']+'&index=0')]);core.write(path,job)

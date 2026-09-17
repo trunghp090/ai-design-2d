@@ -125,6 +125,29 @@ class SingleImageTests(unittest.TestCase):
   for body in ({'slot':'reference','image':self.data(self.source)},{'slot':'../../outside','image':None},{'slot':'kol','image':'bad'},{'slot':'kol','image':'x'*4500001}):
    with self.assertRaises(roundup.Problem):s.saved_faces(self.app,'owner',body)
   self.assertEqual(s.saved_faces(self.app,'owner')['files']['kol'],self.data(self.asset))
+ def test_selected_aspect_reaches_prompt_provider_and_output(self):
+  for aspect in s.ASPECTS:
+   body={**self.body,'aspect':aspect}
+   s.analyze(self.app,body)
+   self.assertIn('Required output Aspect Ratio: '+aspect,self.app.openai_chat.call_args.args[0][1]['content'][0]['text'])
+   job={'id':self.body['request_id'],'provider':'gemini_pro','aspect':aspect}
+   # Existing editable prompt says 4:3; the selector must override it.
+   s.run(self.app,job,[],'Create a new photo',self.prompt)
+   self.assertEqual(job['status'],'done')
+   self.assertEqual(self.app.gen_shot.call_args.args[4],aspect)
+   self.assertIn('takes priority over any ratio in the prompt): '+aspect,self.app.gen_shot.call_args.args[1])
+   aw,ah=map(int,aspect.split(':'))
+   with Image.open(core.folder(self.app)/job['items'][0]['filename']) as image:self.assertEqual(image.width*ah,image.height*aw)
+ def test_aspect_is_frozen_in_job_and_idempotency(self):
+  with patch.object(s.threading,'Thread'):
+   job=s.generate(self.app,{**self.body,'aspect':'9:16'},'owner')
+   self.assertEqual(job['aspect'],'9:16')
+   with self.assertRaises(roundup.Problem):s.generate(self.app,{**self.body,'aspect':'1:1'},'owner')
+ def test_auto_aspect_uses_reference_and_invalid_values_rejected(self):
+  with patch.object(s.threading,'Thread'):
+   self.assertEqual(s.generate(self.app,self.body,'owner')['aspect'],'4:3')
+  for aspect in ('bad','0:0',None,[],{}):
+   with self.assertRaises(roundup.Problem):s.validate({**self.body,'aspect':aspect})
  def test_validation(self):
   for change in ({'files':{}},{'kol':'bad'},{'shirts':'male'},{'male_position':'bad'},{'environment_description':None},{'environment_description':'x'*3001},{'accessories':['zip','zip']}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)

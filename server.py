@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.17-saved-faces"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.17-reference-aspect"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
