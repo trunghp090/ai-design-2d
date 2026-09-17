@@ -107,6 +107,24 @@ class SingleImageTests(unittest.TestCase):
   job={'id':self.body['request_id'],'provider':'gemini_pro'}
   s.run(self.app,job,[], 'Generate new',self.prompt)
   self.assertEqual(job['status'],'failed');self.app.gen_shot.assert_called_once()
+ def test_saved_faces_persist_independent_slots_and_accounts(self):
+  s.saved_faces(self.app,'owner',{'slot':'kol_male','image':self.data(self.source)})
+  s.saved_faces(self.app,'owner',{'slot':'kol_female','image':self.data(self.asset)})
+  # A fresh application instance reads the same account's persistent data.
+  fresh=SimpleNamespace(DATA_DIR=self.tmp.name)
+  saved=s.saved_faces(fresh,'owner')
+  self.assertEqual(saved['kol'],'couple')
+  self.assertEqual(saved['files'],{'kol_male':self.data(self.source),'kol_female':self.data(self.asset)})
+  self.assertEqual(s.saved_faces(fresh,'other')['files'],{})
+  s.saved_faces(fresh,'owner',{'slot':'kol','image':self.data(self.asset)})
+  self.assertEqual(s.saved_faces(fresh,'owner')['kol'],'upload')
+  s.saved_faces(fresh,'owner',{'slot':'kol_male','image':None})
+  self.assertEqual(set(s.saved_faces(fresh,'owner')['files']),{'kol','kol_female'})
+ def test_bad_face_upload_preserves_previous_saved_face(self):
+  s.saved_faces(self.app,'owner',{'slot':'kol','image':self.data(self.asset)})
+  for body in ({'slot':'reference','image':self.data(self.source)},{'slot':'../../outside','image':None},{'slot':'kol','image':'bad'},{'slot':'kol','image':'x'*4500001}):
+   with self.assertRaises(roundup.Problem):s.saved_faces(self.app,'owner',body)
+  self.assertEqual(s.saved_faces(self.app,'owner')['files']['kol'],self.data(self.asset))
  def test_validation(self):
   for change in ({'files':{}},{'kol':'bad'},{'shirts':'male'},{'male_position':'bad'},{'environment_description':None},{'environment_description':'x'*3001},{'accessories':['zip','zip']}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)

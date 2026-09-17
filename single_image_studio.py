@@ -20,6 +20,25 @@ def verify_prompt(text,structured=False):
 ASPECTS={'1:1':1,'4:5':.8,'2:3':2/3,'3:4':.75,'9:16':9/16,'3:2':1.5,'4:3':4/3,'16:9':16/9}
 PROVIDERS={'openai_25':('GPT Image 2.5','gpt-image-2.5-sunburst','API_KEY'),'gemini_pro':('Nano Banana Pro','gemini-3-pro-image-preview','GEMINI_API_KEY')}
 
+def saved_faces(app,owner,body=None):
+    directory=core.folder(app)/'saved-faces';directory.mkdir(exist_ok=True)
+    path=directory/(hashlib.sha256(owner.encode()).hexdigest()+'.json')
+    with core.LOCK:
+        saved=json.loads(path.read_text()) if path.exists() else {'files':{},'kol':'upload'}
+        if body is not None:
+            if not isinstance(body,dict) or body.get('slot') not in ('kol','kol_male','kol_female'):
+                raise roundup.Problem('Vị trí khuôn mặt không hợp lệ.')
+            slot=body['slot'];data=body.get('image')
+            if data is None:
+                saved['files'].pop(slot,None)
+            else:
+                if not isinstance(data,str) or len(data)>4500000:raise roundup.Problem('Ảnh khuôn mặt quá lớn.')
+                raw,mime=roundup.uploaded_image(data)
+                saved['files'][slot]='data:'+mime+';base64,'+base64.b64encode(raw).decode()
+                saved['kol']='upload' if slot=='kol' else 'couple'
+            core.write(path,saved)
+        return saved
+
 def validate(body, generating=False):
     if not isinstance(body,dict):raise roundup.Problem('Dữ liệu không hợp lệ.')
     files=body.get('files',{})
