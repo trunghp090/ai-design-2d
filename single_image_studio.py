@@ -162,9 +162,32 @@ def generate(app,body,owner):
         refs,rules=references(spec)
         with Image.open(io.BytesIO(roundup.uploaded_image(spec['files']['reference'])[0])) as im:
             source_aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-im.width/im.height))
-        job=dict(aspect=spec['aspect'] if spec['aspect']!='auto' else source_aspect,id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
+        job=dict(can_regenerate=True,inputs={'refs':[{'data':base64.b64encode(raw).decode(),'mime':mime} for raw,mime in refs],'rules':rules,'prompt':spec['prompt']},aspect=spec['aspect'] if spec['aspect']!='auto' else source_aspect,id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
         core.write(path,job);core.LIVE.add(jid)
         threading.Thread(target=run,args=(app,job,refs,rules,spec['prompt']),daemon=True).start()
+        return core.public(job)
+
+def regenerate(app,body,owner):
+    if not isinstance(body,dict):raise roundup.Problem('Dữ liệu không hợp lệ.')
+    jid=body.get('request_id','')
+    if not core.re.fullmatch(r'[a-f0-9-]{36}',str(jid)):raise roundup.Problem('Mã yêu cầu không hợp lệ.')
+    with core.LOCK:
+        original=core.read(app,body.get('source_id',''),owner)
+        inputs=original.get('inputs')
+        if not inputs:raise roundup.Problem('Ảnh cũ chưa lưu đầu vào để tạo lại. Hãy tải ảnh đầu vào và dùng nút Tạo ảnh mới.',409)
+        if original['status']=='running':raise roundup.Problem('Đợi ảnh hiện tại hoàn tất trước khi tạo lại.',409)
+        digest=hashlib.sha256(('regenerate:'+original['id']).encode()).hexdigest()
+        path=core.folder(app)/(jid+'.json')
+        if path.exists():
+            previous=core.read(app,jid,owner)
+            if previous['digest']!=digest:raise roundup.Problem('Mã yêu cầu đã dùng cho nội dung khác.',409)
+            return core.public(previous)
+        provider=original['provider'];label,model,key=PROVIDERS[provider]
+        if not getattr(app,key,''):raise roundup.Problem('Chưa cấu hình '+key,503)
+        refs=[(base64.b64decode(r['data']),r['mime']) for r in inputs['refs']]
+        job=dict(id=jid,owner=owner,digest=digest,mode='single',provider=provider,model=model,aspect=original['aspect'],source_id=original['id'],can_regenerate=True,inputs=inputs,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo lại ảnh…')
+        core.write(path,job);core.LIVE.add(jid)
+        threading.Thread(target=run,args=(app,job,refs,inputs['rules'],inputs['prompt']),daemon=True).start()
         return core.public(job)
 
 def run(app,job,refs,rules,prompt):

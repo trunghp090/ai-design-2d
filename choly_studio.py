@@ -269,6 +269,9 @@ def route(app,h,path,body=None):
         if action=='single-faces':
             import single_image_studio
             result=single_image_studio.saved_faces(app,owner,body)
+        elif action=='single-regenerate' and body is not None:
+            import single_image_studio
+            result=single_image_studio.regenerate(app,body,owner)
         elif action in ('single-prompt','single-generate') and body is not None:
             import single_image_studio
             result=single_image_studio.analyze(app,body) if action=='single-prompt' else single_image_studio.generate(app,body,owner)

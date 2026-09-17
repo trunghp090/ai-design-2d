@@ -1,5 +1,5 @@
 (()=>{
-const $=id=>document.getElementById(id),files={};let busy=false,requestId=null,timer;
+const $=id=>document.getElementById(id),files={};let busy=false,requestId=null,timer,resultJob=null,retryId=null;
 const assets=[['zip','Túi zip','rieng-zip.png'],['box','Hộp','kraft-box.png'],['tag','Tag cảm ơn','rieng-tag.png']];
 $('packaging').innerHTML=assets.map(([key,name,asset])=>`<div class="asset"><label><input type="checkbox" data-accessory="${key}">${name}</label><div class="preview"><img id="preview-${key}" src="/roundup-references/${asset}" alt="${name}"></div><input type="file" accept="image/*" data-file="${key}" aria-label="Tải ảnh ${name}"><button type="button" class="reset" data-reset="${key}">Dùng mẫu đã lưu</button></div>`).join('');
 function status(message,error=false){$('status').textContent=message;$('status').classList.toggle('error',error);}
@@ -48,8 +48,18 @@ $('provider').onchange=()=>{requestId=null;};
 $('aspect').onchange=()=>{requestId=null;status('Đã đổi tỉ lệ ảnh. Lần tạo ảnh tiếp theo sẽ dùng tỉ lệ vừa chọn.');};
 $('prompt').oninput=()=>{requestId=null;$('generate').disabled=busy||!files.reference||!usablePrompt();};
 $('analyze').onclick=async()=>{if(busy)return;if(!files.reference){status('Tải một ảnh tham chiếu trước.',true);return;}$('prompt').value='';requestId=null;lock(true);status('ChatGPT đang đọc ảnh và viết prompt văn bản tạo ảnh mới…');try{checkShirts();const result=await api('single-prompt',payload());if(refused(result.prompt))throw Error('ChatGPT đã từ chối yêu cầu; chưa tạo prompt hoặc ảnh.');$('prompt').value=result.prompt;requestId=null;status('Prompt đã sẵn sàng. Bạn có thể chỉnh sửa rồi tạo ảnh.');}catch(e){status(e.message,true);}finally{lock(false);}};
-function show(job){status(job.error||job.note,!!job.error);if(job.items?.length){const image=job.items[0].image;$('output').src=image;$('output').hidden=false;$('empty-result').hidden=true;$('download').href=image;$('download').hidden=false;}}
+function show(job){if(job.items?.length){if(resultJob?.id!==job.id)retryId=null;resultJob=job;$('regenerate').hidden=false;$('regenerate-note').hidden=false;$('regenerate-note').textContent=job.can_regenerate?'Tạo một phiên bản mới từ cùng prompt, KOL, áo, bao bì, model và tỉ lệ.':'Ảnh cũ chưa lưu đầu vào. Có thể tạo lại bằng thiết lập hiện có nếu bạn chưa tải lại trang.';}status(job.error||job.note,!!job.error);if(job.items?.length){const image=job.items[0].image;$('output').src=image;$('output').hidden=false;$('empty-result').hidden=true;$('download').href=image;$('download').hidden=false;}}
 async function poll(id){clearTimeout(timer);try{const job=await api('job?id='+encodeURIComponent(id));show(job);if(job.status==='running'){lock(true);timer=setTimeout(()=>poll(id),2500);}else{sessionStorage.removeItem('single-image-job');requestId=null;lock(false);}}catch(e){status(e.message+' Đang kết nối lại…',true);timer=setTimeout(()=>poll(id),5000);}}
 $('generate').onclick=async()=>{if(busy)return;if(!files.reference||!usablePrompt()){status('Tải ảnh và tạo prompt trước.',true);return;}lock(true);requestId=requestId||crypto.randomUUID();status('Đang tạo ảnh mới bằng '+$('provider').selectedOptions[0].textContent+'…');try{checkShirts();const job=await api('single-generate',payload());sessionStorage.setItem('single-image-job',job.id);await poll(job.id);}catch(e){status(e.message,true);lock(false);}};
+$('regenerate').onclick=async()=>{
+ if(busy||!resultJob)return;
+ if(!resultJob.can_regenerate){
+  if(files.reference&&usablePrompt()){await $('generate').onclick();return;}
+  status('Ảnh cũ chưa lưu đầu vào để tạo lại. Hãy tải ảnh đầu vào và dùng nút Tạo ảnh mới.',true);return;
+ }
+ lock(true);retryId=retryId||crypto.randomUUID();status('Đang tạo lại ảnh với thiết lập của ảnh hoàn thiện…');
+ try{const job=await api('single-regenerate',{source_id:resultJob.id,request_id:retryId});sessionStorage.setItem('single-image-job',job.id);await poll(job.id);retryId=null;}
+ catch(e){status(e.message,true);lock(false);}
+};
 (async()=>{lock(true);try{const saved=await api('single-faces');renderFaceLibrary(saved);for(const [key,data] of Object.entries(saved.files||{})){if(!['kol','kol_male','kol_female'].includes(key))continue;files[key]=data;$('preview-'+key).src=data;$('preview-'+key).hidden=false;}if(Object.keys(saved.files||{}).length){$('kol').value=saved.kol==='couple'?'couple':'upload';$('face-save-note').textContent='✓ Đã khôi phục khuôn mặt bạn lưu lần trước.';}updateKol();}catch(e){$('face-save-note').textContent='Chưa tải được khuôn mặt đã lưu: '+e.message;}finally{lock(false);}try{const jobs=(await api('history')).jobs.filter(j=>j.mode==='single');const latest=jobs[0];if(latest)show(latest);const active=jobs.find(j=>j.status==='running');if(active)await poll(active.id);}catch(e){status(e.message,true);}})();
 })();

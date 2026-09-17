@@ -172,6 +172,29 @@ class SingleImageTests(unittest.TestCase):
   saved=s.saved_faces(self.app,'owner',{'slot':'kol','image':self.data(self.source)})
   self.assertEqual(len(saved['library']),2)
   self.assertTrue(all(f['thumbnail'].startswith('data:image/jpeg;base64,') for f in saved['library']))
+ def test_regenerate_uses_frozen_inputs_and_new_job_without_overwriting_original(self):
+  body={**self.body,'kol':'upload','files':{**self.body['files'],'kol':self.data(self.asset)}}
+  with patch.object(s.threading,'Thread'):
+   original=s.generate(self.app,body,'owner')
+  path=core.folder(self.app)/(original['id']+'.json')
+  stored=json.loads(path.read_text());stored['status']='done';core.write(path,stored)
+  request={'source_id':original['id'],'request_id':'33333333-3333-3333-3333-333333333333'}
+  with patch.object(s,'references',side_effect=AssertionError('Must use frozen references')),patch.object(s.threading,'Thread') as thread:
+   result=s.regenerate(self.app,request,'owner');s.regenerate(self.app,request,'owner')
+   self.assertEqual(thread.call_count,1)
+   args=thread.call_args.kwargs['args'];self.assertEqual(args[2][0][0],self.asset);self.assertEqual(args[4],self.prompt)
+  self.assertNotEqual(result['id'],original['id']);self.assertEqual(result['aspect'],original['aspect'])
+  self.assertNotIn('inputs',result);self.assertNotIn('inputs',original)
+  self.assertEqual(json.loads(path.read_text()),stored)
+  with self.assertRaises(roundup.Problem):s.regenerate(self.app,request,'other')
+ def test_regenerate_rejects_running_and_legacy_images(self):
+  with patch.object(s.threading,'Thread'):
+   original=s.generate(self.app,self.body,'owner')
+  request={'source_id':original['id'],'request_id':'33333333-3333-3333-3333-333333333333'}
+  with self.assertRaises(roundup.Problem):s.regenerate(self.app,request,'owner')
+  path=core.folder(self.app)/(original['id']+'.json');stored=json.loads(path.read_text());stored['status']='done';stored.pop('inputs');core.write(path,stored)
+  with self.assertRaises(roundup.Problem) as error:s.regenerate(self.app,request,'owner')
+  self.assertIn('Ảnh cũ',str(error.exception))
  def test_validation(self):
   for change in ({'files':{}},{'kol':'bad'},{'shirts':'male'},{'male_position':'bad'},{'environment_description':None},{'environment_description':'x'*3001},{'accessories':['zip','zip']}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)
