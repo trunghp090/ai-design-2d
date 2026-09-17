@@ -11,14 +11,10 @@ def is_refusal(text):
 def verify_prompt(text,structured=False):
     if is_refusal(text):raise roundup.Problem(REFUSAL_MESSAGE,422)
     if not isinstance(text,str) or not text.strip():raise roundup.Problem('ChatGPT chưa trả prompt. Không có ảnh nào được tạo.',502)
+    text=re.sub(r'^```[^\n]*\n|\n```$', '', text.strip()).strip()
     if structured:
-        try: data=json.loads(text)
-        except (ValueError,TypeError):raise roundup.Problem('Prompt phải là JSON hợp lệ. Hãy tạo lại prompt JSON.',422)
-        if not isinstance(data,dict) or data.get('task')!='generate_new_image':raise roundup.Problem('JSON cần task: generate_new_image để tạo ảnh mới.',422)
-        for key in ('subject','composition','clothing','pose','environment','lighting','camera','style','constraints','aspect_ratio'):
-            if not isinstance(data.get(key),str) or not data[key].strip():raise roundup.Problem('JSON thiếu mục '+key+'.',422)
-        if data['aspect_ratio'] not in ASPECTS:raise roundup.Problem('Tỉ lệ trong JSON không được hỗ trợ.',422)
-        return json.dumps(data,ensure_ascii=False,indent=2)
+        sections=re.findall(r'^\s*(?:#{1,6}\s*)?(?:\*\*)?(\d{1,2})[.)]\s+',text,re.M)
+        if sections!=[str(n) for n in range(1,12)]:raise roundup.Problem('ChatGPT chưa trả đủ 11 mục mô tả. Hãy tạo lại prompt.',502)
     return text.strip()
 
 ASPECTS={'1:1':1,'4:5':.8,'2:3':2/3,'3:4':.75,'9:16':9/16,'3:2':1.5,'4:3':4/3,'16:9':16/9}
@@ -47,12 +43,12 @@ def validate(body, generating=False):
     if not isinstance(prompt,str) or len(prompt)>24000 or (generating and not prompt.strip()):raise roundup.Problem('Tạo hoặc nhập prompt trước khi tạo ảnh (tối đa 24000 ký tự).')
     provider=body.get('provider','gemini_pro')
     if provider not in PROVIDERS:raise roundup.Problem('Model tạo ảnh không hợp lệ.')
-    if generating:prompt=verify_prompt(prompt,structured=True)
+    if generating:prompt=verify_prompt(prompt)
     return dict(provider=provider,files=files,accessories=sorted(selected),kol=kol,male_position=male_position,shirts=shirts,environment_description=environment_description.strip(),prompt=prompt.strip())
 
 def references(spec):
     # The scene reference is for ChatGPT analysis only; it must never reach generation.
-    refs=[];rules=['Create a NEW photograph from the JSON scene description. No base photo is supplied. Do not edit any supplied asset into a scene; use each only for its assigned role.']
+    refs=[];rules=['Create a NEW photograph from the written scene description. No base photo is supplied. Do not edit any supplied asset into a scene; use each only for its assigned role.']
     def add(asset,role):
         refs.append(asset);rules.append(f'Image #{len(refs)}: '+role)
     kol=spec['kol']
@@ -75,16 +71,16 @@ def references(spec):
         add(asset,'KOL IDENTITY ONLY for the corresponding subject. Match face and hair, not portrait clothes or background.')
     elif kol=='flatlay':rules.append('FLATLAY / OBJECT-ONLY MODE: no people, faces, hands, bodies, mannequins or human reflections. Shirt gender labels do not add wearers.')
     elif kol=='new':rules.append('NEW FICTIONAL PEOPLE MODE: distinct new fictional adult identities, no source face or saved KOL identity.')
-    else:rules.append('Use the people described in the JSON. No source photograph or exact face reference is supplied.')
+    else:rules.append('Use the people described in the prompt. No source photograph or exact face reference is supplied.')
     roles=('male','female') if spec['shirts']=='both' else () if spec['shirts']=='none' else (spec['shirts'],)
     for role in roles:
         add(roundup.uploaded_image(spec['files']['shirt_'+role]),f'{role.upper()} SHIRT PRODUCT ONLY. Preserve the exact supplied color, fabric, cut, print placement, artwork, logos and physical lettering including Vietnamese accents. Assign to the corresponding wearer or flatlay product. Never swap shirts, mirror lettering or transfer front print to back; ignore product model and background.')
-    rules.append('CLOTHING: selected uploaded shirts stay unchanged and unobstructed, taking priority over the corresponding shirt seen in the scene reference. For all other visible clothing, footwear, bags and worn accessories, describe the outfit seen in the scene reference as the desired final outfit; no outfit change is required. If no shirt is selected for a wearer, describe that wearer’s original visible shirt too. Do not impose a skirt, jeans, new colors or different garment cuts. Describe those visible items concretely in the JSON so generation does not depend on seeing the scene reference. Describe only visible portions; no added limbs or clothing props in object-only scenes. Keep bag shape, straps and hand contact physically consistent.')
+    rules.append('CLOTHING: selected uploaded shirts stay unchanged and unobstructed, taking priority over the corresponding shirt seen in the scene reference. For all other visible clothing, footwear, bags and worn accessories, describe the outfit seen in the scene reference as the desired final outfit; no outfit change is required. If no shirt is selected for a wearer, describe that wearer’s original visible shirt too. Do not impose a skirt, jeans, new colors or different garment cuts. Describe those visible items concretely in the prompt so generation does not depend on seeing the scene reference. Describe only visible portions; no added limbs or clothing props in object-only scenes. Keep bag shape, straps and hand contact physically consistent.')
     for key in spec['accessories']:
         asset,label=core.ACCESSORIES[key]
         add(roundup.uploaded_image(spec['files'][key]) if key in spec['files'] else ((core.ROOT/'public/roundup-references'/asset).read_bytes(),'image/png'),f'{label} PACKAGING ONLY. Preserve exact shape, material, physical print and branding; realistic scale, placement, perspective and contact shadows. Never transfer artwork to clothing.')
     if spec['files'].get('environment'):
-        add(roundup.uploaded_image(spec['files']['environment']),'ENVIRONMENT REFERENCE ONLY. Use setting, furniture, palette and light; do not copy people, clothes, products or overlay text. Match the JSON camera and subject placement.')
+        add(roundup.uploaded_image(spec['files']['environment']),'ENVIRONMENT REFERENCE ONLY. Use setting, furniture, palette and light; do not copy people, clothes, products or overlay text. Match the described camera and subject placement.')
     if spec['environment_description']:rules.append('USER ENVIRONMENT DESCRIPTION (takes precedence over environment image): '+spec['environment_description'])
     rules.append('One natural ultra-realistic photograph, iPhone lifestyle photography, realistic skin and material textures. No overlay text, watermarks or collage. Preserve physical product lettering only.')
     return refs,'\n'.join(rules)
@@ -94,10 +90,23 @@ def analyze(app,body):
     source=roundup.uploaded_image(spec['files']['reference'])
     with Image.open(io.BytesIO(source[0])) as im:width,height=im.size
     aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-width/height))
-    formula="""You are a photography prompt writer. Analyze the first image as visual evidence, then write a self-contained JSON prompt to GENERATE A NEW IMAGE, not edit or modify that photograph. The scene reference will NOT be sent to the image generator. Describe the desired final scene completely: subject count and positions, visible pose and hand-object contact, framing, environment, available light, textures and photographic style. Do not write edit commands, 'replace source', 'keep image #1', or depend on an unseen base photograph. Do not transcribe source overlay text. Qualify uncertainty; never infer ethnicity. Apply the selected KOL, shirt, packaging and environment requirements. For new-person mode describe new fictional adult faces; for flatlay omit humans entirely. Keep selected uploaded shirts and packaging exact. Describe all other visible clothing and worn accessories from the scene reference as the final outfit, without requiring restyling. Uploaded shirts override only the corresponding source shirts; never substitute clothing from a KOL identity portrait.
-Return ONLY a valid JSON object without fences or commentary, with task='generate_new_image' and nonempty English string fields: subject, composition, clothing, pose, environment, lighting, camera, style, constraints, aspect_ratio. Give detailed final-state descriptions, 2–4 sentences where useful. Include iPhone lifestyle photography in camera and style. In constraints describe asset assignments using GENERATION numbering below. The first analysis image is the scene reference, NOT generation image #1. All later analysis images correspond in order to generation images #1, #2, etc. Never refer to the scene reference as a supplied generation image."""
+    formula="""You are a photography prompt writer. Analyze the first image as visual evidence, then write a self-contained English text prompt to GENERATE A NEW IMAGE, not edit or modify that photograph. The scene reference will NOT be sent to the image generator. Describe the desired final scene completely: subject count and positions, visible pose and hand-object contact, framing, environment, available light, textures and photographic style. Do not write edit commands, 'replace source', 'keep image #1', or depend on an unseen base photograph. Do not transcribe source overlay text. Qualify uncertainty; never infer ethnicity. Apply the selected KOL, shirt, packaging and environment requirements. For new-person mode describe new fictional adult faces; for flatlay omit humans entirely. Keep selected uploaded shirts and packaging exact. Describe all other visible clothing and worn accessories from the scene reference as the final outfit, without requiring restyling. Uploaded shirts override only the corresponding source shirts; never substitute clothing from a KOL identity portrait.
+Return ONLY a detailed plain-text English prompt, NOT JSON, without code fences or commentary. Begin with: Create an extremely realistic image (ultra-realistic).
+Use these eleven numbered sections, with 2–4 concrete sentences per section where useful:
+1. Subject: describe each selected KOL's visible facial features, hair, expression and build from the identity assets, assigned to the correct person. If no KOL is selected, follow the selected people mode.
+2. Camera Angle / Framing: camera height, crop, subject positions, perspective; iPhone lifestyle photography.
+3. Clothing: visually describe each selected shirt's actual color, material, cut, fit, artwork and print placement, with the correct wearer; do not merely say 'use uploaded shirt'. Other visible outfit pieces follow the scene reference.
+4. Pose: visible body positions, gaze, hands and contact with props.
+5. Environment: describe the final setting and selected packaging, including appearance, material, position and scale.
+6. Lighting: direction, color, softness, shadows and reflections.
+7. Color Palette and Atmosphere: dominant colors and visible mood.
+8. Final Style: ultra-realistic iPhone lifestyle photography, natural skin and materials.
+9. Important Details to Preserve: explicit asset-to-subject mapping using GENERATION image numbering below; exact KOL identity and uploaded shirt/packaging details. Describe the final new image, not instructions to edit a base photograph.
+10. Negative Prompt: unwanted overlays, watermarks, distorted anatomy, swapped faces, incorrect artwork, extra limbs and artifacts.
+11. Aspect Ratio: the supplied output ratio.
+The first analysis image is the scene reference, NOT generation image #1. All later analysis images correspond in order to generation images #1, #2, etc. Never refer to the scene reference as a supplied generation image."""
     prompt=core.chatgpt_vision(app,formula,f'Scene size: {width}×{height}. Use aspect_ratio: {aspect}.\nGeneration assets and requirements:\n'+rules,[source[0]]+[raw for raw,mime in refs],max_tokens=4500)
-    return {'prompt':verify_prompt(prompt,structured=True),'format':'json','mode':'generate_new_image'}
+    return {'prompt':verify_prompt(prompt,structured=True),'format':'text','mode':'generate_new_image'}
 
 def generate(app,body,owner):
     spec=validate(body,True);jid=body.get('request_id','')
@@ -112,7 +121,9 @@ def generate(app,body,owner):
             if previous['digest']!=digest:raise roundup.Problem('Mã yêu cầu đã dùng cho nội dung khác.',409)
             return core.public(previous)
         refs,rules=references(spec)
-        job=dict(id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
+        with Image.open(io.BytesIO(roundup.uploaded_image(spec['files']['reference'])[0])) as im:
+            source_aspect=min(ASPECTS,key=lambda a:abs(ASPECTS[a]-im.width/im.height))
+        job=dict(aspect=source_aspect,id=jid,owner=owner,digest=digest,mode='single',provider=spec['provider'],model=model,status='running',created=time.time(),items=[],total=1,error='',note=label+' đang tạo ảnh mới…')
         core.write(path,job);core.LIVE.add(jid)
         threading.Thread(target=run,args=(app,job,refs,rules,spec['prompt']),daemon=True).start()
         return core.public(job)
@@ -120,10 +131,13 @@ def generate(app,body,owner):
 def run(app,job,refs,rules,prompt):
     path=core.folder(app)/(job['id']+'.json')
     try:
-        prompt=verify_prompt(prompt,structured=True)
+        prompt=verify_prompt(prompt)
         provider=job.get('provider','gemini_pro');label,model,key=PROVIDERS[provider]
         if not getattr(app,key,''):raise roundup.Problem('Chưa cấu hình '+key,503)
-        aspect=json.loads(prompt)['aspect_ratio']
+        ratio=re.search(r'(?:Aspect Ratio|Tỉ lệ)\s*:\s*(\d+\s*:\s*\d+)',prompt,re.I)
+        aspect=re.sub(r'\s','',ratio.group(1)) if ratio else job.get('aspect','')
+        if aspect not in ASPECTS:aspect=job.get('aspect','')
+        if aspect not in ASPECTS:aspect=''
         final=rules+'\n\n'+prompt
         core.write(core.folder(app)/(job['id']+'-0.audit.json'),dict(mode='generate_new_image',prompt=final,model=model,references=[hashlib.sha256(raw).hexdigest() for raw,mime in refs]))
         b64=app.gen_shot(refs,final,'auto',provider,aspect,gem_model=model if provider=='gemini_pro' else '',lock=False,quality='high')

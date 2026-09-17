@@ -13,12 +13,12 @@ class SingleImageTests(unittest.TestCase):
    out=io.BytesIO();Image.new('RGB',(80,60),color).save(out,'PNG');return out.getvalue()
   self.source=png('red');self.asset=png('blue')
   self.data=lambda raw:'data:image/png;base64,'+base64.b64encode(raw).decode()
-  self.prompt=json.dumps(dict(task='generate_new_image',**{k:'Detailed final photograph.' for k in ('subject','composition','clothing','pose','environment','lighting','camera','style','constraints')},aspect_ratio='4:3'))
+  self.prompt=s.PROMPT_OPENING+'\n'+'\n'.join(f'{i}. '+('Aspect Ratio: 4:3' if i==11 else 'Detail: Final photograph.') for i in range(1,12))
   self.app=SimpleNamespace(DATA_DIR=self.tmp.name,API_KEY='test',GEMINI_API_KEY='test',BEST_TEXT_MODEL='gpt-4o',openai_chat=Mock(return_value=self.prompt),gen_shot=Mock(return_value=base64.b64encode(self.asset).decode()))
   self.body=dict(files={'reference':self.data(self.source)},kol='none',accessories=[],prompt=self.prompt,request_id='22222222-2222-2222-2222-222222222222')
  def test_chatgpt_analyzes_source_but_does_not_generate(self):
   result=s.analyze(self.app,self.body)
-  self.assertEqual(json.loads(result['prompt']),json.loads(self.prompt));self.app.gen_shot.assert_not_called()
+  self.assertEqual(result['prompt'],self.prompt);self.assertEqual(result['format'],'text');self.app.gen_shot.assert_not_called()
   messages=self.app.openai_chat.call_args.args[0]
   self.assertIn('GENERATE A NEW IMAGE',messages[0]['content'])
   self.assertIn('NOT be sent',messages[0]['content'])
@@ -70,12 +70,24 @@ class SingleImageTests(unittest.TestCase):
   with patch.object(core.roundup_cast,'people',return_value=[{'role':'male','file':face}]):
    refs,rules=s.references(s.validate({**self.body,'kol':'male','accessories':['zip','box','tag']}))
   self.assertEqual(len(refs),4);self.assertEqual(refs[0][0],self.asset)
- def test_invalid_json_refusal_and_old_edit_prompt_blocked(self):
-  for output in ('',None,'Edit image #1','{}','[]',"I cannot assist with that request.",self.prompt.replace('generate_new_image','edit_image'),self.prompt.replace('4:3','bad')):
+ def test_invalid_analysis_and_refusal_blocked(self):
+  for output in ('',None,'{}','A short incomplete summary',"I cannot assist with that request."):
    self.app.openai_chat.return_value=output
    with self.assertRaises(roundup.Problem):s.analyze(self.app,self.body)
+  for output in ('',None,"I cannot assist with that request."):
    with self.assertRaises(roundup.Problem):s.generate(self.app,{**self.body,'prompt':output},'owner')
   self.app.gen_shot.assert_not_called()
+ def test_editable_plain_text_and_ratio_fallback(self):
+  spec=s.validate({**self.body,'prompt':'Create a new natural photograph.'},True)
+  job={'id':self.body['request_id'],'provider':'gemini_pro','aspect':'4:3'}
+  s.run(self.app,job,[],'Generate new',spec['prompt'])
+  self.assertEqual(job['status'],'done');self.assertEqual(self.app.gen_shot.call_args.args[4],'4:3')
+ def test_analysis_describes_faces_and_shirts_explicitly(self):
+  s.analyze(self.app,self.body)
+  system=self.app.openai_chat.call_args.args[0][0]['content']
+  self.assertIn('NOT JSON',system)
+  self.assertIn("KOL's visible facial features",system)
+  self.assertIn("shirt's actual color, material, cut, fit, artwork and print placement",system)
  def test_provider_validation_and_no_silent_fallback(self):
   with self.assertRaises(roundup.Problem):s.validate({**self.body,'provider':'bad'})
   for provider,key in [('gemini_pro','GEMINI_API_KEY'),('openai_25','API_KEY')]:
