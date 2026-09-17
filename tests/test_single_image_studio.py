@@ -148,6 +148,30 @@ class SingleImageTests(unittest.TestCase):
    self.assertEqual(s.generate(self.app,self.body,'owner')['aspect'],'4:3')
   for aspect in ('bad','0:0',None,[],{}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,'aspect':aspect})
+ def test_library_retains_multiple_faces_and_selects_without_upload(self):
+  first=s.saved_faces(self.app,'owner',{'slot':'kol','image':self.data(self.source),'name':'First'})
+  face_id=first['library'][0]['id']
+  second=s.saved_faces(self.app,'owner',{'slot':'kol','image':self.data(self.asset),'name':'Second'})
+  self.assertEqual(len(second['library']),2)
+  selected=s.saved_faces(self.app,'owner',{'slot':'kol_female','face_id':face_id})
+  self.assertEqual(selected['files']['kol_female'],self.data(self.source))
+  self.assertEqual(selected['files']['kol'],self.data(self.asset))
+  self.assertEqual(len(selected['library']),2)
+  s.saved_faces(self.app,'owner',{'slot':'kol_female','image':None})
+  self.assertEqual(len(s.saved_faces(self.app,'owner')['library']),2)
+  with self.assertRaises(roundup.Problem):s.saved_faces(self.app,'other',{'slot':'kol','face_id':face_id})
+  self.assertEqual(s.saved_faces(self.app,'other')['library'],[])
+ def test_library_migrates_legacy_faces_and_deduplicates(self):
+  import hashlib
+  directory=core.folder(self.app)/'saved-faces';directory.mkdir(exist_ok=True)
+  path=directory/(hashlib.sha256(b'owner').hexdigest()+'.json')
+  path.write_text(json.dumps({'kol':'couple','files':{'kol_male':self.data(self.source),'kol_female':self.data(self.asset)}}))
+  migrated=s.saved_faces(self.app,'owner')
+  self.assertEqual(len(migrated['library']),2)
+  self.assertEqual(len(s.saved_faces(self.app,'owner')['library']),2)
+  saved=s.saved_faces(self.app,'owner',{'slot':'kol','image':self.data(self.source)})
+  self.assertEqual(len(saved['library']),2)
+  self.assertTrue(all(f['thumbnail'].startswith('data:image/jpeg;base64,') for f in saved['library']))
  def test_validation(self):
   for change in ({'files':{}},{'kol':'bad'},{'shirts':'male'},{'male_position':'bad'},{'environment_description':None},{'environment_description':'x'*3001},{'accessories':['zip','zip']}):
    with self.assertRaises(roundup.Problem):s.validate({**self.body,**change},True)

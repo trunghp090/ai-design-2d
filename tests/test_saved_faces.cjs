@@ -7,7 +7,7 @@ function setup(slot='kol',fail=false){
  const elements={},requests=[],files={};
  const $=id=>elements[id]||(elements[id]={value:'none',textContent:'',parentElement:{}});
  const input={dataset:{file:slot},files:[{}]};
- const ctx={$,files,document:{querySelectorAll:()=>[input],querySelector:()=>null},upload:async()=> 'data:image/png;base64,face',lock(){},changed(){},updateKol(){},status(){},api:async(action,body)=>{requests.push({action,body});if(fail)throw Error('offline');return {};}};
+ const ctx={$,files,document:{querySelectorAll:()=>[input],querySelector:()=>null},upload:async()=> 'data:image/png;base64,face',lock(){},changed(){},updateKol(){},renderFaceLibrary(){},status(){},api:async(action,body)=>{requests.push({action,body});if(fail)throw Error('offline');return {};}};
  vm.createContext(ctx);
  vm.runInContext(src.slice(src.indexOf("document.querySelectorAll('[data-file]')"),src.indexOf("document.querySelectorAll('[data-accessory]')")),ctx);
  return {ctx,$,files,requests,input};
@@ -27,4 +27,19 @@ test('reopening restores saved face slots and couple selection',async()=>{
  assert.equal(files.kol_male,'male');assert.equal(files.kol_female,'female');
  assert.equal($('kol').value,'couple');assert.equal($('preview-kol_male').src,'male');
  assert.match($('face-save-note').textContent,/khôi phục/);
+});
+test('library picker assigns a saved face to the chosen role without uploading',async()=>{
+ const {ctx,$,files,requests}=setup();
+ function element(){return {children:[],style:{},append(...nodes){this.children.push(...nodes);},replaceChildren(){this.children=[];}};}
+ Object.assign($('face-library'),element());$('face-target').value='kol_female';
+ ctx.busy=false;ctx.document.createElement=element;
+ ctx.upload=()=>{throw Error('Selecting must not upload');};
+ ctx.api=async(action,body)=>{requests.push({action,body});return {kol:'couple',files:{kol_female:'saved-face',kol_male:'other-face'},library:[{id:'face-id',name:'Alice',thumbnail:'thumb'}]};};
+ vm.runInContext(src.slice(src.indexOf('function renderFaceLibrary('),src.indexOf("document.querySelectorAll('[data-file]')")),ctx);
+ ctx.renderFaceLibrary({library:[{id:'face-id',name:'Alice',thumbnail:'thumb'}]});
+ const button=$('face-library').children[0];assert.equal(button.children[1].textContent,'Alice');
+ await button.onclick();
+ assert.equal(requests[0].body.slot,'kol_female');assert.equal(requests[0].body.face_id,'face-id');
+ assert.equal(files.kol_female,'saved-face');assert.equal(files.kol_male,'other-face');
+ assert.equal($('kol').value,'couple');
 });

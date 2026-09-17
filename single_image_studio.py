@@ -22,21 +22,39 @@ PROVIDERS={'openai_25':('GPT Image 2.5','gpt-image-2.5-sunburst','API_KEY'),'gem
 
 def saved_faces(app,owner,body=None):
     directory=core.folder(app)/'saved-faces';directory.mkdir(exist_ok=True)
-    path=directory/(hashlib.sha256(owner.encode()).hexdigest()+'.json')
+    account=hashlib.sha256(owner.encode()).hexdigest()
+    path=directory/(account+'.json')
+    assets=directory/account;assets.mkdir(exist_ok=True)
     with core.LOCK:
         saved=json.loads(path.read_text()) if path.exists() else {'files':{},'kol':'upload'}
+        saved.setdefault('library',[])
+        def remember(data,name):
+            if not isinstance(data,str) or len(data)>4500000:raise roundup.Problem('Ảnh khuôn mặt quá lớn.')
+            raw,mime=roundup.uploaded_image(data);face_id=hashlib.sha256(raw).hexdigest()
+            if not any(face['id']==face_id for face in saved['library']):
+                if len(saved['library'])>=100:raise roundup.Problem('Thư viện đã có 100 khuôn mặt.')
+                with Image.open(io.BytesIO(raw)) as image:
+                    image=ImageOps.exif_transpose(image).convert('RGB');image.thumbnail((160,160))
+                    thumb=io.BytesIO();image.save(thumb,'JPEG',quality=80)
+                (assets/(face_id+'.image')).write_bytes(raw)
+                saved['library'].append({'id':face_id,'name':str(name or 'KOL '+str(len(saved['library'])+1))[:120],'mime':mime,'thumbnail':'data:image/jpeg;base64,'+base64.b64encode(thumb.getvalue()).decode()})
+            return 'data:'+mime+';base64,'+base64.b64encode(raw).decode()
+        # Preserve the previously saved single/male/female faces when upgrading.
+        for slot,data in saved['files'].items():remember(data,{'kol':'KOL đã lưu','kol_male':'KOL nam đã lưu','kol_female':'KOL nữ đã lưu'}[slot])
         if body is not None:
             if not isinstance(body,dict) or body.get('slot') not in ('kol','kol_male','kol_female'):
                 raise roundup.Problem('Vị trí khuôn mặt không hợp lệ.')
             slot=body['slot'];data=body.get('image')
-            if data is None:
-                saved['files'].pop(slot,None)
+            if 'face_id' in body:
+                face=next((f for f in saved['library'] if f['id']==body['face_id']),None)
+                if not face:raise roundup.Problem('Không tìm thấy khuôn mặt trong tài khoản.',404)
+                raw=(assets/(face['id']+'.image')).read_bytes()
+                data='data:'+face['mime']+';base64,'+base64.b64encode(raw).decode()
+            if data is None:saved['files'].pop(slot,None)
             else:
-                if not isinstance(data,str) or len(data)>4500000:raise roundup.Problem('Ảnh khuôn mặt quá lớn.')
-                raw,mime=roundup.uploaded_image(data)
-                saved['files'][slot]='data:'+mime+';base64,'+base64.b64encode(raw).decode()
+                saved['files'][slot]=remember(data,body.get('name'))
                 saved['kol']='upload' if slot=='kol' else 'couple'
-            core.write(path,saved)
+        core.write(path,saved)
         return saved
 
 def validate(body, generating=False):
