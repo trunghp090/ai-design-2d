@@ -3051,6 +3051,50 @@ function dsRenderNameCombos() {
 }
 let dsJobs = [];          // [{id,total,done,finished}] — nhiều đợt song song
 let dsItems = {};         // key -> item (gộp kết quả mọi đợt)
+const dsSelected = new Set();
+let dsDeleting = false;
+function dsUpdateSelection() {
+  for (const key of dsSelected) if (!dsItems[key]) dsSelected.delete(key);
+  $("dsDeleteSelected").disabled = dsDeleting || !dsSelected.size;
+  $("dsDeleteSelected").textContent = (dsDeleting ? "Đang xoá… " : "🗑️ Xoá đã chọn ") + "(" + dsSelected.size + ")";
+  $("dsSelectAll").disabled = dsDeleting || !Object.keys(dsItems).length;
+  $("dsSelectAll").textContent = dsSelected.size && dsSelected.size === Object.keys(dsItems).length ? "Bỏ chọn tất cả" : "Chọn tất cả";
+}
+async function dsDeleteItem(key, it) {
+  const gid = it.gallery && it.gallery.id;
+  if (gid) {
+    const r = await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) throw new Error(d.error || "Không xoá được ảnh (HTTP " + r.status + "). Hãy thử lại.");
+  }
+  delete dsItems[key];
+  dsSelected.delete(key);
+}
+$("dsSelectAll").onclick = () => {
+  if (dsDeleting) return;
+  const keys = Object.keys(dsItems);
+  if (dsSelected.size === keys.length) dsSelected.clear();
+  else keys.forEach(key => dsSelected.add(key));
+  dsRender();
+};
+$("dsDeleteSelected").onclick = async () => {
+  if (dsDeleting || !dsSelected.size) return;
+  const keys = [...dsSelected];
+  if (!confirm("Xoá vĩnh viễn " + keys.length + " design đã chọn?")) return;
+  dsDeleting = true;
+  dsRender();
+  try {
+    for (const key of keys) {
+      if (dsItems[key]) await dsDeleteItem(key, dsItems[key]);
+      dsUpdateSelection();
+    }
+  } catch (err) { alert("✗ " + err.message + " Các ảnh chưa xoá vẫn được chọn."); }
+  finally {
+    dsDeleting = false;
+    dsRender();
+    if (typeof loadGallery === "function") loadGallery();
+  }
+};
 function dsItemKey(it) { return (it.gallery && it.gallery.id) || it.title || Math.random(); }
 // Mốc thời gian tạo (để MỚI NHẤT lên đầu): id gallery dạng "d<ms>" -> lấy ms; fallback ts / _seq
 let _dsSeq = 0;
@@ -3075,7 +3119,7 @@ async function dsB64(it) {
 async function dsLoadSaved() {
   try {
     const d = await (await fetch("/api/gallery")).json();
-    const items = (d.items || []).filter(it => it.mode === "design" || it.mode === "personalize").slice(0, 120);
+    const items = (d.items || []).filter(it => it.id && (it.mode === "design" || it.mode === "personalize"));
     let added = 0;
     items.forEach(g => {
       if (!dsItems[g.id]) { dsItems[g.id] = { url: g.url, title: g.prompt || "Design", gallery: { id: g.id, url: g.url } }; added++; }
@@ -3100,6 +3144,7 @@ function dsLoadingCard() {
   return c;
 }
 function dsRender() {
+  dsUpdateSelection();
   const grid = $("dsResults");
   // số mẫu đang chờ (đợt chưa xong) -> hiện ô trống đang load
   const pending = (typeof dsJobs !== "undefined" ? dsJobs : []).reduce((a, j) => a + (j.finished ? 0 : Math.max(0, (j.total || 0) - (j.done || 0))), 0);
@@ -3112,11 +3157,11 @@ function dsRender() {
   else entries = entries.sort((a, b) => dsTime(b[1]) - dsTime(a[1]));   // MỚI NHẤT lên đầu (theo thời gian tạo)
   grid.innerHTML = "";
   for (let i = 0; i < pending; i++) grid.appendChild(dsLoadingCard());   // ô trống đang load lên đầu
-  entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it)); });
+  entries.forEach(([key, it]) => { grid.appendChild(dsMakeCard(key, it, true)); });
   $("dsDownloadAll").textContent = "⬇ Tải tất cả (" + entries.length + ")";
 }
 // Thẻ kết quả design (dùng CHUNG cho Tạo design + Auto Research) — đầy đủ nút cá nhân hoá
-function dsMakeCard(key, it) {
+function dsMakeCard(key, it, selectable = false) {
     const card = document.createElement("div");
     card.className = "gcard";
     let badge = "";
@@ -3132,6 +3177,20 @@ function dsMakeCard(key, it) {
       '<div class="gacts"><button class="b-name">🪪 Tên</button><button class="b-recolor">🎨 Đổi màu áo</button><button class="b-cut">✂️ Tách nền</button><button class="b-canva">🖌️ Canva</button><button class="b-var">🔄 Bản khác</button><button class="b-use">👕 Lên áo</button><button class="b-copy">📋 Copy</button><button class="b-dl">⬇ Tải</button><button class="b-del">🗑️ Xoá</button></div>' +
       '<div class="ap-fix"><input type="text" class="ds-fixin" placeholder="✏️ Prompt sửa/làm lại (dùng cho Sửa & 🔄 Bản khác)…"><button class="ds-fixbtn">Sửa</button></div>';
     card._cur = it.image; card._it = it; card._name = it.title || "design";
+    if (selectable) {
+      const label = document.createElement("label");
+      label.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = dsSelected.has(key);
+      checkbox.disabled = dsDeleting;
+      checkbox.onchange = () => {
+        if (checkbox.checked) dsSelected.add(key); else dsSelected.delete(key);
+        dsUpdateSelection();
+      };
+      label.append(checkbox, document.createTextNode("Chọn design"));
+      card.prepend(label);
+    }
     card.querySelector("img").onclick = () => openZoom(dsSrc(it));
     card.querySelector(".b-name").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; openPersonalize(await dsB64(it)); b.disabled = false; };
     card.querySelector(".b-recolor").onclick = async (e) => {
@@ -3158,12 +3217,12 @@ function dsMakeCard(key, it) {
     };
     card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await dsB64(it), it.title || "design"); b.disabled = false; };
     card.querySelector(".b-del").onclick = async (e) => {
+      if (dsDeleting) return;
       if (!confirm("Xoá design này?")) return;
       const b = e.currentTarget; b.disabled = true;
       try {
-        const gid = it.gallery && it.gallery.id;
-        if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" });
-        delete dsItems[key]; card.remove(); dsRender();
+        await dsDeleteItem(key, it);
+        card.remove(); dsRender();
         if (typeof loadGallery === "function") loadGallery();
       } catch (err) { alert("✗ " + err.message); b.disabled = false; }
     };
