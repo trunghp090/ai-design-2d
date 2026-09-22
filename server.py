@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.17-restore-prompt"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.22-gallery-delete-fix"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -10052,7 +10052,9 @@ class Handler(BaseHTTPRequestHandler):
         params = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
         if path == "/api/gallery":
             gid = params.get("id")
-            items = [x for x in gallery_load() if x["id"] != gid]
+            if not gid:
+                return self.json(400, {"error": "Thiếu ID ảnh cần xoá."})
+            items = [x for x in gallery_load() if x.get("id") != gid]
             gallery_save_index(items)
             try:
                 os.remove(os.path.join(GALLERY_DIR, "%s.png" % gid))
