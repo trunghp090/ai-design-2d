@@ -35,3 +35,32 @@
       ]}
   }));
 })();
+
+// Story-first presets: keep the product reveal after the opening hook.
+(() => {
+  const text=(side,value)=>({side,kind:'text',text:value,time:'',images:[],heart:false,hd:false});
+  const media=(slot,kind='image')=>({side:'out',slot,kind,text:'',time:'',images:[],heart:false,hd:false});
+  const project=slides=>({version:1,name:'Người thương',avatar:'',ratio:'portrait',font:46,header:false,theme:'messenger',showTime:false,showAvatar:false,trim:true,slides});
+  for(const t of window.ZALO_SCRIPTS){
+    Object.assign(t.project,{theme:'messenger',font:46,showTime:false,showAvatar:false,trim:true});
+    const first=t.project.slides[0],photos=first.messages.filter(m=>m.kind!=='text');
+    first.messages=first.messages.filter(m=>m.kind==='text');first.title='Mở đầu gây tò mò';
+    if(photos.length)t.project.slides.splice(1,0,{title:'Ảnh kỷ niệm',messages:photos});
+  }
+  window.ZALO_SCRIPTS.unshift(
+    {id:'bat-ngo-tuoi-tho',title:'Nếu mình gặp nhau từ hồi bé',category:'Mẫu theo ảnh tham khảo',photoHint:'Ảnh kỷ niệm hoặc ảnh ghép đã có',caption:'Không cùng nhau lớn lên, nhưng từ giờ có thể cùng nhau già đi. 🤍',project:project([
+      {title:'Hook — giữ bí mật',messages:[text('out','Em đang chuẩn bị một bất ngờ cho anh.'),text('in','Bất ngờ gì mà bí mật vậy?'),text('out','Một chuyện của hai đứa… từ hồi mình chưa quen nhau 🤫')]},
+      {title:'Xin ảnh hồi bé',focus:true,overlay:'Muốn làm bạn thời thơ ấu\ncủa anh một lần',overlayPosition:'bottom',messages:[{...text('out','Gửi em một tấm ảnh hồi bé của anh iii 🥹'),time:'22:25'}]},
+      {title:'Kỷ niệm mới',overlay:'Nếu mình gặp nhau sớm hơn…',overlayPosition:'top',imageFit:'contain',messages:[media('source','cover')]},
+      {title:'Bật mí món quà',overlay:'Giữ kỷ niệm này trên một chiếc áo',overlayPosition:'top',imageFit:'contain',messages:[media('result','cover')]},
+      {title:'Phản ứng của người thương',messages:[media('result'),{...text('in','Ủa 🥹'),divider:true},text('in','hai đứa mình hồi bé nè'),text('in','em làm hồi nào vậy'),text('in','anh thích quá ❤️')]},
+      {title:'Một điều để nhớ',overlay:'Người mình thương cũng xứng đáng\nđược nhận một bất ngờ.',overlayPosition:'top',imageFit:'contain',messages:[media('result','cover')]}
+    ])},
+    {id:'su-tu-cai',title:'Chiếc áo có hình “em”',category:'Hook → hé lộ → phản ứng',photoHint:'Không cần ảnh mở đầu',caption:'Bảo là nữ hoàng rồi mà vẫn phải rửa bát 😌',project:project([
+      {title:'Hook — chưa cho xem áo',messages:[text('out','Anh vừa mua cái áo có hình em luôn 😌'),text('in','Ủa anh lấy ảnh nào của em?'),text('out','Không cần ảnh. Nhìn là nhận ra em liền.'),text('in','Nghe có mùi rồi đó 🙂 Gửi em xem.')]},
+      {title:'Hé lộ sư tử cái',messages:[media('result'),{...text('in','Anh bảo em là sư tử cái đó hả? 🙂'),divider:true},text('out','Ý anh là… nữ hoàng trong nhà 🥹'),text('in','Vậy nữ hoàng ra lệnh: tối nay anh rửa bát 😌')]}
+    ])}
+  );
+})();
+
+window.ZALO_SCRIPTS.forEach(t => { t.project.templateId = t.id; });

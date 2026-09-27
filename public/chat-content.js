@@ -2,15 +2,15 @@
   'use strict';
   const root = document.getElementById('view-chatcontent');
   root.innerHTML = `
-    <div class="cc-heading"><div><span class="cc-eyebrow">CONTENT STUDIO / ZALO</span><h1>Một cuộc trò chuyện. Một câu chuyện.</h1><p>Dựng hội thoại, ghép ảnh khách gửi và thành phẩm thành bộ content của bạn.</p></div><div class="cc-actions"><button class="btn-ghost" id="cc-save">Lưu bản dự án</button><button class="btn-ghost" id="cc-open">Mở dự án</button><input id="cc-project-file" type="file" accept="application/json" hidden><button class="btn-primary sm" id="cc-export">↓ Xuất PNG</button></div></div>
+    <div class="cc-heading"><div><span class="cc-eyebrow">CONTENT STUDIO / MESSENGER</span><h1>Một cuộc trò chuyện. Một câu chuyện.</h1><p>Dựng hội thoại, ghép ảnh khách gửi và thành phẩm thành bộ content của bạn.</p></div><div class="cc-actions"><button class="btn-ghost" id="cc-save">Lưu bản dự án</button><button class="btn-ghost" id="cc-open">Mở dự án</button><input id="cc-project-file" type="file" accept="application/json" hidden><button class="btn-primary sm" id="cc-export">↓ Xuất PNG</button></div></div>
     <div class="cc-grid">
       <section class="cc-panel"><h2><span class="cc-step">01</span>Thiết lập hội thoại</h2>
         <label for="cc-name">Tên người trò chuyện</label><input id="cc-name" class="input" maxlength="60" value="Khách hàng">
-        <label for="cc-avatar">Avatar khách hàng</label><input class="cc-file" type="file" id="cc-avatar" accept="image/*"><button class="btn-ghost sm" id="cc-clear-avatar" style="margin-top:8px">Bỏ avatar</button>
+        <label for="cc-avatar">Avatar người ấy</label><input class="cc-file" type="file" id="cc-avatar" accept="image/*"><button class="btn-ghost sm" id="cc-clear-avatar" style="margin-top:8px">Bỏ avatar</button>
         <div class="cc-row"><div><label for="cc-ratio">Khung hình</label><select id="cc-ratio" class="input"><option value="portrait">9:16 · Story / TikTok</option><option value="feed">4:5 · Bài đăng</option><option value="square">1:1 · Vuông</option></select></div><div><label for="cc-font">Cỡ chữ</label><input id="cc-font" class="input" type="number" min="24" max="52" value="36"></div></div>
-        <p class="hint">Ảnh xuất bắt đầu từ tin nhắn, không hiện thanh tên khách.</p><label class="cc-check"><input type="checkbox" id="cc-trim"> Cắt gọn theo đoạn hội thoại</label>
+        <p class="hint">Ảnh xuất bắt đầu từ tin nhắn, không hiện thanh tên.</p><label class="cc-check"><input type="checkbox" id="cc-trim"> Cắt gọn theo đoạn hội thoại</label>
         <hr style="border:0;border-top:1px solid var(--line);margin:22px 0"><h2><span class="cc-step">02</span><span id="cc-editor-title">Thêm tin nhắn</span></h2>
-        <div class="cc-row"><div><label for="cc-side">Người gửi</label><select id="cc-side" class="input"><option value="in">Khách · bên trái</option><option value="out">Shop · bên phải</option></select></div><div><label for="cc-time">Giờ gửi</label><input id="cc-time" class="input" type="time" value="21:03"></div></div>
+        <div class="cc-row"><div><label for="cc-side">Người gửi</label><select id="cc-side" class="input"><option value="in">Người ấy · bên trái</option><option value="out">Bạn · bên phải</option></select></div><div><label for="cc-time">Giờ gửi</label><input id="cc-time" class="input" type="time" value="21:03"></div></div>
         <label for="cc-kind">Loại nội dung</label><select id="cc-kind" class="input"><option value="text">Tin nhắn văn bản</option><option value="image">Ảnh / album ảnh</option><option value="cover">Ảnh tràn khung (slide thành phẩm)</option></select>
         <div id="cc-text-fields"><label for="cc-text">Nội dung tin nhắn</label><textarea id="cc-text" class="input" rows="4" maxlength="1800" placeholder="Shop ghép hộ em 2 ảnh này với được kh ạ"></textarea></div>
         <div id="cc-image-fields" hidden><label for="cc-images">Chọn tối đa 4 ảnh (ảnh tràn khung: 1 ảnh)</label><input class="cc-file" id="cc-images" type="file" accept="image/*" multiple><div id="cc-thumbs" class="cc-media-thumbs"></div><p class="hint">Ảnh trong hội thoại được ghép thành album; ảnh tràn khung sẽ được cắt vừa khung.</p></div>
@@ -19,7 +19,7 @@
         <div id="cc-notice" class="cc-notice" role="status" aria-live="polite"></div>
       </section>
       <section class="cc-stage"><div class="cc-stage-head"><span>XEM TRƯỚC TRỰC TIẾP</span><span id="cc-dimensions">1080 × 1920</span></div><div id="cc-slides" class="cc-slides"></div><div class="cc-canvas-wrap"><canvas id="cc-canvas" width="1080" height="1920" aria-label="Bản xem trước hội thoại"></canvas></div><p class="cc-preview-note">PNG xuất ra giống bản xem trước · 1080 px<br>Bản nháp tự lưu trên trình duyệt này.</p><div id="cc-overflow" class="cc-notice error" role="status"></div></section>
-      <section class="cc-panel"><h2><span class="cc-step">03</span>Kịch bản & slide</h2><div class="cc-actions"><button class="btn-ghost sm" id="cc-new-slide">+ Slide</button><button class="btn-ghost sm" id="cc-copy-slide">Nhân đôi</button><button class="btn-ghost sm" id="cc-delete-slide">Xóa slide</button></div><p class="hint" style="margin:14px 0">Chọn tin nhắn để sửa. Dùng ↑ ↓ để đổi thứ tự.</p><div id="cc-list" class="cc-list"></div><p class="hint">Gợi ý: yêu cầu của khách → ảnh tham khảo → bản thiết kế → phản hồi → ảnh thành phẩm.</p></section>
+      <section class="cc-panel"><h2><span class="cc-step">03</span>Kịch bản & slide</h2><div class="cc-actions"><button class="btn-ghost sm" id="cc-new-slide">+ Slide</button><button class="btn-ghost sm" id="cc-copy-slide">Nhân đôi</button><button class="btn-ghost sm" id="cc-delete-slide">Xóa slide</button></div><p class="hint" style="margin:14px 0">Chọn tin nhắn để sửa. Dùng ↑ ↓ để đổi thứ tự.</p><div id="cc-list" class="cc-list"></div><p class="hint">Nhịp kể chuyện: hook chưa lộ áo → hé lộ món quà → phản ứng → ảnh kết.</p></section>
     </div>`;
   // Match the two-column Content hội thoại setup in AI Influencer Studio.
   const left = root.querySelector('.cc-grid > .cc-panel');
@@ -40,7 +40,7 @@
   slideName.innerHTML = '<label for="cc-slide-name">Tên slide</label><input id="cc-slide-name" class="input" maxlength="50" placeholder="Ví dụ: Khách gửi ảnh"><p class="hint">Sửa trực tiếp từng tin nhắn bên dưới.</p>';
   scriptPanel.querySelector('#cc-list').before(slideName);
   const addButtons = document.createElement('div'); addButtons.className = 'cc-row cc-inline-add';
-  addButtons.innerHTML = '<button class="btn-ghost" id="cc-add-customer">＋ Tin khách</button><button class="btn-ghost" id="cc-add-shop">＋ Tin shop</button>';
+  addButtons.innerHTML = '<button class="btn-ghost" id="cc-add-customer">＋ Tin người ấy</button><button class="btn-ghost" id="cc-add-shop">＋ Tin của bạn</button>';
   scriptPanel.querySelector('#cc-list').before(addButtons);
   const slides = root.querySelector('#cc-slides'); root.querySelector('.cc-grid').before(slides);
   const footer = document.createElement('div'); footer.className = 'cc-preview-footer';
@@ -57,10 +57,10 @@
   left.querySelector('h2').remove();
   left.before(settingsDisclosure); settingsDisclosure.append(left);
   scriptPanel.classList.add('cc-script-panel');
-  root.querySelector('.cc-heading h1').textContent = 'Content Zalo';
+  root.querySelector('.cc-heading h1').textContent = 'Content Messenger';
   root.querySelector('.cc-heading p').textContent = 'Soạn tin nhắn bên trái · Xem thành phẩm bên phải · Xuất ảnh khi hoàn tất.';
   const $ = id => document.getElementById('cc-' + id);
-  const seed = () => ({version:1,name:'Khách hàng',avatar:'',ratio:'portrait',font:36,header:false,slides:[{messages:[
+  const seed = () => ({version:1,name:'Người thương',avatar:'',ratio:'portrait',font:46,theme:'messenger',showAvatar:false,showTime:false,trim:true,header:false,slides:[{messages:[
     {side:'in',kind:'text',text:'Vâng shop đợi em chọn ảnh anh nhà đã nhen',time:'21:03',heart:false,images:[]},
     {side:'out',kind:'text',text:'Dạ b ạ',time:'21:08',heart:false,images:[]},
     {side:'in',kind:'text',text:'Shop ghép hộ em 2 ảnh này với được kh ạ',time:'21:37',heart:false,images:[]},
@@ -70,6 +70,12 @@
   const notice = (s, error=false) => { $('notice').textContent=s; $('notice').classList.toggle('error',error); };
   const messages=()=>state.slides[slide].messages;
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const appearance=document.createElement('div');appearance.className='cc-appearance';
+  appearance.innerHTML='<label for="cc-theme">Giao diện ảnh xuất</label><select id="cc-theme" class="input"><option value="messenger">Messenger · Trái tim tím</option><option value="zalo">Zalo · Xanh nhạt</option></select><div class="cc-row"><label class="cc-check"><input type="checkbox" id="cc-showAvatar"> Hiện avatar</label><label class="cc-check"><input type="checkbox" id="cc-showTime"> Hiện giờ gửi</label></div><p class="hint">Tin ngắn, bo góc lớn, tự ghép nhóm cùng người gửi.</p>';
+  settingsDisclosure.before(appearance);
+  const slideOptions=document.createElement('div');slideOptions.className='cc-slide-options';
+  slideOptions.innerHTML='<label for="cc-overlay">Chữ kể chuyện trên ảnh</label><textarea id="cc-overlay" class="input" rows="2" maxlength="180" placeholder="Ví dụ: Một bất ngờ nhỏ cho người thương…"></textarea><div class="cc-row"><select id="cc-overlay-position" class="input" aria-label="Vị trí chữ"><option value="top">Phía trên</option><option value="middle">Chính giữa</option><option value="bottom">Phía dưới</option></select><select id="cc-image-fit" class="input" aria-label="Cách đặt ảnh toàn khung"><option value="contain">Giữ trọn ảnh</option><option value="cover">Lấp đầy khung</option></select></div><label class="cc-check"><input type="checkbox" id="cc-focus"> Tin nổi bật + thanh emoji và menu</label><p class="hint">Làm nổi bật tin văn bản cuối của bạn · dùng một tin ngắn trên slide riêng.</p>';
+  scriptPanel.querySelector('#cc-list').before(slideOptions);
   const templates = window.ZALO_SCRIPTS || [];
   const templateDrafts = new Map();
   let selectionRevision = 0;
@@ -77,18 +83,18 @@
   root.querySelector('.cc-grid').before(workspace);
   workspace.append(slides,root.querySelector('.cc-grid'));
   const library=document.createElement('section');library.className='cc-library';library.id='cc-library';
-  library.innerHTML='<div class="cc-library-bar"><div><h2>Chọn một câu chuyện</h2><p>20 kịch bản hội thoại · Chọn mẫu rồi thêm ảnh của bạn.</p></div><input id="cc-script-search" class="input" placeholder="Tìm kịch bản, dịp tặng…" aria-label="Tìm kịch bản"></div><div class="cc-actions"><button id="cc-resume" class="btn-ghost sm" hidden>Tiếp tục bản nháp</button><button id="cc-blank" class="btn-ghost sm">＋ Hội thoại trống</button></div><p id="cc-library-status" class="cc-library-status" role="status"></p><div id="cc-template-grid" class="cc-template-grid"></div>';
+  library.innerHTML='<div class="cc-library-bar"><div><h2>Chọn một câu chuyện</h2><p>Chọn nhịp kể chuyện, thêm ảnh và sửa lời thoại theo cách hai bạn nói chuyện.</p></div><input id="cc-script-search" class="input" placeholder="Tìm kịch bản, dịp tặng…" aria-label="Tìm kịch bản"></div><div class="cc-actions"><button id="cc-resume" class="btn-ghost sm" hidden>Tiếp tục bản nháp</button><button id="cc-blank" class="btn-ghost sm">＋ Hội thoại trống</button></div><p id="cc-library-status" class="cc-library-status" role="status"></p><div id="cc-template-grid" class="cc-template-grid"></div>';
   workspace.before(library);
   const workhead=document.createElement('div');workhead.className='cc-template-workhead';
   workhead.innerHTML='<button id="cc-library-back" class="btn-ghost">← Danh sách kịch bản</button><h2 id="cc-template-title"></h2>';
   workspace.prepend(workhead);
   const photoPanel=document.createElement('div');photoPanel.className='cc-template-photos';photoPanel.id='cc-template-photos';
-  photoPanel.innerHTML='<div><label for="cc-source-files">1. Ảnh khách gửi</label><input id="cc-source-files" class="cc-file" type="file" accept="image/*" multiple><small id="cc-source-hint"></small><div id="cc-source-preview"></div></div><div><label for="cc-result-files">2. Ảnh thành phẩm</label><input id="cc-result-files" class="cc-file" type="file" accept="image/*"><small>Dùng chung cho tin shop gửi mẫu và slide thành phẩm.</small><div id="cc-result-preview"></div></div>';
+  photoPanel.innerHTML='<div><label for="cc-source-files">1. Ảnh kỷ niệm / tham chiếu</label><input id="cc-source-files" class="cc-file" type="file" accept="image/*" multiple><small id="cc-source-hint"></small><div id="cc-source-preview"></div></div><div><label for="cc-result-files">2. Ảnh áo / món quà</label><input id="cc-result-files" class="cc-file" type="file" accept="image/*"><small>Dùng cho phần bật mí món quà và phản ứng sau đó.</small><div id="cc-result-preview"></div></div>';
   workhead.after(photoPanel);
   const captionPanel=document.createElement('div');captionPanel.className='cc-template-caption';captionPanel.id='cc-template-caption';
   captionPanel.innerHTML='<label for="cc-caption">Caption của bài</label><textarea id="cc-caption" class="input" rows="3"></textarea><button id="cc-copy-caption" class="btn-ghost sm">Copy caption</button>';
   workspace.append(captionPanel);
-  root.querySelector('.cc-heading p').textContent='Chọn kịch bản → thêm ảnh khách và thành phẩm → xuất bộ hội thoại.';
+  root.querySelector('.cc-heading p').textContent='Gợi tò mò trước. Hé lộ món quà sau. Dựng một câu chuyện như tin nhắn thật.';
   function libraryView(open){
     workspace.hidden=!open;library.hidden=open;$('save').hidden=!open;
     $('resume').hidden=!state.templateId&&!state.caption&&!state.slides.some(s=>s.messages.some(m=>m.images.length));
@@ -110,7 +116,7 @@
   function renderTemplates(){
     const q=$('script-search').value.toLocaleLowerCase('vi').trim();
     const matches=templates.filter(t=>(t.title+' '+t.category).toLocaleLowerCase('vi').includes(q));
-    $('template-grid').innerHTML=matches.map(t=>`<button class="cc-template-card" data-template="${esc(t.id)}"><span>${String(templates.indexOf(t)+1).padStart(2,'0')} / ${esc(t.category)}</span><strong>${esc(t.title)}</strong><small>${esc(t.photoHint)} + ảnh thành phẩm</small><small>3 slide · Xem hội thoại →</small></button>`).join('');
+    $('template-grid').innerHTML=matches.map(t=>`<button class="cc-template-card" data-template="${esc(t.id)}"><span>${String(templates.indexOf(t)+1).padStart(2,'0')} / ${esc(t.category)}</span><strong>${esc(t.title)}</strong><small>${esc(t.photoHint)} + ảnh thành phẩm</small><small>${t.project.slides.length} slide · Dựng câu chuyện →</small></button>`).join('');
     $('library-status').textContent=matches.length?matches.length+' kịch bản sẵn sàng':'Không có kịch bản phù hợp.';
   }
   async function selectTemplate(id){
@@ -155,7 +161,11 @@
     }));
     saveQueue.catch(()=>{});
   }
-  function settings(){for(const k of ['name','ratio','font']) $(k).value=state[k];state.header=false;$('trim').checked=!!state.trim;}
+  function settings(){
+    for(const k of ['name','ratio','font'])$(k).value=state[k];
+    $('theme').value=state.theme||'zalo';for(const k of ['showAvatar','showTime'])$(k).checked=!!state[k];
+    root.dataset.theme=state.theme||'zalo';state.header=false;$('trim').checked=!!state.trim;
+  }
   function resetEditor(){editing=-1;pending=[];$('text').value='';$('images').value='';$('thumbs').innerHTML='';$('add').textContent='+ Thêm tin nhắn';$('editor-title').textContent='Thêm tin nhắn';$('cancel').hidden=true;}
   function kindFields(){const media=$('kind').value!=='text';$('text-fields').hidden=media;$('image-fields').hidden=!media;$('hd-label').hidden=!media;}
   function thumbs(){ $('thumbs').innerHTML=pending.map(src=>`<img src="${esc(src)}" alt="Ảnh đã chọn">`).join(''); }
@@ -163,16 +173,20 @@
     $('slides').innerHTML=state.slides.map((s,i)=>`<button class="cc-slide ${i===slide?'active':''}" data-slide="${i}">${String(i+1).padStart(2,'0')} <span>${esc(s.title||'Slide '+(i+1))}</span></button>`).join('');
     $('slide-title').textContent='Slide '+(slide+1);
     $('slide-name').value=state.slides[slide].title||'';
+    $('overlay').value=state.slides[slide].overlay||'';$('overlay-position').value=state.slides[slide].overlayPosition||'top';
+    $('image-fit').value=state.slides[slide].imageFit||'contain';$('focus').checked=!!state.slides[slide].focus;
+    const isMessenger=state.theme==='messenger';$('focus').disabled=!isMessenger;$('overlay').disabled=!isMessenger;
+    $('overlay-position').disabled=!isMessenger;$('image-fit').disabled=!isMessenger;
     $('page-number').textContent=`${slide+1} / ${state.slides.length}`;
     for(const k of ['prev','slide-back'])$(k).disabled=slide===0;
     for(const k of ['next','slide-forward'])$(k).disabled=slide===state.slides.length-1;
-    $('avatar-preview').innerHTML=state.avatar?`<img src="${esc(state.avatar)}" alt="Avatar khách hàng">`:esc(state.name.trim()[0]||'K');
+    $('avatar-preview').innerHTML=state.avatar?`<img src="${esc(state.avatar)}" alt="Avatar người ấy">`:esc(state.name.trim()[0]||'K');
     $('list').innerHTML=messages().map((m,i)=>`<article class="cc-message cc-message-${m.side}" data-message="${i}">
-      <div class="cc-message-head"><small><span class="cc-sender-dot"></span>${m.side==='in'?'KHÁCH':'SHOP'} <span class="cc-message-number">/ Tin ${i+1}</span></small><div class="cc-actions"><button data-move="${i}" data-delta="-1" ${i===0?'disabled':''} aria-label="Đưa tin ${i+1} lên">↑</button><button data-move="${i}" data-delta="1" ${i===messages().length-1?'disabled':''} aria-label="Đưa tin ${i+1} xuống">↓</button><button data-delete="${i}" aria-label="Xóa tin ${i+1}">Xóa</button></div></div>
-      <div class="cc-row"><select class="input" data-field="side" aria-label="Người gửi tin ${i+1}"><option value="in" ${m.side==='in'?'selected':''}>Khách · bên trái</option><option value="out" ${m.side==='out'?'selected':''}>Shop · bên phải</option></select><input class="input" type="time" data-field="time" aria-label="Giờ tin ${i+1}" value="${esc(m.time)}"></div>
+      <div class="cc-message-head"><small><span class="cc-sender-dot"></span>${m.side==='in'?'NGƯỜI ẤY':'BẠN'} <span class="cc-message-number">/ Tin ${i+1}</span></small><div class="cc-actions"><button data-move="${i}" data-delta="-1" ${i===0?'disabled':''} aria-label="Đưa tin ${i+1} lên">↑</button><button data-move="${i}" data-delta="1" ${i===messages().length-1?'disabled':''} aria-label="Đưa tin ${i+1} xuống">↓</button><button data-delete="${i}" aria-label="Xóa tin ${i+1}">Xóa</button></div></div>
+      <div class="cc-row"><select class="input" data-field="side" aria-label="Người gửi tin ${i+1}"><option value="in" ${m.side==='in'?'selected':''}>Người ấy · bên trái</option><option value="out" ${m.side==='out'?'selected':''}>Bạn · bên phải</option></select><input class="input" type="time" data-field="time" aria-label="Giờ tin ${i+1}" value="${esc(m.time)}"></div>
       <select class="input cc-message-kind" data-field="kind" aria-label="Loại tin ${i+1}"><option value="text" ${m.kind==='text'?'selected':''}>Tin nhắn văn bản</option><option value="image" ${m.kind==='image'?'selected':''}>Ảnh / album ảnh</option><option value="cover" ${m.kind==='cover'?'selected':''}>Ảnh toàn khung</option></select>
       ${m.kind==='text'?`<textarea class="input" rows="3" maxlength="1800" data-field="text" aria-label="Nội dung tin ${i+1}" placeholder="Nhập tin nhắn…">${esc(m.text)}</textarea>`:`<label>Đính kèm ${m.kind==='cover'?'1':'1–4'} ảnh<input class="cc-file" type="file" accept="image/*" ${m.kind==='cover'?'':'multiple'} data-upload="${i}" aria-label="Ảnh tin ${i+1}"></label><div class="cc-media-thumbs">${m.images.map((src,j)=>`<div><img src="${esc(src)}" alt="Đính kèm ${j+1}"><button data-remove-image="${i}" data-image="${j}" aria-label="Bỏ ảnh ${j+1} tin ${i+1}">×</button></div>`).join('')}</div>`}
-      <details class="cc-message-options"><summary>Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}</summary><label class="cc-check"><input type="checkbox" data-field="heart" ${m.heart?'checked':''}>Hiện biểu tượng thả tim</label>
+      <details class="cc-message-options"><summary>Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}</summary><label class="cc-check"><input type="checkbox" data-field="divider" ${m.divider?'checked':''}>Ngăn bằng “Tin nhắn mới”</label><label class="cc-check"><input type="checkbox" data-field="heart" ${m.heart?'checked':''}>Hiện biểu tượng thả tim</label>
       ${m.kind==='image'?`<label class="cc-check"><input type="checkbox" data-field="hd" ${m.hd?'checked':''}>Hiện nhãn HD</label>`:''}</details>
     </article>`).join('')||'<p class="cc-empty">Thêm tin nhắn đầu tiên cho câu chuyện.</p>';
   }
@@ -187,6 +201,12 @@
     const buffer=document.createElement('canvas');buffer.width=W;buffer.height=H;const c=buffer.getContext('2d');
     const imgs=await Promise.all(ms.map(m=>Promise.all((m.images||[]).map(loadImage))));const avatar=await loadImage(snapshot.avatar);
     if(token!==revision)return;
+    if(snapshot.theme==='messenger'){
+      const result=window.MessengerRenderer.render(buffer,snapshot,snapshot.slides[slide],imgs,avatar);
+      overflow=result.overflow;$('overflow').textContent=overflow?'Nội dung vượt khung. Tách slide hoặc giảm cỡ chữ trước khi xuất.':'';
+      root.querySelector('.cc-stage').style.setProperty('--cc-aspect',W/result.height);$('dimensions').textContent=`${W} × ${result.height}`;
+      const canvas=$('canvas');canvas.width=W;canvas.height=result.height;canvas.getContext('2d').drawImage(buffer,0,0);return;
+    }
     c.fillStyle='#e3e7f0';c.fillRect(0,0,W,H);let y=40;const font=Number(snapshot.font),lineH=font*1.38;
     const avatarAt=(x,yy)=>{c.save();c.beginPath();c.arc(x+30,yy+30,30,0,Math.PI*2);c.clip();if(avatar)crop(c,avatar,x,yy,60,60);else{c.fillStyle='#899d88';c.fillRect(x,yy,60,60);c.fillStyle='#fff';c.font='25px Arial';c.textAlign='center';c.fillText((snapshot.name.trim()[0]||'K').toUpperCase(),x+30,yy+39);c.textAlign='left';}c.restore();};
     for(let i=0;i<ms.length;i++){
@@ -211,6 +231,8 @@
   $('avatar').onchange=async e=>{if(!e.target.files[0])return;try{state.avatar=await readFile(e.target.files[0]);update();}catch(e){notice(e.message,true);}};
   $('clear-avatar').onclick=()=>{state.avatar='';$('avatar').value='';update();};
   for(const k of ['name','ratio','font','trim'])$(k).oninput=()=>{state[k]=k==='trim'?$(k).checked:k==='font'?Math.max(24,Math.min(52,Number($(k).value)||36)):$(k).value;update();};
+  for(const k of ['theme','showAvatar','showTime'])$(k).oninput=()=>{state[k]=k==='theme'?$(k).value:$(k).checked;root.dataset.theme=state.theme;update();};
+  for(const [id,key] of [['overlay','overlay'],['overlay-position','overlayPosition'],['image-fit','imageFit'],['focus','focus']])$(id).oninput=()=>{state.slides[slide][key]=id==='focus'?$(id).checked:$(id).value;draw().catch(e=>notice(e.message,true));persist();};
   $('kind').onchange=kindFields;$('cancel').onclick=()=>{resetEditor();list();};
   $('add').onclick=()=>{
     const kind=$('kind').value;if(kind==='text'&&!$('text').value.trim())return notice('Nhập nội dung tin nhắn trước nhé.',true);
@@ -233,7 +255,7 @@
     if(field==='kind'){
       if((e.target.value==='cover'&&messages().length>1)||(e.target.value!=='cover'&&messages().some((x,i)=>i!==+row.dataset.message&&x.kind==='cover'))){e.target.value=m.kind;return notice('Ảnh toàn khung cần một slide riêng. Bấm + Slide để thêm.',true);}
       m.kind=e.target.value;if(m.kind==='cover')m.images=m.images.slice(0,1);update();
-    }else{m[field]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(field==='side'){row.classList.toggle('cc-message-in',m.side==='in');row.classList.toggle('cc-message-out',m.side==='out');row.querySelector('.cc-message-head small').innerHTML=`<span class="cc-sender-dot"></span>${m.side==='in'?'KHÁCH':'SHOP'} <span class="cc-message-number">/ Tin ${+row.dataset.message+1}</span>`;}if(field==='heart'||field==='hd')row.querySelector('.cc-message-options summary').textContent=`Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}`;draw().catch(e=>notice(e.message,true));persist();}
+    }else{m[field]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(field==='side'){row.classList.toggle('cc-message-in',m.side==='in');row.classList.toggle('cc-message-out',m.side==='out');row.querySelector('.cc-message-head small').innerHTML=`<span class="cc-sender-dot"></span>${m.side==='in'?'NGƯỜI ẤY':'BẠN'} <span class="cc-message-number">/ Tin ${+row.dataset.message+1}</span>`;}if(field==='heart'||field==='hd')row.querySelector('.cc-message-options summary').textContent=`Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}`;draw().catch(e=>notice(e.message,true));persist();}
   };
   $('list').onchange=async e=>{
     if(e.target.dataset.upload===undefined)return;
@@ -298,7 +320,14 @@
   function validate(d){
     const img=s=>typeof s==='string'&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
     if(!d||d.version!==1||typeof d.name!=='string'||d.name.length>60||!['portrait','feed','square'].includes(d.ratio)||!Number.isFinite(d.font)||d.font<24||d.font>52||typeof d.header!=='boolean'||(d.avatar!==''&&!img(d.avatar))||!Array.isArray(d.slides)||!d.slides.length||d.slides.length>100)throw Error('File dự án không hợp lệ.');
-    for(const s of d.slides){if(s.title!==undefined&&(typeof s.title!=='string'||s.title.length>50))throw Error('Tên slide không hợp lệ.');if(!Array.isArray(s.messages)||s.messages.length>100)throw Error('Slide không hợp lệ.');for(const m of s.messages){if(!['in','out'].includes(m.side)||!['text','image','cover'].includes(m.kind)||typeof m.text!=='string'||m.text.length>1800||typeof m.time!=='string'||!/^$|^\d{2}:\d{2}$/.test(m.time)||!Array.isArray(m.images)||m.images.length>4||!m.images.every(img)||(m.kind==='cover'&&(s.messages.length!==1||m.images.length>1)))throw Error('Tin nhắn trong dự án không hợp lệ.');}}return d;
+    if(d.theme!==undefined&&!['messenger','zalo'].includes(d.theme))throw Error('Giao diện không hợp lệ.');
+    for(const key of ['showTime','showAvatar','trim'])if(d[key]!==undefined&&typeof d[key]!=='boolean')throw Error('Thiết lập không hợp lệ.');
+    for(const s of d.slides){
+      if(s.overlay!==undefined&&(typeof s.overlay!=='string'||s.overlay.length>180))throw Error('Chữ trên ảnh tối đa 180 ký tự.');
+      if(s.overlayPosition!==undefined&&!['top','middle','bottom'].includes(s.overlayPosition))throw Error('Vị trí chữ không hợp lệ.');
+      if(s.imageFit!==undefined&&!['contain','cover'].includes(s.imageFit))throw Error('Cách đặt ảnh không hợp lệ.');
+      if(s.focus!==undefined&&typeof s.focus!=='boolean')throw Error('Thiết lập tin nổi bật không hợp lệ.');
+      if(s.title!==undefined&&(typeof s.title!=='string'||s.title.length>50))throw Error('Tên slide không hợp lệ.');if(!Array.isArray(s.messages)||s.messages.length>100)throw Error('Slide không hợp lệ.');for(const m of s.messages){if(!['in','out'].includes(m.side)||!['text','image','cover'].includes(m.kind)||typeof m.text!=='string'||m.text.length>1800||typeof m.time!=='string'||!/^$|^\d{2}:\d{2}$/.test(m.time)||!Array.isArray(m.images)||m.images.length>4||!m.images.every(img)||(m.kind==='cover'&&(s.messages.length!==1||m.images.length>1)))throw Error('Tin nhắn trong dự án không hợp lệ.');}}return d;
   }
   $('open').onclick=()=>$('project-file').click();
   $('project-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>80*1024*1024)throw Error('File dự án tối đa 80 MB.');const imported=validate(JSON.parse(await f.text()));await Promise.all([imported.avatar,...imported.slides.flatMap(s=>s.messages.flatMap(m=>m.images))].filter(Boolean).map(loadImage));state=imported;slide=0;resetEditor();settings();openWorkspace();update();notice('Đã mở dự án.');}catch(e){notice(e.message,true);}e.target.value='';};

@@ -17,7 +17,7 @@ if(!action)return '';
 if(action.type==='open'){return action.tool;}
 if(action.type==='roundup'){await window.roundupStudio.applyPlan(action);return 'roundup';}
 if(action.type==='zalo'){
-const draft={version:1,name:action.name,avatar:'',ratio:'portrait',font:44,header:false,slides:action.slides.map(s=>({title:s.title,messages:s.messages.flatMap(m=>{
+const draft={version:1,name:action.name,avatar:'',ratio:'portrait',font:46,theme:'messenger',showTime:false,showAvatar:false,header:false,slides:action.slides.map(s=>({title:s.title,messages:s.messages.flatMap(m=>{
 const common={side:m.side,time:m.time||'21:03',heart:!!m.heart,hd:true};const msgs=[];if(m.text?.trim())msgs.push({...common,kind:'text',text:m.text,images:[]});if(m.image_indices?.length)msgs.push({...common,kind:'image',text:'',images:m.image_indices.map(i=>{if(!attachments[i])throw Error('Thiếu ảnh tham chiếu.');return attachments[i];})});return msgs;})}))};await window.zaloStudio.applyDraft(draft);return 'chatcontent';}
 throw Error('Trợ lý trả về hành động chưa hỗ trợ.');
 }
