@@ -58,7 +58,8 @@
         const d = await api('/api/batch-status?id=' + encodeURIComponent(id));
         const items = (d.items || []).map(c => ({...c, id: c.gallery?.id}));
         creations = [...items, ...creations.filter(c => !items.some(n => n.id === c.id))]; render();
-        note('Đã xử lý ' + d.done + '/' + d.total + ' ảnh.' + (d.errors?.length ? '\n' + d.errors.join('\n') : ''));
+        const failed = d.errors?.length || 0, succeeded = (d.items || []).length;
+        note((d.finished ? 'Hoàn tất: ' : 'Đang tạo: ') + succeeded + '/' + d.total + ' ảnh thành công.' + (failed ? ' ' + failed + ' ảnh thất bại.\n' + [...new Set(d.errors)].join('\n') : ''));
         if (d.finished) { sessionStorage.removeItem('image-studio-job'); break; }
         await new Promise(r => setTimeout(r, 2500));
       }

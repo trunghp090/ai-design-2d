@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.22-design-bulk-delete"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.27-image-provider-errors"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -604,16 +604,13 @@ def engines_status():
 
 def resolve_engine_id(body):
     """Lấy model gen ảnh từ body (field 'engine'), tương thích payload cũ ('nano'),
-    fallback nếu thiếu key, mặc định model tốt nhất đang có."""
+    Giữ nguyên lựa chọn tường minh; chỉ chọn mặc định khi chưa chọn model."""
     eid = (body.get("engine") or "").strip()
     if not eid and body.get("nano"):           # payload cũ: nano=true
         eid = "gemini_pro"
     if eid:
-        info = engine_info(eid)
-        if info["kind"] == "gemini" and not GEMINI_API_KEY:
-            return "openai" if API_KEY else eid
-        if info["kind"] == "openai" and not API_KEY and GEMINI_API_KEY:
-            return "gemini_pro"
+        if eid not in {e["id"] for e in IMAGE_ENGINES}:
+            raise ValueError("Model tạo ảnh không hợp lệ.")
         return eid
     return "openai" if API_KEY else "gemini_pro"   # mặc định: ChatGPT image-2 (user chốt 2026-08)
 
@@ -637,10 +634,16 @@ def gen_shot(images, prompt, size, engine="openai", aspect="", gem_model="", loc
     quality: low/medium/high cho gpt-image (nhanh<->đẹp); rỗng = mặc định model."""
     if lock:
         prompt = _DESIGN_LOCK + (prompt or "")
+    if engine not in {e["id"] for e in IMAGE_ENGINES}:
+        raise ValueError("Model tạo ảnh không hợp lệ.")
     info = engine_info(engine)
-    if info["kind"] == "gemini" and GEMINI_API_KEY:
+    if info["kind"] == "gemini":
+        if not GEMINI_API_KEY:
+            raise RuntimeError("Chưa cấu hình GEMINI_API_KEY cho Nano Banana. Không tự đổi model.")
         mdl = gem_model or (GEMINI_IMAGE_MODEL if engine == "gemini_pro" else info["model"])
         return gemini_edit(images, prompt, aspect or _aspect_for(size), mdl)
+    if not API_KEY:
+        raise RuntimeError("Chưa cấu hình OPENAI_API_KEY. Không tự đổi model.")
     if not images:
         return openai_generate(prompt, size, model=info["model"] or MODEL)          # selected model
     return openai_edit(images, prompt, size, native_transparent=False, quality=quality, model=info["model"] or MODEL)
@@ -1275,23 +1278,48 @@ def auto_concepts(image_b64_list, niche, n=3):
     return out[:n]
 
 
-def openai_error_message(e):
-    """Đổi HTTPError của OpenAI -> câu báo lỗi tiếng Việt dễ hiểu."""
+def image_provider_error_message(e, engine=None):
+    """Format provider errors without mislabelling Google responses as OpenAI."""
+    host = urllib.parse.urlparse(getattr(e, "url", "") or "").hostname
+    gemini = host == "generativelanguage.googleapis.com" or (
+        not host and engine_info(engine)["kind"] == "gemini")
+    provider = "Nano Banana / Google Gemini" if gemini else "OpenAI"
     try:
         detail = e.read().decode("utf-8", "ignore")
     except Exception:
-        detail = str(e)
+        detail = ""
+    try:
+        error = json.loads(detail).get("error", {})
+        detail = error.get("message", detail) if isinstance(error, dict) else str(error)
+    except (ValueError, AttributeError):
+        pass
+    detail = str(detail or "")
+    for secret in (API_KEY, GEMINI_API_KEY):
+        if secret:
+            detail = detail.replace(secret, "[ẩn API key]")
     low = detail.lower()
-    if "moderation_blocked" in low or "safety system" in low:
-        return ("⚠️ OpenAI chặn nội dung này (bộ lọc an toàn — đôi khi chặn nhầm). "
-                "Thử: đổi ảnh mẫu khác · sửa/bớt chi tiết · hoặc bấm chạy lại 1–2 lần.")
-    if e.code in (500, 502, 503, 520):
-        return "OpenAI đang quá tải (lỗi %s). Bấm chạy lại sau giây lát." % e.code
+    prefix = "%s (%s): " % (provider, e.code)
+    if e.code == 403:
+        if "project has been denied access" in low:
+            return prefix + ("Project API bị từ chối quyền truy cập. Kiểm tra project gắn với API key "
+                             "trong Google AI Studio / Google Cloud Console và cảnh báo Billing; "
+                             "nếu không rõ lý do, liên hệ hỗ trợ Google." if gemini else
+                             "Project API bị từ chối quyền truy cập. Kiểm tra quyền của project và API key.")
+        return prefix + "API key hoặc project chưa có quyền dùng model này. " + detail[:300]
     if e.code == 401:
-        return "Key OpenAI sai hoặc hết số dư. Kiểm tra lại API key + tài khoản OpenAI."
+        return prefix + "API key không hợp lệ hoặc đã hết hiệu lực. Kiểm tra key của nhà cung cấp đã chọn."
     if e.code == 429:
-        return "Gọi quá nhanh / hết hạn mức (429). Đợi chút rồi thử lại."
-    return "OpenAI %s: %s" % (e.code, detail[:300])
+        return prefix + "Đã chạm giới hạn lượt gọi hoặc hạn mức. Kiểm tra quota và Billing."
+    if "moderation_blocked" in low or "safety system" in low:
+        return prefix + "Yêu cầu bị bộ lọc an toàn từ chối. Kiểm tra nội dung prompt và ảnh tham chiếu."
+    if e.code >= 500:
+        return prefix + "Nhà cung cấp đang gặp lỗi. Thử lại sau."
+    return prefix + (detail[:300] or "Yêu cầu tạo ảnh không thành công.")
+
+
+def openai_error_message(e):
+    # Existing callers retain their interface; the response URL identifies Google.
+    return image_provider_error_message(e)
 
 
 # --------------------------------------------------------------------------- #
@@ -1823,7 +1851,7 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"
             return {"image": b64, "title": prompt[:80], "prompt": prompt,
                     "engine": engine, "aspect": aspect or "auto", "gallery": g}
         except urllib.error.HTTPError as e:
-            return {"error": openai_error_message(e), "title": "Lỗi"}
+            return {"error": image_provider_error_message(e, engine), "title": "Lỗi"}
         except Exception as e:
             return {"error": str(e), "title": "Lỗi"}
 
