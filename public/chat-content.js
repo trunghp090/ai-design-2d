@@ -42,6 +42,9 @@
   const addButtons = document.createElement('div'); addButtons.className = 'cc-row cc-inline-add';
   addButtons.innerHTML = '<button class="btn-ghost" id="cc-add-customer">＋ Tin người ấy</button><button class="btn-ghost" id="cc-add-shop">＋ Tin của bạn</button>';
   scriptPanel.querySelector('#cc-list').before(addButtons);
+  const components=document.createElement('div');components.className='cc-component-add';
+  components.innerHTML='<label for="cc-component-side">Người gửi thành phần mới</label><select id="cc-component-side" class="input"><option value="out">Bạn · bên phải</option><option value="in">Người ấy · bên trái</option></select><div class="cc-actions"><button class="btn-ghost" data-component="text">＋ Văn bản</button><button class="btn-ghost" data-component="file">＋ Tệp tin</button><button class="btn-ghost" data-component="image">＋ Tin chứa ảnh</button><button class="btn-ghost" data-component="cover">＋ Ảnh riêng</button></div><p class="hint">Thêm ở bất kỳ phần nào. Ảnh riêng dùng một slide toàn khung; tin chứa ảnh có thể kèm lời nhắn.</p>';
+  addButtons.after(components);
   const slides = root.querySelector('#cc-slides'); root.querySelector('.cc-grid').before(slides);
   const footer = document.createElement('div'); footer.className = 'cc-preview-footer';
   footer.innerHTML = '<div class="cc-preview-nav"><button class="btn-ghost sm" id="cc-prev" aria-label="Slide trước">←</button><span id="cc-page-number"></span><button class="btn-ghost sm" id="cc-next" aria-label="Slide tiếp theo">→</button></div>';
@@ -184,8 +187,9 @@
     $('list').innerHTML=messages().map((m,i)=>`<article class="cc-message cc-message-${m.side}" data-message="${i}">
       <div class="cc-message-head"><small><span class="cc-sender-dot"></span>${m.side==='in'?'NGƯỜI ẤY':'BẠN'} <span class="cc-message-number">/ Tin ${i+1}</span></small><div class="cc-actions"><button data-move="${i}" data-delta="-1" ${i===0?'disabled':''} aria-label="Đưa tin ${i+1} lên">↑</button><button data-move="${i}" data-delta="1" ${i===messages().length-1?'disabled':''} aria-label="Đưa tin ${i+1} xuống">↓</button><button data-delete="${i}" aria-label="Xóa tin ${i+1}">Xóa</button></div></div>
       <div class="cc-row"><select class="input" data-field="side" aria-label="Người gửi tin ${i+1}"><option value="in" ${m.side==='in'?'selected':''}>Người ấy · bên trái</option><option value="out" ${m.side==='out'?'selected':''}>Bạn · bên phải</option></select><input class="input" type="time" data-field="time" aria-label="Giờ tin ${i+1}" value="${esc(m.time)}"></div>
-      <select class="input cc-message-kind" data-field="kind" aria-label="Loại tin ${i+1}"><option value="text" ${m.kind==='text'?'selected':''}>Tin nhắn văn bản</option><option value="image" ${m.kind==='image'?'selected':''}>Ảnh / album ảnh</option><option value="cover" ${m.kind==='cover'?'selected':''}>Ảnh toàn khung</option></select>
-      ${m.kind==='text'?`<textarea class="input" rows="3" maxlength="1800" data-field="text" aria-label="Nội dung tin ${i+1}" placeholder="Nhập tin nhắn…">${esc(m.text)}</textarea>`:`<label>Đính kèm ${m.kind==='cover'?'1':'1–4'} ảnh<input class="cc-file" type="file" accept="image/*" ${m.kind==='cover'?'':'multiple'} data-upload="${i}" aria-label="Ảnh tin ${i+1}"></label><div class="cc-media-thumbs">${m.images.map((src,j)=>`<div><img src="${esc(src)}" alt="Đính kèm ${j+1}"><button data-remove-image="${i}" data-image="${j}" aria-label="Bỏ ảnh ${j+1} tin ${i+1}">×</button></div>`).join('')}</div>`}
+      <select class="input cc-message-kind" data-field="kind" aria-label="Loại tin ${i+1}"><option value="text" ${m.kind==='text'?'selected':''}>Tin nhắn văn bản</option><option value="file" ${m.kind==='file'?'selected':''}>Tệp tin đính kèm</option><option value="image" ${m.kind==='image'?'selected':''}>Ảnh / album ảnh</option><option value="cover" ${m.kind==='cover'?'selected':''}>Ảnh toàn khung</option></select>
+      ${m.kind==='file'?`<label>Chọn tệp<input class="cc-file" type="file" data-file-upload="${i}" aria-label="Tệp tin ${i+1}"></label><label>Tên tệp<input class="input" data-field="fileName" maxlength="180" value="${esc(m.fileName||'')}" aria-label="Tên tệp ${i+1}"></label><p class="hint">${esc(m.fileSize||0)} byte · Xuất thẻ tên tệp trong ảnh; không gửi hoặc đóng gói tệp gốc.</p>`:m.kind==='text'?`<textarea class="input" rows="3" maxlength="1800" data-field="text" aria-label="Nội dung tin ${i+1}" placeholder="Nhập tin nhắn…">${esc(m.text)}</textarea>`:`<label>Đính kèm ${m.kind==='cover'?'1':'1–4'} ảnh<input class="cc-file" type="file" accept="image/*" ${m.kind==='cover'?'':'multiple'} data-upload="${i}" aria-label="Ảnh tin ${i+1}"></label><div class="cc-media-thumbs">${m.images.map((src,j)=>`<div><img src="${esc(src)}" alt="Đính kèm ${j+1}"><button data-remove-image="${i}" data-image="${j}" aria-label="Bỏ ảnh ${j+1} tin ${i+1}">×</button></div>`).join('')}</div>`}
+      ${m.kind==='image'?`<textarea class="input" rows="2" maxlength="1800" data-field="text" aria-label="Lời nhắn kèm ảnh ${i+1}" placeholder="Lời nhắn kèm ảnh (có thể để trống)">${esc(m.text)}</textarea>`:''}
       <details class="cc-message-options"><summary>Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}</summary><label class="cc-check"><input type="checkbox" data-field="divider" ${m.divider?'checked':''}>Ngăn bằng “Tin nhắn mới”</label><label class="cc-check"><input type="checkbox" data-field="heart" ${m.heart?'checked':''}>Hiện biểu tượng thả tim</label>
       ${m.kind==='image'?`<label class="cc-check"><input type="checkbox" data-field="hd" ${m.hd?'checked':''}>Hiện nhãn HD</label>`:''}</details>
     </article>`).join('')||'<p class="cc-empty">Thêm tin nhắn đầu tiên cho câu chuyện.</p>';
@@ -196,7 +200,9 @@
   function crop(ctx,im,x,y,w,h){const k=Math.max(w/im.width,h/im.height),sw=w/k,sh=h/k;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,x,y,w,h);}
   function wrap(ctx,text,max){const lines=[];for(const para of text.split('\n')){let line='';for(const word of para.split(' ')){const candidate=line?line+' '+word:word;if(ctx.measureText(candidate).width<=max){line=candidate;continue;}if(line)lines.push(line);line='';for(const ch of word){if(ctx.measureText(line+ch).width>max&&line){lines.push(line);line='';}line+=ch;}}lines.push(line);}return lines;}
   async function draw(){
-    const token=++revision, snapshot=JSON.parse(JSON.stringify(state)), ms=snapshot.slides[slide].messages;
+    const token=++revision, snapshot=JSON.parse(JSON.stringify(state));
+    snapshot.slides[slide].messages=snapshot.slides[slide].messages.flatMap(m=>m.kind==='file'?[{...m,kind:'text',images:[],text:'📄 '+(m.fileName||'Chọn tệp tin')+'\n'+(m.fileSize?Math.ceil(m.fileSize/1024)+' KB':'Tệp đính kèm')}]:m.kind==='image'&&m.text.trim()?[{...m,text:'',heart:false},{...m,kind:'text',images:[],divider:false}]:[m]);
+    const ms=snapshot.slides[slide].messages;
     const W=1080,H={portrait:1920,feed:1350,square:1080}[snapshot.ratio];
     const buffer=document.createElement('canvas');buffer.width=W;buffer.height=H;const c=buffer.getContext('2d');
     const imgs=await Promise.all(ms.map(m=>Promise.all((m.images||[]).map(loadImage))));const avatar=await loadImage(snapshot.avatar);
@@ -258,10 +264,14 @@
     }else{m[field]=e.target.type==='checkbox'?e.target.checked:e.target.value;if(field==='side'){row.classList.toggle('cc-message-in',m.side==='in');row.classList.toggle('cc-message-out',m.side==='out');row.querySelector('.cc-message-head small').innerHTML=`<span class="cc-sender-dot"></span>${m.side==='in'?'NGƯỜI ẤY':'BẠN'} <span class="cc-message-number">/ Tin ${+row.dataset.message+1}</span>`;}if(field==='heart'||field==='hd')row.querySelector('.cc-message-options summary').textContent=`Hiển thị thêm${m.heart?' · ♥':''}${m.kind==='image'&&m.hd?' · HD':''}`;draw().catch(e=>notice(e.message,true));persist();}
   };
   $('list').onchange=async e=>{
+    if(e.target.dataset.fileUpload!==undefined){const m=messages()[+e.target.dataset.fileUpload],file=e.target.files[0];if(file){m.fileName=file.name.slice(0,180);m.fileSize=file.size;update();notice('Đã thêm thẻ tệp. Ảnh xuất hiển thị tên và dung lượng.');}return;}
     if(e.target.dataset.upload===undefined)return;
     const m=messages()[+e.target.dataset.upload],files=[...e.target.files];if(!files.length)return;
     try{if(files.length>(m.kind==='cover'?1:4))throw Error('Số ảnh vượt giới hạn của tin nhắn.');const images=await Promise.all(files.map(readFile));m.images=images;update();notice('Đã cập nhật ảnh.');}catch(err){notice(err.message,true);}
   };
+  components.onclick=e=>{const kind=e.target.closest('[data-component]')?.dataset.component;if(!kind)return;
+    const m={side:$('component-side').value,kind,text:'',time:'',heart:false,hd:false,images:[]};
+    if(kind==='cover'&&messages().length||messages().some(x=>x.kind==='cover')){state.slides.splice(slide+1,0,{title:kind==='cover'?'Ảnh riêng':'Hội thoại',messages:[m]});slide++;notice('Đã thêm phần riêng ngay sau phần hiện tại.');}else messages().push(m);update();};
   function addInline(side){if(messages().some(m=>m.kind==='cover'))return notice('Slide ảnh toàn khung không chứa tin nhắn. Hãy thêm slide mới.',true);messages().push({side,kind:'text',text:'',time:'21:03',heart:false,hd:true,images:[]});update();}
   $('add-customer').onclick=()=>addInline('in');$('add-shop').onclick=()=>addInline('out');
   $('slide-name').oninput=()=>{state.slides[slide].title=$('slide-name').value;const active=$('slides').querySelector('.active span');if(active)active.textContent=$('slide-name').value||'Slide '+(slide+1);persist();};
@@ -283,7 +293,7 @@
     reader.onerror=()=>notice('Không tạo được tệp tải xuống. Vui lòng xuất lại.',true);
     reader.readAsDataURL(blob);
   }
-  $('export').onclick=async()=>{try{if(messages().some(m=>m.kind!=='text'&&!m.images.length))throw Error('Hãy chọn ảnh cho các tin ảnh trước khi xuất.');if(!messages().length||messages().some(m=>m.kind==='text'&&!m.text.trim()))throw Error('Hãy nhập nội dung hoặc xóa tin nhắn trống trước khi xuất.');await draw();if(overflow)return notice('Chưa xuất: nội dung đang vượt khung. Hãy tách slide hoặc giảm cỡ chữ.',true);const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));if(!blob)throw Error('Không tạo được PNG.');download(blob,`content-zalo-${String(slide+1).padStart(2,'0')}.png`);notice('Đã xuất PNG của slide hiện tại.');}catch(e){notice(e.message,true);}};
+  $('export').onclick=async()=>{try{if(messages().some(m=>m.kind!=='text'&&m.kind!=='file'&&!m.images.length))throw Error('Hãy chọn ảnh cho các tin ảnh trước khi xuất.');if(messages().some(m=>m.kind==='file'&&!m.fileName?.trim()))throw Error('Hãy chọn tệp hoặc nhập tên tệp trước khi xuất.');if(!messages().length||messages().some(m=>m.kind==='text'&&!m.text.trim()))throw Error('Hãy nhập nội dung hoặc xóa tin nhắn trống trước khi xuất.');await draw();if(overflow)return notice('Chưa xuất: nội dung đang vượt khung. Hãy tách slide hoặc giảm cỡ chữ.',true);const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));if(!blob)throw Error('Không tạo được PNG.');download(blob,`content-zalo-${String(slide+1).padStart(2,'0')}.png`);notice('Đã xuất PNG của slide hiện tại.');}catch(e){notice(e.message,true);}};
   function zipImages(files){
     const enc=new TextEncoder(),parts=[],directory=[];let offset=0;
     const table=Array.from({length:256},(_,n)=>{for(let k=0;k<8;k++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
@@ -306,7 +316,7 @@
       const files=[];
       for(let i=0;i<state.slides.length;i++){
         slide=i;const ms=messages();
-        if(!ms.length||ms.some(m=>m.kind==='text'?!m.text.trim():!m.images.length))throw Error(`Slide ${i+1} còn nội dung hoặc ảnh trống.`);
+        if(!ms.length||ms.some(m=>m.kind==='text'?!m.text.trim():m.kind==='file'?!m.fileName?.trim():!m.images.length))throw Error(`Slide ${i+1} còn nội dung hoặc ảnh trống.`);
         notice(`Đang xuất ảnh ${i+1}/${state.slides.length}…`);await draw();
         if(overflow)throw Error(`Slide ${i+1} vượt khung. Hãy tách nội dung trước khi tải.`);
         const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));
@@ -327,7 +337,7 @@
       if(s.overlayPosition!==undefined&&!['top','middle','bottom'].includes(s.overlayPosition))throw Error('Vị trí chữ không hợp lệ.');
       if(s.imageFit!==undefined&&!['contain','cover'].includes(s.imageFit))throw Error('Cách đặt ảnh không hợp lệ.');
       if(s.focus!==undefined&&typeof s.focus!=='boolean')throw Error('Thiết lập tin nổi bật không hợp lệ.');
-      if(s.title!==undefined&&(typeof s.title!=='string'||s.title.length>50))throw Error('Tên slide không hợp lệ.');if(!Array.isArray(s.messages)||s.messages.length>100)throw Error('Slide không hợp lệ.');for(const m of s.messages){if(!['in','out'].includes(m.side)||!['text','image','cover'].includes(m.kind)||typeof m.text!=='string'||m.text.length>1800||typeof m.time!=='string'||!/^$|^\d{2}:\d{2}$/.test(m.time)||!Array.isArray(m.images)||m.images.length>4||!m.images.every(img)||(m.kind==='cover'&&(s.messages.length!==1||m.images.length>1)))throw Error('Tin nhắn trong dự án không hợp lệ.');}}return d;
+      if(s.title!==undefined&&(typeof s.title!=='string'||s.title.length>50))throw Error('Tên slide không hợp lệ.');if(!Array.isArray(s.messages)||s.messages.length>100)throw Error('Slide không hợp lệ.');for(const m of s.messages){if(m.fileName!==undefined&&(typeof m.fileName!=='string'||m.fileName.length>180))throw Error('Tên tệp không hợp lệ.');if(m.fileSize!==undefined&&(!Number.isFinite(m.fileSize)||m.fileSize<0))throw Error('Dung lượng tệp không hợp lệ.');if(!['in','out'].includes(m.side)||!['text','image','cover','file'].includes(m.kind)||typeof m.text!=='string'||m.text.length>1800||typeof m.time!=='string'||!/^$|^\d{2}:\d{2}$/.test(m.time)||!Array.isArray(m.images)||m.images.length>4||!m.images.every(img)||(m.kind==='cover'&&(s.messages.length!==1||m.images.length>1)))throw Error('Tin nhắn trong dự án không hợp lệ.');}}return d;
   }
   $('open').onclick=()=>$('project-file').click();
   $('project-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>80*1024*1024)throw Error('File dự án tối đa 80 MB.');const imported=validate(JSON.parse(await f.text()));await Promise.all([imported.avatar,...imported.slides.flatMap(s=>s.messages.flatMap(m=>m.images))].filter(Boolean).map(loadImage));state=imported;slide=0;resetEditor();settings();openWorkspace();update();notice('Đã mở dự án.');}catch(e){notice(e.message,true);}e.target.value='';};

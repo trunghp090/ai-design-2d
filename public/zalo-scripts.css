@@ -23,3 +23,4 @@
 #view-chatcontent .cc-template-card:hover{transform:translateY(-2px);transition:transform .15s}
 #view-chatcontent .cc-stage-head{color:#e7c9eb;background:#241b2c}
 #view-chatcontent .cc-preview-footer{background:#201924}
+.cc-component-add{padding:16px;border:1px solid #67456f;border-radius:14px;background:#2c2032;margin:14px 0}.cc-component-add .cc-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.cc-component-add .cc-actions button{flex:1 1 130px}
