@@ -2,6 +2,7 @@
 (() => {
   const root = document.getElementById('view-imagegen');
   let ready = false, refs = [], creations = [], busy = false;
+  const referenceSources = new Map(), pendingReferences = new Set();
   const el = id => root.querySelector('#ig-' + id);
   const presets = [
     ['Chân dung', 'Chân dung một cô gái Việt Nam bên cửa sổ, ánh sáng tự nhiên dịu, màu sắc chân thực, bố cục tối giản.'],
@@ -36,15 +37,44 @@
     }
     renderRefs();
   }
+  async function useReference(src, button) {
+    const feedback = text => { el('refstatus').textContent = text; };
+    if (refs.includes(referenceSources.get(src))) { feedback('Ảnh này đã có trong ảnh tham chiếu.'); return; }
+    if (refs.length >= 6) { feedback('Tối đa 6 ảnh tham chiếu. Xóa một ảnh trước khi thêm.'); return; }
+    if (pendingReferences.has(src)) return;
+    pendingReferences.add(src); button.disabled = true; button.textContent = 'Đang thêm ảnh…';
+    try {
+      const response = await fetch(src, {signal: AbortSignal.timeout(45000)});
+      if (!response.ok) throw new Error('Không tải được ảnh. Vui lòng thử lại.');
+      const blob = await response.blob();
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(blob.type) || blob.size > 10 * 1024 * 1024) {
+        throw new Error('Chọn ảnh PNG, JPG hoặc WebP, tối đa 10 MB mỗi ảnh.');
+      }
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
+      });
+      if (refs.includes(data)) { feedback('Ảnh này đã có trong ảnh tham chiếu.'); return; }
+      if (refs.length >= 6) { feedback('Tối đa 6 ảnh tham chiếu. Xóa một ảnh trước khi thêm.'); return; }
+      refs.push(data); referenceSources.set(src, data); renderRefs();
+      feedback('Đã thêm ảnh vào ảnh tham chiếu.');
+      el('refs').scrollIntoView({behavior:'smooth', block:'center'});
+    } catch (error) {
+      feedback(error.name === 'TimeoutError' ? 'Tải ảnh quá thời gian. Vui lòng thử lại.' : error.message || 'Không đọc được ảnh. Vui lòng thử lại.');
+    } finally {
+      pendingReferences.delete(src); button.disabled = false; button.textContent = '＋ Dùng làm ảnh tham chiếu';
+    }
+  }
   function render() {
     el('results').replaceChildren(); el('empty').hidden = creations.length > 0; el('total').textContent = creations.length;
     creations.forEach(c => {
-      const card = document.createElement('article'), img = new Image(), link = document.createElement('a'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button');
+      const card = document.createElement('article'), img = new Image(), link = document.createElement('a'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button');
       const src = c.url || c.gallery?.url || 'data:image/png;base64,' + c.image;
       img.src = src; img.alt = c.prompt || 'Ảnh đã tạo'; img.loading = 'lazy'; link.href = src; link.target = '_blank'; link.rel = 'noopener'; link.append(img);
       p.textContent = c.prompt; p.title = c.prompt; download.href = src; download.download = (c.id || c.gallery?.id || 'anh-ai') + '.png'; download.textContent = '↓ Tải ảnh'; reuse.textContent = 'Dùng prompt'; reuse.type = 'button';
       reuse.onclick = () => { el('prompt').value = c.prompt || ''; const g = c.generation || c; if (g.engine) el('engine').value = g.engine; if (g.aspect) el('aspect').value = g.aspect; el('prompt').focus(); };
-      actions.append(download, reuse); card.append(link, p, actions); el('results').append(card);
+      reference.type = 'button'; reference.className = 'ig-use-reference'; reference.textContent = '＋ Dùng làm ảnh tham chiếu';
+      reference.onclick = () => useReference(src, reference);
+      actions.append(download, reuse, reference); card.append(link, p, actions); el('results').append(card);
     });
   }
   async function history() {
@@ -71,7 +101,7 @@
     root.innerHTML = `<div class="ig-heading"><div><span>IMAGE STUDIO</span><h1>Từ ý tưởng đến hình ảnh.</h1><p>Viết điều bạn tưởng tượng. Tạo theo cách của bạn.</p></div><span class="ig-badge">✦ AI Image Generator</span></div>
     <div class="ig-layout"><aside class="ig-controls"><form id="ig-form"><h2>✦ Tạo ảnh</h2><label for="ig-engine">Model</label><select id="ig-engine" class="input"><option value="">Đang tải model…</option></select>
     <label for="ig-prompt">Prompt <span>Mô tả hình ảnh</span></label><textarea id="ig-prompt" class="input" rows="7" maxlength="12000" required placeholder="Một bức ảnh, một ý tưởng, một thế giới mới…"></textarea>
-    <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><label id="ig-drop" for="ig-files">＋ Thêm ảnh hoặc kéo thả vào đây<small>PNG, JPG, WebP · Tối đa 10 MB/ảnh</small></label><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+    <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><p id="ig-refstatus" role="status" aria-live="polite"></p><label id="ig-drop" for="ig-files">＋ Thêm ảnh hoặc kéo thả vào đây<small>PNG, JPG, WebP · Tối đa 10 MB/ảnh</small></label><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
     <div class="ig-options"><div><label for="ig-aspect">Tỉ lệ</label><select id="ig-aspect" class="input">${['1:1','4:5','2:3','3:4','9:16','3:2','4:3','16:9'].map(a => `<option>${a}</option>`).join('')}</select></div><div><label for="ig-count">Số ảnh</label><select id="ig-count" class="input"><option>1</option><option>2</option><option>4</option></select></div></div>
     <button class="btn-primary" id="ig-run" disabled>✦ Tạo ảnh</button><p id="ig-status" role="status" aria-live="polite"></p><button type="button" id="ig-resume" hidden>Tiếp tục kiểm tra</button></form></aside>
     <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="true">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="false">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-results"></div>
