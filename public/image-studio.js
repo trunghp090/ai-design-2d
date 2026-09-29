@@ -38,7 +38,8 @@
     renderRefs();
   }
   async function useReference(src, button) {
-    const feedback = text => { el('refstatus').textContent = text; };
+    const originalLabel = button.textContent;
+    const feedback = text => { el('refstatus').textContent = text; el('picker-status').textContent = text; };
     if (refs.includes(referenceSources.get(src))) { feedback('Ảnh này đã có trong ảnh tham chiếu.'); return; }
     if (refs.length >= 6) { feedback('Tối đa 6 ảnh tham chiếu. Xóa một ảnh trước khi thêm.'); return; }
     if (pendingReferences.has(src)) return;
@@ -57,12 +58,33 @@
       if (refs.length >= 6) { feedback('Tối đa 6 ảnh tham chiếu. Xóa một ảnh trước khi thêm.'); return; }
       refs.push(data); referenceSources.set(src, data); renderRefs();
       feedback('Đã thêm ảnh vào ảnh tham chiếu.');
-      el('refs').scrollIntoView({behavior:'smooth', block:'center'});
+      if (!el('picker').open) el('refs').scrollIntoView({behavior:'smooth', block:'center'});
     } catch (error) {
       feedback(error.name === 'TimeoutError' ? 'Tải ảnh quá thời gian. Vui lòng thử lại.' : error.message || 'Không đọc được ảnh. Vui lòng thử lại.');
     } finally {
-      pendingReferences.delete(src); button.disabled = false; button.textContent = '＋ Dùng làm ảnh tham chiếu';
+      pendingReferences.delete(src); button.disabled = false; button.textContent = originalLabel;
     }
+  }
+  function showReferenceLibrary() {
+    el('picker-choices').hidden = true; el('picker-library').hidden = false;
+    el('picker-title').textContent = 'Chọn ảnh đã tạo';
+    el('picker-status').textContent = 'Đã chọn ' + refs.length + '/6 ảnh tham chiếu. Bấm vào ảnh để thêm.';
+    const grid = el('picker-grid'); grid.replaceChildren();
+    el('picker-empty').hidden = creations.length > 0;
+    creations.forEach((c, index) => {
+      const src = c.url || c.gallery?.url || 'data:image/png;base64,' + c.image;
+      const card = document.createElement('div'), img = new Image(), button = document.createElement('button');
+      img.src = src; img.alt = c.prompt || 'Ảnh đã tạo ' + (index + 1); img.loading = 'lazy';
+      button.type = 'button';
+      const update = () => {
+        const selected = refs.includes(referenceSources.get(src));
+        button.textContent = selected ? '✓ Đã thêm' : '＋ Chọn ảnh ' + (index + 1);
+        button.disabled = selected; card.classList.toggle('ig-picked', selected);
+      };
+      button.onclick = async () => { await useReference(src, button); update(); };
+      img.onclick = () => { if (!button.disabled) button.click(); };
+      update(); card.append(img, button); grid.append(card);
+    });
   }
   function render() {
     el('results').replaceChildren(); el('empty').hidden = creations.length > 0; el('total').textContent = creations.length;
@@ -101,12 +123,24 @@
     root.innerHTML = `<div class="ig-heading"><div><span>IMAGE STUDIO</span><h1>Từ ý tưởng đến hình ảnh.</h1><p>Viết điều bạn tưởng tượng. Tạo theo cách của bạn.</p></div><span class="ig-badge">✦ AI Image Generator</span></div>
     <div class="ig-layout"><aside class="ig-controls"><form id="ig-form"><h2>✦ Tạo ảnh</h2><label for="ig-engine">Model</label><select id="ig-engine" class="input"><option value="">Đang tải model…</option></select>
     <label for="ig-prompt">Prompt <span>Mô tả hình ảnh</span></label><textarea id="ig-prompt" class="input" rows="7" maxlength="12000" required placeholder="Một bức ảnh, một ý tưởng, một thế giới mới…"></textarea>
-    <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><p id="ig-refstatus" role="status" aria-live="polite"></p><label id="ig-drop" for="ig-files">＋ Thêm ảnh hoặc kéo thả vào đây<small>PNG, JPG, WebP · Tối đa 10 MB/ảnh</small></label><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+    <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><p id="ig-refstatus" role="status" aria-live="polite"></p><button type="button" id="ig-drop" aria-haspopup="dialog">＋ Thêm ảnh tham chiếu<small>Tải ảnh lên hoặc dùng ảnh đã tạo</small></button><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
     <div class="ig-options"><div><label for="ig-aspect">Tỉ lệ</label><select id="ig-aspect" class="input">${['1:1','4:5','2:3','3:4','9:16','3:2','4:3','16:9'].map(a => `<option>${a}</option>`).join('')}</select></div><div><label for="ig-count">Số ảnh</label><select id="ig-count" class="input"><option>1</option><option>2</option><option>4</option></select></div></div>
     <button class="btn-primary" id="ig-run" disabled>✦ Tạo ảnh</button><p id="ig-status" role="status" aria-live="polite"></p><button type="button" id="ig-resume" hidden>Tiếp tục kiểm tra</button></form></aside>
     <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="true">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="false">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-results"></div>
-    <div id="ig-empty"><div class="ig-spark">✦</div><h2>Ý tưởng tiếp theo của bạn là gì?</h2><p>Nhập prompt hoặc bắt đầu từ một gợi ý bên dưới.<br>Ảnh bạn tạo sẽ được lưu tại đây.</p><div id="ig-presets"></div></div></section></div>`;
+    <div id="ig-empty"><div class="ig-spark">✦</div><h2>Ý tưởng tiếp theo của bạn là gì?</h2><p>Nhập prompt hoặc bắt đầu từ một gợi ý bên dưới.<br>Ảnh bạn tạo sẽ được lưu tại đây.</p><div id="ig-presets"></div></div></section></div>
+    <dialog id="ig-picker" aria-labelledby="ig-picker-title"><header><h2 id="ig-picker-title">Thêm ảnh tham chiếu</h2><button type="button" id="ig-picker-close" aria-label="Đóng chọn ảnh">×</button></header>
+    <div id="ig-picker-choices"><button type="button" id="ig-picker-upload"><strong>↑ Tải ảnh lên</strong><span>Chọn ảnh từ thiết bị của bạn</span></button><button type="button" id="ig-picker-created"><strong>▦ Dùng ảnh đã tạo</strong><span>Chọn ảnh trong thư viện của bạn</span></button></div>
+    <div id="ig-picker-library" hidden><button type="button" id="ig-picker-back">← Chọn nguồn ảnh khác</button><p id="ig-picker-status" role="status" aria-live="polite"></p><p id="ig-picker-empty" hidden>Chưa có ảnh đã tạo. Bạn có thể quay lại để tải ảnh lên.</p><div id="ig-picker-grid"></div><button type="button" id="ig-picker-done">Xong</button></div></dialog>`;
     presets.forEach(([label, prompt], i) => { const b = document.createElement('button'); b.className = 'ig-preset ig-preset-' + i; b.innerHTML = `<span>${['◉','◇','△','✿'][i]}</span>${label}<small>Thử ý tưởng ↗</small>`; b.onclick = () => { el('prompt').value = prompt; el('prompt').focus(); }; el('presets').append(b); });
+    const showReferenceChoices = () => {
+      el('picker-title').textContent = 'Thêm ảnh tham chiếu';
+      el('picker-choices').hidden = false; el('picker-library').hidden = true;
+    };
+    el('drop').onclick = () => { showReferenceChoices(); el('picker').showModal(); };
+    el('picker-close').onclick = el('picker-done').onclick = () => el('picker').close();
+    el('picker-back').onclick = showReferenceChoices;
+    el('picker-upload').onclick = () => { el('picker').close(); el('files').click(); };
+    el('picker-created').onclick = showReferenceLibrary;
     el('files').onchange = async e => { await addFiles([...e.target.files]); e.target.value = ''; };
     el('drop').ondragover = e => { e.preventDefault(); };
     el('drop').ondrop = e => { e.preventDefault(); addFiles([...e.dataTransfer.files]); };
