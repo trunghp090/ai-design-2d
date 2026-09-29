@@ -3,6 +3,7 @@
   const root = document.getElementById('view-imagegen');
   let ready = false, refs = [], creations = [], submitting = false;
   const referenceSources = new Map(), pendingReferences = new Set(), regenerating = new Set();
+  const selected = new Set(), deleted = new Set();
   const el = id => root.querySelector('#ig-' + id);
   const presets = [
     ['Chân dung', 'Chân dung một cô gái Việt Nam bên cửa sổ, ánh sáng tự nhiên dịu, màu sắc chân thực, bố cục tối giản.'],
@@ -86,8 +87,24 @@
       update(); card.append(img, button); grid.append(card);
     });
   }
+  function renderSelection() {
+    el('selection').hidden = selected.size === 0;
+    el('selected-count').textContent = 'Đã chọn ' + selected.size + ' ảnh';
+  }
+  async function deleteImages(ids) {
+    if (!ids.length || !window.confirm('Xóa ' + ids.length + ' ảnh đã chọn? Ảnh đã xóa không thể khôi phục.')) return;
+    let removed = 0;
+    for (const id of ids) {
+      try {
+        await api('/api/gallery?id=' + encodeURIComponent(id), {method:'DELETE'});
+        deleted.add(id); selected.delete(id); creations = creations.filter(c => c.id !== id); removed++;
+      } catch (e) { note('Đã xóa ' + removed + ' ảnh. ' + e.message); render(); return; }
+    }
+    note('Đã xóa ' + removed + ' ảnh.'); render();
+  }
   function render() {
     el('results').replaceChildren(); el('empty').hidden = creations.length > 0; el('total').textContent = creations.length;
+    renderSelection();
     creations.forEach(c => {
       const card = document.createElement('article'), img = new Image(), link = document.createElement('button'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button'), regenerate = document.createElement('button');
       const src = c.url || c.gallery?.url || 'data:image/png;base64,' + c.image;
@@ -99,11 +116,18 @@
       reference.onclick = () => useReference(src, reference);
       regenerate.type = 'button'; regenerate.textContent = '↻ Tạo lại'; regenerate.title = 'Tạo 1 ảnh mới từ ảnh này, dùng lại prompt, model và tỉ lệ';
       regenerate.disabled = regenerating.has(src); regenerate.onclick = () => regenerateImage(c, src, regenerate);
-      actions.append(download, reuse, regenerate, reference); card.append(link, p, actions); el('results').append(card);
+      const frame = document.createElement('div'), tools = document.createElement('div'), remove = document.createElement('button'), choose = document.createElement('input'), bottom = document.createElement('div');
+      frame.className = 'ig-image-frame'; tools.className = 'ig-image-tools'; bottom.className = 'ig-image-bottom';
+      choose.type = 'checkbox'; choose.className = 'ig-image-select'; choose.setAttribute('aria-label','Chọn ảnh'); choose.checked = selected.has(c.id); choose.disabled = !c.id;
+      card.classList.toggle('ig-selected', choose.checked);
+      choose.onchange = () => { if (choose.checked) selected.add(c.id); else selected.delete(c.id); card.classList.toggle('ig-selected',choose.checked); renderSelection(); };
+      remove.type = 'button'; remove.textContent = '⌫'; remove.title = 'Xóa ảnh'; remove.setAttribute('aria-label','Xóa ảnh'); remove.disabled = !c.id; remove.onclick = () => deleteImages([c.id]);
+      tools.append(remove); bottom.append(regenerate,reference); frame.append(link,choose,tools,bottom);
+      actions.append(download, reuse); card.append(frame, p, actions); el('results').append(card);
     });
   }
   async function history() {
-    try { const d = await api('/api/gallery'); creations = (d.items || []).filter(c => c.mode === 'imagegen'); render(); }
+    try { const d = await api('/api/gallery'); creations = (d.items || []).filter(c => c.mode === 'imagegen' && !deleted.has(c.id)); for (const id of selected) if (!creations.some(c => c.id === id)) selected.delete(id); render(); }
     catch (e) { note(e.message); }
   }
   const jobs = new Map(), polling = new Set();
@@ -134,7 +158,7 @@
       while (true) {
         const d = await api('/api/batch-status?id=' + encodeURIComponent(id), {signal:AbortSignal.timeout(45000)});
         const items = (d.items || []).map((c, i) => ({...c, id: c.gallery?.id || c.id || id + '_' + i}));
-        const fresh = items.filter(n => !creations.some(c => c.id === n.id));
+        const fresh = items.filter(n => !deleted.has(n.id) && !creations.some(c => c.id === n.id));
         if (fresh.length) { creations = [...fresh, ...creations]; render(); }
         const failed = d.errors?.length || 0, succeeded = items.length;
         job.status = (d.finished ? 'Hoàn tất: ' : 'Đang tạo: ') + succeeded + '/' + d.total + ' ảnh thành công.' + (failed ? ' ' + failed + ' ảnh thất bại.\n' + [...new Set(d.errors)].join('\n') : '');
@@ -203,7 +227,7 @@
     <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><p id="ig-refstatus" role="status" aria-live="polite"></p><button type="button" id="ig-drop" aria-haspopup="dialog">＋ Thêm ảnh tham chiếu<small>Tải ảnh lên hoặc dùng ảnh đã tạo</small></button><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
     <div class="ig-options"><div><label for="ig-aspect">Tỉ lệ</label><select id="ig-aspect" class="input">${['1:1','4:5','2:3','3:4','9:16','3:2','4:3','16:9'].map(a => `<option>${a}</option>`).join('')}</select></div><div><label for="ig-count">Số ảnh</label><select id="ig-count" class="input"><option>1</option><option>2</option><option>4</option></select></div></div>
     <button class="btn-primary" id="ig-run" disabled>✦ Tạo ảnh</button><p class="ig-run-hint">Có thể gửi lượt mới khi các lượt trước đang tạo.</p><p id="ig-status" role="status" aria-live="polite"></p></form></aside>
-    <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="false">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="true">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-jobs" aria-live="polite"></div><div id="ig-results" class="ig-list"></div>
+    <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="false">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="true">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-jobs" aria-live="polite"></div><div id="ig-selection" hidden><span id="ig-selected-count"></span><button type="button" id="ig-delete-selected">Xóa ảnh đã chọn</button><button type="button" id="ig-clear-selected">Bỏ chọn</button></div><div id="ig-results" class="ig-list"></div>
     <div id="ig-empty"><div class="ig-spark">✦</div><h2>Ý tưởng tiếp theo của bạn là gì?</h2><p>Nhập prompt hoặc bắt đầu từ một gợi ý bên dưới.<br>Ảnh bạn tạo sẽ được lưu tại đây.</p><div id="ig-presets"></div></div></section></div>
     <dialog id="ig-picker" aria-labelledby="ig-picker-title"><header><h2 id="ig-picker-title">Thêm ảnh tham chiếu</h2><button type="button" id="ig-picker-close" aria-label="Đóng chọn ảnh">×</button></header>
     <div id="ig-picker-choices"><button type="button" id="ig-picker-upload"><strong>↑ Tải ảnh lên</strong><span>Chọn ảnh từ thiết bị của bạn</span></button><button type="button" id="ig-picker-created"><strong>▦ Dùng ảnh đã tạo</strong><span>Chọn ảnh trong thư viện của bạn</span></button></div>
@@ -225,6 +249,8 @@
     el('drop').ondragover = e => { e.preventDefault(); };
     el('drop').ondrop = e => { e.preventDefault(); addFiles([...e.dataTransfer.files]); };
     el('refresh').onclick = history;
+    el('delete-selected').onclick = () => deleteImages([...selected]);
+    el('clear-selected').onclick = () => { selected.clear(); render(); };
     for (const v of ['grid','list']) el(v).onclick = () => { el('results').classList.toggle('ig-list', v === 'list'); for (const k of ['grid','list']) el(k).setAttribute('aria-pressed', String(k === v)); };
     el('form').onsubmit = submitGeneration;
     await history();

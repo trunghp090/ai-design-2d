@@ -9,7 +9,7 @@ function setup(api, stored = {}) {
   const elements = Object.fromEntries(['jobs','run','status','engine','prompt','aspect','count'].map(k=>[k,element()]));
   Object.assign(elements.engine,{value:'gemini_pro'}); elements.prompt.value='First prompt'; elements.aspect.value='1:1'; elements.count.value='1';
   const storage = new Map(Object.entries(stored));
-  const c = {api,submitting:false,creations:[],refs:['reference-one'],el:id=>elements[id],document:{createElement:element},
+  const c = {api,deleted:new Set(),submitting:false,creations:[],refs:['reference-one'],el:id=>elements[id],document:{createElement:element},
     sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     note:t=>elements.status.textContent=t,render(){},history:async()=>{},AbortSignal,setTimeout};
   vm.createContext(c); vm.runInContext(tracking+'\nthis.jobMap=jobs; this.pollingSet=polling;',c);
