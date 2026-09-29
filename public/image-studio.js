@@ -89,9 +89,10 @@
   function render() {
     el('results').replaceChildren(); el('empty').hidden = creations.length > 0; el('total').textContent = creations.length;
     creations.forEach(c => {
-      const card = document.createElement('article'), img = new Image(), link = document.createElement('a'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button');
+      const card = document.createElement('article'), img = new Image(), link = document.createElement('button'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button');
       const src = c.url || c.gallery?.url || 'data:image/png;base64,' + c.image;
-      img.src = src; img.alt = c.prompt || 'Ảnh đã tạo'; img.loading = 'lazy'; link.href = src; link.target = '_blank'; link.rel = 'noopener'; link.append(img);
+      img.src = src; img.alt = c.prompt || 'Ảnh đã tạo'; img.loading = 'lazy'; link.type = 'button'; link.className = 'ig-image-preview'; link.setAttribute('aria-label', 'Phóng to ảnh đã tạo'); link.append(img);
+      link.onclick = () => { el('preview-image').src = src; el('preview').showModal(); };
       p.textContent = c.prompt; p.title = c.prompt; download.href = src; download.download = (c.id || c.gallery?.id || 'anh-ai') + '.png'; download.textContent = '↓ Tải ảnh'; reuse.textContent = 'Dùng prompt'; reuse.type = 'button';
       reuse.onclick = () => { el('prompt').value = c.prompt || ''; const g = c.generation || c; if (g.engine) el('engine').value = g.engine; if (g.aspect) el('aspect').value = g.aspect; el('prompt').focus(); };
       reference.type = 'button'; reference.className = 'ig-use-reference'; reference.textContent = '＋ Dùng làm ảnh tham chiếu';
@@ -130,8 +131,11 @@
     <div id="ig-empty"><div class="ig-spark">✦</div><h2>Ý tưởng tiếp theo của bạn là gì?</h2><p>Nhập prompt hoặc bắt đầu từ một gợi ý bên dưới.<br>Ảnh bạn tạo sẽ được lưu tại đây.</p><div id="ig-presets"></div></div></section></div>
     <dialog id="ig-picker" aria-labelledby="ig-picker-title"><header><h2 id="ig-picker-title">Thêm ảnh tham chiếu</h2><button type="button" id="ig-picker-close" aria-label="Đóng chọn ảnh">×</button></header>
     <div id="ig-picker-choices"><button type="button" id="ig-picker-upload"><strong>↑ Tải ảnh lên</strong><span>Chọn ảnh từ thiết bị của bạn</span></button><button type="button" id="ig-picker-created"><strong>▦ Dùng ảnh đã tạo</strong><span>Chọn ảnh trong thư viện của bạn</span></button></div>
-    <div id="ig-picker-library" hidden><button type="button" id="ig-picker-back">← Chọn nguồn ảnh khác</button><p id="ig-picker-status" role="status" aria-live="polite"></p><p id="ig-picker-empty" hidden>Chưa có ảnh đã tạo. Bạn có thể quay lại để tải ảnh lên.</p><div id="ig-picker-grid"></div><button type="button" id="ig-picker-done">Xong</button></div></dialog>`;
+    <div id="ig-picker-library" hidden><button type="button" id="ig-picker-back">← Chọn nguồn ảnh khác</button><p id="ig-picker-status" role="status" aria-live="polite"></p><p id="ig-picker-empty" hidden>Chưa có ảnh đã tạo. Bạn có thể quay lại để tải ảnh lên.</p><div id="ig-picker-grid"></div><button type="button" id="ig-picker-done">Xong</button></div></dialog>
+    <dialog id="ig-preview" aria-label="Xem ảnh phóng to"><button type="button" id="ig-preview-close" aria-label="Đóng ảnh phóng to">×</button><img id="ig-preview-image" alt="Ảnh đã tạo phóng to"></dialog>`;
     presets.forEach(([label, prompt], i) => { const b = document.createElement('button'); b.className = 'ig-preset ig-preset-' + i; b.innerHTML = `<span>${['◉','◇','△','✿'][i]}</span>${label}<small>Thử ý tưởng ↗</small>`; b.onclick = () => { el('prompt').value = prompt; el('prompt').focus(); }; el('presets').append(b); });
+    el('preview-close').onclick = () => el('preview').close();
+    el('preview').addEventListener('close', () => el('preview-image').removeAttribute('src'));
     const showReferenceChoices = () => {
       el('picker-title').textContent = 'Thêm ảnh tham chiếu';
       el('picker-choices').hidden = false; el('picker-library').hidden = true;
