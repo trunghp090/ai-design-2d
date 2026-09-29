@@ -10,9 +10,9 @@
     ['Minh họa', 'Minh họa một chú mèo cam ngồi trong tiệm cà phê, nét vẽ tay mềm mại, màu pastel ấm áp.']
   ];
   async function api(url, options) {
-    const r = await fetch(url, options); let d;
+    const r = await fetch(url, {cache:'no-store', ...options}); let d;
     try { d = await r.json(); } catch { throw new Error('Máy chủ không phản hồi. Thử lại sau.'); }
-    if (!r.ok) throw new Error(d.error || 'Không thể tải dữ liệu.');
+    if (!r.ok) { const error = new Error(d.error || 'Không thể tải dữ liệu.'); error.status = r.status; throw error; }
     return d;
   }
   function note(t) { el('status').textContent = t; }
@@ -55,7 +55,7 @@
     busy = true; el('run').disabled = true; el('run').textContent = '✦ Đang tạo ảnh…';
     try {
       while (true) {
-        const d = await api('/api/batch-status?id=' + encodeURIComponent(id));
+        const d = await api('/api/batch-status?id=' + encodeURIComponent(id), {signal:AbortSignal.timeout(45000)});
         const items = (d.items || []).map(c => ({...c, id: c.gallery?.id}));
         creations = [...items, ...creations.filter(c => !items.some(n => n.id === c.id))]; render();
         const failed = d.errors?.length || 0, succeeded = (d.items || []).length;
@@ -63,7 +63,7 @@
         if (d.finished) { sessionStorage.removeItem('image-studio-job'); break; }
         await new Promise(r => setTimeout(r, 2500));
       }
-    } catch (e) { note(e.message + ' Bấm “Tiếp tục kiểm tra” để xem tiến trình.'); el('resume').hidden = false; }
+    } catch (e) { if(e.status===404){sessionStorage.removeItem('image-studio-job');await history();note('Phiên tạo trước đã kết thúc hoặc máy chủ đã khởi động lại. Thư viện đã được tải lại; kiểm tra ảnh trước khi tạo tiếp.');el('resume').hidden=true;}else{note((e.name==='TimeoutError'?'Kiểm tra tiến trình quá thời gian; ảnh có thể vẫn đang được tạo.':e.message) + ' Bấm “Tiếp tục kiểm tra” để xem tiến trình.');el('resume').hidden=false;} }
     finally { busy = false; el('run').disabled = !el('engine').value; el('run').textContent = '✦ Tạo ảnh'; }
   }
   window.initImageStudio = async () => {

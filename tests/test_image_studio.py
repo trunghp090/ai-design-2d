@@ -36,10 +36,12 @@ class ImageStudioTests(unittest.TestCase):
     def test_worker_keeps_full_prompt_and_separate_history(self):
         prompt = 'A detailed landscape ' * 20
         job = {'total':1,'done':0,'items':[],'errors':[],'finished':False}
-        with patch.dict(server.BATCH_JOBS, {'test_ig':job}), patch.object(server,'gen_shot',return_value='ZmFrZQ=='), patch.object(server,'crop_to_aspect',return_value=b'fake'), patch.object(server,'gallery_add',return_value={'id':'test'}) as save:
+        with patch.dict(server.BATCH_JOBS, {'test_ig':job}), patch.object(server,'gen_shot',return_value='ZmFrZQ=='), patch.object(server,'crop_to_aspect',return_value=b'fake'), patch.object(server,'gallery_add',return_value={'id':'test','url':'/gallery/test.png'}) as save:
             server.run_prod_gen_job('test_ig', [], prompt, 'openai', '1:1', 1, 'imagegen')
             self.assertTrue(job['finished'])
             self.assertEqual(job['done'],1)
+            self.assertNotIn('image',job['items'][0])
+            self.assertEqual(job['items'][0]['url'],'/gallery/test.png')
             self.assertEqual(save.call_args.args[1]['mode'],'imagegen')
             self.assertEqual(save.call_args.args[1]['prompt'],prompt)
 

@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.28-messenger-nested-components"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.29-image-progress"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1848,8 +1848,14 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"
                 b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
             g = gallery_add(b64, {"mode": mode, "prompt": prompt if mode == "imagegen" else prompt[:140],
                                   "generation": {"engine": engine, "aspect": aspect} if mode == "imagegen" else None})
-            return {"image": b64, "title": prompt[:80], "prompt": prompt,
-                    "engine": engine, "aspect": aspect or "auto", "gallery": g}
+            result = {"title": prompt[:80], "prompt": prompt,
+                      "engine": engine, "aspect": aspect or "auto", "gallery": g}
+            # Image Studio displays the saved URL; polling must not resend megabytes.
+            if mode == "imagegen":
+                result["url"] = g["url"]
+            else:
+                result["image"] = b64
+            return result
         except urllib.error.HTTPError as e:
             return {"error": image_provider_error_message(e, engine), "title": "Lỗi"}
         except Exception as e:
@@ -9972,11 +9978,13 @@ class Handler(BaseHTTPRequestHandler):
                     have = max(0, int((qs.get("have") or ["0"])[0]))
                 except Exception:
                     have = 0
-                return self.json(200, {"total": job["total"], "done": job["done"],
+                status = {"total": job["total"], "done": job["done"],
                                        "finished": job["finished"], "items": job["items"][have:],
                                        "count": len(job["items"]),
                                        "errors": job["errors"], "note": job.get("note", ""),
-                                       "partial": list((job.get("partial") or {}).values())})
+                                       "partial": list((job.get("partial") or {}).values())}
+            # A slow client must not hold the lock needed for workers to finish.
+            return self.json(200, status)
 
         # Small previews for mockup grids. Full PNGs remain the export source.
         if path.startswith("/mockups/t/"):
