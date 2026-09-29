@@ -1,7 +1,7 @@
 /* General image creation, sharing the existing image engines and job queue. */
 (() => {
   const root = document.getElementById('view-imagegen');
-  let ready = false, refs = [], creations = [], busy = false;
+  let ready = false, refs = [], creations = [], submitting = false;
   const referenceSources = new Map(), pendingReferences = new Set();
   const el = id => root.querySelector('#ig-' + id);
   const presets = [
@@ -104,20 +104,77 @@
     try { const d = await api('/api/gallery'); creations = (d.items || []).filter(c => c.mode === 'imagegen'); render(); }
     catch (e) { note(e.message); }
   }
+  const jobs = new Map(), polling = new Set();
+  function saveJobs() {
+    try {
+      sessionStorage.setItem('image-studio-jobs', JSON.stringify([...jobs.values()].filter(j => !j.finished)));
+      sessionStorage.removeItem('image-studio-job');
+    } catch { /* Generation remains usable when browser storage is unavailable. */ }
+  }
+  function renderJobs() {
+    el('jobs').replaceChildren();
+    for (const job of [...jobs.values()].reverse()) {
+      const card = document.createElement('article'), title = document.createElement('strong'), prompt = document.createElement('p'), status = document.createElement('p');
+      title.textContent = job.label; prompt.textContent = job.prompt || 'Phiên tạo ảnh trước'; prompt.className = 'ig-job-prompt'; prompt.title = job.prompt || '';
+      status.textContent = job.status || 'Đang tạo ảnh…'; card.append(title, prompt, status);
+      if (job.paused && !job.finished) {
+        const retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'Tiếp tục kiểm tra';
+        retry.onclick = () => poll(job.id); card.append(retry);
+      }
+      el('jobs').append(card);
+    }
+  }
   async function poll(id) {
-    busy = true; el('run').disabled = true; el('run').textContent = '✦ Đang tạo ảnh…';
+    const job = jobs.get(id);
+    if (!job || job.finished || polling.has(id)) return;
+    polling.add(id); job.paused = false; renderJobs();
     try {
       while (true) {
         const d = await api('/api/batch-status?id=' + encodeURIComponent(id), {signal:AbortSignal.timeout(45000)});
-        const items = (d.items || []).map(c => ({...c, id: c.gallery?.id}));
-        creations = [...items, ...creations.filter(c => !items.some(n => n.id === c.id))]; render();
-        const failed = d.errors?.length || 0, succeeded = (d.items || []).length;
-        note((d.finished ? 'Hoàn tất: ' : 'Đang tạo: ') + succeeded + '/' + d.total + ' ảnh thành công.' + (failed ? ' ' + failed + ' ảnh thất bại.\n' + [...new Set(d.errors)].join('\n') : ''));
-        if (d.finished) { sessionStorage.removeItem('image-studio-job'); break; }
+        const items = (d.items || []).map((c, i) => ({...c, id: c.gallery?.id || c.id || id + '_' + i}));
+        const fresh = items.filter(n => !creations.some(c => c.id === n.id));
+        if (fresh.length) { creations = [...fresh, ...creations]; render(); }
+        const failed = d.errors?.length || 0, succeeded = items.length;
+        job.status = (d.finished ? 'Hoàn tất: ' : 'Đang tạo: ') + succeeded + '/' + d.total + ' ảnh thành công.' + (failed ? ' ' + failed + ' ảnh thất bại.\n' + [...new Set(d.errors)].join('\n') : '');
+        job.finished = !!d.finished; saveJobs(); renderJobs();
+        if (job.finished) break;
         await new Promise(r => setTimeout(r, 2500));
       }
-    } catch (e) { if(e.status===404){sessionStorage.removeItem('image-studio-job');await history();note('Phiên tạo trước đã kết thúc hoặc máy chủ đã khởi động lại. Thư viện đã được tải lại; kiểm tra ảnh trước khi tạo tiếp.');el('resume').hidden=true;}else{note((e.name==='TimeoutError'?'Kiểm tra tiến trình quá thời gian; ảnh có thể vẫn đang được tạo.':e.message) + ' Bấm “Tiếp tục kiểm tra” để xem tiến trình.');el('resume').hidden=false;} }
-    finally { busy = false; el('run').disabled = !el('engine').value; el('run').textContent = '✦ Tạo ảnh'; }
+    } catch (e) {
+      if (e.status === 404) {
+        job.finished = true; job.status = 'Phiên tạo không còn trên máy chủ. Đã tải lại thư viện; kiểm tra ảnh trước khi tạo tiếp.';
+        await history();
+      } else {
+        job.paused = true;
+        job.status = (e.name === 'TimeoutError' ? 'Kiểm tra tiến trình quá thời gian; ảnh có thể vẫn đang được tạo.' : e.message) + ' Bấm “Tiếp tục kiểm tra” để theo dõi lượt này.';
+      }
+      saveJobs(); renderJobs();
+    } finally { polling.delete(id); }
+  }
+  async function submitGeneration(e) {
+    e.preventDefault(); if (submitting || !el('engine').value || !el('prompt').value.trim()) return;
+    const payload = {prompt:el('prompt').value.trim(), engine:el('engine').value, aspect:el('aspect').value, count:Number(el('count').value), images:[...refs]};
+    submitting = true; el('run').disabled = true; el('run').textContent = 'Đang gửi yêu cầu…'; note('Đang gửi yêu cầu…');
+    try {
+      const d = await api('/api/image-studio/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      const job = {id:d.job_id, label:'Lượt ' + (jobs.size + 1), prompt:payload.prompt, finished:false, paused:false, status:'Đang tạo: 0/' + payload.count + ' ảnh thành công.'};
+      jobs.set(job.id, job); saveJobs(); renderJobs();
+      note('Đã gửi ' + job.label.toLowerCase() + '. Bạn có thể tiếp tục tạo lượt mới.');
+      void poll(job.id);
+    } catch (e) { note(e.message); }
+    finally { submitting = false; el('run').disabled = !el('engine').value; el('run').textContent = '✦ Tạo ảnh'; }
+  }
+  function restoreJobs() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('image-studio-jobs') || '[]');
+      if (Array.isArray(saved)) for (const job of saved) {
+        if (job && typeof job.id === 'string' && !job.finished) jobs.set(job.id, {...job, paused:false});
+      }
+      const legacy = sessionStorage.getItem('image-studio-job');
+      if (legacy && !jobs.has(legacy)) jobs.set(legacy, {id:legacy, label:'Lượt trước', finished:false});
+    } catch { /* Ignore malformed local state. */ }
+    saveJobs(); renderJobs();
+    for (const id of jobs.keys()) void poll(id);
   }
   window.initImageStudio = async () => {
     if (ready) return; ready = true;
@@ -126,8 +183,8 @@
     <label for="ig-prompt">Prompt <span>Mô tả hình ảnh</span></label><textarea id="ig-prompt" class="input" rows="7" maxlength="12000" required placeholder="Một bức ảnh, một ý tưởng, một thế giới mới…"></textarea>
     <div class="ig-label">Ảnh tham chiếu <span id="ig-refcount">0/6</span></div><div id="ig-refs"></div><p id="ig-refstatus" role="status" aria-live="polite"></p><button type="button" id="ig-drop" aria-haspopup="dialog">＋ Thêm ảnh tham chiếu<small>Tải ảnh lên hoặc dùng ảnh đã tạo</small></button><input id="ig-files" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
     <div class="ig-options"><div><label for="ig-aspect">Tỉ lệ</label><select id="ig-aspect" class="input">${['1:1','4:5','2:3','3:4','9:16','3:2','4:3','16:9'].map(a => `<option>${a}</option>`).join('')}</select></div><div><label for="ig-count">Số ảnh</label><select id="ig-count" class="input"><option>1</option><option>2</option><option>4</option></select></div></div>
-    <button class="btn-primary" id="ig-run" disabled>✦ Tạo ảnh</button><p id="ig-status" role="status" aria-live="polite"></p><button type="button" id="ig-resume" hidden>Tiếp tục kiểm tra</button></form></aside>
-    <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="true">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="false">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-results"></div>
+    <button class="btn-primary" id="ig-run" disabled>✦ Tạo ảnh</button><p class="ig-run-hint">Có thể gửi lượt mới khi các lượt trước đang tạo.</p><p id="ig-status" role="status" aria-live="polite"></p></form></aside>
+    <section class="ig-gallery"><header><h2>Ảnh đã tạo <span id="ig-total">0</span></h2><div><button id="ig-grid" title="Xem dạng lưới" aria-pressed="true">▦</button><button id="ig-list" title="Xem dạng danh sách" aria-pressed="false">☰</button><button id="ig-refresh" title="Tải lại thư viện">↻</button></div></header><div id="ig-jobs" aria-live="polite"></div><div id="ig-results"></div>
     <div id="ig-empty"><div class="ig-spark">✦</div><h2>Ý tưởng tiếp theo của bạn là gì?</h2><p>Nhập prompt hoặc bắt đầu từ một gợi ý bên dưới.<br>Ảnh bạn tạo sẽ được lưu tại đây.</p><div id="ig-presets"></div></div></section></div>
     <dialog id="ig-picker" aria-labelledby="ig-picker-title"><header><h2 id="ig-picker-title">Thêm ảnh tham chiếu</h2><button type="button" id="ig-picker-close" aria-label="Đóng chọn ảnh">×</button></header>
     <div id="ig-picker-choices"><button type="button" id="ig-picker-upload"><strong>↑ Tải ảnh lên</strong><span>Chọn ảnh từ thiết bị của bạn</span></button><button type="button" id="ig-picker-created"><strong>▦ Dùng ảnh đã tạo</strong><span>Chọn ảnh trong thư viện của bạn</span></button></div>
@@ -150,16 +207,10 @@
     el('drop').ondrop = e => { e.preventDefault(); addFiles([...e.dataTransfer.files]); };
     el('refresh').onclick = history;
     for (const v of ['grid','list']) el(v).onclick = () => { el('results').classList.toggle('ig-list', v === 'list'); for (const k of ['grid','list']) el(k).setAttribute('aria-pressed', String(k === v)); };
-    el('resume').onclick = () => { const id = sessionStorage.getItem('image-studio-job'); if (id && !busy) { el('resume').hidden = true; poll(id); } };
-    el('form').onsubmit = async e => {
-      e.preventDefault(); if (busy || !el('prompt').value.trim()) return;
-      busy = true; el('run').disabled = true; note('Đang gửi yêu cầu…');
-      try { const d = await api('/api/image-studio/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prompt:el('prompt').value.trim(), engine:el('engine').value, aspect:el('aspect').value, count:Number(el('count').value), images:[...refs]})}); sessionStorage.setItem('image-studio-job', d.job_id); await poll(d.job_id); }
-      catch (e) { note(e.message); busy = false; el('run').disabled = false; }
-    };
+    el('form').onsubmit = submitGeneration;
     await history();
     try { const d = await api('/api/engines'); el('engine').replaceChildren(); (d.engines || []).forEach(e => { const o = new Option(e.label + (e.available ? '' : ' · Chưa có key'), e.id); o.disabled = !e.available; el('engine').add(o); }); const available = d.engines.filter(e => e.available); el('engine').value = available.find(e => e.id === d.default_engine)?.id || available[0]?.id || ''; el('run').disabled = !available.length; if (!available.length) note('Chưa có model khả dụng. Cấu hình API key trước khi tạo ảnh.'); }
     catch (e) { note(e.message); }
-    const job = sessionStorage.getItem('image-studio-job'); if (job) poll(job);
+    restoreJobs();
   };
 })();
