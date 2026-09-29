@@ -57,3 +57,22 @@ test('submission failure unlocks the button without losing other active jobs; le
   assert.equal(elements.run.disabled,false); assert.equal(c.jobMap.has('legacy'),true);
   assert.equal(storage.has('image-studio-job'),false); assert.equal(JSON.parse(storage.get('image-studio-jobs'))[0].id,'legacy');
 });
+test('regenerate uses selected image and original settings, never the current form or references',async()=>{
+ let sent,loaded;
+ const {c,elements}=setup(async(url,options)=>{
+  if(options?.method==='POST'){sent=JSON.parse(options.body);return {job_id:'regen'};}
+  return {finished:true,total:1,items:[]};
+ });
+ c.regenerating=new Set();c.fetch=async src=>{loaded=src;return {ok:true,blob:async()=>({type:'image/png',size:20})};};
+ c.FileReader=class {readAsDataURL(){this.result='data:image/png;base64,c291cmNl';this.onload();}};
+ const button={disabled:false,textContent:''};
+ await c.regenerateImage({prompt:'Original prompt',generation:{engine:'gemini_pro',aspect:'3:4'}},'/gallery/source.png',button);
+ assert.equal(loaded,'/gallery/source.png');assert.deepEqual(sent,{prompt:'Original prompt',engine:'gemini_pro',aspect:'3:4',count:1,images:['data:image/png;base64,c291cmNl']});
+ assert.equal(elements.prompt.value,'First prompt');assert.deepEqual(c.refs,['reference-one']);assert.equal(button.disabled,false);
+});
+test('failed source download does not submit a generation and reenables regenerate',async()=>{
+ let calls=0;const {c}=setup(async()=>{calls++;});c.regenerating=new Set();c.fetch=async()=>({ok:false});
+ const button={disabled:false,textContent:''};
+ await c.regenerateImage({prompt:'Original',generation:{engine:'gemini_pro'}},'/missing.png',button);
+ assert.equal(calls,0);assert.equal(button.disabled,false);assert.equal(c.regenerating.size,0);
+});

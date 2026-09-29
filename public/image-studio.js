@@ -2,7 +2,7 @@
 (() => {
   const root = document.getElementById('view-imagegen');
   let ready = false, refs = [], creations = [], submitting = false;
-  const referenceSources = new Map(), pendingReferences = new Set();
+  const referenceSources = new Map(), pendingReferences = new Set(), regenerating = new Set();
   const el = id => root.querySelector('#ig-' + id);
   const presets = [
     ['Chân dung', 'Chân dung một cô gái Việt Nam bên cửa sổ, ánh sáng tự nhiên dịu, màu sắc chân thực, bố cục tối giản.'],
@@ -89,7 +89,7 @@
   function render() {
     el('results').replaceChildren(); el('empty').hidden = creations.length > 0; el('total').textContent = creations.length;
     creations.forEach(c => {
-      const card = document.createElement('article'), img = new Image(), link = document.createElement('button'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button');
+      const card = document.createElement('article'), img = new Image(), link = document.createElement('button'), p = document.createElement('p'), actions = document.createElement('div'), download = document.createElement('a'), reuse = document.createElement('button'), reference = document.createElement('button'), regenerate = document.createElement('button');
       const src = c.url || c.gallery?.url || 'data:image/png;base64,' + c.image;
       img.src = src; img.alt = c.prompt || 'Ảnh đã tạo'; img.loading = 'lazy'; link.type = 'button'; link.className = 'ig-image-preview'; link.setAttribute('aria-label', 'Phóng to ảnh đã tạo'); link.append(img);
       link.onclick = () => { el('preview-image').src = src; el('preview').showModal(); };
@@ -97,7 +97,9 @@
       reuse.onclick = () => { el('prompt').value = c.prompt || ''; const g = c.generation || c; if (g.engine) el('engine').value = g.engine; if (g.aspect) el('aspect').value = g.aspect; el('prompt').focus(); };
       reference.type = 'button'; reference.className = 'ig-use-reference'; reference.textContent = '＋ Dùng làm ảnh tham chiếu';
       reference.onclick = () => useReference(src, reference);
-      actions.append(download, reuse, reference); card.append(link, p, actions); el('results').append(card);
+      regenerate.type = 'button'; regenerate.textContent = '↻ Tạo lại'; regenerate.title = 'Tạo 1 ảnh mới từ ảnh này, dùng lại prompt, model và tỉ lệ';
+      regenerate.disabled = regenerating.has(src); regenerate.onclick = () => regenerateImage(c, src, regenerate);
+      actions.append(download, reuse, regenerate, reference); card.append(link, p, actions); el('results').append(card);
     });
   }
   async function history() {
@@ -151,17 +153,34 @@
       saveJobs(); renderJobs();
     } finally { polling.delete(id); }
   }
+  async function startGeneration(payload) {
+    const d = await api('/api/image-studio/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const job = {id:d.job_id, label:'Lượt ' + (jobs.size + 1), prompt:payload.prompt, finished:false, paused:false, status:'Đang tạo: 0/' + payload.count + ' ảnh thành công.'};
+    jobs.set(job.id, job); saveJobs(); renderJobs();
+    note('Đã gửi ' + job.label.toLowerCase() + '. Bạn có thể tiếp tục tạo lượt mới.');
+    void poll(job.id);
+  }
+  async function regenerateImage(c, src, button) {
+    if (regenerating.has(src)) return;
+    regenerating.add(src); button.disabled = true; button.textContent = 'Đang gửi…';
+    try {
+      const g = c.generation || c;
+      if (!c.prompt || !g.engine) throw new Error('Ảnh này thiếu prompt hoặc model gốc. Hãy dùng prompt để chọn lại thiết lập.');
+      const response = await fetch(src, {signal:AbortSignal.timeout(45000)});
+      if (!response.ok) throw new Error('Không tải được ảnh nguồn. Vui lòng thử lại.');
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/') || blob.size > 10 * 1024 * 1024) throw new Error('Ảnh nguồn không hợp lệ hoặc vượt quá 10 MB.');
+      const data = await new Promise((resolve,reject) => {const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('Không đọc được ảnh nguồn.'));reader.readAsDataURL(blob);});
+      await startGeneration({prompt:c.prompt,engine:g.engine,aspect:g.aspect || '1:1',count:1,images:[data]});
+    } catch (e) { note(e.message || 'Không thể tạo lại ảnh.'); }
+    finally { regenerating.delete(src); button.disabled = false; button.textContent = '↻ Tạo lại'; }
+  }
   async function submitGeneration(e) {
     e.preventDefault(); if (submitting || !el('engine').value || !el('prompt').value.trim()) return;
     const payload = {prompt:el('prompt').value.trim(), engine:el('engine').value, aspect:el('aspect').value, count:Number(el('count').value), images:[...refs]};
     submitting = true; el('run').disabled = true; el('run').textContent = 'Đang gửi yêu cầu…'; note('Đang gửi yêu cầu…');
-    try {
-      const d = await api('/api/image-studio/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-      const job = {id:d.job_id, label:'Lượt ' + (jobs.size + 1), prompt:payload.prompt, finished:false, paused:false, status:'Đang tạo: 0/' + payload.count + ' ảnh thành công.'};
-      jobs.set(job.id, job); saveJobs(); renderJobs();
-      note('Đã gửi ' + job.label.toLowerCase() + '. Bạn có thể tiếp tục tạo lượt mới.');
-      void poll(job.id);
-    } catch (e) { note(e.message); }
+    try { await startGeneration(payload); }
+    catch (e) { note(e.message); }
     finally { submitting = false; el('run').disabled = !el('engine').value; el('run').textContent = '✦ Tạo ảnh'; }
   }
   function restoreJobs() {
