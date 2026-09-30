@@ -7,7 +7,7 @@ Tool nội bộ cho brand áo thun POD **rieng.vn** (couple/cá nhân hoá, khá
 - **Python stdlib thuần** — `server.py` (~9.500 dòng) chạy `ThreadingHTTPServer`, KHÔNG framework, KHÔNG package ngoài (PIL optional qua `HAS_PIL`). Frontend: `public/index.html` + `public/app.js` (~460KB) vanilla JS, không build step.
 - AI engines (key trong `.env`, prod có đủ 3):
   - `gpt-image` (OpenAI, `MODEL`) — `openai_edit/openai_generate`, moderation=low, quality low/medium/high.
-  - **Nano Banana Pro** = `gemini_edit(images, prompt, aspect, model="gemini-3-pro-image-preview")`; `gemini_flash` = 2.5 (RẺ nhưng **vẽ chữ/layout kém — cấm dùng cho design/plate**). `images=[]` → text-to-image.
+  - **Nano Banana Pro** = `gemini_edit(images, prompt, aspect, model="gemini-3-pro-image")`; `gemini_flash` = 2.5 (RẺ nhưng **vẽ chữ/layout kém — cấm dùng cho design/plate**). `images=[]` → text-to-image.
   - Claude API `claude_vision / claude_vision_multi / claude_text` (`ANTHROPIC_MODEL=claude-opus-4-8`) — người viết prompt chính.
 - Job nền: `BATCH_JOBS` + `_batch_lock` + `_batch_seq`; FE poll `/api/batch-status?id=..&have=N` (**have = số item đã nhận, server chỉ trả phần mới**); job có `note` (tiến độ realtime) + `partial` (ảnh xong tấm nào hiện tấm đó).
 - Gallery: file PNG trong `gallery/` + `index.json`; **thumbnail JPEG lười-tạo** tại `/gallery/t/<id>.jpg` (FE dùng `gthumb(url)` cho mọi lưới nhỏ); `/api/gallery-clear` dọn kho (giữ ảnh mà bài pgpost chưa đăng còn tham chiếu).

@@ -18,7 +18,7 @@ def verify_prompt(text,structured=False):
     return text.strip()
 
 ASPECTS={'1:1':1,'4:5':.8,'2:3':2/3,'3:4':.75,'9:16':9/16,'3:2':1.5,'4:3':4/3,'16:9':16/9}
-PROVIDERS={'openai_25':('GPT Image 2.5','gpt-image-2.5-sunburst','API_KEY'),'gemini_pro':('Nano Banana Pro','gemini-3-pro-image-preview','GEMINI_API_KEY')}
+PROVIDERS={'openai_25':('GPT Image 2.5','gpt-image-2.5-sunburst','API_KEY'),'gemini_pro':('Nano Banana Pro','gemini-3-pro-image','GEMINI_API_KEY')}
 
 def saved_faces(app,owner,body=None):
     directory=core.folder(app)/'saved-faces';directory.mkdir(exist_ok=True)

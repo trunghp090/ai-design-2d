@@ -95,6 +95,11 @@ class ImageProviderTests(unittest.TestCase):
         self.assertNotIn('OpenAI', job['errors'][0])
         save.assert_not_called()
 
+    def test_previous_preview_setting_migrates_but_custom_models_are_preserved(self):
+        for old in (None, '', 'gemini-3-pro-image-preview', ' gemini-3-pro-image-preview '):
+            self.assertEqual(server.resolve_gemini_image_model(old), 'gemini-3-pro-image')
+        self.assertEqual(server.resolve_gemini_image_model('custom-model'), 'custom-model')
+
     def test_provider_timeout_finishes_with_clear_message(self):
         job = {'total':1,'done':0,'items':[],'errors':[],'finished':False}
         with patch.dict(server.BATCH_JOBS, {'timeout':job}), patch.object(server,'gen_shot',side_effect=TimeoutError('The read operation timed out')):
@@ -123,14 +128,14 @@ class ImageProviderTests(unittest.TestCase):
     def test_selected_gemini_model_and_refs_reach_google(self):
         payload = {'candidates':[{'content':{'parts':[{'inlineData':{'data':'aW1hZ2U='}}]}}]}
         with patch.object(server,'GEMINI_API_KEY','test'), \
-                patch.object(server,'GEMINI_IMAGE_MODEL','gemini-3-pro-image-preview'), \
-                patch.object(server,'_openai_call',return_value=json.dumps(payload)) as call, \
+                patch.object(server,'GEMINI_IMAGE_MODEL','gemini-3-pro-image'), \
+                patch.object(server,'_gemini_call',return_value=json.dumps(payload)) as call, \
                 patch.object(server,'strip_ai_meta_b64',side_effect=lambda b:b), \
                 patch.object(server,'openai_edit') as openai:
             result = server.gen_shot([(b'ref','image/png')],'My prompt','1024x1536','gemini_pro','3:4',lock=False)
         self.assertEqual(result,'aW1hZ2U=')
         req = call.call_args.args[0]
-        self.assertEqual(req.full_url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent')
+        self.assertEqual(req.full_url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent')
         body = json.loads(req.data)
         self.assertEqual(body['generationConfig']['imageConfig']['aspectRatio'],'3:4')
         self.assertEqual(body['contents'][0]['parts'][1]['inline_data']['data'],'cmVm')

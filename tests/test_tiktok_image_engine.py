@@ -6,7 +6,7 @@ class ImageEngineTests(unittest.TestCase):
     def test_gemini_exact_model(self):
         with patch.object(server,'GEMINI_API_KEY','test'),patch.object(server,'GEMINI_IMAGE_MODEL','other'),patch.object(server,'gemini_edit',return_value='image') as gem,patch.object(server,'openai_generate') as op:
             self.assertEqual(server._tiktok_render_slide('prompt','gemini_pro'),'image')
-            gem.assert_called_once_with([], 'prompt','3:4','gemini-3-pro-image-preview');op.assert_not_called()
+            gem.assert_called_once_with([], 'prompt','3:4','gemini-3-pro-image');op.assert_not_called()
     def test_image25_ignores_global_model(self):
         with patch.object(server,'API_KEY','test'),patch.object(server,'MODEL','gpt-image-2'),patch.object(server,'HAS_PIL',False),patch.object(server,'openai_generate',return_value='image') as op,patch.object(server,'gemini_edit') as gem:
             server._tiktok_render_slide('prompt','gpt_image_25')
@@ -39,7 +39,7 @@ class ImageEngineTests(unittest.TestCase):
         refs = [(b'left', 'image/png'), (b'right', 'image/jpeg')]
         with patch.object(server,'GEMINI_API_KEY','test'), patch.object(server,'gemini_edit',return_value='img') as gem:
             server._tiktok_render_slide('pair', 'gemini_pro', refs)
-            gem.assert_called_once_with(refs, 'pair', '3:4', 'gemini-3-pro-image-preview')
+            gem.assert_called_once_with(refs, 'pair', '3:4', 'gemini-3-pro-image')
         with patch.object(server,'API_KEY','test'), patch.object(server,'HAS_PIL',False), patch.object(server,'openai_edit',return_value='img') as edit:
             server._tiktok_render_slide('pair', 'gpt_image_25', refs)
             self.assertEqual(edit.call_args.args[0], refs)

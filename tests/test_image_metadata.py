@@ -194,7 +194,7 @@ class ImageDeliveryBoundaryTests(unittest.TestCase):
         for key in ('inline_data', 'inlineData'):
             response = {'candidates': [{'content': {'parts': [{key: {
                 'mime_type': 'image/png', 'data': self.encoded}}]}}]}
-            with self.subTest(key=key), patch.object(server, '_openai_call',
+            with self.subTest(key=key), patch.object(server, '_gemini_call',
                                                      return_value=json.dumps(response)):
                 self.assert_clean(server.gemini_edit([(self.raw, 'image/png')], 'Offline prompt'))
 

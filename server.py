@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.30-image-latency"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.30-nano-stable"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -160,7 +160,13 @@ TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 BEST_TEXT_MODEL = os.environ.get("OPENAI_BEST_MODEL", "gpt-4o").strip()
 # Gemini "Nano Banana Pro" (ảnh chân thực hơn cho ảnh sản phẩm)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview").strip()
+def resolve_gemini_image_model(value):
+    # Migrate the former preview alias, including existing deployment env settings.
+    model = (value or "").strip()
+    return "gemini-3-pro-image" if model in ("", "gemini-3-pro-image-preview") else model
+
+
+GEMINI_IMAGE_MODEL = resolve_gemini_image_model(os.environ.get("GEMINI_IMAGE_MODEL"))
 # Claude API (Anthropic) — viết prompt ảnh sản phẩm chân thực, nhìn ảnh áo (vision).
 # Đây là "Claude viết prompt" mà skill nano-banana dựa vào, gọi qua API key (KHÔNG phải agent).
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -514,6 +520,30 @@ def _openai_call(req, timeout=300, tries=3):
     raise last
 
 
+def _gemini_call(req, timeout=300, tries=3):
+    """Retry explicit transient HTTP failures within one total time budget.
+
+    Do not resubmit ambiguous read timeouts: the first generation may be billed.
+    """
+    deadline = time.monotonic() + timeout
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=max(0.1, deadline - time.monotonic())) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code not in (429, 500, 502, 503, 504) or attempt + 1 >= tries:
+                raise
+            delay = 2 ** (attempt + 1) + random.uniform(0, 1)
+            try:
+                delay = max(delay, float(error.headers.get('Retry-After', 0)))
+            except (TypeError, ValueError, AttributeError):
+                pass
+            if time.monotonic() + delay + 1 >= deadline:
+                raise
+            error.close()
+            time.sleep(delay)
+
+
 def gemini_edit(images, prompt, aspect="", model="", image_size=""):
     """Nano Banana (Gemini): ảnh-ref + prompt -> ảnh mới (base64). images=[(bytes,mime)]."""
     if not GEMINI_API_KEY:
@@ -540,7 +570,7 @@ def gemini_edit(images, prompt, aspect="", model="", image_size=""):
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("x-goog-api-key", GEMINI_API_KEY)
-    res = json.loads(_openai_call(req, timeout=300, tries=1))
+    res = json.loads(_gemini_call(req))
     for cand in res.get("candidates", []):
         for p in (cand.get("content") or {}).get("parts", []):
             inl = p.get("inline_data") or p.get("inlineData")
@@ -567,7 +597,7 @@ def _aspect_for(size):
 IMAGE_ENGINES = [
     {"id": "openai_25", "label": "GPT Image 2.5 Sunburst", "kind": "openai", "model": "gpt-image-2.5-sunburst"},
     {"id": "openai",       "label": "GPT Image 2.5 Sunburst · mặc định",    "kind": "openai", "model": ""},
-    {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image-preview"},
+    {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image"},
     {"id": "gemini_flash", "label": "Nano Banana (Gemini 2.5 Flash)",   "kind": "gemini", "model": "gemini-2.5-flash-image"},
 ]
 
@@ -8175,7 +8205,7 @@ def tiktok_gift_plan(occasion, gender, tier, n, concept="auto", gift_ids=None):
 
 
 TIKTOK_IMAGE_ENGINES = {
-    "gemini_pro": {"label": "Nano Banana Pro", "model": "gemini-3-pro-image-preview"},
+    "gemini_pro": {"label": "Nano Banana Pro", "model": "gemini-3-pro-image"},
     "gpt_image_25": {"label": "GPT Image 2.5 Sunburst", "model": "gpt-image-2.5-sunburst"},
 }
 
