@@ -76,3 +76,11 @@ test('failed source download does not submit a generation and reenables regenera
  await c.regenerateImage({prompt:'Original',generation:{engine:'gemini_pro'}},'/missing.png',button);
  assert.equal(calls,0);assert.equal(button.disabled,false);assert.equal(c.regenerating.size,0);
 });
+test('placeholder exists before submit response and tracks total, aspect and partial completion',async()=>{
+ let send,status;const {c}=setup((url,options)=>options?.method==='POST'?new Promise(r=>send=r):new Promise(r=>status=r));
+ const pending=c.startGeneration({prompt:'Two portraits',engine:'gemini_pro',aspect:'4:5',count:2,images:[]});
+ const waiting=[...c.jobMap.values()][0];assert.equal(waiting.sending,true);assert.equal(waiting.total,2);assert.equal(waiting.aspect,'4:5');
+ send({job_id:'two'});await pending;assert.equal(c.jobMap.get('two').sending,false);
+ status({finished:true,total:2,items:[{gallery:{id:'ok'},url:'/ok.png'}],errors:['Second image failed']});await tick();
+ const done=c.jobMap.get('two');assert.deepEqual(Array.from(done.itemIds),['ok']);assert.deepEqual(Array.from(done.errors),['Second image failed']);assert.equal(done.finished,true);
+});
