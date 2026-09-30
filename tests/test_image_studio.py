@@ -45,6 +45,36 @@ class ImageStudioTests(unittest.TestCase):
             self.assertEqual(save.call_args.args[1]['mode'],'imagegen')
             self.assertEqual(save.call_args.args[1]['prompt'],prompt)
 
+    def test_fast_image_is_published_while_first_image_is_still_running(self):
+        import threading
+        release = threading.Event()
+        published = threading.Event()
+        calls = iter(range(2))
+        class Items(list):
+            def append(self, value):
+                super().append(value)
+                published.set()
+        job = {'total':2,'done':0,'items':Items(),'errors':[],'finished':False}
+        def generate(*args, **kwargs):
+            if next(calls) == 0:
+                if not release.wait(5):
+                    raise RuntimeError('Test did not release first image')
+            return 'ZmFrZQ=='
+        with patch.dict(server.BATCH_JOBS, {'timing':job}), patch.object(server,'gen_shot',side_effect=generate), patch.object(server,'crop_to_aspect',return_value=b'fake'), patch.object(server,'gallery_add',return_value={'id':'test','url':'/gallery/test.png'}):
+            worker = threading.Thread(target=server.run_prod_gen_job, args=('timing', [], 'prompt', 'gemini_pro', '3:4', 2, 'imagegen'))
+            worker.start()
+            try:
+                self.assertTrue(published.wait(2), 'Fast image waited for slow first image')
+                self.assertEqual(job['done'],1)
+                self.assertFalse(job['finished'])
+                self.assertIn('provider_seconds',job['items'][0]['timing'])
+            finally:
+                release.set()
+                worker.join(5)
+            self.assertFalse(worker.is_alive())
+            self.assertTrue(job['finished'])
+            self.assertEqual(job['done'],2)
+
 class ImageProviderTests(unittest.TestCase):
     def test_gemini_403_names_actual_provider_and_worker_finishes(self):
         error = urllib.error.HTTPError(

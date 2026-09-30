@@ -37,14 +37,14 @@ import urllib.error
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from perf_assets import static_bytes, mockup_thumbnail
 from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.30-image-loading"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.30-image-latency"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -1842,16 +1842,20 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"
     asp = aspect if aspect and aspect != "auto" else ""
 
     def work(i):
+        started = time.monotonic()
         try:
             b64 = gen_shot(imgs, prompt, size, engine, asp, lock=(mode != "imagegen"))
+            provider_seconds = round(time.monotonic() - started, 2)
             if mode == "imagegen":
                 b64 = base64.b64encode(crop_to_aspect(base64.b64decode(b64), aspect)).decode()
             g = gallery_add(b64, {"mode": mode, "prompt": prompt if mode == "imagegen" else prompt[:140],
-                                  "generation": {"engine": engine, "aspect": aspect} if mode == "imagegen" else None})
+                                  "generation": {"engine": engine, "aspect": aspect, "provider_seconds": provider_seconds} if mode == "imagegen" else None})
             result = {"title": prompt[:80], "prompt": prompt,
                       "engine": engine, "aspect": aspect or "auto", "gallery": g}
             # Image Studio displays the saved URL; polling must not resend megabytes.
             if mode == "imagegen":
+                result["timing"] = {"provider_seconds": provider_seconds, "total_seconds": round(time.monotonic() - started, 2)}
+                print("[image-studio] job=%s slot=%d engine=%s provider=%.2fs total=%.2fs" % (job_id, i, engine, provider_seconds, result["timing"]["total_seconds"]), flush=True)
                 result["url"] = g["url"]
             else:
                 result["image"] = b64
@@ -1862,7 +1866,10 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"
             return {"error": str(e), "title": "Lỗi"}
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        for res in ex.map(work, range(count)):
+        # Publish each completed image immediately, even if an earlier slot is slow.
+        futures = [ex.submit(work, i) for i in range(count)]
+        for future in as_completed(futures):
+            res = future.result()
             with _batch_lock:
                 job = BATCH_JOBS.get(job_id)
                 if not job:
