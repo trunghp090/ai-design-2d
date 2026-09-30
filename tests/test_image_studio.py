@@ -95,6 +95,14 @@ class ImageProviderTests(unittest.TestCase):
         self.assertNotIn('OpenAI', job['errors'][0])
         save.assert_not_called()
 
+    def test_provider_timeout_finishes_with_clear_message(self):
+        job = {'total':1,'done':0,'items':[],'errors':[],'finished':False}
+        with patch.dict(server.BATCH_JOBS, {'timeout':job}), patch.object(server,'gen_shot',side_effect=TimeoutError('The read operation timed out')):
+            server.run_prod_gen_job('timeout', [], 'prompt', 'gemini_pro', '3:4', 1, 'imagegen')
+        self.assertTrue(job['finished'])
+        self.assertIn('Google Gemini',job['errors'][0])
+        self.assertIn('Quá thời gian',job['errors'][0])
+
     def test_missing_selected_key_never_calls_other_provider(self):
         with patch.object(server,'GEMINI_API_KEY',''), patch.object(server,'API_KEY','test'), \
                 patch.object(server,'openai_generate') as generate, \

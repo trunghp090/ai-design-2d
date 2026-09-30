@@ -1862,6 +1862,9 @@ def run_prod_gen_job(job_id, imgs, prompt, engine, aspect, count, mode="product"
             return result
         except urllib.error.HTTPError as e:
             return {"error": image_provider_error_message(e, engine), "title": "Lỗi"}
+        except TimeoutError:
+            provider = "Nano Banana / Google Gemini" if engine_info(engine)["kind"] == "gemini" else "OpenAI"
+            return {"error": provider + ": Quá thời gian chờ phản hồi tạo ảnh. Kiểm tra thư viện trước khi tạo lại.", "title": "Lỗi"}
         except Exception as e:
             return {"error": str(e), "title": "Lỗi"}
 
