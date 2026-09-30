@@ -44,7 +44,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.09.30-nano-stable"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.09.30-nano-banana-2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -598,6 +598,7 @@ IMAGE_ENGINES = [
     {"id": "openai_25", "label": "GPT Image 2.5 Sunburst", "kind": "openai", "model": "gpt-image-2.5-sunburst"},
     {"id": "openai",       "label": "GPT Image 2.5 Sunburst · mặc định",    "kind": "openai", "model": ""},
     {"id": "gemini_pro",   "label": "Nano Banana Pro (Gemini 3)",       "kind": "gemini", "model": "gemini-3-pro-image"},
+    {"id": "gemini_2", "label": "Nano Banana 2 (Gemini 3.1 Flash)", "kind": "gemini", "model": "gemini-3.1-flash-image"},
     {"id": "gemini_flash", "label": "Nano Banana (Gemini 2.5 Flash)",   "kind": "gemini", "model": "gemini-2.5-flash-image"},
 ]
 

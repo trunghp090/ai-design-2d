@@ -95,6 +95,20 @@ class ImageProviderTests(unittest.TestCase):
         self.assertNotIn('OpenAI', job['errors'][0])
         save.assert_not_called()
 
+    def test_nano_banana_2_uses_its_exact_google_model_with_references(self):
+        refs = [(b'reference', 'image/png')]
+        with patch.object(server,'GEMINI_API_KEY','test'), patch.object(server,'GEMINI_IMAGE_MODEL','custom-pro'), patch.object(server,'gemini_edit',return_value='image') as google, patch.object(server,'openai_generate') as openai:
+            self.assertEqual(server.gen_shot(refs,'prompt','1024x1536','gemini_2','3:4',lock=False),'image')
+            google.assert_called_once_with(refs,'prompt','3:4','gemini-3.1-flash-image')
+            openai.assert_not_called()
+            self.assertEqual(server.resolve_engine_id({'engine':'gemini_2'}),'gemini_2')
+            self.assertEqual(server.engine_model_label('gemini_2'),'gemini-3.1-flash-image')
+        with patch.object(server,'GEMINI_API_KEY',''), patch.object(server,'gemini_edit') as google:
+            self.assertFalse(next(e for e in server.engines_status() if e['id']=='gemini_2')['available'])
+            with self.assertRaisesRegex(RuntimeError,'GEMINI_API_KEY'):
+                server.gen_shot([], 'prompt', '1024x1024', 'gemini_2')
+            google.assert_not_called()
+
     def test_previous_preview_setting_migrates_but_custom_models_are_preserved(self):
         for old in (None, '', 'gemini-3-pro-image-preview', ' gemini-3-pro-image-preview '):
             self.assertEqual(server.resolve_gemini_image_model(old), 'gemini-3-pro-image')
