@@ -452,3 +452,62 @@ test('a finalization error restores Cancel and Clear without claiming a saved fi
   assert.equal(state.get('socialDownloadClear').disabled,false);
   assert.equal(state.get('socialDownloadResolve').disabled,false);
 });
+
+const rejectedSource=(status,error)=>async()=>({ok:false,status,json:async()=>({error})});
+
+for(const error of [
+  'Nguồn yêu cầu đăng nhập. Hãy thử lại với bài công khai.',
+  'Nền tảng chưa trả về dữ liệu; có thể cần xác minh.',
+  'Douyin yêu cầu cookie mới cho bài này.',
+  'Phiên Douyin chưa đọc được bài này.',
+])test('anonymous Douyin auth rejection opens installation help: '+error,async()=>{
+  const state=setup({hold:true,fetchResult:rejectedSource(422,error)});
+  await state.submit();
+  assert.equal(state.requests.length,1);
+  assert.equal(Object.hasOwn(state.requests[0],'douyin_cookie'),false);
+  assert.equal(state.get('socialDownloadInstallHelp').open,true);
+  assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
+  assert.match(state.get('socialDownloadStatus').textContent,/chưa nhận được tiện ích/i);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/tiện ích/i);
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
+  assert.equal(state.get('socialDownloadItems').children.length,0);
+});
+
+test('anonymous public Douyin success still prepares media without demanding installation',async()=>{
+  const state=setup({hold:true});
+  await state.submit();
+  assert.equal(state.requests.length,1);
+  assert.equal(Object.hasOwn(state.requests[0],'douyin_cookie'),false);
+  assert.notEqual(state.get('socialDownloadInstallHelp').open,true);
+  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
+  assert.equal(state.get('socialDownloadItems').children.length,12);
+});
+
+for(const scenario of [
+  {name:'app login rejection',status:401,error:'Vui lòng đăng nhập tài khoản tool.'},
+  {name:'TikTok source challenge',status:422,error:'Nguồn yêu cầu cookie hoặc xác minh.',url:'https://vt.tiktok.com/demo/'},
+  {name:'invalid Douyin link',status:422,error:'Không tìm thấy mã bài đăng trong liên kết.'},
+  {name:'server failure mentioning auth',status:502,error:'Máy chủ chưa đọc được phiên Douyin.'},
+])test(scenario.name+' retains its source message without installation diagnosis',async()=>{
+  const state=setup({hold:true,fetchResult:rejectedSource(scenario.status,scenario.error)});
+  if(scenario.url)state.get('socialDownloadInput').value=scenario.url;
+  await state.submit();
+  assert.equal(state.requests.length,1);
+  assert.equal(state.get('socialDownloadStatus').textContent,scenario.error);
+  assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
+  assert.notEqual(state.get('socialDownloadInstallHelp').open,true);
+  assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
+});
+
+for(const session of ['extension','manual'])test(session+' session source challenge keeps the original message',async()=>{
+  const error='Douyin yêu cầu đăng nhập hoặc xác minh cho bài này.';
+  const state=setup({hold:true,bridge:session==='extension'?syntheticExtension():null,
+    fetchResult:rejectedSource(422,error)});
+  if(session==='manual')state.get('socialDownloadDouyinCookie').value='fixture_session=example';
+  await state.submit();
+  assert.equal(state.requests.length,1);
+  assert.equal(state.requests[0].douyin_cookie,session==='extension'?'synthetic-session-1':'fixture_session=example');
+  assert.equal(state.get('socialDownloadStatus').textContent,error);
+  assert.notEqual(state.get('socialDownloadInstallHelp').open,true);
+  assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
+});

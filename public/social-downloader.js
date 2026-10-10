@@ -376,7 +376,15 @@
       try { data = await response.json(); }
       catch (_) { throw Error('Máy chủ chưa trả về dữ liệu hợp lệ. Hãy thử lại.'); }
       if (activeRequest !== controller) return;
-      if (!response.ok) throw Error(data.error || 'Không lấy được nội dung. Kiểm tra liên kết rồi thử lại.');
+      if (!response.ok) {
+        const error = Error(data.error || 'Không lấy được nội dung. Kiểm tra liên kết rồi thử lại.');
+        if (response.status === 422 && inputPlatform(input) === 'douyin' && !body.douyin_cookie
+            && /đăng nhập|xác minh|cookie|phiên Douyin/i.test(data.error || '')) {
+          error.code = 'EXTENSION_MISSING';
+          error.message = 'Douyin yêu cầu phiên đăng nhập hoặc xác minh. Trang chưa nhận được tiện ích kết nối Douyin. Cài hoặc bật tiện ích trên Edge rồi tải lại trang.';
+        }
+        throw error;
+      }
       render(data);
     } catch (error) {
       if (activeRequest !== controller || error.name === 'AbortError') return;
