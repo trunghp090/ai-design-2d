@@ -1,11 +1,11 @@
-/* Native server attachments keep large videos out of the base64/local-save flow. */
+/* Browser sessions stay transient; media is saved after the user chooses a destination. */
 (() => {
   'use strict';
   const el = id => document.getElementById(id);
   const form = el('socialDownloadForm');
   if (!form) return;
   let initialized = false, activeRequest = null, elapsedTimer = null, result = null, previewSession = null;
-  let douyinConnected = false, connectionRequest = null;
+  let douyinConnected = false, extensionAvailable = false, connectionRequest = null, saveRequest = null;
   const bridgeNonce = crypto.randomUUID(), pendingBridge = new Map();
   function aborted() { const error = Error('Đã huỷ kết nối.'); error.name = 'AbortError'; return error; }
   function connectionStatus(message, state = '') {
@@ -52,7 +52,9 @@
   function sessionCredentials(data) {
     if (data.loggedIn !== true || typeof data.cookie !== 'string' || !data.cookie || data.cookie.length > 16000 || /[\r\n]/.test(data.cookie) ||
         typeof data.userAgent !== 'string' || !data.userAgent || data.userAgent.length > 512 || /[^\x20-\x7e]/.test(data.userAgent)) {
-      throw Error('Phiên Douyin chưa hợp lệ. Đăng nhập Douyin trên Edge rồi kết nối lại.');
+      const error = Error('Phiên Douyin chưa hợp lệ. Đăng nhập Douyin trên Edge rồi thử tải lại.');
+      error.code = data.loggedIn === true ? 'FAILED' : 'LOGIN_REQUIRED';
+      throw error;
     }
     return {douyin_cookie: data.cookie, douyin_user_agent: data.userAgent};
   }
@@ -61,16 +63,18 @@
     connectionRequest = null;
     connected(false);
     window.postMessage({source: 'aidesign-douyin-page', type: 'DISCONNECT', requestId: crypto.randomUUID(), nonce: bridgeNonce}, location.origin);
-    connectionStatus('Đã ngắt kết nối Douyin. Bấm Kết nối Douyin để dùng lại.');
+    connectionStatus(extensionAvailable
+      ? 'Tiện ích sẵn sàng. Dán link rồi bấm Lấy video / ảnh để tự dùng phiên Douyin trên Edge.'
+      : 'Chưa kết nối tiện ích Douyin. Cài tiện ích một lần để tự dùng phiên trên Edge.');
   }
   function connectionError(error) {
     disconnectDouyin();
     connectionStatus(error.message || 'Chưa kết nối được Douyin.', 'error');
     if (error.code === 'EXTENSION_MISSING') el('socialDownloadInstallHelp').open = true;
-    if (error.code === 'LOGIN_REQUIRED') connectionStatus('Mở Douyin bên dưới, đăng nhập trên Edge rồi bấm Kết nối Douyin lại.', 'error');
+    if (error.code === 'LOGIN_REQUIRED') connectionStatus('Mở Douyin bên dưới, đăng nhập trên Edge rồi dán link và thử tải lại.', 'error');
   }
   el('socialDownloadConnectDouyin').addEventListener('click', async () => {
-    if (activeRequest || connectionRequest) return;
+    if (activeRequest || saveRequest || connectionRequest) return;
     const controller = new AbortController();
     connectionRequest = controller;
     el('socialDownloadConnectDouyin').disabled = true;
@@ -78,7 +82,12 @@
     try {
       const data = await extensionRequest('CONNECT', {signal: controller.signal});
       if (connectionRequest !== controller) return;
-      if (data.loggedIn !== true) throw Error('Đăng nhập Douyin trên Edge rồi kết nối lại.');
+      if (data.loggedIn !== true) {
+        const error = Error('Đăng nhập Douyin trên Edge rồi thử tải lại.');
+        error.code = 'LOGIN_REQUIRED';
+        throw error;
+      }
+      extensionAvailable = true;
       connected(true);
       el('socialDownloadInstallHelp').open = false;
       connectionStatus('Đã kết nối. Dán link và bấm Lấy video / ảnh; tool tự dùng phiên Douyin của bạn.', 'success');
@@ -86,12 +95,13 @@
       if (connectionRequest === controller && error.name !== 'AbortError') connectionError(error);
     } finally {
       if (connectionRequest === controller) connectionRequest = null;
-      el('socialDownloadConnectDouyin').disabled = !!activeRequest;
+      el('socialDownloadConnectDouyin').disabled = !!activeRequest || !!saveRequest;
     }
   });
   // Detection shares no login data; cookies are read only after a real user action.
-  void extensionRequest('STATUS').then(data => {
-    if (!connectionRequest && !douyinConnected) connectionStatus('Tiện ích đã sẵn sàng. Bấm Kết nối Douyin để dùng phiên đăng nhập trên Edge.');
+  const extensionDetection = extensionRequest('STATUS').then(() => {
+    extensionAvailable = true;
+    if (!connectionRequest && !douyinConnected) connectionStatus('Tiện ích sẵn sàng. Dán link rồi bấm Lấy video / ảnh; tool tự dùng phiên Douyin trên Edge.');
   }).catch(() => {});
   const status = (message, state = '') => {
     el('socialDownloadStatus').textContent = message;
@@ -141,20 +151,60 @@
     el('socialDownloadDouyinCookie').value = '';
     el('socialDownloadDouyinUserAgent').value = '';
     disconnectDouyin();
-    if (!activeRequest) return;
-    activeRequest.abort();
+    const wasSaving = !!saveRequest;
+    const hadWork = !!activeRequest || wasSaving;
+    activeRequest?.abort();
     activeRequest = null;
+    saveRequest?.abort();
+    saveRequest = null;
+    window.cancelSocialDownloadSave?.();
     setBusy(false);
-    status(message);
+    if (hadWork) status(wasSaving ? 'Đã huỷ lưu file.' : message);
   }
-  function downloadLink(url, label) {
+  function saveDownload(url, filename) {
+    if (activeRequest || connectionRequest || saveRequest) {
+      status('Đang xử lý một thao tác. Hãy đợi hoàn tất hoặc bấm Huỷ.');
+      return Promise.resolve({status: 'busy'});
+    }
+    if (typeof window.saveSocialDownload !== 'function') {
+      status('Chưa tải được chức năng chọn nơi lưu. Tải lại trang rồi thử lại.', 'error');
+      return Promise.resolve({status: 'failed'});
+    }
+    const controller = new AbortController();
+    saveRequest = controller;
+    let saving;
+    try {
+      // This call must stay in the original click stack so the picker can open.
+      saving = window.saveSocialDownload(localAsset(url), filename, {signal: controller.signal});
+    } catch (error) {
+      saveRequest = null;
+      status(error.message || 'Không mở được hộp chọn nơi lưu file.', 'error');
+      return Promise.resolve({status: 'failed'});
+    }
+    setBusy(true);
+    status('Chọn nơi lưu file. Sau khi bạn chọn, tool sẽ tải và lưu file vào đó.');
+    return Promise.resolve(saving).then(outcome => {
+      if (!['saved', 'cancelled'].includes(outcome?.status)) throw Error('Chưa xác nhận được file đã lưu. Hãy thử lại.');
+      if (saveRequest === controller) status(outcome?.status === 'cancelled' ? 'Đã huỷ lưu file.' : 'Đã lưu file vào nơi bạn chọn.', outcome?.status === 'cancelled' ? '' : 'success');
+      return outcome;
+    }).catch(error => {
+      if (saveRequest === controller) status(error.name === 'AbortError' ? 'Đã huỷ lưu file.' : error.message || 'Không lưu được file. Hãy thử lại.', error.name === 'AbortError' ? '' : 'error');
+      return {status: error.name === 'AbortError' ? 'cancelled' : 'failed'};
+    }).finally(() => {
+      if (saveRequest === controller) { saveRequest = null; setBusy(false); }
+    });
+  }
+  function downloadLink(url, filename, label) {
     const anchor = document.createElement('a');
     anchor.className = 'btn-ghost sm';
     anchor.href = localAsset(url);
     anchor.download = '';
     anchor.dataset.nativeDownload = '';
     anchor.textContent = label;
-    anchor.addEventListener('click', () => status('Đã gửi yêu cầu tải file. Theo dõi tiến trình trong mục tải xuống của trình duyệt.'));
+    anchor.addEventListener('click', event => {
+      event.preventDefault();
+      return saveDownload(anchor.href, filename);
+    });
     return anchor;
   }
   function stopPreviews() {
@@ -223,7 +273,7 @@
     const cards = document.createDocumentFragment();
     const imageTasks = [];
     const previewFailed = () => {
-      if (result === data && !activeRequest) status('Không tải được bản xem trước. Hãy lấy lại link hoặc thử nút tải file.', 'error');
+      if (result === data && !activeRequest && !saveRequest) status('Không tải được bản xem trước. Hãy lấy lại link hoặc thử nút tải file.', 'error');
     };
     data.items.forEach((item, position) => {
       const card = document.createElement('figure');
@@ -253,7 +303,7 @@
       }
       const caption = document.createElement('figcaption');
       number.textContent = item.kind === 'video' ? 'Video' : 'Ảnh ' + (position + 1) + ' / ' + data.items.length;
-      caption.append(number, downloadLink(item.download_url, item.kind === 'video' ? '↓ Tải video' : '↓ Tải ảnh'));
+      caption.append(number, downloadLink(item.download_url, item.filename, item.kind === 'video' ? '↓ Tải video' : '↓ Tải ảnh'));
       card.append(caption);
       cards.append(card);
     });
@@ -279,7 +329,7 @@
   }
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (activeRequest || connectionRequest) return;
+    if (activeRequest || saveRequest || connectionRequest) return;
     const input = el('socialDownloadInput').value.trim();
     if (!input) { status('Dán liên kết TikTok hoặc Douyin trước khi lấy nội dung.', 'error'); el('socialDownloadInput').focus(); return; }
     const controller = new AbortController();
@@ -290,10 +340,15 @@
       const body = {url: input, request_id: crypto.randomUUID()};
       const cookie = el('socialDownloadDouyinCookie').value.trim();
       if (inputPlatform(input) === 'douyin') {
-        if (douyinConnected) {
+        if (!extensionAvailable) await extensionDetection;
+        if (activeRequest !== controller) return;
+        if (extensionAvailable) {
           const session = await extensionRequest('SESSION', {signal: controller.signal});
           if (activeRequest !== controller) return;
           Object.assign(body, sessionCredentials(session));
+          connected(true);
+          el('socialDownloadInstallHelp').open = false;
+          connectionStatus('Đã dùng phiên Douyin trên Edge. Những lần sau chỉ cần dán link rồi bấm Lấy video / ảnh.', 'success');
         } else if (cookie) {
           body.douyin_cookie = cookie;
           const userAgent = el('socialDownloadDouyinUserAgent').value.trim();
@@ -331,12 +386,20 @@
     status('');
     el('socialDownloadInput').focus();
   });
-  el('socialDownloadAll').addEventListener('click', () => status('Đã gửi yêu cầu tải bộ ảnh ZIP. Theo dõi tiến trình trong mục tải xuống của trình duyệt.'));
+  function zipFilename() {
+    return result.platform + '-' + (result.post_id || 'anh-cuon') + '-images.zip';
+  }
+  el('socialDownloadAll').addEventListener('click', event => {
+    event.preventDefault();
+    if (!result?.zip_url) return;
+    return saveDownload(result.zip_url, zipFilename());
+  });
   window.downloadSocialAll = () => {
     if (!result) throw Error('Chưa có video hoặc ảnh để tải.');
-    const anchor = result.type === 'images' ? el('socialDownloadAll') : el('socialDownloadItems').querySelector('a[data-native-download]');
-    if (!anchor?.hasAttribute('href')) throw Error('Chưa có file tải xuống cho bài đăng này.');
-    anchor.click();
+    const item = result.items[0];
+    const url = result.type === 'images' ? result.zip_url : item.download_url;
+    if (!url) throw Error('Chưa có file tải xuống cho bài đăng này.');
+    return saveDownload(url, result.type === 'images' ? zipFilename() : item.filename);
   };
   window.initSocialDownloader = async () => {
     if (initialized) return;

@@ -29,9 +29,9 @@
 
   function respond(request, result) {
     window.postMessage({source: 'aidesign-douyin-extension', type: 'RESPONSE',
-      requestId: request.requestId, nonce: request.nonce, version: '1.0.0', connected, ...result}, location.origin);
+      requestId: request.requestId, nonce: request.nonce, version: '1.0.1', connected, ...result}, location.origin);
   }
-  function failed(request, code = 'FAILED', error = 'Chưa kết nối được Douyin. Hãy bấm Kết nối rồi thử lại.') {
+  function failed(request, code = 'FAILED', error = 'Chưa đọc được phiên Douyin. Hãy bấm Lấy video / ảnh để thử lại.') {
     respond(request, {ok: false, code, error});
   }
   function valid(request) {
@@ -56,7 +56,6 @@
       respond(request, {ok: true});
       return;
     }
-    if (request.type === 'SESSION' && !connected) { failed(request, 'NOT_CONNECTED'); return; }
     if (!activation || activation.type !== request.type || activation.expires < Date.now() || active) {
       failed(request, 'FAILED', 'Hãy bấm nút Kết nối Douyin hoặc Lấy video / ảnh để tiếp tục.');
       return;
@@ -76,7 +75,7 @@
               || /[^\x20-\x7e]/.test(result.cookie)))) {
         if (result?.code === 'LOGIN_REQUIRED') connected = false;
         failed(request, result?.code === 'LOGIN_REQUIRED' ? 'LOGIN_REQUIRED' : 'FAILED',
-          result?.code === 'LOGIN_REQUIRED' ? 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Kết nối lại.' : undefined);
+          result?.code === 'LOGIN_REQUIRED' ? 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Lấy video / ảnh lại.' : undefined);
         return;
       }
       if (request.type === 'CONNECT') {

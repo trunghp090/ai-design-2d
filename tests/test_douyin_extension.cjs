@@ -78,6 +78,7 @@ function contentHarness(origin = ORIGIN) {
 test('manifest limits permissions and content origins and uses MV3 isolated scripts', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, 3);
+  assert.equal(manifest.version, '1.0.1');
   assert.deepEqual(manifest.permissions, ['cookies']);
   assert.deepEqual(manifest.host_permissions, ['https://www.douyin.com/*']);
   assert.deepEqual(manifest.content_scripts[0].matches,
@@ -158,7 +159,7 @@ test('STATUS returns only installation protocol and connection state with no run
   const request = state.request('STATUS');
   assert.deepEqual(state.posts[0], {target: ORIGIN, value: {
     source: 'aidesign-douyin-extension', type: 'RESPONSE', requestId: request.requestId,
-    nonce: NONCE, version: '1.0.0', connected: false, ok: true,
+    nonce: NONCE, version: '1.0.1', connected: false, ok: true,
   }});
   assert.equal(state.runtimeRequests.length, 0);
 });
@@ -178,21 +179,38 @@ test('content rejects wrong origin, window, protocol, nonce, extra data and repe
   assert.equal(state.runtimeRequests.length, 0);
 });
 
-test('CONNECT and SESSION require genuine matching button activation and completed connection', () => {
+test('CONNECT and SESSION require genuine matching button activation', () => {
+  for (const type of ['CONNECT', 'SESSION']) {
+    const button = type === 'CONNECT' ? 'socialDownloadConnectDouyin' : 'socialDownloadResolve';
+    const wrong = type === 'CONNECT' ? 'socialDownloadResolve' : 'socialDownloadConnectDouyin';
+    for (const activation of ['none', 'synthetic', 'wrong', 'expired']) {
+      const state = contentHarness();
+      state.request('STATUS');
+      if (activation === 'synthetic') state.click(button, false);
+      if (activation === 'wrong') state.click(wrong);
+      if (activation === 'expired') { state.click(button); state.advance(5001); }
+      state.request(type);
+      assert.equal(state.runtimeRequests.length, 0);
+      assert.equal(state.posts.at(-1).value.code, 'FAILED');
+      assert.equal(Object.hasOwn(state.posts.at(-1).value, 'cookie'), false);
+    }
+  }
+});
+
+test('a genuine download action obtains a fresh session without a prior CONNECT', () => {
   const state = contentHarness();
   state.request('STATUS');
-  state.request('CONNECT');
-  state.click('socialDownloadConnectDouyin', false);
-  state.request('CONNECT');
   state.click('socialDownloadResolve');
-  state.request('CONNECT');
   state.request('SESSION');
-  assert.equal(state.runtimeRequests.length, 0);
-  assert.equal(state.posts.at(-1).value.code, 'NOT_CONNECTED');
-  state.click('socialDownloadConnectDouyin');
-  state.advance(5001);
-  state.request('CONNECT');
-  assert.equal(state.runtimeRequests.length, 0);
+  assert.equal(state.runtimeRequests.length, 1);
+  assert.equal(state.runtimeRequests[0].value.type, 'SESSION');
+  assert.equal(state.posts.length, 1);
+  state.runtimeRequests[0].callback({ok: true, cookie: 'sessionid=synthetic-first-download', loggedIn: true});
+  assert.equal(state.posts.at(-1).value.cookie, 'sessionid=synthetic-first-download');
+  assert.equal(state.posts.at(-1).value.connected, true);
+  state.request('SESSION');
+  assert.equal(state.runtimeRequests.length, 1);
+  assert.equal(state.posts.at(-1).value.code, 'FAILED');
 });
 
 test('connection returns no secrets; each authorized SESSION obtains current cookie and browser UA', () => {
@@ -246,9 +264,15 @@ test('DISCONNECT drops late CONNECT and SESSION callbacks and clears authorizati
     assert.equal(state.posts.at(-1).value.connected, false);
     assert.equal(JSON.stringify(state.posts).includes('synthetic-late-secret'), false);
     assert.equal(state.posts.some(post => post.value.requestId === request.requestId), false);
+    state.request('SESSION');
+    assert.equal(state.posts.at(-1).value.code, 'FAILED');
+    const reads = state.runtimeRequests.length;
     state.click('socialDownloadResolve');
     state.request('SESSION');
-    assert.equal(state.posts.at(-1).value.code, 'NOT_CONNECTED');
+    assert.equal(state.runtimeRequests.length, reads + 1);
+    state.runtimeRequests.at(-1).callback({ok: true, cookie: 'sessionid=synthetic-after-disconnect', loggedIn: true});
+    assert.equal(state.posts.at(-1).value.cookie, 'sessionid=synthetic-after-disconnect');
+    assert.equal(state.posts.at(-1).value.connected, true);
   }
 });
 

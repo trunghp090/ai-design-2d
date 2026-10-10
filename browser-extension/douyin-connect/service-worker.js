@@ -32,7 +32,7 @@
       pairs.push(cookie.name + '=' + cookie.value);
       if (LOGIN_NAMES.has(cookie.name)) loggedIn = true;
     }
-    if (!loggedIn) return {ok: false, code: 'LOGIN_REQUIRED', error: 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Kết nối lại.'};
+    if (!loggedIn) return {ok: false, code: 'LOGIN_REQUIRED', error: 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Lấy video / ảnh lại.'};
     const cookie = pairs.join('; ');
     if (cookie.length > 16000) throw Error();
     return {ok: true, cookie, loggedIn: true};

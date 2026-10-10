@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AI Design 2D — Kết nối Douyin",
-  "version": "1.0.0",
-  "description": "Kết nối phiên Douyin đang đăng nhập khi bạn bấm kết nối trong AI Design 2D.",
+  "version": "1.0.1",
+  "description": "Dùng phiên Douyin đang đăng nhập khi bạn bấm lấy video hoặc ảnh trong AI Design 2D.",
   "permissions": ["cookies"],
   "host_permissions": ["https://www.douyin.com/*"],
   "background": {"service_worker": "service-worker.js"},

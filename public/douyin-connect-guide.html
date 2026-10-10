@@ -16,19 +16,20 @@
 <body>
 <main>
   <h1>Kết nối Douyin trên Edge</h1>
-  <p>Cài tiện ích một lần. Sau đó đăng nhập Douyin trên Edge, mở tool, bấm <strong>Kết nối Douyin</strong> và dán link để tải video hoặc ảnh.</p>
+  <p>Cài tiện ích một lần và đăng nhập Douyin trên Edge. Sau đó mở tool bằng Edge này, dán link rồi bấm <strong>Lấy video / ảnh</strong>; tool tự dùng phiên Douyin hiện tại.</p>
   <a class="button" href="/douyin-connect-extension.zip" data-native-download download>↓ Tải tiện ích Edge</a>
   <ol>
     <li><strong>Giải nén file vừa tải.</strong><br>Bạn sẽ có thư mục <code>douyin-connect</code> chứa file <code>manifest.json</code>.</li>
     <li><strong>Mở trang tiện ích của Edge.</strong><br>Dán <code>edge://extensions</code> vào thanh địa chỉ và nhấn Enter.<button type="button" id="copyExtensions">Chép địa chỉ</button><br><span id="copyStatus" role="status"></span></li>
     <li><strong>Bật Developer Mode.</strong><br>Tên tiếng Việt là <strong>Chế độ nhà phát triển</strong>. Chọn <strong>Load unpacked</strong> / <strong>Tải tiện ích đã giải nén</strong>, rồi chọn thư mục <code>douyin-connect</code>.</li>
     <li><strong>Đăng nhập Douyin trên cùng Edge.</strong><br><a href="https://www.douyin.com/" target="_blank" rel="noopener noreferrer">Mở Douyin ↗</a>. Nếu Douyin yêu cầu quét mã hoặc xác minh, hoàn tất trên trang Douyin.</li>
-    <li><strong>Tải lại trang tool.</strong><br>Vào tab <strong>Tải TikTok / Douyin</strong>, bấm <strong>Kết nối Douyin</strong>, dán link rồi bấm <strong>Lấy video / ảnh</strong>.</li>
+    <li><strong>Tải lại trang tool.</strong><br>Vào tab <strong>Tải TikTok / Douyin</strong>, dán link rồi bấm <strong>Lấy video / ảnh</strong>. Nút <strong>Kết nối Douyin</strong> chỉ dùng khi bạn muốn kiểm tra phiên đăng nhập.</li>
   </ol>
   <aside>
     <h2>Từ lần sau</h2>
-    <p>Chỉ cần mở tool bằng Edge này và bấm Kết nối Douyin. Tool tự đọc phiên đăng nhập mới khi bạn tải; không cần chép cookie hay User-Agent.</p>
-    <p>Tiện ích đọc phiên Douyin và gửi tới tool cho yêu cầu tải của bạn. Phiên không lưu trong tiện ích hoặc trên máy chủ. Bấm <strong>Xoá</strong> hoặc <strong>Huỷ</strong> để ngắt kết nối.</p>
+    <p>Chỉ cần mở tool bằng Edge này, dán link rồi bấm <strong>Lấy video / ảnh</strong>. Tool tự đọc phiên đăng nhập mới mỗi lần lấy bài; không cần bấm kết nối lại hoặc chép cookie.</p>
+    <p>Khi video hoặc ảnh đã hiện, bấm nút tải và chọn nơi lưu. Tool sẽ tải file sau khi bạn chọn xong.</p>
+    <p>Tiện ích đọc phiên Douyin và gửi tới tool cho yêu cầu tải của bạn. Phiên không lưu trong tiện ích hoặc trên máy chủ. Bấm <strong>Xoá</strong> hoặc <strong>Huỷ</strong> để xoá phiên khỏi tab; lần tải tiếp theo sẽ tự đọc lại phiên trên Edge.</p>
   </aside>
   <footer>Tiện ích dùng cho <a href="https://riengvnapp.cloud/">riengvnapp.cloud</a> và tool chạy trên localhost:8000. Douyin vẫn có thể yêu cầu xác minh hoặc từ chối một số bài đăng.</footer>
 </main>
