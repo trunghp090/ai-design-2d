@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kết nối Douyin trên Edge — AI Design 2D</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#261e25;background:#faf7f8;line-height:1.7}
+    body{margin:0;padding:32px 20px}main{max-width:740px;margin:auto;background:white;border:1px solid #e8dfe2;border-radius:20px;padding:32px}
+    h1{font-size:26px;line-height:1.3;margin:0 0 16px}h2{font-size:18px;margin:0 0 10px}p{margin:10px 0}ol{padding-left:24px}li{margin:18px 0;padding-left:8px}
+    code{background:#f4eff1;border-radius:5px;padding:3px 6px;font-size:14px}a{color:#7b4256}button,.button{display:inline-block;border:1px solid #7b4256;border-radius:9px;background:#7b4256;color:white;padding:10px 16px;font:inherit;cursor:pointer;text-decoration:none}
+    button{background:white;color:#7b4256;padding:4px 10px;font-size:13px;margin-left:8px}aside{background:#f7f2f4;border-radius:12px;padding:16px;margin-top:24px}footer{margin-top:24px;font-size:14px;color:#685c64}#copyStatus{font-size:13px;color:#416948}
+    @media(max-width:600px){body{padding:16px 12px}main{padding:22px 18px}h1{font-size:22px}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Kết nối Douyin trên Edge</h1>
+  <p>Cài tiện ích một lần. Sau đó đăng nhập Douyin trên Edge, mở tool, bấm <strong>Kết nối Douyin</strong> và dán link để tải video hoặc ảnh.</p>
+  <a class="button" href="/douyin-connect-extension.zip" data-native-download download>↓ Tải tiện ích Edge</a>
+  <ol>
+    <li><strong>Giải nén file vừa tải.</strong><br>Bạn sẽ có thư mục <code>douyin-connect</code> chứa file <code>manifest.json</code>.</li>
+    <li><strong>Mở trang tiện ích của Edge.</strong><br>Dán <code>edge://extensions</code> vào thanh địa chỉ và nhấn Enter.<button type="button" id="copyExtensions">Chép địa chỉ</button><br><span id="copyStatus" role="status"></span></li>
+    <li><strong>Bật Developer Mode.</strong><br>Tên tiếng Việt là <strong>Chế độ nhà phát triển</strong>. Chọn <strong>Load unpacked</strong> / <strong>Tải tiện ích đã giải nén</strong>, rồi chọn thư mục <code>douyin-connect</code>.</li>
+    <li><strong>Đăng nhập Douyin trên cùng Edge.</strong><br><a href="https://www.douyin.com/" target="_blank" rel="noopener noreferrer">Mở Douyin ↗</a>. Nếu Douyin yêu cầu quét mã hoặc xác minh, hoàn tất trên trang Douyin.</li>
+    <li><strong>Tải lại trang tool.</strong><br>Vào tab <strong>Tải TikTok / Douyin</strong>, bấm <strong>Kết nối Douyin</strong>, dán link rồi bấm <strong>Lấy video / ảnh</strong>.</li>
+  </ol>
+  <aside>
+    <h2>Từ lần sau</h2>
+    <p>Chỉ cần mở tool bằng Edge này và bấm Kết nối Douyin. Tool tự đọc phiên đăng nhập mới khi bạn tải; không cần chép cookie hay User-Agent.</p>
+    <p>Tiện ích đọc phiên Douyin và gửi tới tool cho yêu cầu tải của bạn. Phiên không lưu trong tiện ích hoặc trên máy chủ. Bấm <strong>Xoá</strong> hoặc <strong>Huỷ</strong> để ngắt kết nối.</p>
+  </aside>
+  <footer>Tiện ích dùng cho <a href="https://riengvnapp.cloud/">riengvnapp.cloud</a> và tool chạy trên localhost:8000. Douyin vẫn có thể yêu cầu xác minh hoặc từ chối một số bài đăng.</footer>
+</main>
+<script>
+document.getElementById('copyExtensions').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText('edge://extensions'); document.getElementById('copyStatus').textContent = 'Đã chép. Dán vào thanh địa chỉ Edge rồi nhấn Enter.'; }
+  catch (_) { document.getElementById('copyStatus').textContent = 'Chọn địa chỉ edge://extensions bên trên để chép.'; }
+});
+</script>
+</body>
+</html>

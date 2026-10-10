@@ -4,6 +4,23 @@
 #view-socialdownload .social-download-badge{flex:none;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:var(--violet-soft);color:var(--violet);font-size:12px;font-weight:700}
 #view-socialdownload textarea{min-height:98px;resize:vertical;line-height:1.6}
 #view-socialdownload .hint{line-height:1.7}
+#view-socialdownload .social-download-connect{margin-top:16px;padding:15px;border:1px solid var(--line);border-radius:12px;background:var(--violet-soft)}
+#view-socialdownload .social-download-connect-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
+#view-socialdownload .social-download-connect-heading>div{min-width:0}
+#view-socialdownload .social-download-connect-heading strong{font-size:13px}
+#view-socialdownload .social-download-connect-heading>button{flex:none}
+#view-socialdownload #socialDownloadConnectionStatus{margin:5px 0 0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+#view-socialdownload #socialDownloadConnectionStatus[data-state="error"]{color:#b91c1c}
+#view-socialdownload #socialDownloadConnectionStatus[data-state="success"]{color:#167442}
+#view-socialdownload .social-download-connect-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+#view-socialdownload .social-download-connect-links a{font-size:12px;color:var(--violet);text-underline-offset:3px}
+#view-socialdownload .social-download-install-help{margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
+#view-socialdownload .social-download-install-help summary{font-size:12px;font-weight:600;cursor:pointer}
+#view-socialdownload .social-download-install-help ol{padding-left:20px;margin:12px 0;font-size:12px;line-height:1.8}
+#view-socialdownload .social-download-install-help li+li{margin-top:6px}
+#view-socialdownload .social-download-install-help code{overflow-wrap:anywhere;font-size:12px}
+#view-socialdownload .social-download-install-actions{display:flex;flex-wrap:wrap;gap:8px}
+#view-socialdownload .social-download-install-actions a{font-size:12px}
 #view-socialdownload .social-download-advanced{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--card)}
 #view-socialdownload .social-download-advanced summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)}
 #view-socialdownload .social-download-advanced .field-label{margin-top:14px}
@@ -31,4 +48,4 @@
 #view-socialdownload .social-download-item figcaption{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;font-size:12px;color:var(--muted)}
 #view-socialdownload .social-download-item figcaption>a{font-size:12px;padding:7px 10px}
 #view-socialdownload a:focus-visible,#view-socialdownload button:focus-visible{outline:3px solid #a86370;outline-offset:3px}
-@media(max-width:600px){#view-socialdownload{padding:14px 12px 28px}#view-socialdownload .panel{padding:18px}#view-socialdownload .social-download-heading,#view-socialdownload .social-download-result-heading{flex-direction:column;gap:12px}#view-socialdownload .social-download-heading .panel-desc{margin-bottom:0}#view-socialdownload form{margin-top:18px}#view-socialdownload .social-download-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#view-socialdownload .social-download-item figcaption{align-items:stretch;flex-direction:column;padding:9px}#view-socialdownload .social-download-item figcaption>a{justify-content:center}}
+@media(max-width:600px){#view-socialdownload{padding:14px 12px 28px}#view-socialdownload .panel{padding:18px}#view-socialdownload .social-download-heading,#view-socialdownload .social-download-result-heading,#view-socialdownload .social-download-connect-heading{flex-direction:column;align-items:flex-start;gap:12px}#view-socialdownload .social-download-heading .panel-desc{margin-bottom:0}#view-socialdownload form{margin-top:18px}#view-socialdownload .social-download-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#view-socialdownload .social-download-item figcaption{align-items:stretch;flex-direction:column;padding:9px}#view-socialdownload .social-download-item figcaption>a{justify-content:center}}

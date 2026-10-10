@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/roundup.css?v=20260910-upload-shirts" />
 <link rel="stylesheet" href="/tiktok-kol.css?v=2026.09.10-kol-gift-catalog">
 <link rel="stylesheet" href="/image-studio.css?v=20260930-loading">
-<link rel="stylesheet" href="/social-downloader.css?v=20261010">
+<link rel="stylesheet" href="/social-downloader.css?v=20261010-connect">
 </head>
 <body>
   <div class="topbar">
@@ -101,8 +101,35 @@
         <textarea id="socialDownloadInput" class="input" rows="3" maxlength="6000" required aria-describedby="socialDownloadHint" placeholder="Dán URL hoặc toàn bộ nội dung chia sẻ có chứa liên kết…"></textarea>
         <p class="hint" id="socialDownloadHint">Nhận link đầy đủ hoặc link rút gọn từ tiktok.com, douyin.com và iesdouyin.com. Ảnh cuộn có thể tải từng ảnh hoặc cả bộ ZIP.</p>
         <p class="hint">Khi TikTok không trả nội dung trực tiếp, link công khai được gửi tới TikWM để lấy file.</p>
+        <div class="social-download-connect">
+          <div class="social-download-connect-heading">
+            <div>
+              <strong>Douyin trên Edge</strong>
+              <p id="socialDownloadConnectionStatus" role="status" aria-live="polite">Kết nối một lần để tự dùng phiên Douyin trên Edge khi tải.</p>
+            </div>
+            <button class="btn-primary sm" id="socialDownloadConnectDouyin" type="button">Kết nối Douyin</button>
+          </div>
+          <p class="hint">Sau khi kết nối, chỉ cần dán link. Douyin có thể yêu cầu đăng nhập hoặc xác minh trên Edge.</p>
+          <div class="social-download-connect-links">
+            <a href="https://www.douyin.com/" target="_blank" rel="noopener noreferrer">Mở Douyin để đăng nhập ↗</a>
+          </div>
+          <details id="socialDownloadInstallHelp" class="social-download-install-help">
+            <summary>Cài tiện ích một lần trên Edge</summary>
+            <ol>
+              <li>Tải tiện ích bên dưới và giải nén file ZIP.</li>
+              <li>Mở <code>edge://extensions</code> trên Edge, bật <strong>Developer Mode</strong> (Chế độ nhà phát triển).</li>
+              <li>Chọn <strong>Load unpacked</strong> (Tải tiện ích đã giải nén), rồi chọn thư mục <code>douyin-connect</code>.</li>
+              <li>Mở lại hoặc tải lại tool bằng Edge này, rồi bấm <strong>Kết nối Douyin</strong>. Đăng nhập Douyin trên cùng Edge nếu được yêu cầu.</li>
+            </ol>
+            <div class="social-download-install-actions">
+              <a class="btn-ghost sm" href="/douyin-connect-extension.zip" data-native-download download>↓ Tải tiện ích Edge</a>
+              <a class="btn-ghost sm" href="/douyin-connect-guide.html" target="_blank" rel="noopener noreferrer">Xem hướng dẫn cài đặt ↗</a>
+            </div>
+            <p class="hint">Phiên Douyin chỉ dùng cho yêu cầu tải của bạn và không lưu trên máy chủ.</p>
+          </details>
+        </div>
         <details class="social-download-advanced">
-          <summary>Douyin yêu cầu đăng nhập?</summary>
+          <summary>Cài đặt nâng cao</summary>
           <label class="field-label" for="socialDownloadDouyinCookie">Cookie Douyin (tùy chọn)</label>
           <input class="input" id="socialDownloadDouyinCookie" type="password" maxlength="16000" autocomplete="off" spellcheck="false" aria-describedby="socialDownloadCookieHint" placeholder="Dán cookie phiên Douyin của bạn">
           <p class="hint" id="socialDownloadCookieHint">Dùng cookie phiên Douyin của bạn khi bài công khai yêu cầu đăng nhập. Cookie chỉ dùng trong tab đang mở, không lưu trên máy chủ. Bấm Xoá hoặc Huỷ để xoá cookie.</p>
@@ -2457,7 +2484,7 @@
 </script>
 <script src="/image-studio.js?v=20260930-loading"></script>
 <script src="/download-manager.js?v=20261010-social-download"></script>
-<script src="/social-downloader.js?v=20261010"></script>
+<script src="/social-downloader.js?v=20261010-connect"></script>
 <script src="/app.js?v=20261010-social-download"></script>
 <script src="/gift-rotation.js?v=2026.09.10-custom-mix"></script>
 <script src="/tiktok-kol.js?v=2026.09.10-custom-mix"></script>

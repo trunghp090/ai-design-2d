@@ -5,6 +5,94 @@
   const form = el('socialDownloadForm');
   if (!form) return;
   let initialized = false, activeRequest = null, elapsedTimer = null, result = null, previewSession = null;
+  let douyinConnected = false, connectionRequest = null;
+  const bridgeNonce = crypto.randomUUID(), pendingBridge = new Map();
+  function aborted() { const error = Error('Đã huỷ kết nối.'); error.name = 'AbortError'; return error; }
+  function connectionStatus(message, state = '') {
+    el('socialDownloadConnectionStatus').textContent = message;
+    el('socialDownloadConnectionStatus').dataset.state = state;
+  }
+  function connected(value) {
+    douyinConnected = value;
+    el('socialDownloadConnectDouyin').textContent = value ? '✓ Douyin đã kết nối' : 'Kết nối Douyin';
+  }
+  function extensionRequest(type, {signal, timeout = type === 'STATUS' ? 2000 : 6000} = {}) {
+    if (signal?.aborted) return Promise.reject(aborted());
+    const requestId = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      const finish = (data, error) => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onabort);
+        pendingBridge.delete(requestId);
+        error ? reject(error) : resolve(data);
+      };
+      const onabort = () => finish(null, aborted());
+      const timer = setTimeout(() => {
+        const error = Error('Chưa tìm thấy tiện ích. Cài tiện ích kết nối Douyin một lần rồi tải lại trang tool.');
+        error.code = 'EXTENSION_MISSING';
+        finish(null, error);
+      }, timeout);
+      pendingBridge.set(requestId, finish);
+      signal?.addEventListener('abort', onabort, {once: true});
+      window.postMessage({source: 'aidesign-douyin-page', type, requestId, nonce: bridgeNonce}, location.origin);
+    });
+  }
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (event.source !== window || event.origin !== location.origin || !data ||
+        data.source !== 'aidesign-douyin-extension' || data.type !== 'RESPONSE' || data.nonce !== bridgeNonce) return;
+    const finish = pendingBridge.get(data.requestId);
+    if (!finish) return;
+    if (data.ok !== true) {
+      const error = Error(typeof data.error === 'string' ? data.error.slice(0, 300) : 'Chưa kết nối được Douyin.');
+      error.code = data.code;
+      finish(null, error);
+    } else finish(data);
+  });
+  function sessionCredentials(data) {
+    if (data.loggedIn !== true || typeof data.cookie !== 'string' || !data.cookie || data.cookie.length > 16000 || /[\r\n]/.test(data.cookie) ||
+        typeof data.userAgent !== 'string' || !data.userAgent || data.userAgent.length > 512 || /[^\x20-\x7e]/.test(data.userAgent)) {
+      throw Error('Phiên Douyin chưa hợp lệ. Đăng nhập Douyin trên Edge rồi kết nối lại.');
+    }
+    return {douyin_cookie: data.cookie, douyin_user_agent: data.userAgent};
+  }
+  function disconnectDouyin() {
+    connectionRequest?.abort();
+    connectionRequest = null;
+    connected(false);
+    window.postMessage({source: 'aidesign-douyin-page', type: 'DISCONNECT', requestId: crypto.randomUUID(), nonce: bridgeNonce}, location.origin);
+    connectionStatus('Đã ngắt kết nối Douyin. Bấm Kết nối Douyin để dùng lại.');
+  }
+  function connectionError(error) {
+    disconnectDouyin();
+    connectionStatus(error.message || 'Chưa kết nối được Douyin.', 'error');
+    if (error.code === 'EXTENSION_MISSING') el('socialDownloadInstallHelp').open = true;
+    if (error.code === 'LOGIN_REQUIRED') connectionStatus('Mở Douyin bên dưới, đăng nhập trên Edge rồi bấm Kết nối Douyin lại.', 'error');
+  }
+  el('socialDownloadConnectDouyin').addEventListener('click', async () => {
+    if (activeRequest || connectionRequest) return;
+    const controller = new AbortController();
+    connectionRequest = controller;
+    el('socialDownloadConnectDouyin').disabled = true;
+    connectionStatus('Đang kết nối phiên Douyin trên trình duyệt…');
+    try {
+      const data = await extensionRequest('CONNECT', {signal: controller.signal});
+      if (connectionRequest !== controller) return;
+      if (data.loggedIn !== true) throw Error('Đăng nhập Douyin trên Edge rồi kết nối lại.');
+      connected(true);
+      el('socialDownloadInstallHelp').open = false;
+      connectionStatus('Đã kết nối. Dán link và bấm Lấy video / ảnh; tool tự dùng phiên Douyin của bạn.', 'success');
+    } catch (error) {
+      if (connectionRequest === controller && error.name !== 'AbortError') connectionError(error);
+    } finally {
+      if (connectionRequest === controller) connectionRequest = null;
+      el('socialDownloadConnectDouyin').disabled = !!activeRequest;
+    }
+  });
+  // Detection shares no login data; cookies are read only after a real user action.
+  void extensionRequest('STATUS').then(data => {
+    if (!connectionRequest && !douyinConnected) connectionStatus('Tiện ích đã sẵn sàng. Bấm Kết nối Douyin để dùng phiên đăng nhập trên Edge.');
+  }).catch(() => {});
   const status = (message, state = '') => {
     el('socialDownloadStatus').textContent = message;
     el('socialDownloadStatus').dataset.state = state;
@@ -35,6 +123,7 @@
     el('socialDownloadInput').readOnly = busy;
     el('socialDownloadDouyinCookie').readOnly = busy;
     el('socialDownloadDouyinUserAgent').readOnly = busy;
+    el('socialDownloadConnectDouyin').disabled = busy || !!connectionRequest;
     el('socialDownloadCancel').classList.toggle('hidden', !busy);
     el('socialDownloadProgress').classList.toggle('hidden', !busy);
     form.setAttribute('aria-busy', String(busy));
@@ -51,6 +140,7 @@
   function cancel(message = 'Đã huỷ chờ tải. Bạn có thể nhập liên kết khác.') {
     el('socialDownloadDouyinCookie').value = '';
     el('socialDownloadDouyinUserAgent').value = '';
+    disconnectDouyin();
     if (!activeRequest) return;
     activeRequest.abort();
     activeRequest = null;
@@ -189,7 +279,7 @@
   }
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (activeRequest) return;
+    if (activeRequest || connectionRequest) return;
     const input = el('socialDownloadInput').value.trim();
     if (!input) { status('Dán liên kết TikTok hoặc Douyin trước khi lấy nội dung.', 'error'); el('socialDownloadInput').focus(); return; }
     const controller = new AbortController();
@@ -199,10 +289,16 @@
     try {
       const body = {url: input, request_id: crypto.randomUUID()};
       const cookie = el('socialDownloadDouyinCookie').value.trim();
-      if (cookie && inputPlatform(input) === 'douyin') {
-        body.douyin_cookie = cookie;
-        const userAgent = el('socialDownloadDouyinUserAgent').value.trim();
-        if (userAgent) body.douyin_user_agent = userAgent;
+      if (inputPlatform(input) === 'douyin') {
+        if (douyinConnected) {
+          const session = await extensionRequest('SESSION', {signal: controller.signal});
+          if (activeRequest !== controller) return;
+          Object.assign(body, sessionCredentials(session));
+        } else if (cookie) {
+          body.douyin_cookie = cookie;
+          const userAgent = el('socialDownloadDouyinUserAgent').value.trim();
+          if (userAgent) body.douyin_user_agent = userAgent;
+        }
       }
       const response = await fetch('/api/social-download/resolve', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -216,6 +312,7 @@
       render(data);
     } catch (error) {
       if (activeRequest !== controller || error.name === 'AbortError') return;
+      if (['EXTENSION_MISSING', 'LOGIN_REQUIRED', 'NOT_CONNECTED', 'FAILED'].includes(error.code)) connectionError(error);
       status(error.message || 'Không kết nối được máy chủ. Hãy thử lại.', 'error');
     } finally {
       if (activeRequest === controller) { activeRequest = null; setBusy(false); }

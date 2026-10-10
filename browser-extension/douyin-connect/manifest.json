@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "AI Design 2D — Kết nối Douyin",
+  "version": "1.0.0",
+  "description": "Kết nối phiên Douyin đang đăng nhập khi bạn bấm kết nối trong AI Design 2D.",
+  "permissions": ["cookies"],
+  "host_permissions": ["https://www.douyin.com/*"],
+  "background": {"service_worker": "service-worker.js"},
+  "content_scripts": [{
+    "matches": [
+      "https://riengvnapp.cloud/*",
+      "http://localhost:8000/*",
+      "http://127.0.0.1:8000/*"
+    ],
+    "js": ["content-script.js"],
+    "run_at": "document_start",
+    "all_frames": false
+  }],
+  "incognito": "not_allowed"
+}
