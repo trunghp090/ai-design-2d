@@ -1,0 +1,34 @@
+#view-socialdownload{max-width:1100px;display:grid;gap:18px}
+#view-socialdownload .social-download-heading,#view-socialdownload .social-download-result-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+#view-socialdownload .panel-desc{margin:7px 0 20px;line-height:1.6}
+#view-socialdownload .social-download-badge{flex:none;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:var(--violet-soft);color:var(--violet);font-size:12px;font-weight:700}
+#view-socialdownload textarea{min-height:98px;resize:vertical;line-height:1.6}
+#view-socialdownload .hint{line-height:1.7}
+#view-socialdownload .social-download-advanced{margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--card)}
+#view-socialdownload .social-download-advanced summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)}
+#view-socialdownload .social-download-advanced .field-label{margin-top:14px}
+#view-socialdownload .social-download-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:18px}
+#view-socialdownload .social-download-actions button:disabled{opacity:.6;cursor:wait}
+#view-socialdownload .social-download-progress{display:flex;align-items:center;gap:12px;margin-top:18px;font-size:12px;color:var(--muted)}
+#view-socialdownload progress{width:min(100%,420px);height:8px;accent-color:var(--violet)}
+#view-socialdownload .social-download-status{margin:12px 0 0;font-size:13px;line-height:1.7;color:var(--muted);overflow-wrap:anywhere}
+#view-socialdownload .social-download-status:empty{display:none}
+#view-socialdownload .social-download-status[data-state="error"]{color:#b91c1c}
+#view-socialdownload .social-download-status[data-state="success"]{color:#167442}
+#view-socialdownload .social-download-empty{text-align:center;padding:42px 20px;color:var(--muted)}
+#view-socialdownload .social-download-empty-icon{width:50px;height:50px;border-radius:14px;background:var(--violet-soft);color:var(--violet);font-size:32px;display:grid;place-items:center;margin:0 auto 16px}
+#view-socialdownload .social-download-empty h3{margin:0 0 9px;font-size:16px;color:var(--ink)}
+#view-socialdownload .social-download-empty p{margin:0;font-size:13px;line-height:1.6}
+#view-socialdownload .social-download-result-heading h3{margin:0;font-size:17px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+#view-socialdownload .social-download-result-heading p{margin:7px 0 0;font-size:12px;color:var(--muted);line-height:1.7;overflow-wrap:anywhere}
+#view-socialdownload .social-download-result-heading>a{flex:none;text-decoration:none;text-align:center}
+#view-socialdownload .social-download-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:20px}
+#view-socialdownload .social-download-grid[data-type="video"]{grid-template-columns:minmax(0,1fr)}
+#view-socialdownload .social-download-item{min-width:0;margin:0;border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff}
+#view-socialdownload .social-download-preview{display:block;background:#f5eff0;text-decoration:none;aspect-ratio:3/4;overflow:hidden}
+#view-socialdownload .social-download-preview img{display:block;width:100%;height:100%;object-fit:contain}
+#view-socialdownload video{display:block;width:100%;max-height:580px;background:#181416}
+#view-socialdownload .social-download-item figcaption{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 12px;font-size:12px;color:var(--muted)}
+#view-socialdownload .social-download-item figcaption>a{font-size:12px;padding:7px 10px}
+#view-socialdownload a:focus-visible,#view-socialdownload button:focus-visible{outline:3px solid #a86370;outline-offset:3px}
+@media(max-width:600px){#view-socialdownload{padding:14px 12px 28px}#view-socialdownload .panel{padding:18px}#view-socialdownload .social-download-heading,#view-socialdownload .social-download-result-heading{flex-direction:column;gap:12px}#view-socialdownload .social-download-heading .panel-desc{margin-bottom:0}#view-socialdownload form{margin-top:18px}#view-socialdownload .social-download-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#view-socialdownload .social-download-item figcaption{align-items:stretch;flex-direction:column;padding:9px}#view-socialdownload .social-download-item figcaption>a{justify-content:center}}

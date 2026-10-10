@@ -1019,6 +1019,8 @@ function showApp(app) {
   document.getElementById("view-roundup").classList.toggle("hidden", app !== "roundup");
   if (app === "roundup" && window.initRoundup) window.initRoundup();
   document.getElementById("view-chatcontent").classList.toggle("hidden", app !== "chatcontent");
+  document.getElementById("view-socialdownload").classList.toggle("hidden", app !== "socialdownload");
+  if (app === "socialdownload" && window.initSocialDownloader) window.initSocialDownloader();
   document.querySelectorAll(".app-tab").forEach(t => t.classList.toggle("active", t.dataset.app === app));
   document.getElementById("view-clone").classList.toggle("hidden", app !== "clone");
   document.getElementById("view-auto").classList.toggle("hidden", app !== "auto");

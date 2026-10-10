@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="/roundup.css?v=20260910-upload-shirts" />
 <link rel="stylesheet" href="/tiktok-kol.css?v=2026.09.10-kol-gift-catalog">
 <link rel="stylesheet" href="/image-studio.css?v=20260930-loading">
+<link rel="stylesheet" href="/social-downloader.css?v=20261010">
 </head>
 <body>
   <div class="topbar">
@@ -64,6 +65,7 @@
     <button class="app-tab" data-app="wearer" data-group="work">♧ Ảnh người mặc</button>
     <button class="app-tab" data-app="imagegen" data-group="work">✦ Tạo ảnh</button>
     <button class="app-tab" data-app="product" data-group="work">📸 Ảnh sản phẩm</button>
+    <button class="app-tab" data-app="socialdownload" data-group="work">⬇ Tải TikTok / Douyin</button>
     <button class="app-tab" data-app="ads" data-group="marketing">📣 Tạo Ảnh FB ADS</button>
     <button class="app-tab" data-app="fbpost" data-group="marketing">📘 Tạo Ảnh FB post</button>
     <button class="app-tab" data-app="assistant" data-group="marketing">✦ Trợ lý</button>
@@ -85,6 +87,57 @@
   <main class="app-view hidden" id="view-assistant"></main>
   <main class="app-view hidden" id="view-roundup"></main>
   <main class="app-view hidden" id="view-chatcontent"></main>
+  <main class="auto-view app-view hidden" id="view-socialdownload" aria-labelledby="socialDownloadTitle">
+    <section class="panel social-download-panel">
+      <div class="social-download-heading">
+        <div>
+          <h2 class="panel-title" id="socialDownloadTitle">Tải video &amp; ảnh cuộn</h2>
+          <p class="panel-desc">Dán liên kết TikTok hoặc Douyin để xem và tải nội dung về máy.</p>
+        </div>
+        <span class="social-download-badge" id="socialDownloadPlatform">TikTok · Douyin</span>
+      </div>
+      <form id="socialDownloadForm">
+        <label class="field-label" for="socialDownloadInput">Liên kết bài đăng</label>
+        <textarea id="socialDownloadInput" class="input" rows="3" maxlength="6000" required aria-describedby="socialDownloadHint" placeholder="Dán URL hoặc toàn bộ nội dung chia sẻ có chứa liên kết…"></textarea>
+        <p class="hint" id="socialDownloadHint">Nhận link đầy đủ hoặc link rút gọn từ tiktok.com, douyin.com và iesdouyin.com. Ảnh cuộn có thể tải từng ảnh hoặc cả bộ ZIP.</p>
+        <p class="hint">Khi TikTok không trả nội dung trực tiếp, link công khai được gửi tới TikWM để lấy file.</p>
+        <details class="social-download-advanced">
+          <summary>Douyin yêu cầu đăng nhập?</summary>
+          <label class="field-label" for="socialDownloadDouyinCookie">Cookie Douyin (tùy chọn)</label>
+          <input class="input" id="socialDownloadDouyinCookie" type="password" maxlength="16000" autocomplete="off" spellcheck="false" aria-describedby="socialDownloadCookieHint" placeholder="Dán cookie phiên Douyin của bạn">
+          <p class="hint" id="socialDownloadCookieHint">Dùng cookie phiên Douyin của bạn khi bài công khai yêu cầu đăng nhập. Cookie chỉ dùng trong tab đang mở, không lưu trên máy chủ. Bấm Xoá hoặc Huỷ để xoá cookie.</p>
+          <label class="field-label" for="socialDownloadDouyinUserAgent">User-Agent của trình duyệt (tùy chọn)</label>
+          <input class="input" id="socialDownloadDouyinUserAgent" type="text" maxlength="512" autocomplete="off" spellcheck="false" aria-describedby="socialDownloadUserAgentHint" placeholder="Dán User-Agent của trình duyệt đã lấy cookie">
+          <p class="hint" id="socialDownloadUserAgentHint">Dùng User-Agent của trình duyệt đã lấy cookie nếu Douyin vẫn yêu cầu xác minh.</p>
+        </details>
+        <div class="social-download-actions">
+          <button class="btn-primary sm" id="socialDownloadResolve" type="submit">↧ Lấy video / ảnh</button>
+          <button class="btn-ghost sm hidden" id="socialDownloadCancel" type="button">Huỷ</button>
+          <button class="btn-ghost sm" id="socialDownloadClear" type="button">Xoá</button>
+        </div>
+      </form>
+      <div class="social-download-progress hidden" id="socialDownloadProgress">
+        <progress aria-label="Đang chuẩn bị video hoặc ảnh"></progress>
+        <span id="socialDownloadElapsed" aria-hidden="true"></span>
+      </div>
+      <p class="social-download-status" id="socialDownloadStatus" role="status" aria-live="polite"></p>
+    </section>
+    <section class="panel social-download-empty" id="socialDownloadEmpty">
+      <span class="social-download-empty-icon" aria-hidden="true">↧</span>
+      <h3>Video và ảnh sẽ hiện ở đây</h3>
+      <p>Dán nội dung chia sẻ ở trên rồi bấm “Lấy video / ảnh”.</p>
+    </section>
+    <section class="panel social-download-results hidden" id="socialDownloadResults" aria-labelledby="socialDownloadResultTitle">
+      <div class="social-download-result-heading">
+        <div>
+          <h3 id="socialDownloadResultTitle"></h3>
+          <p id="socialDownloadMeta"></p>
+        </div>
+        <a class="btn-primary sm hidden" id="socialDownloadAll" data-native-download download>↓ Tải cả bộ ZIP</a>
+      </div>
+      <div class="social-download-grid" id="socialDownloadItems"></div>
+    </section>
+  </main>
   <main class="layout app-view" id="view-clone">
     <!-- ===== CỘT TRÁI ===== -->
     <section class="panel">
@@ -2403,8 +2456,9 @@
   }, 9000);
 </script>
 <script src="/image-studio.js?v=20260930-loading"></script>
-<script src="/download-manager.js"></script>
-<script src="/app.js?v=restore-tabs"></script>
+<script src="/download-manager.js?v=20261010-social-download"></script>
+<script src="/social-downloader.js?v=20261010"></script>
+<script src="/app.js?v=20261010-social-download"></script>
 <script src="/gift-rotation.js?v=2026.09.10-custom-mix"></script>
 <script src="/tiktok-kol.js?v=2026.09.10-custom-mix"></script>
 <link rel="stylesheet" href="/zalo-scripts.css?v=20260928-nested-components">

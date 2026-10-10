@@ -1,0 +1,16 @@
+Douyin_TikTok_Download_API
+Copyright 2021-2026 Evil0ctal and contributors
+
+Licensed under the Apache License, Version 2.0. The full text is in the
+LICENSE file next to this one.
+
+https://github.com/Evil0ctal/Douyin_TikTok_Download_API
+
+Douyin request signing primitives
+Upstream: Evil0ctal/Douyin_TikTok_Download_API
+https://github.com/Evil0ctal/Douyin_TikTok_Download_API
+Pinned commit: 4f0bed8483c35a980315d9c7b3a1d4a1119ad2b2
+Source: src/dtk/signing/native/{abogus.py,sm3.py,websign.py}
+License: Apache License 2.0; see LICENSE.
+Local changes: relative SM3 import; remove dataclass slots and zip strict keywords for Python 3.9 compatibility.
+These modules perform local hashing only; they contain no networking or browser access.

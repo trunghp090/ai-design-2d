@@ -95,12 +95,12 @@
     } catch (error) { status.textContent = error.message; }
   }
   HTMLAnchorElement.prototype.click = function () {
-    if (!readyLinks.has(this) && this.hasAttribute('download') && this.href) { void saveLink(this); return; }
+    if (!readyLinks.has(this) && !this.hasAttribute('data-native-download') && this.hasAttribute('download') && this.href) { void saveLink(this); return; }
     return original.call(this);
   };
   document.addEventListener('click', event => {
     const anchor = event.target.closest('a[download]');
-    if (anchor && !readyLinks.has(anchor)) {
+    if (anchor && !readyLinks.has(anchor) && !anchor.hasAttribute('data-native-download')) {
       event.preventDefault(); event.stopImmediatePropagation(); void saveLink(anchor);
     }
   }, true);
@@ -108,6 +108,9 @@
     try {
       const source = [...document.querySelectorAll('[id^="view-"]')].find(view => view.getClientRects().length);
       if (source?.id === 'view-chatcontent') { source.querySelector('#cc-export-all')?.click(); return; }
+      if (source?.id === 'view-socialdownload' && typeof window.downloadSocialAll === 'function') {
+        window.downloadSocialAll(); return;
+      }
       if (source?.id === 'view-tiktok' && typeof window.downloadTiktokAll === 'function') {
         await window.downloadTiktokAll(); return;
       }
