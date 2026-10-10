@@ -359,6 +359,10 @@ test('cancelling an active save aborts its signal and ignores its late completio
   assert.equal(state.saves[0].options.signal.aborted,true);
   assert.equal(state.saveCancels.length,1);
   const cancelled=state.get('socialDownloadStatus').textContent;
+  state.saves[0].options.onFinalizing();
+  assert.equal(state.get('socialDownloadStatus').textContent,cancelled);
+  assert.equal(state.get('socialDownloadCancel').disabled,false);
+  assert.equal(state.get('socialDownloadClear').disabled,false);
   finish({status:'saved',filename:state.saves[0].filename,bytes:16});
   await pending;
   assert.equal(state.get('socialDownloadStatus').textContent,cancelled);
@@ -394,4 +398,57 @@ test('a missing save helper reports an error without starting a native download'
   assert.equal(state.saves.length,0);
   assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
   assert.match(state.get('socialDownloadStatus').textContent,/chọn nơi lưu/i);
+});
+
+test('finalizing a save prevents Cancel and Clear from undoing the file or page state',async()=>{
+  let finish;
+  const state=setup({hold:true,saveResult:(url,filename,options)=>{
+    options.onFinalizing();
+    return new Promise(resolve=>{finish=resolve;});
+  }});
+  state.get('socialDownloadDouyinCookie').value='fixture_session=example';
+  state.get('socialDownloadDouyinUserAgent').value='Fixture Browser';
+  await state.submit();
+  const cards=state.get('socialDownloadItems').children.slice();
+  const input=state.get('socialDownloadInput').value;
+  const pending=state.get('socialDownloadAll').emit('click');
+  assert.equal(state.get('socialDownloadCancel').disabled,true);
+  assert.equal(state.get('socialDownloadClear').disabled,true);
+  assert.match(state.get('socialDownloadStatus').textContent,/hoàn tất/i);
+  const finishing=state.get('socialDownloadStatus').textContent;
+  for(const control of ['socialDownloadCancel','socialDownloadClear'])await state.get(control).emit('click');
+  assert.equal(state.saves[0].options.signal.aborted,false);
+  assert.equal(state.saveCancels.length,0);
+  assert.equal(state.get('socialDownloadInput').value,input);
+  assert.equal(state.get('socialDownloadDouyinCookie').value,'fixture_session=example');
+  assert.equal(state.get('socialDownloadDouyinUserAgent').value,'Fixture Browser');
+  assert.deepEqual(state.get('socialDownloadItems').children,cards);
+  assert.equal(state.get('socialDownloadStatus').textContent,finishing);
+  assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
+  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
+  await pending;
+  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
+  assert.match(state.get('socialDownloadStatus').textContent,/Đã lưu file/);
+  assert.equal(state.get('socialDownloadCancel').disabled,false);
+  assert.equal(state.get('socialDownloadClear').disabled,false);
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
+});
+
+test('a finalization error restores Cancel and Clear without claiming a saved file',async()=>{
+  let fail;
+  const state=setup({hold:true,saveResult:(url,filename,options)=>{
+    options.onFinalizing();
+    return new Promise((resolve,reject)=>{fail=reject;});
+  }});
+  await state.submit();
+  const pending=state.get('socialDownloadAll').emit('click');
+  assert.equal(state.get('socialDownloadCancel').disabled,true);
+  assert.equal(state.get('socialDownloadClear').disabled,true);
+  fail(Error('Synthetic finalization error'));
+  await pending;
+  assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
+  assert.match(state.get('socialDownloadStatus').textContent,/Synthetic finalization error/);
+  assert.equal(state.get('socialDownloadCancel').disabled,false);
+  assert.equal(state.get('socialDownloadClear').disabled,false);
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
 });

@@ -34,8 +34,8 @@
   }
 
   window.cancelSocialDownloadSave = () => {
-    if (!active) return false;
-    active.abort();
+    if (!active || active.finalizing) return false;
+    active.controller.abort();
     return true;
   };
   window.saveSocialDownload = async (value, filename, options = {}) => {
@@ -46,14 +46,18 @@
     }
     const name = suggestedName(filename);
     const controller = new AbortController();
+    const operation = {controller, finalizing: false};
     const outerSignal = options?.signal;
     if (outerSignal && (typeof outerSignal.addEventListener !== 'function' || typeof outerSignal.aborted !== 'boolean')) {
       throw Error('Không tạo được yêu cầu tải. Hãy tải lại trang rồi thử lại.');
     }
+    if (options?.onFinalizing !== undefined && typeof options.onFinalizing !== 'function') {
+      throw Error('Không tạo được yêu cầu lưu. Hãy tải lại trang rồi thử lại.');
+    }
     if (outerSignal?.aborted) return {status: 'cancelled'};
-    const cancel = () => controller.abort();
+    const cancel = () => { if (!operation.finalizing) controller.abort(); };
     outerSignal?.addEventListener('abort', cancel, {once: true});
-    active = controller;
+    active = operation;
     let writable = null, reader = null, closed = false, stage = 'picker';
     try {
       // No await, fetch or preprocessing can precede the actual picker call.
@@ -111,11 +115,15 @@
       checkAbort(controller.signal);
       if (!bytes || (expected !== null && bytes !== expected)) throw Error('File tải chưa hoàn chỉnh. Hãy thử tải lại.');
       stage = 'close';
+      // close() begins the browser's atomic commit; a pending close cannot be
+      // reliably cancelled. Report that phase before invoking it.
+      operation.finalizing = true;
+      try { options?.onFinalizing?.({filename: handle.name || name, bytes}); } catch (_) {}
       await writable.close();
       closed = true;
       return {status: 'saved', filename: handle.name || name, bytes};
     } catch (error) {
-      const cancelled = controller.signal.aborted || outerSignal?.aborted || (stage === 'picker' && error?.name === 'AbortError');
+      const cancelled = controller.signal.aborted || (stage === 'picker' && error?.name === 'AbortError');
       controller.abort();
       if (reader) { try { await reader.cancel(); } catch (_) {} }
       if (writable && !closed) { try { await writable.abort(); } catch (_) {} }
@@ -132,7 +140,7 @@
     } finally {
       if (reader) { try { reader.releaseLock(); } catch (_) {} }
       outerSignal?.removeEventListener('abort', cancel);
-      if (active === controller) active = null;
+      if (active === operation) active = null;
     }
   };
 })();

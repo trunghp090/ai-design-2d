@@ -204,6 +204,50 @@ test('write failure, unexpected stream abort and failed close never report succe
   }
 });
 
+test('finalizing callback precedes close and cancellation cannot claim success after commit begins', async () => {
+  const closeStarted = deferred(), closing = deferred();
+  let phase;
+  const state = harness({close: () => {closeStarted.resolve(); return closing.promise;}});
+  const controller = new AbortController();
+  const promise = state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal,
+    onFinalizing: details => {
+      assert.equal(state.events.includes('close'), false);
+      assert.equal(state.window.cancelSocialDownloadSave(), false);
+      phase = copy(details);
+    }});
+  await closeStarted.promise;
+  assert.deepEqual(phase, {filename: 'chosen-file.mp4', bytes: 4});
+  assert.equal(state.window.cancelSocialDownloadSave(), false);
+  controller.abort();
+  assert.equal(state.fetches[0].settings.signal.aborted, false);
+  closing.resolve();
+  assert.equal((await promise).status, 'saved');
+  assert.equal(state.events.includes('abort'), false);
+  assert.equal(state.window.cancelSocialDownloadSave(), false);
+});
+
+test('finalizing callback failures do not damage a valid save and invalid callback rejects before picker', async () => {
+  const state = harness();
+  const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {
+    onFinalizing: () => {throw Error('synthetic-ui-callback-failure');},
+  });
+  assert.equal(result.status, 'saved');
+  assert.equal(state.events.includes('close'), true);
+  assert.equal(state.events.includes('abort'), false);
+  const invalid = harness();
+  await assert.rejects(invalid.window.saveSocialDownload(URL_VALUE, 'file.mp4', {onFinalizing: 'invalid'}), /Không tạo được yêu cầu lưu/);
+  assert.deepEqual(invalid.events, []);
+});
+
+test('ignored cancellation during finalization does not disguise a failed commit as cancelled', async () => {
+  const controller = new AbortController();
+  const state = harness({close: () => {throw new DOMException('quota', 'QuotaExceededError');}});
+  await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal,
+    onFinalizing: () => controller.abort()}), /Không đủ dung lượng/);
+  assert.equal(state.events.includes('abort'), true);
+  assert.equal(state.window.cancelSocialDownloadSave(), false);
+});
+
 test('write permission failure prevents fetch and suggested filename contains no path or control characters', async () => {
   let suggestion;
   const state = harness({picker: (options, handle) => {suggestion = options.suggestedName; return Promise.resolve(handle);},
