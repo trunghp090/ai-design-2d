@@ -300,17 +300,16 @@
   $('new-slide').onclick=()=>{state.slides.push({messages:[]});slide=state.slides.length-1;resetEditor();update();};
   $('copy-slide').onclick=()=>{state.slides.splice(slide+1,0,JSON.parse(JSON.stringify(state.slides[slide])));slide++;resetEditor();update();};
   $('delete-slide').onclick=()=>{if(!confirm('Xóa slide hiện tại và các tin nhắn trong slide?'))return;state.slides.splice(slide,1);if(!state.slides.length)state.slides.push({messages:[]});slide=Math.min(slide,state.slides.length-1);resetEditor();update();};
-  function download(blob,name){
-    const reader=new FileReader();
-    reader.onload=()=>{
-      let link=root.querySelector('#cc-download-ready');
-      if(!link){link=document.createElement('a');link.id='cc-download-ready';link.className='btn-ghost sm';$('export').after(link);}
-      link.href=reader.result;link.download=name;link.textContent='Tải lại '+name;link.click();
-    };
-    reader.onerror=()=>notice('Không tạo được tệp tải xuống. Vui lòng xuất lại.',true);
-    reader.readAsDataURL(blob);
+  async function download(blobOrFactory,name){
+    if(typeof window.saveToolFile==='function')return window.saveToolFile(blobOrFactory,name);
+    const blob=typeof blobOrFactory==='function'?await blobOrFactory():blobOrFactory;
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=name;link.setAttribute('data-native-download','');
+    document.body.append(link);
+    try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+    return 'downloaded';
   }
-  $('export').onclick=async()=>{try{if(flatten(messages()).some(m=>m.kind!=='text'&&m.kind!=='file'&&!m.images.length))throw Error('Hãy chọn ảnh cho các tin ảnh trước khi xuất.');if(flatten(messages()).some(m=>m.kind==='file'&&!m.fileName?.trim()))throw Error('Hãy chọn tệp hoặc nhập tên tệp trước khi xuất.');if(!messages().length||flatten(messages()).some(m=>m.kind==='text'&&!m.text.trim()))throw Error('Hãy nhập nội dung hoặc xóa tin nhắn trống trước khi xuất.');await draw();if(overflow)return notice('Chưa xuất: nội dung đang vượt khung. Hãy tách slide hoặc giảm cỡ chữ.',true);const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));if(!blob)throw Error('Không tạo được PNG.');download(blob,`content-zalo-${String(slide+1).padStart(2,'0')}.png`);notice('Đã xuất PNG của slide hiện tại.');}catch(e){notice(e.message,true);}};
+  $('export').onclick=async()=>{$('export').disabled=true;try{if(flatten(messages()).some(m=>m.kind!=='text'&&m.kind!=='file'&&!m.images.length))throw Error('Hãy chọn ảnh cho các tin ảnh trước khi xuất.');if(flatten(messages()).some(m=>m.kind==='file'&&!m.fileName?.trim()))throw Error('Hãy chọn tệp hoặc nhập tên tệp trước khi xuất.');if(!messages().length||flatten(messages()).some(m=>m.kind==='text'&&!m.text.trim()))throw Error('Hãy nhập nội dung hoặc xóa tin nhắn trống trước khi xuất.');const result=await download(async()=>{await draw();if(overflow)throw Error('Chưa xuất: nội dung đang vượt khung. Hãy tách slide hoặc giảm cỡ chữ.');const blob=await new Promise(resolve=>$('canvas').toBlob(resolve,'image/png'));if(!blob)throw Error('Không tạo được PNG.');return blob;},`content-zalo-${String(slide+1).padStart(2,'0')}.png`);notice(result==='ready'?'Ảnh đã sẵn sàng. Bấm liên kết tải để tiếp tục.':'Đã gửi PNG của slide hiện tại sang trình duyệt.');}catch(e){notice(e.message,true);}finally{$('export').disabled=false;}};
   function zipImages(files){
     const enc=new TextEncoder(),parts=[],directory=[];let offset=0;
     const table=Array.from({length:256},(_,n)=>{for(let k=0;k<8;k++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
@@ -330,6 +329,8 @@
   exportAll.onclick=async()=>{
     const originalSlide=slide;root.inert=true;exportAll.disabled=true;
     try{
+      let imageCount=0;
+      const result=await download(async()=>{
       const files=[];
       for(let i=0;i<state.slides.length;i++){
         slide=i;const ms=flatten(messages());
@@ -340,10 +341,12 @@
         if(!blob)throw Error(`Không tạo được ảnh slide ${i+1}.`);
         files.push({name:`content-zalo-${String(i+1).padStart(2,'0')}.png`,data:new Uint8Array(await blob.arrayBuffer())});
       }
-      root.inert=false;download(zipImages(files),'content-zalo-tat-ca-anh.zip');notice(`Đã đóng gói ${files.length} ảnh. Chọn nơi lưu trong hộp thoại macOS.`);
+      imageCount=files.length;root.inert=false;return zipImages(files);
+      },'content-zalo-tat-ca-anh.zip');
+      notice(result==='ready'?'ZIP đã sẵn sàng. Bấm liên kết tải để tiếp tục.':`Đã gửi ZIP gồm ${imageCount} ảnh sang trình duyệt.`);
     }catch(e){notice(e.message,true);}finally{slide=originalSlide;root.inert=false;exportAll.disabled=false;await draw();}
   };
-  $('save').onclick=()=>download(new Blob([JSON.stringify(state)],{type:'application/json'}),'content-zalo-project.json');
+  $('save').onclick=async()=>{try{const result=await download(new Blob([JSON.stringify(state)],{type:'application/json'}),'content-zalo-project.json');notice(result==='ready'?'Dự án đã sẵn sàng. Bấm liên kết tải để tiếp tục.':'Đã gửi tệp dự án sang trình duyệt.');}catch(e){notice(e.message,true);}};
   function validate(d){
     const img=s=>typeof s==='string'&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s);
     if(!d||d.version!==1||typeof d.name!=='string'||d.name.length>60||!['portrait','feed','square'].includes(d.ratio)||!Number.isFinite(d.font)||d.font<24||d.font>52||typeof d.header!=='boolean'||(d.avatar!==''&&!img(d.avatar))||!Array.isArray(d.slides)||!d.slides.length||d.slides.length>100)throw Error('File dự án không hợp lệ.');

@@ -1,11 +1,11 @@
-/* Browser sessions stay transient; media is saved after the user chooses a destination. */
+/* Browser sessions stay transient; media downloads are handed to the browser. */
 (() => {
   'use strict';
   const el = id => document.getElementById(id);
   const form = el('socialDownloadForm');
   if (!form) return;
   let initialized = false, activeRequest = null, elapsedTimer = null, result = null, previewSession = null;
-  let douyinConnected = false, extensionAvailable = false, connectionRequest = null, saveRequest = null, saveFinalizing = false;
+  let douyinConnected = false, extensionAvailable = false, connectionRequest = null, saveRequest = null, saveDispatched = false;
   let extensionVersion = '';
   const connectionErrors = {
     LOGIN_REQUIRED: 'Mở Douyin bên dưới, đăng nhập trên Edge rồi dán link và thử tải lại.',
@@ -176,8 +176,8 @@
     el('socialDownloadDouyinUserAgent').readOnly = busy;
     el('socialDownloadConnectDouyin').disabled = busy || !!connectionRequest;
     el('socialDownloadCancel').classList.toggle('hidden', !busy);
-    el('socialDownloadCancel').disabled = saveFinalizing;
-    el('socialDownloadClear').disabled = saveFinalizing;
+    el('socialDownloadCancel').disabled = saveDispatched;
+    el('socialDownloadClear').disabled = saveDispatched;
     el('socialDownloadProgress').classList.toggle('hidden', !busy);
     form.setAttribute('aria-busy', String(busy));
     clearInterval(elapsedTimer);
@@ -191,7 +191,7 @@
     }
   }
   function cancel(message = 'Đã huỷ chờ tải. Bạn có thể nhập liên kết khác.') {
-    if (saveFinalizing) return;
+    if (saveDispatched) return;
     el('socialDownloadDouyinCookie').value = '';
     el('socialDownloadDouyinUserAgent').value = '';
     disconnectDouyin();
@@ -203,49 +203,53 @@
     saveRequest = null;
     window.cancelSocialDownloadSave?.();
     setBusy(false);
-    if (hadWork) status(wasSaving ? 'Đã huỷ lưu file.' : message);
+    if (hadWork) status(wasSaving ? 'Đã huỷ yêu cầu tải file.' : message);
   }
   function saveDownload(url, filename) {
     if (activeRequest || connectionRequest || saveRequest) {
-      status(saveFinalizing ? 'Đang hoàn tất lưu file. Vui lòng chờ.' : 'Đang xử lý một thao tác. Hãy đợi hoàn tất hoặc bấm Huỷ.');
+      status(saveDispatched ? 'Đã gửi yêu cầu tải cho trình duyệt. Xem trong Downloads.' : 'Đang xử lý một thao tác. Hãy đợi hoàn tất hoặc bấm Huỷ.');
       return Promise.resolve({status: 'busy'});
     }
     if (typeof window.saveSocialDownload !== 'function') {
-      status('Chưa tải được chức năng chọn nơi lưu. Tải lại trang rồi thử lại.', 'error');
+      status('Chưa tải được chức năng tải file. Tải lại trang rồi thử lại.', 'error');
       return Promise.resolve({status: 'failed'});
     }
     const controller = new AbortController();
     saveRequest = controller;
-    saveFinalizing = false;
-    const onFinalizing = () => {
-      if (saveRequest !== controller || controller.signal.aborted) return;
-      saveFinalizing = true;
+    saveDispatched = false;
+    const onDispatched = () => {
+      if (saveRequest !== controller) return;
+      saveDispatched = true;
       el('socialDownloadCancel').disabled = true;
       el('socialDownloadClear').disabled = true;
-      status('Đang hoàn tất lưu file…');
+      status('Đã gửi yêu cầu tải cho trình duyệt. Xem tiến độ và nơi lưu trong Downloads.', 'success');
     };
     let saving;
     try {
-      // This call must stay in the original click stack so the picker can open.
-      saving = window.saveSocialDownload(localAsset(url), filename, {signal: controller.signal, onFinalizing});
+      // Hand the native URL to Downloads in the original click stack.
+      saving = window.saveSocialDownload(localAsset(url), filename, {signal: controller.signal, onDispatched});
     } catch (error) {
       saveRequest = null;
-      saveFinalizing = false;
+      saveDispatched = false;
       setBusy(false);
-      status(error.message || 'Không mở được hộp chọn nơi lưu file.', 'error');
+      status(error.message || 'Không gửi được yêu cầu tải file.', 'error');
       return Promise.resolve({status: 'failed'});
     }
     setBusy(true);
-    if (!saveFinalizing) status('Chọn nơi lưu file. Sau khi bạn chọn, tool sẽ tải và lưu file vào đó.');
+    if (!saveDispatched) status('Đang gửi yêu cầu tải cho trình duyệt…');
     return Promise.resolve(saving).then(outcome => {
-      if (!['saved', 'cancelled'].includes(outcome?.status)) throw Error('Chưa xác nhận được file đã lưu. Hãy thử lại.');
-      if (saveRequest === controller) status(outcome?.status === 'cancelled' ? 'Đã huỷ lưu file.' : 'Đã lưu file vào nơi bạn chọn.', outcome?.status === 'cancelled' ? '' : 'success');
+      if (!['downloaded', 'ready', 'cancelled'].includes(outcome?.status)) throw Error('Chưa gửi được yêu cầu tải file. Hãy thử lại.');
+      if (saveRequest === controller) {
+        if (outcome.status === 'downloaded') status('Đã gửi yêu cầu tải cho trình duyệt. Xem tiến độ và nơi lưu trong Downloads.', 'success');
+        else if (outcome.status === 'ready') status('File đã sẵn sàng. Bấm liên kết tải lại để tải về.');
+        else status('Đã huỷ yêu cầu tải file.');
+      }
       return outcome;
     }).catch(error => {
-      if (saveRequest === controller) status(error.name === 'AbortError' ? 'Đã huỷ lưu file.' : error.message || 'Không lưu được file. Hãy thử lại.', error.name === 'AbortError' ? '' : 'error');
+      if (saveRequest === controller) status(error.name === 'AbortError' ? 'Đã huỷ yêu cầu tải file.' : error.message || 'Không gửi được yêu cầu tải file. Hãy thử lại.', error.name === 'AbortError' ? '' : 'error');
       return {status: error.name === 'AbortError' ? 'cancelled' : 'failed'};
     }).finally(() => {
-      if (saveRequest === controller) { saveRequest = null; saveFinalizing = false; setBusy(false); }
+      if (saveRequest === controller) { saveRequest = null; saveDispatched = false; setBusy(false); }
     });
   }
   function downloadLink(url, filename, label) {
@@ -438,7 +442,7 @@
   });
   el('socialDownloadCancel').addEventListener('click', () => cancel());
   el('socialDownloadClear').addEventListener('click', () => {
-    if (saveFinalizing) return;
+    if (saveDispatched) return;
     cancel();
     stopPreviews();
     result = null;

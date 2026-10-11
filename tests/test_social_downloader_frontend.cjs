@@ -46,7 +46,9 @@ function setup({imageResult=()=> 'load',hold=false,bridge=null,fetchResult=null,
     localStorage:storage,sessionStorage:storage,
     saveSocialDownload(url,filename,options){
       saves.push({url,filename,options});
-      return saveResult?saveResult(url,filename,options):Promise.resolve({status:'saved',filename,bytes:16});
+      if(saveResult)return saveResult(url,filename,options);
+      options?.onDispatched?.({filename});
+      return Promise.resolve({status:'downloaded',filename});
     },
     cancelSocialDownloadSave(){saveCancels.push(true);},
   };
@@ -100,7 +102,7 @@ test('12-image album previews never exceed two concurrent transfers',async()=>{
   assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
 });
 
-test('preview errors retry with a fresh URL and do not replace a completed ZIP save status',async()=>{
+test('preview retries do not replace the native ZIP request status',async()=>{
   const attempts=new Map();
   const state=setup({imageResult:url=>{const index=new URL(url).searchParams.get('index');const count=(attempts.get(index)||0)+1;attempts.set(index,count);return index==='0'&&count<3||index==='1'?'error':'load';}});
   await state.submit();await state.get('socialDownloadAll').emit('click');
@@ -108,7 +110,8 @@ test('preview errors retry with a fresh URL and do not replace a completed ZIP s
   assert.equal(attempts.get('0'),3);assert.equal(attempts.get('1'),3);assert.equal(state.peak(),2);
   const retries=state.previews.filter(item=>new URL(item.url).searchParams.get('index')==='0');
   assert.equal(new Set(retries.map(item=>item.url)).size,3);
-  assert.match(state.get('socialDownloadStatus').textContent,/Đã lưu file/);
+  assert.match(state.get('socialDownloadStatus').textContent,/yêu cầu tải|Downloads|trình duyệt/i);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã lưu file/);
   const failed=state.get('socialDownloadItems').children[1].children[1].children[0];
   assert.match(failed.textContent,/Chưa xem trước/);
 });
@@ -324,7 +327,7 @@ test('a failed session disconnects and retries with fresh credentials on the nex
   assertCredentialsPrivate(state);
 });
 
-test('an image download opens the save helper synchronously with its actual filename',async()=>{
+test('an image starts the native helper synchronously with its actual filename',async()=>{
   let finish;
   const state=setup({hold:true,saveResult:()=>new Promise(resolve=>{finish=resolve;})});
   await state.submit();
@@ -334,14 +337,14 @@ test('an image download opens the save helper synchronously with its actual file
   assert.equal(state.saves[0].filename,'douyin-7620805310613466853-01.jpg');
   assert.equal(state.saves[0].url,'https://example.test/api/social-download/file?id=demo&index=0&download=1');
   assert.equal(state.saves[0].options.signal.aborted,false);
-  assert.equal(state.get('socialDownloadResolve').disabled,true);
-  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
+  finish({status:'downloaded',filename:state.saves[0].filename});
   await pending;
   assert.equal(state.get('socialDownloadResolve').disabled,false);
-  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
+  assert.match(state.get('socialDownloadStatus').textContent,/yêu cầu tải|Downloads|trình duyệt/i);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã lưu|hoàn tất lưu/i);
 });
 
-test('a ZIP download chooses the album filename before awaiting the save result',async()=>{
+test('a ZIP starts with the album filename and truthfully reports a browser request',async()=>{
   let finish;
   const state=setup({hold:true,saveResult:()=>new Promise(resolve=>{finish=resolve;})});
   await state.submit();
@@ -349,31 +352,22 @@ test('a ZIP download chooses the album filename before awaiting the save result'
   assert.equal(state.saves.length,1);
   assert.equal(state.saves[0].filename,'douyin-7620805310613466853-images.zip');
   assert.equal(state.saves[0].url,'https://example.test/api/social-download/zip?id=demo');
-  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
+  finish({status:'downloaded',filename:state.saves[0].filename});
   await pending;
-  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
+  assert.match(state.get('socialDownloadStatus').textContent,/yêu cầu tải|Downloads|trình duyệt/i);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã lưu|hoàn tất lưu/i);
 });
 
-test('cancelling an active save aborts its signal and ignores its late completion',async()=>{
-  let finish;
-  const state=setup({hold:true,saveResult:()=>new Promise(resolve=>{finish=resolve;})});
+test('a blocked native start directs the user to retry without claiming a saved file',async()=>{
+  const state=setup({hold:true,saveResult:async(url,filename)=>({status:'ready',filename})});
   await state.submit();
-  const pending=state.get('socialDownloadAll').emit('click');
-  await state.get('socialDownloadCancel').emit('click');
-  assert.equal(state.saves[0].options.signal.aborted,true);
-  assert.equal(state.saveCancels.length,1);
-  const cancelled=state.get('socialDownloadStatus').textContent;
-  state.saves[0].options.onFinalizing();
-  assert.equal(state.get('socialDownloadStatus').textContent,cancelled);
-  assert.equal(state.get('socialDownloadCancel').disabled,false);
-  assert.equal(state.get('socialDownloadClear').disabled,false);
-  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
-  await pending;
-  assert.equal(state.get('socialDownloadStatus').textContent,cancelled);
+  await state.get('socialDownloadAll').emit('click');
+  assert.match(state.get('socialDownloadStatus').textContent,/sẵn sàng|liên kết|bấm|thử lại/i);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã lưu|hoàn tất lưu/i);
   assert.equal(state.get('socialDownloadResolve').disabled,false);
 });
 
-test('dismissing a save dialog finishes without reporting a saved file',async()=>{
+test('an already cancelled native request finishes without claiming a completed download',async()=>{
   const state=setup({hold:true,saveResult:async()=>({status:'cancelled'})});
   await state.submit();
   await state.get('socialDownloadAll').emit('click');
@@ -382,79 +376,78 @@ test('dismissing a save dialog finishes without reporting a saved file',async()=
   assert.equal(state.get('socialDownloadResolve').disabled,false);
 });
 
-test('the global download action invokes the same save helper synchronously',async()=>{
-  let finish;
-  const state=setup({hold:true,saveResult:()=>new Promise(resolve=>{finish=resolve;})});
+test('the global social action uses the same native helper with the album filename',async()=>{
+  const state=setup({hold:true});
   await state.submit();
-  const pending=state.window.downloadSocialAll();
+  await state.window.downloadSocialAll();
   assert.equal(state.saves.length,1);
   assert.equal(state.saves[0].filename,'douyin-7620805310613466853-images.zip');
-  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
-  await pending;
-  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
+  assert.match(state.get('socialDownloadStatus').textContent,/yêu cầu tải|Downloads|trình duyệt/i);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã lưu|hoàn tất lưu/i);
 });
 
-test('a missing save helper reports an error without starting a native download',async()=>{
+test('a missing native helper reports an error without claiming a download',async()=>{
   const state=setup({hold:true});
   await state.submit();
   delete state.window.saveSocialDownload;
   await state.get('socialDownloadAll').emit('click');
   assert.equal(state.saves.length,0);
   assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
-  assert.match(state.get('socialDownloadStatus').textContent,/chọn nơi lưu/i);
+  assert.match(state.get('socialDownloadStatus').textContent,/chức năng|tải lại/i);
 });
 
-test('finalizing a save prevents Cancel and Clear from undoing the file or page state',async()=>{
+test('Cancel after a browser request does not pretend to cancel the browser download',async()=>{
+  const state=setup({hold:true});
+  await state.submit();
+  await state.get('socialDownloadAll').emit('click');
+  const submitted=state.get('socialDownloadStatus').textContent;
+  const save=state.saves[0];
+  await state.get('socialDownloadCancel').emit('click');
+  assert.equal(state.get('socialDownloadStatus').textContent,submitted);
+  assert.equal(save.options.signal.aborted,false);
+  assert.equal(state.saves.length,1);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã huỷ|Đã hủy|cancelled/i);
+});
+
+test('a synchronous native handoff cannot be cancelled while its result promise is pending',async()=>{
   let finish;
   const state=setup({hold:true,saveResult:(url,filename,options)=>{
-    options.onFinalizing();
+    options.onDispatched({filename});
     return new Promise(resolve=>{finish=resolve;});
   }});
-  state.get('socialDownloadDouyinCookie').value='fixture_session=example';
-  state.get('socialDownloadDouyinUserAgent').value='Fixture Browser';
   await state.submit();
-  const cards=state.get('socialDownloadItems').children.slice();
-  const input=state.get('socialDownloadInput').value;
   const pending=state.get('socialDownloadAll').emit('click');
-  assert.equal(state.get('socialDownloadCancel').disabled,true);
-  assert.equal(state.get('socialDownloadClear').disabled,true);
-  assert.match(state.get('socialDownloadStatus').textContent,/hoàn tất/i);
-  const finishing=state.get('socialDownloadStatus').textContent;
-  for(const control of ['socialDownloadCancel','socialDownloadClear'])await state.get(control).emit('click');
-  assert.equal(state.saves[0].options.signal.aborted,false);
-  assert.equal(state.saveCancels.length,0);
-  assert.equal(state.get('socialDownloadInput').value,input);
-  assert.equal(state.get('socialDownloadDouyinCookie').value,'fixture_session=example');
-  assert.equal(state.get('socialDownloadDouyinUserAgent').value,'Fixture Browser');
-  assert.deepEqual(state.get('socialDownloadItems').children,cards);
-  assert.equal(state.get('socialDownloadStatus').textContent,finishing);
-  assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
-  finish({status:'saved',filename:state.saves[0].filename,bytes:16});
+  await state.get('socialDownloadCancel').emit('click');
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã huỷ|Đã hủy|cancelled/i);
+  finish({status:'downloaded',filename:state.saves[0].filename});
   await pending;
-  assert.equal(state.get('socialDownloadStatus').dataset.state,'success');
-  assert.match(state.get('socialDownloadStatus').textContent,/Đã lưu file/);
-  assert.equal(state.get('socialDownloadCancel').disabled,false);
-  assert.equal(state.get('socialDownloadClear').disabled,false);
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã huỷ|Đã hủy|cancelled/i);
+  assert.equal(state.saves.length,1);
   assert.equal(state.get('socialDownloadResolve').disabled,false);
 });
 
-test('a finalization error restores Cancel and Clear without claiming a saved file',async()=>{
-  let fail;
-  const state=setup({hold:true,saveResult:(url,filename,options)=>{
-    options.onFinalizing();
-    return new Promise((resolve,reject)=>{fail=reject;});
-  }});
+test('Clear resets the form after dispatch without reporting the native download cancelled',async()=>{
+  const state=setup({hold:true});
   await state.submit();
-  const pending=state.get('socialDownloadAll').emit('click');
-  assert.equal(state.get('socialDownloadCancel').disabled,true);
-  assert.equal(state.get('socialDownloadClear').disabled,true);
-  fail(Error('Synthetic finalization error'));
-  await pending;
+  await state.get('socialDownloadAll').emit('click');
+  const save=state.saves[0];
+  await state.get('socialDownloadClear').emit('click');
+  assert.equal(save.options.signal.aborted,false);
+  assert.equal(state.saves.length,1);
+  assert.equal(state.get('socialDownloadItems').children.length,0);
+  assert.equal(state.get('socialDownloadInput').value,'');
+  assert.doesNotMatch(state.get('socialDownloadStatus').textContent,/Đã huỷ|Đã hủy|cancelled/i);
+});
+
+test('native helper errors restore controls and do not display a sent or saved status',async()=>{
+  const state=setup({hold:true,saveResult:()=>Promise.reject(Error('Synthetic native download error'))});
+  await state.submit();
+  await state.get('socialDownloadAll').emit('click');
   assert.equal(state.get('socialDownloadStatus').dataset.state,'error');
-  assert.match(state.get('socialDownloadStatus').textContent,/Synthetic finalization error/);
+  assert.match(state.get('socialDownloadStatus').textContent,/Synthetic native download error/);
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
   assert.equal(state.get('socialDownloadCancel').disabled,false);
   assert.equal(state.get('socialDownloadClear').disabled,false);
-  assert.equal(state.get('socialDownloadResolve').disabled,false);
 });
 
 const rejectedSource=(status,error)=>async()=>({ok:false,status,json:async()=>({error})});

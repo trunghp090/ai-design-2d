@@ -28,5 +28,14 @@ try{const r=await fetch('/api/studio-assistant/chat',{method:'POST',headers:{'Co
 history.push({role:'assistant',text:d.reply+(tool?'\n\nĐã áp dụng vào tool. Bấm “Mở kết quả” để xem.':''),tool});images=[];filesView();$('input').value='';$('note').textContent='Đã hoàn tất.';render();
 }catch(e){history.push({role:'assistant',text:'Chưa thực hiện: '+e.message});$('note').textContent='Yêu cầu và ảnh vẫn được giữ để bạn thử lại.';render();}finally{busy=false;$('send').disabled=false;$('files').disabled=false;}}
 $('input').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('send').click();}};
-$('export').onclick=()=>{const blob=new Blob([history.map(m=>(m.role==='user'?'BẠN':'TRỢ LÝ')+'\n'+m.text).join('\n\n')],{type:'text/plain;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='hoi-thoai-tro-ly.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),30000);};render();
+async function download(blobOrFactory,name){
+  if(typeof window.saveToolFile==='function')return window.saveToolFile(blobOrFactory,name);
+  const blob=typeof blobOrFactory==='function'?await blobOrFactory():blobOrFactory;
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=name;link.setAttribute('data-native-download','');
+  document.body.append(link);
+  try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  return 'downloaded';
+}
+$('export').onclick=async()=>{$('export').disabled=true;try{const blob=new Blob([history.map(m=>(m.role==='user'?'BẠN':'TRỢ LÝ')+'\n'+m.text).join('\n\n')],{type:'text/plain;charset=utf-8'});const result=await download(blob,'hoi-thoai-tro-ly.txt');$('note').textContent=result==='ready'?'Hội thoại đã sẵn sàng. Bấm liên kết tải để tiếp tục.':'Đã gửi hội thoại sang trình duyệt.';}catch(e){$('note').textContent=e.message;}finally{$('export').disabled=false;}};render();
 })();

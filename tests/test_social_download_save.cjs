@@ -5,258 +5,171 @@ const vm = require('node:vm');
 const {test} = require('node:test');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '../public/social-download-save.js'), 'utf8');
+const MANAGER = fs.readFileSync(path.join(__dirname, '../public/download-manager.js'), 'utf8');
 const URL_VALUE = '/api/social-download/file?id=11111111-1111-4111-8111-111111111111&index=0&download=1';
 const ORIGIN = 'https://riengvnapp.cloud';
 const copy = value => JSON.parse(JSON.stringify(value));
-const deferred = () => {let resolve, reject; const promise = new Promise((a, b) => {resolve = a; reject = b;}); return {promise, resolve, reject};};
 
-function harness(options = {}) {
-  const events = [], chunks = [], fetches = [];
-  const data = options.data || new Uint8Array([1, 2, 3, 4]);
-  let position = 0;
-  const reader = {
-    read: async () => {
-      events.push('read');
-      if (options.read) return options.read(position++);
-      return position++ ? {done: true} : {done: false, value: data};
-    },
-    cancel: async () => {events.push('reader-cancel');},
-    releaseLock: () => {events.push('release');},
-  };
-  const writable = {
-    write: async chunk => {events.push('write'); chunks.push(new Uint8Array(chunk)); if (options.write) await options.write(chunk);},
-    close: async () => {events.push('close'); if (options.close) await options.close();},
-    abort: async () => {events.push('abort'); if (options.abort) await options.abort();},
-  };
-  const handle = {name: 'chosen-file.mp4', createWritable: async details => {
-    events.push('create');
-    assert.deepEqual(copy(details), {keepExistingData: false});
-    if (options.create) return options.create();
-    return writable;
-  }};
-  const headers = new Map([['Content-Type', 'video/mp4'], ['Content-Length', String(data.byteLength)]]);
-  if (options.headers) for (const [key, value] of Object.entries(options.headers)) value === null ? headers.delete(key) : headers.set(key, value);
-  const response = {
-    ok: options.status === undefined || options.status === 200, status: options.status || 200,
-    headers: {get: key => headers.has(key) ? headers.get(key) : null},
-    body: options.noStream ? null : {getReader: () => {events.push('reader'); return reader;}},
-    blob: async () => {events.push('blob'); return new Blob([data]);},
-  };
-  const window = {isSecureContext: true, showSaveFilePicker: details => {
-    events.push('picker');
-    if (options.picker) return options.picker(details, handle);
-    return Promise.resolve(handle);
-  }};
-  vm.runInNewContext(SOURCE, {
-    window, location: {origin: ORIGIN, href: ORIGIN + '/'}, URL, DOMException, AbortController, Uint8Array,
-    fetch: async (url, settings) => {
-      events.push('fetch'); fetches.push({url, settings});
-      if (options.fetch) return options.fetch(url, settings, response);
-      return response;
-    },
-  });
-  return {window, events, chunks, fetches, reader, writable, handle, response};
+function harness({blocked = false, manager = false, local = false} = {}) {
+  const origin = local ? 'http://localhost:8000' : ORIGIN;
+  const location = {origin, href: origin + '/', protocol: local ? 'http:' : 'https:', hostname: local ? 'localhost' : 'riengvnapp.cloud'};
+  const downloads = [], elements = [], forbidden = [], listeners = new Map();
+  class Element {
+    constructor(tag) {this.tag = tag; this.children = []; this.attributes = {}; this.dataset = {}; this.style = {}; elements.push(this);}
+    append(...children) {for (const child of children) {this.children.push(child); child.parentNode = this;}}
+    appendChild(child) {this.append(child); return child;}
+    setAttribute(key, value) {this.attributes[key] = String(value);}
+    getAttribute(key) {return this.attributes[key] ?? null;}
+    remove() {if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(item => item !== this); this.removed = true;}
+    getClientRects() {return this.removed ? [] : [1];}
+    querySelectorAll() {return [];}
+  }
+  class Anchor extends Element {
+    constructor() {super('a');}
+    set href(value) {this.attributes.href = new URL(value, location.href).href;}
+    get href() {return this.attributes.href || '';}
+    hasAttribute(key) {return key === 'download' ? this.download !== undefined : key in this.attributes || key === 'data-native-download' && 'nativeDownload' in this.dataset;}
+    closest() {return this;}
+    click() {
+      const event = {target: this, defaultPrevented: false, stopped: false,
+        preventDefault() {this.defaultPrevented = true;}, stopImmediatePropagation() {this.stopped = true;}};
+      for (const callback of listeners.get('click') || []) {callback(event); if (event.stopped) break;}
+      if (event.defaultPrevented) return;
+      if (blocked) throw Error('Synthetic native click blocked');
+      downloads.push({url: this.href, filename: this.download, anchor: this});
+    }
+  }
+  const forbiddenCall = name => () => {forbidden.push(name); throw Error('Unexpected ' + name);};
+  const document = {createElement: tag => tag === 'a' ? new Anchor() : new Element(tag), body: new Element('body'),
+    addEventListener(type, callback) {const callbacks = listeners.get(type) || []; callbacks.push(callback); listeners.set(type, callbacks);},
+    querySelectorAll: () => []};
+  const window = {showSaveFilePicker: forbiddenCall('FSA picker'), isSecureContext: !local};
+  class BrowserURL extends URL {}
+  BrowserURL.createObjectURL = forbiddenCall('Blob buffering');
+  BrowserURL.revokeObjectURL = forbiddenCall('Blob buffering');
+  const ctx = {window, document, location, URL: BrowserURL, HTMLAnchorElement: Anchor, DOMException, AbortController,
+    fetch: forbiddenCall('fetch'), FileReader: forbiddenCall('base64'), setTimeout: () => 1, clearTimeout() {}};
+  vm.createContext(ctx);
+  if (manager) vm.runInContext(MANAGER, ctx);
+  vm.runInContext(SOURCE, ctx);
+  return {window, downloads, elements, forbidden, origin};
 }
 
-test('picker is called synchronously before first await, writable or network request', async () => {
-  const selected = deferred();
-  const state = harness({picker: () => selected.promise});
-  const saved = state.window.saveSocialDownload(URL_VALUE, 'douyin-post-01.mp4');
-  assert.deepEqual(state.events, ['picker']);
-  assert.equal(state.fetches.length, 0);
-  selected.resolve(state.handle);
-  assert.deepEqual(copy(await saved), {status: 'saved', filename: 'chosen-file.mp4', bytes: 4});
-  assert.deepEqual(state.events.slice(0, 3), ['picker', 'create', 'fetch']);
-  assert.equal(state.events.filter(event => event === 'close').length, 1);
-  assert.equal(state.events.includes('abort'), false);
-  const request = state.fetches[0];
-  assert.equal(request.url, ORIGIN + URL_VALUE);
-  assert.equal(request.settings.credentials, 'same-origin');
-  assert.equal(request.settings.mode, 'same-origin');
-  assert.equal(request.settings.redirect, 'error');
-  assert.equal(request.settings.cache, 'no-store');
-  assert.ok(request.settings.signal instanceof AbortSignal);
+for (const manager of [false, true]) test('media URL starts exactly one native download synchronously (' + (manager ? 'shared manager' : 'standalone') + ')', async () => {
+  const state = harness({manager});
+  const pending = state.window.saveSocialDownload(URL_VALUE, 'douyin-post-01.mp4');
+  assert.equal(state.downloads.length, 1);
+  assert.deepEqual(copy(await pending), {status: 'downloaded', filename: 'douyin-post-01.mp4'});
+  assert.equal(state.downloads[0].url, ORIGIN + URL_VALUE);
+  assert.equal(state.downloads[0].filename, 'douyin-post-01.mp4');
+  assert.deepEqual(state.forbidden, []);
 });
 
-test('same-origin exact file and ZIP paths only; invalid URLs never open picker or fetch', async () => {
+test('ZIP attachment uses its existing local URL without buffering or FSA', async () => {
+  const state = harness();
+  const url = '/api/social-download/zip?id=11111111-1111-4111-8111-111111111111';
+  assert.deepEqual(copy(await state.window.saveSocialDownload(url, 'douyin-post-images.zip')), {status: 'downloaded', filename: 'douyin-post-images.zip'});
+  assert.equal(state.downloads[0].url, ORIGIN + url);
+  assert.equal(state.downloads.length, 1); assert.deepEqual(state.forbidden, []);
+});
+
+test('same-origin exact file and ZIP paths only; invalid URLs initiate no action', async () => {
   for (const url of ['https://evil.test/api/social-download/file', '/api/social-download/config',
     '/api/social-download/file/extra', '/api/social-download/../other',
     'https://riengvnapp.cloud.evil.test/api/social-download/file',
     'https://user:password@riengvnapp.cloud/api/social-download/file',
-    URL_VALUE + '#fragment', URL_VALUE + '\r\n', 'javascript:alert(1)', null]) {
-    const state = harness();
+    URL_VALUE + '#fragment', URL_VALUE + '\r\n', 'javascript:alert(1)',
+    'blob:https://riengvnapp.cloud/fixture', 'data:image/png;base64,YWJj', null]) {
+    const state = harness({manager: true});
     await assert.rejects(state.window.saveSocialDownload(url, 'file.mp4'), /Đường dẫn tải file không hợp lệ/);
-    assert.deepEqual(state.events, []);
-  }
-  const zip = harness({headers: {'Content-Type': 'application/zip'}});
-  assert.equal((await zip.window.saveSocialDownload('/api/social-download/zip?id=fixture', 'images.zip')).status, 'saved');
-});
-
-test('unsupported API and nonsecure context explain Edge requirement and trigger no fallback network', async () => {
-  for (const mode of ['missing', 'insecure']) {
-    const state = harness();
-    if (mode === 'missing') delete state.window.showSaveFilePicker;
-    else state.window.isSecureContext = false;
-    await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4'), /Mở tool bằng Edge để chọn nơi lưu/);
-    assert.deepEqual(state.events, []);
+    assert.deepEqual(state.downloads, []); assert.deepEqual(state.forbidden, []);
   }
 });
 
-test('cancelled or denied picker never downloads and clears the active guard', async () => {
-  const cancelled = harness({picker: () => Promise.reject(new DOMException('cancelled', 'AbortError'))});
-  assert.deepEqual(copy(await cancelled.window.saveSocialDownload(URL_VALUE, 'file.mp4')), {status: 'cancelled'});
-  assert.deepEqual(cancelled.events, ['picker']);
-  assert.equal(cancelled.window.cancelSocialDownloadSave(), false);
-  const denied = harness({picker: () => {throw new DOMException('denied', 'SecurityError');}});
-  await assert.rejects(denied.window.saveSocialDownload(URL_VALUE, 'file.mp4'), /Mở tool bằng Edge/);
-  assert.deepEqual(denied.events, ['picker']);
-  assert.equal(denied.window.cancelSocialDownloadSave(), false);
+test('blocked native start reports ready and retains a real link for manual retry', async () => {
+  for (const manager of [false, true]) {
+    const state = harness({blocked: true, manager});
+    const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4');
+    assert.deepEqual(copy(result), {status: 'ready', filename: 'file.mp4'});
+    assert.equal(state.downloads.length, 0);
+    assert.ok(state.elements.some(element => element.tag === 'a' && element.href === ORIGIN + URL_VALUE
+      && element.download === 'file.mp4' && element.parentNode && !element.removed && element.style.display !== 'none'));
+    assert.deepEqual(state.forbidden, []);
+  }
 });
 
-test('single active save prevents another picker until the previous operation finishes', async () => {
-  const selected = deferred(), state = harness({picker: () => selected.promise});
-  const first = state.window.saveSocialDownload(URL_VALUE, 'file.mp4');
-  await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'second.mp4'), /Đang lưu một file/);
-  assert.deepEqual(state.events, ['picker']);
-  selected.reject(new DOMException('cancelled', 'AbortError'));
-  await first;
-  assert.equal(state.window.cancelSocialDownloadSave(), false);
-});
-
-test('external abort before or during picker does not fetch or open a writable', async () => {
-  const before = new AbortController(), immediate = harness();
-  before.abort();
-  assert.equal((await immediate.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: before.signal})).status, 'cancelled');
-  assert.deepEqual(immediate.events, []);
-  const selected = deferred(), state = harness({picker: () => selected.promise});
-  const controller = new AbortController();
-  const promise = state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal});
+test('an already aborted request cancels before dispatch and creates no anchor download', async () => {
+  const controller = new AbortController(), state = harness({manager: true});
   controller.abort();
-  selected.resolve(state.handle);
-  assert.equal((await promise).status, 'cancelled');
-  assert.deepEqual(state.events, ['picker']);
+  assert.deepEqual(copy(await state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal})), {status: 'cancelled'});
+  assert.deepEqual(state.downloads, []); assert.deepEqual(state.forbidden, []);
 });
 
-test('manual cancel during streaming aborts network and pending file without committing', async () => {
-  let state;
-  state = harness({write: async () => {assert.equal(state.window.cancelSocialDownloadSave(), true);}});
-  const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4');
-  assert.equal(result.status, 'cancelled');
-  assert.equal(state.fetches[0].settings.signal.aborted, true);
-  assert.equal(state.events.includes('abort'), true);
-  assert.equal(state.events.includes('reader-cancel'), true);
-  assert.equal(state.events.includes('close'), false);
-  assert.equal(state.window.cancelSocialDownloadSave(), false);
-});
-
-test('large response chunks are written in bounded 64 KB slices without blobs or base64', async () => {
-  const data = new Uint8Array(150000);
-  data[0] = 7; data[data.length - 1] = 9;
-  const state = harness({data});
-  const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4');
-  assert.equal(result.bytes, data.length);
-  assert.equal(state.chunks.length, 3);
-  assert.ok(state.chunks.every(chunk => chunk.byteLength <= 64 * 1024));
-  assert.equal(state.chunks[0][0], 7);
-  assert.equal(state.chunks.at(-1).at(-1), 9);
-  assert.equal(state.events.includes('blob'), false);
-});
-
-test('blob fallback happens only after picker, writable and fetch and still uses bounded binary writes', async () => {
-  const state = harness({noStream: true, data: new Uint8Array(70000)});
-  const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4');
-  assert.equal(result.bytes, 70000);
-  assert.deepEqual(state.events.slice(0, 4), ['picker', 'create', 'fetch', 'blob']);
-  assert.equal(state.chunks.length, 2);
-  assert.ok(state.chunks.every(chunk => chunk.byteLength <= 65536));
-});
-
-test('HTTP errors, non-media response and invalid lengths abort file without saving', async () => {
-  const cases = [
-    {status: 401, expected: /Đăng nhập lại/}, {status: 410, expected: /Link tải đã hết hạn/},
-    {status: 429, expected: /Đang tải nhiều file/}, {status: 413, expected: /vượt giới hạn/},
-    {headers: {'Content-Type': 'text/html'}, expected: /Máy chủ chưa trả về/},
-    {headers: {'Content-Length': '314572801'}, expected: /vượt giới hạn/},
-    {headers: {'Content-Length': 'NaN'}, expected: /File trống/},
-    {headers: {'Content-Length': '0'}, expected: /File trống/},
-    {headers: {'Content-Length': '5'}, expected: /File tải chưa hoàn chỉnh/},
-    {headers: {'Content-Length': '3'}, expected: /File tải chưa hoàn chỉnh/},
-  ];
-  for (const item of cases) {
-    const state = harness(item);
-    await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4'), item.expected);
-    assert.equal(state.events.includes('abort'), true);
-    assert.equal(state.events.includes('close'), false);
-    assert.equal(state.window.cancelSocialDownloadSave(), false);
-  }
-});
-
-test('write failure, unexpected stream abort and failed close never report success or replace file', async () => {
-  const cases = [{write: () => {throw new DOMException('quota', 'QuotaExceededError');}, expected: /Không đủ dung lượng/},
-    {read: () => {throw new DOMException('unexpected-abort', 'AbortError');}, expected: /Trình duyệt đã ngắt/},
-    {close: () => {throw new DOMException('permission', 'NotAllowedError');}, expected: /Chưa có quyền ghi/}];
-  for (const item of cases) {
-    const state = harness(item);
-    await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4'), item.expected);
-    assert.equal(state.events.includes('abort'), true);
-    assert.equal(state.events.includes('reader-cancel'), true);
-    assert.equal(state.window.cancelSocialDownloadSave(), false);
-  }
-});
-
-test('finalizing callback precedes close and cancellation cannot claim success after commit begins', async () => {
-  const closeStarted = deferred(), closing = deferred();
-  let phase;
-  const state = harness({close: () => {closeStarted.resolve(); return closing.promise;}});
-  const controller = new AbortController();
-  const promise = state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal,
-    onFinalizing: details => {
-      assert.equal(state.events.includes('close'), false);
-      assert.equal(state.window.cancelSocialDownloadSave(), false);
-      phase = copy(details);
-    }});
-  await closeStarted.promise;
-  assert.deepEqual(phase, {filename: 'chosen-file.mp4', bytes: 4});
-  assert.equal(state.window.cancelSocialDownloadSave(), false);
+test('aborting after dispatch cannot claim a browser download was cancelled', async () => {
+  const controller = new AbortController(), state = harness();
+  const pending = state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal});
+  assert.equal(state.downloads.length, 1);
   controller.abort();
-  assert.equal(state.fetches[0].settings.signal.aborted, false);
-  closing.resolve();
-  assert.equal((await promise).status, 'saved');
-  assert.equal(state.events.includes('abort'), false);
-  assert.equal(state.window.cancelSocialDownloadSave(), false);
+  assert.equal(await state.window.cancelSocialDownloadSave(), false);
+  assert.deepEqual(copy(await pending), {status: 'downloaded', filename: 'file.mp4'});
+  assert.equal(state.downloads.length, 1); assert.deepEqual(state.forbidden, []);
 });
 
-test('finalizing callback failures do not damage a valid save and invalid callback rejects before picker', async () => {
+test('separate image clicks each dispatch once without an active-save guard dropping later files', async () => {
+  const state = harness({manager: true});
+  const results = await Promise.all([0, 1, 2].map(index => state.window.saveSocialDownload(
+    URL_VALUE.replace('index=0', 'index=' + index), 'photo-' + index + '.jpg')));
+  assert.deepEqual(results.map(result => result.status), ['downloaded', 'downloaded', 'downloaded']);
+  assert.deepEqual(state.downloads.map(item => item.filename), ['photo-0.jpg', 'photo-1.jpg', 'photo-2.jpg']);
+  assert.equal(state.downloads.length, 3); assert.deepEqual(state.forbidden, []);
+});
+
+test('filename suggestions contain no paths or controls and use a usable default', async () => {
   const state = harness();
-  const result = await state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {
-    onFinalizing: () => {throw Error('synthetic-ui-callback-failure');},
-  });
-  assert.equal(result.status, 'saved');
-  assert.equal(state.events.includes('close'), true);
-  assert.equal(state.events.includes('abort'), false);
-  const invalid = harness();
-  await assert.rejects(invalid.window.saveSocialDownload(URL_VALUE, 'file.mp4', {onFinalizing: 'invalid'}), /Không tạo được yêu cầu lưu/);
-  assert.deepEqual(invalid.events, []);
+  const result = await state.window.saveSocialDownload(URL_VALUE, '../bad\r\nfile.mp4');
+  assert.equal(/[\\/\x00-\x1f\x7f]/.test(result.filename), false);
+  assert.equal(state.downloads[0].filename, result.filename);
+  const fallback = await state.window.saveSocialDownload(URL_VALUE, '');
+  assert.ok(fallback.filename);
 });
 
-test('ignored cancellation during finalization does not disguise a failed commit as cancelled', async () => {
-  const controller = new AbortController();
-  const state = harness({close: () => {throw new DOMException('quota', 'QuotaExceededError');}});
-  await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal,
-    onFinalizing: () => controller.abort()}), /Không đủ dung lượng/);
-  assert.equal(state.events.includes('abort'), true);
-  assert.equal(state.window.cancelSocialDownloadSave(), false);
+test('localhost uses the same browser flow without a native macOS dialog or FSA requirement', async () => {
+  const state = harness({local: true, manager: true});
+  assert.equal((await state.window.saveSocialDownload(URL_VALUE, 'local.mp4')).status, 'downloaded');
+  assert.equal(state.downloads[0].url, 'http://localhost:8000' + URL_VALUE);
+  assert.deepEqual(state.forbidden, []);
 });
 
-test('write permission failure prevents fetch and suggested filename contains no path or control characters', async () => {
-  let suggestion;
-  const state = harness({picker: (options, handle) => {suggestion = options.suggestedName; return Promise.resolve(handle);},
-    create: () => {throw new DOMException('permission', 'NotAllowedError');}});
-  await assert.rejects(state.window.saveSocialDownload(URL_VALUE, '../bad\r\nfile.mp4'), /Chưa có quyền ghi/);
-  assert.equal(/[\\/\x00-\x1f]/.test(suggestion), false);
-  assert.deepEqual(state.events, ['picker', 'create']);
+test('malformed abort signals fail before starting a native request', async () => {
+  const state = harness();
+  await assert.rejects(state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: {aborted: false}}));
+  assert.deepEqual(state.downloads, []);
 });
 
-test('utility never invokes native download anchors, macOS local-save, object URLs or base64', () => {
-  assert.doesNotMatch(SOURCE, /createObjectURL|FileReader|btoa\(|\.click\(|local-save-file|HTMLAnchorElement|base64,/);
+
+test('onDispatched runs immediately after one native start and a callback abort cannot retract it', async () => {
+  const state = harness({manager: true}), controller = new AbortController();
+  let callbacks = 0, seenDownloads, seenFilename;
+  const pending = state.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal,
+    onDispatched: details => {
+      callbacks++;
+      seenDownloads = state.downloads.length;
+      seenFilename = details.filename;
+      controller.abort();
+    }});
+  assert.equal(callbacks, 1);
+  assert.equal(seenDownloads, 1);
+  assert.equal(seenFilename, 'file.mp4');
+  assert.equal(controller.signal.aborted, true);
+  assert.equal((await pending).status, 'downloaded');
+  assert.equal(state.downloads.length, 1);
+});
+
+test('ready and pre-aborted outcomes never claim a successful native handoff', async () => {
+  let callbacks = 0;
+  const blocked = harness({blocked: true});
+  assert.equal((await blocked.window.saveSocialDownload(URL_VALUE, 'file.mp4', {onDispatched: () => callbacks++})).status, 'ready');
+  const cancelled = harness(), controller = new AbortController(); controller.abort();
+  assert.equal((await cancelled.window.saveSocialDownload(URL_VALUE, 'file.mp4', {signal: controller.signal, onDispatched: () => callbacks++})).status, 'cancelled');
+  assert.equal(callbacks, 0);
 });

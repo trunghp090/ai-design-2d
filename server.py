@@ -45,7 +45,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.10.11-douyin-session-read"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.10.11-browser-downloads"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -11313,13 +11313,16 @@ class Handler(BaseHTTPRequestHandler):
     def handle_download_zip(self, body):
         """Đóng gói các ảnh đã chọn thành 1 file ZIP tải về. items=[{id|url, name}]."""
         import zipfile
-        items = body.get("items") or []
-        if not items:
-            return self.json(400, {"error": "Chưa chọn ảnh nào."})
+        items = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(items, list) or not items:
+            return self.json(400, {"error": "Chọn từ 1 đến 100 ảnh để tải ZIP."})
+        if len(items) > 100:
+            return self.json(400, {"error": "Mỗi file ZIP chứa tối đa 100 ảnh. Hãy chia bộ ảnh."})
+        if any(not isinstance(item, dict) for item in items):
+            return self.json(400, {"error": "Danh sách ảnh tải xuống không hợp lệ."})
         buf = io.BytesIO()
-        count = 0
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
-            for i, it in enumerate(items[:100]):
+            for i, it in enumerate(items):
                 data = None
                 du = str(it.get("data") or "")
                 if du.startswith("data:"):   # ảnh đã chèn text từ client (dataURL)
@@ -11331,25 +11334,25 @@ class Handler(BaseHTTPRequestHandler):
                 if gid and re.match(r"^[\w-]+$", gid):
                     p = os.path.join(GALLERY_DIR, gid + ".png")
                     if os.path.isfile(p):
-                        with open(p, "rb") as f:
-                            data = f.read()
+                        try:
+                            with open(p, "rb") as f:
+                                data = f.read()
+                        except OSError:
+                            data = None
                 if not data and it.get("url"):
                     try:
                         data, _ = fetch_image_bytes(it["url"])
                     except Exception:
                         data = None
                 if not data:
-                    continue
+                    return self.json(400, {"error": "Không đọc được ảnh thứ %d. File ZIP chưa được xuất; hãy chọn lại ảnh." % (i + 1)})
                 try:
                     data = strip_ai_meta(data)
                 except (ValueError, TypeError):
                     return self.json(400, {"error": "Không thể làm sạch metadata ảnh thứ %d. File ZIP chưa được xuất; hãy chọn lại ảnh." % (i + 1)})
                 name = re.sub(r"[^\w\sÀ-ỹ&·-]+", "", str(it.get("name") or "anh")).strip()[:60] or "anh"
                 z.writestr("%02d-%s.png" % (i + 1, name.replace(" ", "-")), data)
-                count += 1
         raw = buf.getvalue()
-        if not count:
-            return self.json(400, {"error": "Không đọc được ảnh nào để đóng gói."})
         self.send_response(200)
         self.send_header("Content-Type", "application/zip")
         self.send_header("Content-Disposition", 'attachment; filename="bo-anh.zip"')

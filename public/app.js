@@ -1335,10 +1335,38 @@ $("autoFileInput").onchange = (e) => autoAddFiles(e.target.files);
 })();
 
 function autoDownload(b64, title) {
-  const a = document.createElement("a");
-  a.href = "data:image/png;base64," + b64;
-  a.download = (title || "auto-design").replace(/[^\w\-]+/g, "_") + ".png";
-  a.click();
+  const item = toolImageItem(b64, title);
+  if (!item) return Promise.resolve('failed');
+  const name = (title || "auto-design").replace(/[^\w\-]+/g, "_") + ".png";
+  try {
+    let downloading;
+    if (window.downloadToolURL) downloading = window.downloadToolURL(item.data || item.url, name);
+    else if (window.saveToolFile) downloading = window.saveToolFile(async () => {
+      const response = await fetch(item.data || item.url);
+      if (!response.ok) throw Error('Không đọc được ảnh tải xuống.');
+      return response.blob();
+    }, name);
+    else {
+      const a = document.createElement("a");
+      a.href = item.data || item.url; a.download = name; a.dataset.nativeDownload = '';
+      document.body.appendChild(a); a.click(); a.remove();
+      downloading = 'downloaded';
+    }
+    return Promise.resolve(downloading).catch(error => { alert(error.message || 'Không tải được ảnh.'); return 'failed'; });
+  } catch (error) { alert(error.message || 'Không tải được ảnh.'); return Promise.resolve('failed'); }
+}
+async function autoDownloadButton(source, title, button) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try { return await autoDownload(source, title); }
+  finally { if (button) button.disabled = false; }
+}
+function toolImageItem(image, name, url) {
+  if (typeof image === 'string' && image.trim()) {
+    if (/^(?:https?:\/\/|blob:|\/{1,2}|\.{1,2}\/)/i.test(image)) return {url: image, name};
+    return {data: image.startsWith('data:') ? image : 'data:image/png;base64,' + image, name};
+  }
+  return typeof url === 'string' && url.trim() ? {url, name} : null;
 }
 
 // NHIỀU LUỒNG: mỗi lần cá nhân hoá = 1 job nền, có placeholder; up design khác chạy tiếp song song
@@ -1672,11 +1700,10 @@ $("recolorDownloadSel").onclick = async () => {
   const cards = [...$("recolorResults").querySelectorAll(".gcard")];
   const picked = [...recolorSel].sort((a, b) => a - b);
   if (!picked.length) { const n = $("recolorNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa chọn bản nào để tải."; return; }
-  for (const i of picked) {
-    const cd = cards[i]; if (!cd) continue;
-    autoDownload(cd._cur, cd._title || ("ban_" + i));
-    await new Promise(r => setTimeout(r, 350));   // giãn cách để trình duyệt không chặn
-  }
+  return zipDownloadSelected(picked.map(i => {
+    const cd = cards[i];
+    return cd ? toolImageItem(cd._cur, cd._title || ("ban_" + i)) : null;
+  }).filter(Boolean), $("recolorDownloadSel"), 'recolor-' + Date.now() + '.zip');
 };
 
 $("recolorRunBtn").onclick = async () => {
@@ -2313,11 +2340,11 @@ $("lenaoDownloadSel").onclick = async () => {
     return s.design && c && c.checked;
   });
   if (!picked.length) { alert("Chưa chọn áo nào có design để tải."); return; }
-  for (const s of picked) {
-    const durl = await lenaoComposeSlot(s);
-    autoDownload(durl.split(",")[1], s.name + "_design");
-    await new Promise(r => setTimeout(r, 350));
-  }
+  return zipDownloadSelected(async () => {
+    const items = [];
+    for (const s of picked) items.push(toolImageItem(await lenaoComposeSlot(s), s.name + "_design"));
+    return items;
+  }, $("lenaoDownloadSel"), 'lenao-' + Date.now() + '.zip');
 };
 
 /* =====================================================================
@@ -2412,7 +2439,8 @@ $("batchRunBtn").onclick = async () => {
 $("batchDownloadAll").onclick = async () => {
   const cards = [...$("batchResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
-  for (const cd of cards) { autoDownload(cd._cur, cd._name); await new Promise(r => setTimeout(r, 350)); }
+  return zipDownloadSelected(cards.map((cd, i) => toolImageItem(cd._cur, cd._name || ('anh-' + (i + 1)))).filter(Boolean),
+    $("batchDownloadAll"), 'batch-' + Date.now() + '.zip');
 };
 
 /* =====================================================================
@@ -2693,7 +2721,7 @@ function prodRenderCreations() {
     card.querySelector(".fp-card-img img").onclick = () => openZoom(prodSrc(c));
     card.querySelector(".b-zoom").onclick = () => openZoom(prodSrc(c));
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(prodSrc(c), e.currentTarget);
-    card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await prodB64(c), (c.prompt || "anh-sp").slice(0, 30)); b.disabled = false; };
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(c.image || c.url, (c.prompt || "anh-sp").slice(0, 30), e.currentTarget);
     card.querySelector(".b-regen").onclick = () => prodGenerate(c.prompt, 1);
     card.querySelector(".b-del").onclick = async (e) => {
       if (!confirm("Xoá ảnh này?")) return; const b = e.currentTarget; b.disabled = true;
@@ -3217,7 +3245,7 @@ function dsMakeCard(key, it, selectable = false) {
       await copyImageToClipboard(dsSrc(it), e.currentTarget);  // copy sẵn để dán vào Canva
       window.open(dsCanvaLink, "_blank");
     };
-    card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await dsB64(it), it.title || "design"); b.disabled = false; };
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(it.image || it.url || it.gallery?.url, it.title || "design", e.currentTarget);
     card.querySelector(".b-del").onclick = async (e) => {
       if (dsDeleting) return;
       if (!confirm("Xoá design này?")) return;
@@ -3411,27 +3439,23 @@ $("dsRunBtn").onclick = async () => {
 $("dsDownloadAll").onclick = async () => {
   const cards = [...$("dsResults").querySelectorAll(".gcard")];
   if (!cards.length) return;
-  for (const cd of cards) {
-    const b64 = cd._cur || (cd._it ? await dsB64(cd._it) : null);
-    if (b64) autoDownload(b64, cd._name);
-    await new Promise(r => setTimeout(r, 350));
-  }
+  return zipDownloadSelected(cards.map((cd, i) => toolImageItem(cd._cur || cd._it?.image,
+    cd._name || ('design-' + (i + 1)), cd._it?.url || cd._it?.gallery?.url)).filter(Boolean),
+    $("dsDownloadAll"), 'design-' + Date.now() + '.zip');
 };
 
 /* ---------- 📦 Tải ZIP hàng loạt (dùng chung các tab lưới ảnh) ---------- */
-async function zipDownloadSelected(items, btn) {
-  if (!items.length) { alert("⚠️ Chưa tick chọn ảnh nào."); return; }
+async function zipDownloadSelected(itemsOrFactory, btn, name = "bo-anh-" + Date.now() + ".zip") {
+  if (btn.disabled) return;
   const o = btn.textContent; btn.disabled = true; btn.textContent = "⏳ Đang đóng gói…";
   try {
-    const r = await fetch("/api/download-zip", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: items }) });
-    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || "Lỗi đóng gói"); }
-    const blob = await r.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "bo-anh-" + Date.now() + ".zip";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    const items = (typeof itemsOrFactory === 'function' ? await itemsOrFactory() : itemsOrFactory)
+      .filter(item => item && (item.data || item.url || item.id));
+    if (!items.length) throw Error("Chưa có ảnh hoàn tất được chọn để tải.");
+    if (!window.downloadToolFiles) throw Error('Chưa tải được chức năng tải ZIP. Tải lại trang rồi thử lại.');
+    return await window.downloadToolFiles(items, name);
   } catch (e) { alert("✗ " + e.message); }
-  btn.disabled = false; btn.textContent = o;
+  finally { btn.disabled = false; btn.textContent = o; }
 }
 
 /* =====================================================================
@@ -3459,59 +3483,28 @@ function ttConfirmDelete(count) {
   });
 }
 async function ttSaveFile(makeBlob, name, extension, button) {
-  if(window.saveToolFile){
-    if(button?.disabled)return;
-    const label=button?.textContent;
-    if(button){button.disabled=true;button.dataset.saving='1';button.textContent='⏳ Đang chuẩn bị…';}
-    ttNotice('Đang chuẩn bị file tải xuống…');
-    try{
-      // Pass the work itself: the save picker must open during this click,
-      // before rendering images or waiting for the ZIP response.
-      const result=await window.saveToolFile(makeBlob,name+'.'+extension);
-      ttNotice(result==='saved'?'✓ Đã lưu file vào nơi bạn chọn.':
-        result==='cancelled'?'Đã huỷ lưu file.':
-        result==='ready'?'File đã sẵn sàng. Bấm liên kết tải ở góc dưới bên phải.':
-        '✓ Đã gửi yêu cầu tải file cho trình duyệt.');
-      return result;
-    }catch(e){ttNotice(e.message,true);}
-    finally{if(button){delete button.dataset.saving;button.disabled=false;button.textContent=label;}ttUpdateSel();}
-    return;
-  }
-  if(typeof window.showSaveFilePicker!=='function') {
-    $('ttSaveHelp').style.display='block';
-    $('ttManualLink').style.display='none';
-    $('ttPrepareSave').onclick=async()=>{
-      const prepare=$('ttPrepareSave');prepare.disabled=true;
-      try {
-        const blob=await makeBlob(), link=$('ttManualLink');
-        if(link.dataset.blobUrl)URL.revokeObjectURL(link.dataset.blobUrl);
-        link.href=URL.createObjectURL(blob);link.dataset.blobUrl=link.href;
-        link.download=name.replace(/[\\/:*?"<>|]/g,'-').slice(0,100)+'.'+extension;
-        link.textContent='Nhấp chuột phải vào đây → Lưu liên kết thành… ('+extension.toUpperCase()+')';
-        link.onclick=e=>{e.preventDefault();ttNotice('Nhấp chuột phải vào liên kết rồi chọn Lưu liên kết thành… để chọn nơi lưu.');};
-        link.style.display='block';
-        ttNotice('File đã chuẩn bị. Chưa lưu xuống máy; dùng Lưu liên kết thành… để chọn thư mục.');
-      } catch(e){ttNotice('Không chuẩn bị được file: '+e.message,true);}
-      finally{prepare.disabled=false;}
-    };
-    ttNotice('Trình duyệt này không hỗ trợ hộp chọn nơi lưu. Dùng phần lưu thủ công phía trên; tool chưa tải file.',true);
-    return;
-  }
-  const old=button?.textContent;
+  if (button?.disabled) return;
+  const label = button?.textContent;
+  if (button) { button.disabled = true; button.dataset.saving = '1'; button.textContent = '⏳ Đang chuẩn bị…'; }
+  ttNotice('Đang chuẩn bị file tải xuống…');
   try {
-    // Must precede fetch/canvas work so the picker retains the user's click activation.
-    const handle=await window.showSaveFilePicker({suggestedName:name.replace(/[\\/:*?"<>|]/g,'-').slice(0,100)+'.'+extension,
-      types:[{description:extension==='zip'?'Bộ ảnh ZIP':'Ảnh PNG',accept:{[extension==='zip'?'application/zip':'image/png']:['.'+extension]}}]});
-    if(button){button.disabled=true;button.textContent='⏳ Đang lưu…';}
-    const blob=await makeBlob();
-    const writer=await handle.createWritable();
-    try {await writer.write(blob);await writer.close();}
-    catch(e){try{await writer.abort();}catch(_){}throw e;}
-    ttNotice('✓ Đã lưu '+handle.name+' vào nơi bạn chọn.');
-  } catch(e) {
-    if(e.name==='AbortError')ttNotice('Đã huỷ lưu file.');
-    else ttNotice('Không lưu được file: '+e.message,true);
-  } finally {if(button){button.disabled=false;button.textContent=old;}}
+    let result;
+    const filename = name.replace(/[\\/:*?"<>|]/g, '-').slice(0, 100) + '.' + extension;
+    if (window.saveToolFile) result = await window.saveToolFile(makeBlob, filename);
+    else {
+      const url = URL.createObjectURL(await makeBlob());
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = filename; anchor.dataset.nativeDownload = '';
+      document.body.appendChild(anchor);
+      try { anchor.click(); result = 'downloaded'; }
+      finally { anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+    }
+    if (!['downloaded', 'ready'].includes(result)) throw Error('Chưa gửi được yêu cầu tải file. Hãy thử lại.');
+    ttNotice(result === 'ready' ? 'File đã sẵn sàng. Bấm liên kết tải ở góc dưới bên phải.'
+      : '✓ Đã gửi yêu cầu tải file. Xem tiến trình trong Tải xuống của Edge/Chrome (Ctrl+J).');
+    return result;
+  } catch (error) { ttNotice(error.message || 'Không chuẩn bị được file tải xuống.', true); }
+  finally { if (button) { delete button.dataset.saving; button.disabled = false; button.textContent = label; } ttUpdateSel(); }
 }
 function ttSaveSelected(forceText, button, all=false) {
   const chosen=(all?ttItems.slice():ttItems.filter(it=>it._sel)).sort((a,b)=>(a.idx||0)-(b.idx||0));
@@ -4140,7 +4133,7 @@ function ssRender() {
     card.querySelector("img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "bo-ao");
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(it.image || src, it.title || "bo-ao", e.currentTarget);
     card.querySelector(".b-del").onclick = async () => {
       if (!confirm("Xoá ảnh này?")) return;
       try { const gid = it.gallery && it.gallery.id; if (gid) await fetch("/api/gallery?id=" + encodeURIComponent(gid), { method: "DELETE" }); } catch (e) {}
@@ -4359,7 +4352,7 @@ function psnRender() {
     card.querySelector("img").onclick = () => openZoom(src);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async () => autoDownload(await b64(), it.title || "personalized");
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(it.image || src, it.title || "personalized", e.currentTarget);
     card.querySelector(".b-use").onclick = async () => { const d = await b64(); showApp("lenao"); if (typeof lenaoAddDesigns === "function") lenaoAddDesigns(["data:image/png;base64," + d]); };
     card.querySelector(".b-cut").onclick = async () => {
       const d = await b64();
@@ -5432,17 +5425,19 @@ function postSlideOverlay(i) {
 }
 async function postDownloadAll() {
   if (!postPicked.length) { const n = $("postNote"); n.className = "gen-note err"; n.textContent = "⚠️ Chưa chọn ảnh nào."; return; }
-  const btn = $("postDownloadAll"), old = btn.textContent; btn.disabled = true;
-  const n = $("postNote"); n.className = "gen-note"; n.textContent = "Đang tải " + postPicked.length + " ảnh (theo thứ tự slide)…";
+  const btn = $("postDownloadAll"), old = btn.textContent;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  const n = $("postNote"); n.className = "gen-note"; n.textContent = "Đang đóng gói " + postPicked.length + " ảnh (theo thứ tự slide)…";
   try {
-    for (let i = 0; i < postPicked.length; i++) {
-      btn.textContent = "⏳ " + (i + 1) + "/" + postPicked.length;
-      const b = await (await fetch(postPicked[i])).blob();
-      const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(b); });
-      autoDownload(b64, "slide-" + String(i + 1).padStart(2, "0"));
-      await new Promise(r => setTimeout(r, 350));
-    }
-    n.className = "gen-note ok"; n.textContent = "✓ Đã tải " + postPicked.length + " ảnh (slide-01, slide-02…).";
+    const items = postPicked.map((url, i) => toolImageItem(url, "slide-" + String(i + 1).padStart(2, "0"))).filter(Boolean);
+    if (!items.length) throw Error('Chưa có ảnh để đóng gói.');
+    if (!window.downloadToolFiles) throw Error('Chưa tải được chức năng tải ZIP. Tải lại trang rồi thử lại.');
+    const result = await window.downloadToolFiles(items, 'bo-anh-post-' + Date.now() + '.zip');
+    if (!['downloaded', 'ready'].includes(result)) throw Error('Chưa gửi được yêu cầu tải ZIP. Hãy thử lại.');
+    n.className = "gen-note ok"; n.textContent = result === 'ready'
+      ? 'File ZIP đã sẵn sàng. Bấm liên kết tải ở góc dưới bên phải.'
+      : '✓ Đã gửi yêu cầu tải ZIP. Xem tiến trình trong Tải xuống của Edge/Chrome (Ctrl+J).';
   } catch (err) { n.className = "gen-note err"; n.textContent = "✗ " + err.message; }
   finally { btn.disabled = false; btn.textContent = old; }
 }
@@ -6108,7 +6103,7 @@ function adsRenderAll() {
     card.querySelector(".b-board").onclick = (e) => adpostAddFromAd(c, e.currentTarget);
     card.querySelector(".b-zoom").onclick = () => openZoom(src);
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; autoDownload(await adsItemB64(c), c.title || "ads"); b.disabled = false; };
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(c.image || src, c.title || "ads", e.currentTarget);
     card.querySelector(".b-regen").onclick = () => adsRegen(c);
     card.querySelector(".b-fb").onclick = () => adsPushToFb(c);
     card.querySelector(".b-del").onclick = async (e) => {
@@ -6808,7 +6803,7 @@ function mixdRenderResults() {
       '<pre style="white-space:pre-wrap;font-size:10px;line-height:1.45;max-height:160px;overflow:auto;background:rgba(127,127,127,.1);padding:6px 8px;border-radius:6px">' + (it.prompt || "").replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre></details>' +
       '<div class="fp-card-acts"><button class="b-dl">⬇ Tải PNG</button><button class="b-lenao" title="Đưa design này sang tab 👕 Lên áo">👕 Lên áo</button></div>';
     card.querySelector("img").onclick = () => openZoom(it.url || src);
-    card.querySelector(".b-dl").onclick = () => { if (it.image) autoDownload(it.image, "mixdesign"); else window.open(it.url, "_blank"); };
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(it.image || it.url, "mixdesign", e.currentTarget);
     card.querySelector(".b-lenao").onclick = () => {
       try { lenaoSetDesign(src); showApp("lenao"); } catch (e) { alert("Mở tab 👕 Lên áo rồi dán ảnh này vào nhé (đã copy chưa được tự động)."); }
     };
@@ -7040,7 +7035,9 @@ function fbpRenderAll() {
       };
     });
     card.querySelector(".b-style").onclick = () => fbpSetAsStyle(it, card);
-    card.querySelector(".b-dlall").onclick = () => { (it.pics || []).forEach((p, i) => { if (p.image && it._pick.has(i)) autoDownload(p.image, (it.concept || "post") + "-" + (i + 1)); }); };
+    card.querySelector(".b-dlall").onclick = () => zipDownloadSelected((it.pics || []).map((p, i) =>
+      it._pick.has(i) ? toolImageItem(p.image, (it.concept || "post") + "-" + (i + 1), p.url) : null).filter(Boolean),
+      card.querySelector(".b-dlall"), 'fbpost-' + Date.now() + '.zip');
     card.querySelector(".b-delhist").onclick = async () => {
       if (!confirm("Xoá bộ ảnh này khỏi danh sách?")) return;
       if (it._hid) { try { await fetch("/api/fbpost-hist-del", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: it._hid }) }); } catch (e) {} }
@@ -9038,7 +9035,7 @@ function cutoutRender() {
     card.querySelector(".b-edit").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; cutOpenManual(await cutB64(c), idx); b.disabled = false; };
     card.querySelector(".b-shirt").onclick = async (e) => { const b = e.currentTarget; b.disabled = true; await cutToShirt(await cutB64(c)); b.disabled = false; };
     card.querySelector(".b-copy").onclick = (e) => copyImageToClipboard(src, e.currentTarget);
-    card.querySelector(".b-dl").onclick = async () => autoDownload(await cutB64(c), "tach-nen");
+    card.querySelector(".b-dl").onclick = e => autoDownloadButton(c.image || c.url, "tach-nen", e.currentTarget);
     card.querySelector(".b-del").onclick = () => { if (c.id) fetch("/api/gallery?id=" + encodeURIComponent(c.id), { method: "DELETE" }).catch(() => {}); cutItems.splice(idx, 1); cutoutRender(); };
     // đổi màu theo nền áo (AI) — hiện bảng màu inline
     const bar = card.querySelector(".cut-recolor-bar");
