@@ -2,6 +2,9 @@
 (() => {
   'use strict';
   const ORIGINS = new Set(['https://riengvnapp.cloud', 'http://localhost:8000', 'http://127.0.0.1:8000']);
+  // Chromium checks each cookie's own domain and Secure flag against host
+  // permissions; the manifest includes both schemes for root and www cookies.
+  // Applicability is still limited to this exact HTTPS request URL.
   const DETAIL_URL = 'https://www.douyin.com/aweme/v1/web/aweme/detail/';
   const LOGIN_NAMES = new Set(['sessionid', 'sessionid_ss', 'sid_tt']);
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

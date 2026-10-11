@@ -73,7 +73,7 @@ function setup({imageResult=()=> 'load',hold=false,bridge=null,fetchResult=null,
 
 function extensionResponse(request,overrides={}) {
   return {source:'aidesign-douyin-extension',type:'RESPONSE',requestId:request.requestId,nonce:request.nonce,
-    ok:true,version:'1.0.1',connected:true,loggedIn:true,...overrides};
+    ok:true,version:'1.0.2',connected:true,loggedIn:true,...overrides};
 }
 
 function syntheticExtension() {
@@ -256,8 +256,11 @@ test('cancelling after session retrieval prevents a late server result from rend
 
 test('bridge ignores wrong source, origin, request id and nonce before accepting the matching response',async()=>{
   const state=setup({hold:true});
+  await state.emitMessage(extensionResponse(state.bridgeRequests[0].message,{connected:false}));
+  await state.ready();
   let settled=false;
   const pending=state.get('socialDownloadConnectDouyin').emit('click').then(()=>{settled=true;});
+  await tick();
   const request=state.bridgeRequests.at(-1).message;
   assert.equal(request.type,'CONNECT');
   const response=extensionResponse(request);
@@ -510,4 +513,60 @@ for(const session of ['extension','manual'])test(session+' session source challe
   assert.equal(state.get('socialDownloadStatus').textContent,error);
   assert.notEqual(state.get('socialDownloadInstallHelp').open,true);
   assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
+});
+
+test('old extension is diagnosed without reading a session or attempting a connection',async()=>{
+  const state=setup({hold:true,bridge:request=>request.type==='DISCONNECT'?null:extensionResponse(request,{version:'1.0.1',connected:false})});
+  await state.ready();
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/edge:\/\/extensions.*Tải lại/);
+  assert.equal(state.get('socialDownloadInstallHelp').open,true);
+  await state.submit();
+  await state.get('socialDownloadConnectDouyin').emit('click');
+  assert.equal(state.requests.length,0);
+  assert.equal(state.bridgeRequests.some(item=>['CONNECT','SESSION'].includes(item.message.type)),false);
+  assert.equal(state.get('socialDownloadConnectDouyin').disabled,false);
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
+  assertCredentialsPrivate(state);
+});
+
+test('a connection clicked during STATUS waits for the version before touching old login permissions',async()=>{
+  const state=setup({hold:true,bridge:request=>request.type==='STATUS'||request.type==='DISCONNECT'?null:extensionResponse(request,{version:'1.0.1',ok:false,code:'LOGIN_REQUIRED'})});
+  const checking=state.get('socialDownloadConnectDouyin').emit('click');
+  await tick();
+  assert.deepEqual(state.bridgeRequests.map(item=>item.message.type),['STATUS']);
+  await state.emitMessage(extensionResponse(state.bridgeRequests[0].message,{version:'1.0.1',connected:false}));
+  await checking;
+  assert.equal(state.bridgeRequests.some(item=>['CONNECT','SESSION'].includes(item.message.type)),false);
+  assert.equal(state.requests.length,0);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+  assert.equal(state.get('socialDownloadInstallHelp').open,true);
+});
+
+test('a versionless helper requires an update for Douyin while TikTok remains usable',async()=>{
+  const state=setup({hold:true,bridge:request=>request.type==='DISCONNECT'?null:extensionResponse(request,{version:undefined,connected:false})});
+  await state.ready();await state.submit();
+  assert.equal(state.requests.length,0);
+  assert.equal(state.get('socialDownloadInstallHelp').open,true);
+  state.get('socialDownloadInput').value='https://vt.tiktok.com/demo/';
+  await state.submit();
+  assert.equal(state.requests.length,1);
+  assert.equal(Object.hasOwn(state.requests[0],'douyin_cookie'),false);
+  assert.equal(state.bridgeRequests.some(item=>item.message.type==='SESSION'),false);
+  await state.get('socialDownloadClear').emit('click');
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+});
+
+test('minimum and later compatible versions keep the automatic SESSION workflow',async()=>{
+  for(const version of ['1.0.2','1.0.10','1.1.0']) {
+    const fresh=syntheticExtension();
+    const state=setup({hold:true,bridge:request=>{const response=fresh(request);return response?{...response,version}:null;}});
+    await state.ready();await state.submit();
+    assert.equal(state.requests.length,1);
+    assert.equal(state.bridgeRequests.some(item=>item.message.type==='CONNECT'),false);
+    assert.equal(state.bridgeRequests.filter(item=>item.message.type==='SESSION').length,1);
+    assert.equal(state.get('socialDownloadInstallHelp').open,false);
+    assertCredentialsPrivate(state);
+    await state.get('socialDownloadClear').emit('click');
+  }
 });

@@ -16,12 +16,30 @@ const cookie = (name = 'sessionid', value = 'synthetic-test-session', extra = {}
   name, value, domain: '.douyin.com', path: '/', httpOnly: true, secure: true, hostOnly: false, ...extra,
 });
 
-function workerHarness() {
+// Chromium checks permissions against the cookie's own canonical origin, not
+// only the URL passed to getAll. A non-Secure cookie has an http canonical URL.
+// https://github.com/chromium/chromium/blob/main/extensions/browser/api/cookies/cookies_helpers.cc
+// https://github.com/chromium/chromium/blob/main/net/cookies/cookie_util.cc
+function cookieOriginAllowed(item, hostPermissions) {
+  const host = item.domain.replace(/^\./, '').toLowerCase();
+  const origin = (item.secure ? 'https://' : 'http://') + host;
+  return hostPermissions.some(pattern => new URL(pattern).origin === origin);
+}
+
+function cookieMatchesRequest(item, address) {
+  const url = new URL(address), host = item.domain.replace(/^\./, '').toLowerCase();
+  return (!item.secure || url.protocol === 'https:')
+    && (url.hostname === host || (!item.hostOnly && url.hostname.endsWith('.' + host)));
+}
+
+function workerHarness({hostPermissions = null} = {}) {
   let listener;
   const calls = [];
   const chrome = {
     runtime: {id: 'synthetic-extension-id', lastError: undefined, onMessage: {addListener: callback => {listener = callback;}}},
-    cookies: {getAll: (details, callback) => calls.push({details, callback})},
+    cookies: {getAll: (details, callback) => calls.push({details, callback: items => callback(hostPermissions
+      ? items.filter(item => cookieOriginAllowed(item, hostPermissions) && cookieMatchesRequest(item, details.url))
+      : items)})},
   };
   vm.runInNewContext(fs.readFileSync(path.join(directory, 'service-worker.js'), 'utf8'), {chrome, URL, Date, Set, Error});
   const sender = {id: chrome.runtime.id, frameId: 0, url: ORIGIN + '/', tab: {id: 1, incognito: false}};
@@ -34,7 +52,7 @@ function workerHarness() {
   return {chrome, calls, dispatch, sender};
 }
 
-function contentHarness(origin = ORIGIN) {
+function contentHarness(origin = ORIGIN, registeredVersion = '1.0.2') {
   const listeners = {window: new Map(), document: new Map()};
   const posts = [], runtimeRequests = [], timers = new Map();
   let timerID = 0, clock = 1000;
@@ -45,7 +63,7 @@ function contentHarness(origin = ORIGIN) {
   const window = {addEventListener: add('window'), postMessage: (value, target) => posts.push({value: copied(value), target})};
   window.top = window;
   const navigator = {userAgent: UA, userActivation: {isActive: false}};
-  const chrome = {runtime: {lastError: undefined,
+  const chrome = {runtime: {lastError: undefined, getManifest: () => ({version: registeredVersion}),
     sendMessage: (value, callback) => runtimeRequests.push({value: copied(value), callback})}};
   vm.runInNewContext(fs.readFileSync(path.join(directory, 'content-script.js'), 'utf8'), {
     window, document: {addEventListener: add('document')}, location: {origin}, navigator, chrome,
@@ -78,9 +96,10 @@ function contentHarness(origin = ORIGIN) {
 test('manifest limits permissions and content origins and uses MV3 isolated scripts', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.0.1');
+  assert.equal(manifest.version, '1.0.2');
   assert.deepEqual(manifest.permissions, ['cookies']);
-  assert.deepEqual(manifest.host_permissions, ['https://www.douyin.com/*']);
+  assert.deepEqual(manifest.host_permissions, ['https://douyin.com/*', 'http://douyin.com/*',
+    'https://www.douyin.com/*', 'http://www.douyin.com/*']);
   assert.deepEqual(manifest.content_scripts[0].matches,
     [ORIGIN + '/*', 'http://localhost:8000/*', 'http://127.0.0.1:8000/*']);
   assert.equal(manifest.content_scripts[0].all_frames, false);
@@ -88,6 +107,50 @@ test('manifest limits permissions and content origins and uses MV3 isolated scri
   assert.equal(manifest.incognito, 'not_allowed');
   assert.equal(manifest.externally_connectable, undefined);
   assert.equal(manifest.web_accessible_resources, undefined);
+});
+
+test('cookie host permissions cover root and www canonical origins for both Secure attributes only', () => {
+  const {host_permissions: permissions} = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+  for (const domain of ['.douyin.com', 'www.douyin.com']) {
+    for (const secure of [true, false]) {
+      assert.equal(cookieOriginAllowed(cookie('sessionid', 'synthetic', {domain, secure}), permissions), true,
+        domain + ' Secure=' + secure);
+    }
+  }
+  for (const domain of ['other.douyin.com', '.live.douyin.com', 'v.douyin.com', '.iesdouyin.com',
+    '.tiktok.com', 'douyin.com.evil.test', 'evildouyin.com', '.evil.test']) {
+    for (const secure of [true, false]) {
+      assert.equal(cookieOriginAllowed(cookie('sessionid', 'synthetic', {domain, secure}), permissions), false,
+        domain + ' Secure=' + secure);
+    }
+  }
+  assert.ok(permissions.every(pattern => /^https?:\/\/(?:www\.)?douyin\.com\/\*$/.test(pattern)));
+});
+
+test('SESSION sees a root or www login cookie after the browser canonical-origin permission filter', () => {
+  const {host_permissions: hostPermissions} = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+  for (const domain of ['.douyin.com', 'www.douyin.com']) {
+    for (const secure of [true, false]) {
+      const state = workerHarness({hostPermissions}), request = state.dispatch();
+      const login = cookie('sessionid', 'synthetic-login', {domain, secure, hostOnly: domain === 'www.douyin.com'});
+      state.calls[0].callback([login, cookie('foreign', 'synthetic-foreign', {domain: '.evil.test'}),
+        cookie('other-subdomain', 'synthetic-other', {domain: 'other.douyin.com', hostOnly: true})]);
+      assert.deepEqual(request.responses, [{ok: true, loggedIn: true, cookie: 'sessionid=synthetic-login'}],
+        domain + ' Secure=' + secure);
+      assert.equal(state.calls[0].details.url, 'https://www.douyin.com/aweme/v1/web/aweme/detail/');
+    }
+  }
+});
+
+test('the old www-only HTTPS permission hides root-domain and non-Secure login cookies', () => {
+  for (const extra of [{domain: '.douyin.com', secure: true}, {domain: '.douyin.com', secure: false},
+    {domain: 'www.douyin.com', secure: false, hostOnly: true}]) {
+    const state = workerHarness({hostPermissions: ['https://www.douyin.com/*']}), request = state.dispatch();
+    state.calls[0].callback([cookie('sessionid', 'synthetic-login', extra)]);
+    assert.equal(request.responses[0].ok, false);
+    assert.equal(request.responses[0].code, 'LOGIN_REQUIRED');
+    assert.equal(Object.hasOwn(request.responses[0], 'cookie'), false);
+  }
 });
 
 test('worker rejects foreign extensions, origins, frames, incognito and malformed messages without cookie access', () => {
@@ -159,8 +222,17 @@ test('STATUS returns only installation protocol and connection state with no run
   const request = state.request('STATUS');
   assert.deepEqual(state.posts[0], {target: ORIGIN, value: {
     source: 'aidesign-douyin-extension', type: 'RESPONSE', requestId: request.requestId,
-    nonce: NONCE, version: '1.0.1', connected: false, ok: true,
+    nonce: NONCE, version: '1.0.2', connected: false, ok: true,
   }});
+  assert.equal(state.runtimeRequests.length, 0);
+});
+
+test('edited content source reports the registered manifest version until the extension reloads', () => {
+  const state = contentHarness(ORIGIN, '1.0.1');
+  state.request('STATUS');
+  assert.equal(state.posts[0].value.version, '1.0.1');
+  assert.equal(state.posts[0].value.connected, false);
+  assert.equal(Object.hasOwn(state.posts[0].value, 'cookie'), false);
   assert.equal(state.runtimeRequests.length, 0);
 });
 

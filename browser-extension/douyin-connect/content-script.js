@@ -29,7 +29,7 @@
 
   function respond(request, result) {
     window.postMessage({source: 'aidesign-douyin-extension', type: 'RESPONSE',
-      requestId: request.requestId, nonce: request.nonce, version: '1.0.1', connected, ...result}, location.origin);
+      requestId: request.requestId, nonce: request.nonce, version: chrome.runtime.getManifest().version, connected, ...result}, location.origin);
   }
   function failed(request, code = 'FAILED', error = 'Chưa đọc được phiên Douyin. Hãy bấm Lấy video / ảnh để thử lại.') {
     respond(request, {ok: false, code, error});
