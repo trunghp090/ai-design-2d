@@ -1,6 +1,6 @@
 # Kết nối Douyin với AI Design 2D
 
-Phiên bản **1.0.2** sửa lỗi báo chưa đăng nhập dù tài khoản đã đăng nhập Douyin.
+Phiên bản **1.0.3** sửa lỗi đọc phiên khi cookie tuỳ chọn hợp lệ của Douyin có khoảng trắng. Tiện ích bỏ qua cookie phụ không được hỗ trợ và báo rõ lỗi đọc phiên thay vì lỗi chung.
 
 Tiện ích này lấy phiên Douyin hiện tại khi bạn dán link và bấm **Lấy video / ảnh** trong công cụ. Bạn không cần mở DevTools, chép cookie hoặc bấm kết nối lại mỗi lần mở trang.
 
@@ -14,11 +14,11 @@ Tiện ích này lấy phiên Douyin hiện tại khi bạn dán link và bấm 
 
 Chrome dùng cách tương tự tại `chrome://extensions`. Cài tiện ích trong đúng trình duyệt và hồ sơ đang đăng nhập Douyin. Cửa sổ ẩn danh không được hỗ trợ.
 
-## Cập nhật bản đã cài lên 1.0.2
+## Cập nhật bản đã cài lên 1.0.3
 
-Khi các file trong thư mục tiện ích đã được cập nhật, mở `edge://extensions`, tìm thẻ **Douyin Connect**, bấm **Tải lại (↻)** rồi tải lại trang tool. Sau đó dán link và thử tải như thường lệ.
+Khi các file trong thư mục tiện ích đã được cập nhật, mở `edge://extensions`, tìm thẻ **AI Design 2D — Kết nối Douyin**, bấm **Tải lại (↻)** rồi tải lại trang tool. Kiểm tra dòng **Tiện ích 1.0.3 sẵn sàng** trước khi dán link và thử tải. Bước tải lại tiện ích cần thực hiện thủ công trên Edge.
 
-Nếu thư mục vẫn chứa bản cũ, tải ZIP 1.0.2 và giải nén thay các file trong thư mục tiện ích đã cài trước khi bấm Tải lại. Trang tool nhận phiên bản qua kiểm tra không chứa cookie và sẽ hướng dẫn cập nhật trước khi đọc phiên đăng nhập.
+Nếu thư mục vẫn chứa bản cũ, tải ZIP 1.0.3 và giải nén thay các file trong thư mục tiện ích đã cài trước khi bấm Tải lại. Trang tool nhận phiên bản đã đăng ký trong Edge qua kiểm tra không chứa cookie và sẽ hướng dẫn cập nhật trước khi đọc phiên đăng nhập.
 
 ## Dữ liệu và phạm vi
 

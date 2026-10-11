@@ -4,6 +4,14 @@
   const ORIGINS = new Set(['https://riengvnapp.cloud', 'http://localhost:8000', 'http://127.0.0.1:8000']);
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const TYPES = new Set(['STATUS', 'CONNECT', 'SESSION', 'DISCONNECT']);
+  const ERRORS = {
+    LOGIN_REQUIRED: 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Lấy video / ảnh lại.',
+    COOKIE_API_FAILED: 'Edge chưa cho tiện ích đọc phiên Douyin. Tải lại tiện ích và trang tool rồi thử lại.',
+    SESSION_INVALID: 'Phiên Douyin có dữ liệu đăng nhập không hợp lệ. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+    SESSION_TOO_LARGE: 'Phiên Douyin vượt giới hạn của tiện ích. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+    BRIDGE_UNAVAILABLE: 'Tiện ích Douyin chưa phản hồi. Tải lại trang tool; nếu vẫn lỗi, tải lại tiện ích trên Edge.',
+    BRIDGE_TIMEOUT: 'Tiện ích đọc phiên Douyin quá lâu. Tải lại trang tool rồi thử lại.',
+  };
   if (window.top !== window || !ORIGINS.has(location.origin)) return;
   let nonce = '', connected = false, epoch = 0, active = null;
   let activation = null;
@@ -31,7 +39,7 @@
     window.postMessage({source: 'aidesign-douyin-extension', type: 'RESPONSE',
       requestId: request.requestId, nonce: request.nonce, version: chrome.runtime.getManifest().version, connected, ...result}, location.origin);
   }
-  function failed(request, code = 'FAILED', error = 'Chưa đọc được phiên Douyin. Hãy bấm Lấy video / ảnh để thử lại.') {
+  function failed(request, code = 'SESSION_INVALID', error = ERRORS[code]) {
     respond(request, {ok: false, code, error});
   }
   function valid(request) {
@@ -70,12 +78,18 @@
       clearTimeout(timer);
       if (generation !== epoch || active !== request.requestId) return;
       active = null;
-      if (!result?.ok || result.loggedIn !== true || (request.type === 'SESSION'
+      if (result?.ok !== true) {
+        connected = false;
+        const code = typeof result?.code === 'string' && Object.hasOwn(ERRORS, result.code) ? result.code
+          : result == null ? 'BRIDGE_UNAVAILABLE' : 'SESSION_INVALID';
+        failed(request, code);
+        return;
+      }
+      if (result.loggedIn !== true || (request.type === 'SESSION'
           && (typeof result.cookie !== 'string' || !result.cookie || result.cookie.length > 16000
               || /[^\x20-\x7e]/.test(result.cookie)))) {
-        if (result?.code === 'LOGIN_REQUIRED') connected = false;
-        failed(request, result?.code === 'LOGIN_REQUIRED' ? 'LOGIN_REQUIRED' : 'FAILED',
-          result?.code === 'LOGIN_REQUIRED' ? 'Hãy đăng nhập Douyin trong trình duyệt này rồi bấm Lấy video / ảnh lại.' : undefined);
+        connected = false;
+        failed(request, 'SESSION_INVALID');
         return;
       }
       if (request.type === 'CONNECT') {
@@ -91,7 +105,7 @@
       connected = true;
       respond(request, {ok: true, cookie: result.cookie, userAgent, loggedIn: true});
     };
-    const timer = setTimeout(() => finish(null), 5000);
+    const timer = setTimeout(() => finish({ok: false, code: 'BRIDGE_TIMEOUT'}), 5000);
     try {
       chrome.runtime.sendMessage({source: 'aidesign-douyin-content', type: request.type,
         requestId: request.requestId, nonce}, response => {

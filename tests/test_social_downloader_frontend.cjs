@@ -73,7 +73,7 @@ function setup({imageResult=()=> 'load',hold=false,bridge=null,fetchResult=null,
 
 function extensionResponse(request,overrides={}) {
   return {source:'aidesign-douyin-extension',type:'RESPONSE',requestId:request.requestId,nonce:request.nonce,
-    ok:true,version:'1.0.2',connected:true,loggedIn:true,...overrides};
+    ok:true,version:'1.0.3',connected:true,loggedIn:true,...overrides};
 }
 
 function syntheticExtension() {
@@ -296,7 +296,8 @@ test('a timed-out session disconnects the extension and rejects a late credentia
   const session=state.bridgeRequests.find(item=>item.message.type==='SESSION').message;
   assert.equal(state.bridgeRequests.at(-1).message.type,'DISCONNECT');
   assert.equal(state.get('socialDownloadConnectDouyin').textContent,'Kết nối Douyin');
-  assert.equal(state.get('socialDownloadInstallHelp').open,true);
+  assert.notEqual(state.get('socialDownloadInstallHelp').open,true);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/đọc phiên Douyin quá lâu/);
   assert.equal(state.requests.length,0);
   await state.emitMessage(extensionResponse(session,{cookie:'synthetic-session-late',userAgent:'Synthetic Browser'}));
   assert.equal(state.requests.length,0);
@@ -515,11 +516,12 @@ for(const session of ['extension','manual'])test(session+' session source challe
   assert.equal(state.bridgeRequests.filter(item=>item.message.type==='DISCONNECT').length,0);
 });
 
-test('old extension is diagnosed without reading a session or attempting a connection',async()=>{
-  const state=setup({hold:true,bridge:request=>request.type==='DISCONNECT'?null:extensionResponse(request,{version:'1.0.1',connected:false})});
+for(const version of ['1.0.1','1.0.2'])test('old extension '+version+' is diagnosed without reading a session or attempting a connection',async()=>{
+  const state=setup({hold:true,bridge:request=>request.type==='DISCONNECT'?null:extensionResponse(request,{version,connected:false})});
   await state.ready();
-  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.3/);
   assert.match(state.get('socialDownloadConnectionStatus').textContent,/edge:\/\/extensions.*Tải lại/);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/AI Design 2D — Kết nối Douyin/);
   assert.equal(state.get('socialDownloadInstallHelp').open,true);
   await state.submit();
   await state.get('socialDownloadConnectDouyin').emit('click');
@@ -539,7 +541,7 @@ test('a connection clicked during STATUS waits for the version before touching o
   await checking;
   assert.equal(state.bridgeRequests.some(item=>['CONNECT','SESSION'].includes(item.message.type)),false);
   assert.equal(state.requests.length,0);
-  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.3/);
   assert.equal(state.get('socialDownloadInstallHelp').open,true);
 });
 
@@ -554,11 +556,11 @@ test('a versionless helper requires an update for Douyin while TikTok remains us
   assert.equal(Object.hasOwn(state.requests[0],'douyin_cookie'),false);
   assert.equal(state.bridgeRequests.some(item=>item.message.type==='SESSION'),false);
   await state.get('socialDownloadClear').emit('click');
-  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.2/);
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/bản cũ.*1\.0\.3/);
 });
 
 test('minimum and later compatible versions keep the automatic SESSION workflow',async()=>{
-  for(const version of ['1.0.2','1.0.10','1.1.0']) {
+  for(const version of ['1.0.3','1.0.10','1.1.0']) {
     const fresh=syntheticExtension();
     const state=setup({hold:true,bridge:request=>{const response=fresh(request);return response?{...response,version}:null;}});
     await state.ready();await state.submit();
@@ -569,4 +571,71 @@ test('minimum and later compatible versions keep the automatic SESSION workflow'
     assertCredentialsPrivate(state);
     await state.get('socialDownloadClear').emit('click');
   }
+});
+
+test('STATUS shows the installed version and Clear or Cancel restores its ready message',async()=>{
+  const state=setup({hold:true,bridge:syntheticExtension()});
+  await state.ready();
+  assert.match(state.get('socialDownloadConnectionStatus').textContent,/Tiện ích 1\.0\.3 sẵn sàng/);
+  assert.deepEqual(state.bridgeRequests.map(item=>item.message.type),['STATUS']);
+  for(const control of ['socialDownloadClear','socialDownloadCancel']) {
+    state.get('socialDownloadInput').value='https://www.douyin.com/note/7620805310613466853';
+    await state.submit();
+    assert.match(state.get('socialDownloadConnectionStatus').textContent,/tiện ích 1\.0\.3/);
+    await state.get(control).emit('click');
+    assert.match(state.get('socialDownloadConnectionStatus').textContent,/Tiện ích 1\.0\.3 sẵn sàng/);
+    assertCredentialsPrivate(state);
+  }
+});
+
+const safeConnectionErrors={
+  COOKIE_API_FAILED:'Edge chưa cho tiện ích đọc phiên Douyin. Tải lại tiện ích và trang tool rồi thử lại.',
+  SESSION_INVALID:'Phiên Douyin có dữ liệu đăng nhập không hợp lệ. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+  SESSION_TOO_LARGE:'Phiên Douyin vượt giới hạn của tiện ích. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+  BRIDGE_UNAVAILABLE:'Tiện ích Douyin chưa phản hồi. Tải lại trang tool; nếu vẫn lỗi, tải lại tiện ích trên Edge.',
+  BRIDGE_TIMEOUT:'Tiện ích đọc phiên Douyin quá lâu. Tải lại trang tool rồi thử lại.'
+};
+for(const [code,message] of Object.entries(safeConnectionErrors))test(code+' shows its safe reason, disconnects and permits a fresh retry',async()=>{
+  const respond=syntheticExtension();
+  let failed=false;
+  const state=setup({hold:true,bridge:request=>{
+    if(request.type==='SESSION'&&!failed) {failed=true;return extensionResponse(request,{ok:false,code,error:'synthetic-session-error-secret'});}
+    return respond(request);
+  }});
+  await state.ready();await state.submit();
+  assert.equal(state.get('socialDownloadConnectionStatus').textContent,message);
+  assert.equal(state.get('socialDownloadStatus').textContent,message);
+  assert.equal(state.bridgeRequests.at(-1).message.type,'DISCONNECT');
+  assert.equal(state.get('socialDownloadConnectDouyin').textContent,'Kết nối Douyin');
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
+  assert.equal(state.requests.length,0);
+  assertCredentialsPrivate(state);
+  await state.submit();
+  assert.equal(state.bridgeRequests.filter(item=>item.message.type==='SESSION').length,2);
+  assert.equal(state.bridgeRequests.some(item=>item.message.type==='CONNECT'),false);
+  assert.equal(state.requests[0].douyin_cookie,'synthetic-session-1');
+  assertCredentialsPrivate(state);
+});
+
+test('a space-containing cookie remains transient and passes unchanged to one Douyin request',async()=>{
+  const cookie='sessionid=synthetic-session-space; preferences=compact view';
+  const state=setup({hold:true,bridge:request=>request.type==='DISCONNECT'?null:extensionResponse(request,
+    request.type==='SESSION'?{cookie,userAgent:'Synthetic Browser'}:{})});
+  await state.ready();await state.submit();
+  assert.equal(state.requests[0].douyin_cookie,cookie);
+  assertCredentialsPrivate(state);
+  await state.get('socialDownloadClear').emit('click');
+  assertCredentialsPrivate(state);
+});
+
+test('a malformed bridge error code cannot coerce itself into a known error or break response handling',async()=>{
+  const malformedCode={toString:null,valueOf:null};
+  const respond=syntheticExtension();
+  const state=setup({hold:true,bridge:request=>request.type==='SESSION'
+    ?extensionResponse(request,{ok:false,code:malformedCode,error:'Chưa kết nối được Douyin.'}):respond(request)});
+  await state.ready();await state.submit();
+  assert.equal(state.requests.length,0);
+  assert.equal(state.get('socialDownloadStatus').textContent,'Chưa kết nối được Douyin.');
+  assert.equal(state.get('socialDownloadResolve').disabled,false);
+  assertCredentialsPrivate(state);
 });

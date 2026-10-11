@@ -7,19 +7,36 @@
   let initialized = false, activeRequest = null, elapsedTimer = null, result = null, previewSession = null;
   let douyinConnected = false, extensionAvailable = false, connectionRequest = null, saveRequest = null, saveFinalizing = false;
   let extensionVersion = '';
+  const connectionErrors = {
+    LOGIN_REQUIRED: 'Mở Douyin bên dưới, đăng nhập trên Edge rồi dán link và thử tải lại.',
+    COOKIE_API_FAILED: 'Edge chưa cho tiện ích đọc phiên Douyin. Tải lại tiện ích và trang tool rồi thử lại.',
+    SESSION_INVALID: 'Phiên Douyin có dữ liệu đăng nhập không hợp lệ. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+    SESSION_TOO_LARGE: 'Phiên Douyin vượt giới hạn của tiện ích. Đăng nhập lại Douyin trên Edge rồi thử lại.',
+    BRIDGE_UNAVAILABLE: 'Tiện ích Douyin chưa phản hồi. Tải lại trang tool; nếu vẫn lỗi, tải lại tiện ích trên Edge.',
+    BRIDGE_TIMEOUT: 'Tiện ích đọc phiên Douyin quá lâu. Tải lại trang tool rồi thử lại.'
+  };
+  const knownConnectionError = code => typeof code === 'string' && Object.hasOwn(connectionErrors, code);
   function extensionIsCurrent(version) {
     const match = typeof version === 'string' && /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
     if (!match) return false;
     const parts = match.slice(1).map(Number);
-    return parts.every(Number.isSafeInteger) && (parts[0] > 1 || (parts[0] === 1 && (parts[1] > 0 || parts[2] >= 2)));
+    return parts.every(Number.isSafeInteger) && (parts[0] > 1 || (parts[0] === 1 && (parts[1] > 0 || parts[2] >= 3)));
   }
   function outdatedExtension() {
-    const error = Error('Tiện ích Douyin bản cũ cần cập nhật lên 1.0.2 để đọc đúng phiên đăng nhập. Mở edge://extensions, bấm Tải lại (↻) ở thẻ Douyin Connect, rồi tải lại trang tool.');
+    const error = Error('Tiện ích Douyin bản cũ cần cập nhật lên 1.0.3 để đọc đúng phiên đăng nhập. Mở edge://extensions, bấm Tải lại (↻) ở thẻ AI Design 2D — Kết nối Douyin, rồi tải lại trang tool.');
     error.code = 'EXTENSION_OUTDATED';
     return error;
   }
   function requireCurrentExtension() {
     if (!extensionIsCurrent(extensionVersion)) throw outdatedExtension();
+  }
+  function extensionReadyMessage() {
+    return 'Tiện ích ' + extensionVersion + ' sẵn sàng. Dán link rồi bấm Lấy video / ảnh; tool tự dùng phiên Douyin trên Edge.';
+  }
+  function sessionError(code) {
+    const error = Error(connectionErrors[code]);
+    error.code = code;
+    return error;
   }
   const bridgeNonce = crypto.randomUUID(), pendingBridge = new Map();
   function aborted() { const error = Error('Đã huỷ kết nối.'); error.name = 'AbortError'; return error; }
@@ -43,8 +60,9 @@
       };
       const onabort = () => finish(null, aborted());
       const timer = setTimeout(() => {
-        const error = Error('Chưa tìm thấy tiện ích. Cài tiện ích kết nối Douyin một lần rồi tải lại trang tool.');
-        error.code = 'EXTENSION_MISSING';
+        const error = type !== 'STATUS' && extensionAvailable ? sessionError('BRIDGE_TIMEOUT')
+          : Error('Chưa tìm thấy tiện ích. Cài tiện ích kết nối Douyin một lần rồi tải lại trang tool.');
+        if (!error.code) error.code = 'EXTENSION_MISSING';
         finish(null, error);
       }, timeout);
       pendingBridge.set(requestId, finish);
@@ -59,17 +77,18 @@
     const finish = pendingBridge.get(data.requestId);
     if (!finish) return;
     if (data.ok !== true) {
-      const error = Error(typeof data.error === 'string' ? data.error.slice(0, 300) : 'Chưa kết nối được Douyin.');
+      const error = Error(knownConnectionError(data.code) ? connectionErrors[data.code]
+        : typeof data.error === 'string' ? data.error.slice(0, 300) : 'Chưa kết nối được Douyin.');
       error.code = data.code;
       finish(null, error);
     } else finish(data);
   });
   function sessionCredentials(data) {
-    if (data.loggedIn !== true || typeof data.cookie !== 'string' || !data.cookie || data.cookie.length > 16000 || /[\r\n]/.test(data.cookie) ||
+    if (data.loggedIn !== true) throw sessionError('LOGIN_REQUIRED');
+    if (typeof data.cookie === 'string' && data.cookie.length > 16000) throw sessionError('SESSION_TOO_LARGE');
+    if (typeof data.cookie !== 'string' || !data.cookie || /[\r\n]/.test(data.cookie) ||
         typeof data.userAgent !== 'string' || !data.userAgent || data.userAgent.length > 512 || /[^\x20-\x7e]/.test(data.userAgent)) {
-      const error = Error('Phiên Douyin chưa hợp lệ. Đăng nhập Douyin trên Edge rồi thử tải lại.');
-      error.code = data.loggedIn === true ? 'FAILED' : 'LOGIN_REQUIRED';
-      throw error;
+      throw sessionError('SESSION_INVALID');
     }
     return {douyin_cookie: data.cookie, douyin_user_agent: data.userAgent};
   }
@@ -80,14 +99,13 @@
     window.postMessage({source: 'aidesign-douyin-page', type: 'DISCONNECT', requestId: crypto.randomUUID(), nonce: bridgeNonce}, location.origin);
     if (extensionAvailable && !extensionIsCurrent(extensionVersion)) connectionStatus(outdatedExtension().message, 'error');
     else connectionStatus(extensionAvailable
-      ? 'Tiện ích sẵn sàng. Dán link rồi bấm Lấy video / ảnh để tự dùng phiên Douyin trên Edge.'
+      ? extensionReadyMessage()
       : 'Chưa kết nối tiện ích Douyin. Cài tiện ích một lần để tự dùng phiên trên Edge.');
   }
   function connectionError(error) {
     disconnectDouyin();
-    connectionStatus(error.message || 'Chưa kết nối được Douyin.', 'error');
+    connectionStatus(knownConnectionError(error.code) ? connectionErrors[error.code] : error.message || 'Chưa kết nối được Douyin.', 'error');
     if (['EXTENSION_MISSING', 'EXTENSION_OUTDATED'].includes(error.code)) el('socialDownloadInstallHelp').open = true;
-    if (error.code === 'LOGIN_REQUIRED') connectionStatus('Mở Douyin bên dưới, đăng nhập trên Edge rồi dán link và thử tải lại.', 'error');
   }
   el('socialDownloadConnectDouyin').addEventListener('click', async () => {
     if (activeRequest || saveRequest || connectionRequest) return;
@@ -109,7 +127,7 @@
       extensionAvailable = true;
       connected(true);
       el('socialDownloadInstallHelp').open = false;
-      connectionStatus('Đã kết nối. Dán link và bấm Lấy video / ảnh; tool tự dùng phiên Douyin của bạn.', 'success');
+      connectionStatus('Tiện ích ' + extensionVersion + ' đã kết nối. Dán link và bấm Lấy video / ảnh; tool tự dùng phiên Douyin của bạn.', 'success');
     } catch (error) {
       if (connectionRequest === controller && error.name !== 'AbortError') connectionError(error);
     } finally {
@@ -123,7 +141,7 @@
     extensionVersion = typeof data.version === 'string' ? data.version : '';
     if (!connectionRequest && !douyinConnected) {
       if (!extensionIsCurrent(extensionVersion)) connectionError(outdatedExtension());
-      else connectionStatus('Tiện ích sẵn sàng. Dán link rồi bấm Lấy video / ảnh; tool tự dùng phiên Douyin trên Edge.');
+      else connectionStatus(extensionReadyMessage());
     }
   }).catch(() => {});
   const status = (message, state = '') => {
@@ -385,7 +403,7 @@
           Object.assign(body, sessionCredentials(session));
           connected(true);
           el('socialDownloadInstallHelp').open = false;
-          connectionStatus('Đã dùng phiên Douyin trên Edge. Những lần sau chỉ cần dán link rồi bấm Lấy video / ảnh.', 'success');
+          connectionStatus('Đã dùng phiên Douyin trên Edge qua tiện ích ' + extensionVersion + '. Những lần sau chỉ cần dán link rồi bấm Lấy video / ảnh.', 'success');
         } else if (cookie) {
           body.douyin_cookie = cookie;
           const userAgent = el('socialDownloadDouyinUserAgent').value.trim();
@@ -412,7 +430,7 @@
       render(data);
     } catch (error) {
       if (activeRequest !== controller || error.name === 'AbortError') return;
-      if (['EXTENSION_MISSING', 'EXTENSION_OUTDATED', 'LOGIN_REQUIRED', 'NOT_CONNECTED', 'FAILED'].includes(error.code)) connectionError(error);
+      if (knownConnectionError(error.code) || ['EXTENSION_MISSING', 'EXTENSION_OUTDATED', 'NOT_CONNECTED', 'FAILED'].includes(error.code)) connectionError(error);
       status(error.message || 'Không kết nối được máy chủ. Hãy thử lại.', 'error');
     } finally {
       if (activeRequest === controller) { activeRequest = null; setBusy(false); }

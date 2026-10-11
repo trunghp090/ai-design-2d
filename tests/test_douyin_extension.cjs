@@ -52,7 +52,7 @@ function workerHarness({hostPermissions = null} = {}) {
   return {chrome, calls, dispatch, sender};
 }
 
-function contentHarness(origin = ORIGIN, registeredVersion = '1.0.2') {
+function contentHarness(origin = ORIGIN, registeredVersion = '1.0.3') {
   const listeners = {window: new Map(), document: new Map()};
   const posts = [], runtimeRequests = [], timers = new Map();
   let timerID = 0, clock = 1000;
@@ -96,7 +96,7 @@ function contentHarness(origin = ORIGIN, registeredVersion = '1.0.2') {
 test('manifest limits permissions and content origins and uses MV3 isolated scripts', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, '1.0.2');
+  assert.equal(manifest.version, '1.0.3');
   assert.deepEqual(manifest.permissions, ['cookies']);
   assert.deepEqual(manifest.host_permissions, ['https://douyin.com/*', 'http://douyin.com/*',
     'https://www.douyin.com/*', 'http://www.douyin.com/*']);
@@ -189,8 +189,9 @@ test('SESSION includes HttpOnly cookies and current visitor hints with duplicate
     cookie: 'sessionid=synthetic-specific; sessionid=synthetic-root; UIFID_TEMP=synthetic-visitor-id; msToken=Synthetic+Token='}]);
 });
 
-test('missing, expired or partitioned login requires login without revealing other cookies', () => {
+test('missing, empty, expired or partitioned login requires login without revealing other cookies', () => {
   for (const cookies of [[], [cookie('UIFID_TEMP', 'synthetic-visitor-id')],
+    [cookie('sessionid', ''), cookie('sessionid_ss', ''), cookie('sid_tt', '')],
     [cookie('sessionid', 'synthetic', {partitionKey: {topLevelSite: ORIGIN}})],
     [cookie('sessionid', 'synthetic', {expirationDate: 1})]]) {
     const state = workerHarness(), request = state.dispatch();
@@ -201,20 +202,68 @@ test('missing, expired or partitioned login requires login without revealing oth
   }
 });
 
-test('worker rejects header injection, excessive header and invalid callback without exposing raw errors', () => {
-  for (const cookies of [[cookie('bad\r\nHeader', 'synthetic')], [cookie('sessionid', 'synthetic\r\nsecret')],
-    [cookie('sessionid', 'synthetic;secret')], [cookie('sessionid', 'x'.repeat(16001))],
-    [cookie('sessionid', 'có dấu')], null]) {
-    const state = workerHarness(), request = state.dispatch();
-    state.calls[0].callback(cookies);
-    assert.equal(request.responses[0].ok, false);
-    assert.equal(request.responses[0].code, 'FAILED');
-    assert.equal(Object.hasOwn(request.responses[0], 'cookie'), false);
-  }
+test('worker preserves ASCII spaces and quoted JSON cookie values without rewriting them', () => {
   const state = workerHarness(), request = state.dispatch();
-  state.chrome.runtime.lastError = {message: 'synthetic-private-error'};
-  state.calls[0].callback([]);
-  assert.equal(JSON.stringify(request.responses).includes('synthetic-private-error'), false);
+  state.calls[0].callback([cookie('sessionid', 'synthetic login'), cookie('preferences', 'a b'),
+    cookie('display', '{"theme": "light"}'), cookie('token', 'Synthetic+Token=')]);
+  assert.deepEqual(request.responses, [{ok: true, loggedIn: true,
+    cookie: 'sessionid=synthetic login; preferences=a b; display={"theme": "light"}; token=Synthetic+Token='}]);
+});
+
+test('unsupported preference cookies are skipped without discarding or exposing a valid login', () => {
+  for (const extra of [cookie('bad\r\nHeader', 'synthetic-private'), cookie('device(mode)', 'synthetic-private'),
+    cookie('preferences', 'synthetic-private\r\nInjected'), cookie('preferences', 'synthetic-private;Injected'),
+    cookie('preferences', 'có dấu'), cookie('preferences', null), cookie('x'.repeat(257), 'synthetic-private')]) {
+    const state = workerHarness(), request = state.dispatch();
+    state.calls[0].callback([cookie(), extra]);
+    assert.deepEqual(request.responses, [{ok: true, loggedIn: true, cookie: 'sessionid=synthetic-test-session'}]);
+    assert.equal(JSON.stringify(request.responses).includes('synthetic-private'), false);
+  }
+});
+
+test('invalid authentication cookies fail closed with a safe SESSION_INVALID diagnosis', () => {
+  for (const name of ['sessionid', 'sessionid_ss', 'sid_tt']) {
+    for (const value of ['synthetic-private\r\nInjected', 'synthetic-private;Injected', 'có dấu', '\0', '\x7f', 123]) {
+      const state = workerHarness(), request = state.dispatch();
+      state.calls[0].callback([cookie(), cookie(name, value)]);
+      assert.equal(request.responses[0].ok, false);
+      assert.equal(request.responses[0].code, 'SESSION_INVALID');
+      assert.equal(typeof request.responses[0].error, 'string');
+      assert.equal(Object.hasOwn(request.responses[0], 'cookie'), false);
+      assert.equal(JSON.stringify(request.responses).includes('synthetic-private'), false);
+    }
+  }
+});
+
+test('excessive headers and malformed cookie arrays have distinct safe diagnoses', () => {
+  for (const [items,code] of [
+    [[cookie('sessionid', 'x'.repeat(16001))], 'SESSION_TOO_LARGE'],
+    [null, 'SESSION_INVALID'], [{}, 'SESSION_INVALID'], [Array(1001).fill(cookie()), 'SESSION_INVALID'],
+  ]) {
+    const state = workerHarness(), request = state.dispatch();
+    state.calls[0].callback(items);
+    assert.equal(request.responses[0].ok, false);
+    assert.equal(request.responses[0].code, code);
+    assert.equal(typeof request.responses[0].error, 'string');
+    assert.equal(Object.hasOwn(request.responses[0], 'cookie'), false);
+    assert.ok(request.responses[0].error.length < 300);
+  }
+});
+
+test('cookie API errors and exceptions report COOKIE_API_FAILED without raw errors', () => {
+  const callback = workerHarness(), request = callback.dispatch();
+  callback.chrome.runtime.lastError = {message: 'synthetic-private-error'};
+  callback.calls[0].callback([]);
+  const exception = workerHarness();
+  exception.chrome.cookies.getAll = () => {throw Error('synthetic-private-error');};
+  const thrown = exception.dispatch();
+  for (const response of [request.responses[0],thrown.responses[0]]) {
+    assert.equal(response.ok, false);
+    assert.equal(response.code, 'COOKIE_API_FAILED');
+    assert.equal(Object.hasOwn(response, 'cookie'), false);
+    assert.equal(response.error.includes('synthetic-private-error'), false);
+  }
+  assert.equal(request.responses[0].error, thrown.responses[0].error);
 });
 
 test('STATUS returns only installation protocol and connection state with no runtime or cookie access', () => {
@@ -222,7 +271,7 @@ test('STATUS returns only installation protocol and connection state with no run
   const request = state.request('STATUS');
   assert.deepEqual(state.posts[0], {target: ORIGIN, value: {
     source: 'aidesign-douyin-extension', type: 'RESPONSE', requestId: request.requestId,
-    nonce: NONCE, version: '1.0.2', connected: false, ok: true,
+    nonce: NONCE, version: '1.0.3', connected: false, ok: true,
   }});
   assert.equal(state.runtimeRequests.length, 0);
 });
@@ -358,7 +407,7 @@ test('worker timeout, pagehide and runtime errors never release stale cookies', 
   const count = timeout.posts.length;
   pending.callback({ok: true, cookie: 'sessionid=synthetic-late-secret', loggedIn: true});
   assert.equal(timeout.posts.length, count);
-  assert.equal(timeout.posts.at(-1).value.code, 'FAILED');
+  assert.equal(timeout.posts.at(-1).value.code, 'BRIDGE_TIMEOUT');
   const hidden = contentHarness();
   hidden.connect();
   hidden.click('socialDownloadResolve');
@@ -372,8 +421,90 @@ test('worker timeout, pagehide and runtime errors never release stale cookies', 
   error.request('CONNECT');
   error.chrome.runtime.lastError = {message: 'synthetic-private-error'};
   error.runtimeRequests.at(-1).callback({ok: true, cookie: 'sessionid=synthetic-secret', loggedIn: true});
-  assert.equal(error.posts.at(-1).value.code, 'FAILED');
+  assert.equal(error.posts.at(-1).value.code, 'BRIDGE_UNAVAILABLE');
   assert.equal(JSON.stringify(error.posts).includes('synthetic-private-error'), false);
+});
+
+test('content forwards only fixed safe worker diagnoses without raw errors or session data', () => {
+  for (const code of ['LOGIN_REQUIRED', 'SESSION_INVALID', 'SESSION_TOO_LARGE', 'COOKIE_API_FAILED']) {
+    const state = contentHarness();
+    state.request('STATUS');
+    state.click('socialDownloadResolve');
+    state.request('SESSION');
+    state.runtimeRequests.at(-1).callback({ok: false, code, error: 'synthetic-private-error',
+      cookie: 'sessionid=synthetic-private-secret', userAgent: 'synthetic-private-agent'});
+    const response = state.posts.at(-1).value;
+    assert.equal(response.ok, false);
+    assert.equal(response.code, code);
+    assert.equal(response.connected, false);
+    assert.equal(typeof response.error, 'string');
+    assert.ok(response.error.length > 0 && response.error.length < 300);
+    assert.equal(Object.hasOwn(response, 'cookie'), false);
+    assert.equal(Object.hasOwn(response, 'userAgent'), false);
+    assert.equal(JSON.stringify(response).includes('synthetic-private'), false);
+  }
+});
+
+test('unknown or malformed worker error codes safely become SESSION_INVALID', () => {
+  for (const code of ['FAILED', '__proto__', 'constructor', 'synthetic-private-code',
+    {toString: 1, valueOf: 2}, ['COOKIE_API_FAILED'], null, 123]) {
+    const state = contentHarness();
+    state.request('STATUS');
+    state.click('socialDownloadResolve');
+    state.request('SESSION');
+    state.runtimeRequests.at(-1).callback({ok: false, code, error: 'synthetic-private-error'});
+    const response = state.posts.at(-1).value;
+    assert.equal(response.ok, false);
+    assert.equal(response.code, 'SESSION_INVALID');
+    assert.equal(typeof response.error, 'string');
+    assert.equal(JSON.stringify(response).includes('synthetic-private'), false);
+  }
+});
+
+test('missing runtime responses and thrown bridge errors become BRIDGE_UNAVAILABLE', () => {
+  for (const value of [undefined, null]) {
+    const state = contentHarness();
+    state.request('STATUS');
+    state.click('socialDownloadResolve');
+    state.request('SESSION');
+    state.runtimeRequests.at(-1).callback(value);
+    assert.equal(state.posts.at(-1).value.code, 'BRIDGE_UNAVAILABLE');
+    assert.equal(Object.hasOwn(state.posts.at(-1).value, 'cookie'), false);
+  }
+  const thrown = contentHarness();
+  thrown.request('STATUS');
+  thrown.click('socialDownloadResolve');
+  thrown.chrome.runtime.sendMessage = () => {throw Error('synthetic-private-error');};
+  thrown.request('SESSION');
+  assert.equal(thrown.posts.at(-1).value.code, 'BRIDGE_UNAVAILABLE');
+  assert.equal(JSON.stringify(thrown.posts).includes('synthetic-private-error'), false);
+});
+
+test('malformed runtime replies and browser user agents fail closed with SESSION_INVALID', () => {
+  for (const result of [{}, [], 'synthetic-private-data', {ok: 'true'},
+    {ok: true, loggedIn: false}, {ok: true, loggedIn: true, cookie: ''},
+    {ok: true, loggedIn: true, cookie: 'synthetic-private\r\nHeader'},
+    {ok: true, loggedIn: true, cookie: 'x'.repeat(16001)}]) {
+    const state = contentHarness();
+    state.request('STATUS');
+    state.click('socialDownloadResolve');
+    state.request('SESSION');
+    state.runtimeRequests.at(-1).callback(result);
+    assert.equal(state.posts.at(-1).value.code, 'SESSION_INVALID');
+    assert.equal(Object.hasOwn(state.posts.at(-1).value, 'cookie'), false);
+    assert.equal(JSON.stringify(state.posts).includes('synthetic-private'), false);
+  }
+  for (const userAgent of ['', 'x'.repeat(513), 'synthetic-private\r\nHeader', 'có dấu', 123]) {
+    const state = contentHarness();
+    state.navigator.userAgent = userAgent;
+    state.request('STATUS');
+    state.click('socialDownloadResolve');
+    state.request('SESSION');
+    state.runtimeRequests.at(-1).callback({ok: true, loggedIn: true, cookie: 'sessionid=synthetic-private-secret'});
+    assert.equal(state.posts.at(-1).value.code, 'SESSION_INVALID');
+    assert.equal(Object.hasOwn(state.posts.at(-1).value, 'cookie'), false);
+    assert.equal(JSON.stringify(state.posts).includes('synthetic-private'), false);
+  }
 });
 
 test('login expiry revokes connection and extension remains inert on unsupported origins', () => {
