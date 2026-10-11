@@ -45,7 +45,7 @@ from image_metadata import clean_image, clean_image_b64
 import logging
 from logging.handlers import RotatingFileHandler
 
-APP_VERSION = "2026.10.11-browser-downloads"   # bump mỗi lần đổi backend để check deploy
+APP_VERSION = "2026.10.11-browser-downloads-2"   # bump mỗi lần đổi backend để check deploy
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PUBLIC = os.path.join(ROOT, "public")
 GALLERY_DIR = os.path.join(ROOT, "gallery")
@@ -11331,7 +11331,11 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         data = None
                 gid = str(it.get("id") or "").strip()
-                if gid and re.match(r"^[\w-]+$", gid):
+                # Historical results keep relative gallery URLs rather than inline data.
+                local_gallery = re.fullmatch(r"/gallery/([\w-]+)\.png(?:\?[^#]*)?", str(it.get("url") or ""))
+                if not gid and local_gallery:
+                    gid = local_gallery.group(1)
+                if gid and re.fullmatch(r"[\w-]+", gid):
                     p = os.path.join(GALLERY_DIR, gid + ".png")
                     if os.path.isfile(p):
                         try:
@@ -11339,7 +11343,7 @@ class Handler(BaseHTTPRequestHandler):
                                 data = f.read()
                         except OSError:
                             data = None
-                if not data and it.get("url"):
+                if not data and it.get("url") and not str(it["url"]).startswith(("/", ".")):
                     try:
                         data, _ = fetch_image_bytes(it["url"])
                     except Exception:

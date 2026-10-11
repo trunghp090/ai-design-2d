@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 import unittest
+import urllib.parse
 import zipfile
 from pathlib import Path
 from unittest import mock
@@ -15,7 +16,7 @@ SERVER = Path(__file__).resolve().parents[1] / 'server.py'
 tree = ast.parse(SERVER.read_text())
 handler_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Handler')
 method = next(node for node in handler_class.body if isinstance(node, ast.FunctionDef) and node.name == 'handle_download_zip')
-namespace = {'base64': base64, 'io': io, 'os': os, 're': re}
+namespace = {'base64': base64, 'io': io, 'os': os, 're': re, 'urllib': urllib}
 exec(compile(ast.Module(body=[method], type_ignores=[]), str(SERVER), 'exec'), namespace)
 
 
@@ -163,6 +164,52 @@ class DownloadZipTests(unittest.TestCase):
             self.assertEqual([archive.read(name) for name in names], [b'first-image', b'second-image', b'third-image'])
         self.assertEqual(self.cleaned, [b'first-image', b'second-image', b'third-image'])
         self.assertEqual(self.fetched, ['https://example.test/third'])
+
+    def test_relative_gallery_with_query_preserves_mixed_zip_order(self):
+        Path(self.gallery.name, 'history.png').write_bytes(b'history-image')
+        Path(self.gallery.name, 'explicit-id.png').write_bytes(b'explicit-image')
+        self.remote['https://example.test/fourth'] = b'remote-image'
+        items = [self.inline(b'inline-image', 'Inline'),
+                 {'url': '/gallery/history.png?preview=1', 'name': 'History'},
+                 {'id': 'explicit-id', 'name': 'Explicit'},
+                 {'url': 'https://example.test/fourth', 'name': 'Remote'}]
+        with self.archive(self.invoke({'items': items})) as archive:
+            names = archive.namelist()
+            self.assertEqual(names, ['01-Inline.png', '02-History.png', '03-Explicit.png', '04-Remote.png'])
+            self.assertEqual([archive.read(name) for name in names],
+                             [b'inline-image', b'history-image', b'explicit-image', b'remote-image'])
+        self.assertEqual(self.fetched, ['https://example.test/fourth'])
+
+    def test_missing_relative_gallery_never_fetches_or_emits_partial_zip(self):
+        source = '/gallery/missing.png?preview=1'
+        # A missing local image must never be sent to the remote fetch helper.
+        self.remote[source] = b'unexpected-remote-fallback'
+        self.remote['https://example.test/third'] = b'third-image'
+        response = self.invoke({'items': [self.inline(), {'url': source},
+                                          {'url': 'https://example.test/third'}]})
+        self.assert_rejected(response)
+        self.assertEqual(self.fetched, [])
+        self.assertEqual(self.cleaned, [b'first-image'])
+
+    def test_relative_gallery_requires_exact_safe_full_image_path(self):
+        Path(self.gallery.name, 'history.png').write_bytes(b'history-image')
+        sources = ['/gallery/thumbs/history.png', '/gallery/../history.png',
+                   '/gallery/%2e%2e/history.png', '/gallery/history.jpg',
+                   '/gallery/history.png/extra']
+        for source in sources:
+            with self.subTest(source=source):
+                self.fetched.clear()
+                self.remote[source] = b'unexpected-remote-fallback'
+                self.assert_rejected(self.invoke({'items': [self.inline(), {'url': source}]}))
+                self.assertEqual(self.fetched, [])
+
+    def test_remote_gallery_named_path_is_not_resolved_from_local_directory(self):
+        Path(self.gallery.name, 'history.png').write_bytes(b'local-image')
+        source = 'https://example.test/gallery/history.png?preview=1'
+        self.remote[source] = b'remote-image'
+        with self.archive(self.invoke({'items': [{'url': source, 'name': 'Remote'}]})) as archive:
+            self.assertEqual(archive.read('01-Remote.png'), b'remote-image')
+        self.assertEqual(self.fetched, [source])
 
 
 if __name__ == '__main__':
